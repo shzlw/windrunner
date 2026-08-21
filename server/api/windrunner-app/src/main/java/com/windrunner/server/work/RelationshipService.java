@@ -13,6 +13,7 @@ import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.RelationshipRepository;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service @RequiredArgsConstructor
 public class RelationshipService {
-    private final RelationshipRepository relationships; private final WorkItemService workItems; private final EntryRepository entries; private final EntityIdGenerator ids; private final AuditLogService auditLogService; private final com.windrunner.server.search.SearchNormalizer searchNormalizer;
+    private final RelationshipRepository relationships; private final WorkItemService workItems; private final EntryRepository entries; private final EntityIdGenerator ids; private final AuditLogService auditLogService; private final com.windrunner.server.search.SearchNormalizer searchNormalizer; private final com.windrunner.server.notification.NotificationService notificationService; private final com.windrunner.server.notification.WorkItemNotificationAudience notificationAudience; private final com.windrunner.server.work.persistence.WorkItemRepository workItemRepository;
     public java.util.List<Relationship> list(String projectId) { return relationships.findByProjectId(projectId); }
     public Relationship findInAnyProject(String id) { return relationships.findById(id).orElseThrow(() -> WorkItemService.notFound("Relationship not found")); }
     @Transactional public Relationship create(String projectId, Relationship relationship, String actorId) {
@@ -42,6 +43,7 @@ public class RelationshipService {
                 workItems.update(projectId, question.getId(), question, null, actorId);
             }
         }
+        notifyBlockerChanged(created, actorId, true);
         return created;
     }
     @Transactional public void delete(String projectId, String id, String actorId) {
@@ -49,6 +51,7 @@ public class RelationshipService {
         Map<String, Object> before = snapshot(current);
         relationships.deleteInProject(id, projectId);
         auditLogService.logAfterCommit(audit(actorId, AuditActions.DELETE, current, before, null));
+        notifyBlockerChanged(current, actorId, false);
     }
     @Transactional public Relationship updateReason(String projectId, String id, String reason, String actorId) {
         Relationship relationship = relationships.findById(id).filter(r -> projectId.equals(r.getProjectId())).orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
@@ -86,6 +89,34 @@ public class RelationshipService {
         }
     }
     private void requireEntity(String projectId, String type, String id) { if (WorkItemService.blank(id)) throw WorkItemService.bad("Relationship entity id is required"); if ("WORK_ITEM".equals(type)) workItems.get(projectId, id); else entries.findById(id).filter(e -> projectId.equals(e.getProjectId())).orElseThrow(() -> WorkItemService.bad("Relationship entry must belong to the project")); }
+    /**
+     * Notifies the audience of the blocked work item when a BLOCKED_BY
+     * relationship between two work items is added or removed.
+     */
+    private void notifyBlockerChanged(Relationship relationship, String actorId, boolean added) {
+        if (!"BLOCKED_BY".equals(relationship.getType())
+                || !"WORK_ITEM".equals(relationship.getFromEntityType())) {
+            return;
+        }
+        try {
+            WorkItem blocked = workItemRepository.findById(relationship.getFromEntityId()).orElse(null);
+            if (blocked == null) {
+                return;
+            }
+            String blockerLabel = workItemRepository.findById(relationship.getToEntityId())
+                    .map(item -> "“" + item.getTitle() + "”")
+                    .orElse("a work item");
+            notificationService.notifyWorkItemActivity(
+                    notificationAudience.resolve(blocked.getId(), actorId),
+                    actorId,
+                    blocked.getProjectId(),
+                    blocked.getId(),
+                    blocked.getTitle(),
+                    List.of(added ? "added a new blocker " + blockerLabel : "removed the blocker " + blockerLabel));
+        } catch (RuntimeException ignored) {
+            // Notification failures must never fail relationship changes.
+        }
+    }
     private Map<String, Object> snapshot(Relationship r) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("type", r.getType());

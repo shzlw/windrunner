@@ -11,6 +11,7 @@ import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.Relationship;
+import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.RelationshipRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service @RequiredArgsConstructor
 public class EntryService {
-    private final EntryRepository entries; private final WorkItemService workItems; private final RelationshipRepository relationships; private final ContentOrderService contentOrder; private final EntityIdGenerator ids; private final AuditLogService auditLogService; private final AppUserRepository users; private final com.windrunner.server.search.SearchNormalizer searchNormalizer;
+    private final EntryRepository entries; private final WorkItemService workItems; private final RelationshipRepository relationships; private final ContentOrderService contentOrder; private final EntityIdGenerator ids; private final AuditLogService auditLogService; private final AppUserRepository users; private final com.windrunner.server.search.SearchNormalizer searchNormalizer; private final com.windrunner.server.notification.NotificationService notificationService; private final com.windrunner.server.notification.WorkItemNotificationAudience notificationAudience;
     public List<Entry> list(String projectId) { return populateAuthorDisplayNames(entries.findByProjectId(projectId)); }
     public Entry get(String projectId, String id) { return populateAuthorDisplayName(entries.findById(id).filter(e -> projectId.equals(e.getProjectId())).orElseThrow(() -> WorkItemService.notFound("Entry not found"))); }
     @Transactional public Entry create(String projectId, Entry entry, String actorId) { return createWithId(projectId, ids.generate(EntityIdType.ENTRY), entry, actorId); }
-    @Transactional public Entry createWithId(String projectId, String id, Entry entry, String actorId) { entry.setProjectId(projectId); entry.setAuthorUserId(actorId); normalize(entry); workItems.get(projectId, entry.getWorkItemId()); entry.setSortIndex(contentOrder.nextSortIndex(projectId, entry.getWorkItemId())); entry.setId(id); entries.insert(entry.getId(), projectId, entry.getWorkItemId(), entry.getSortIndex(), actorId, entry.getType(), entry.getBody(), searchNormalizer.normalize(entry.getBody())); Entry created = get(projectId, entry.getId()); auditLogService.logAfterCommit(audit(actorId, AuditActions.CREATE, created, null, snapshot(created))); return created; }
+    @Transactional public Entry createWithId(String projectId, String id, Entry entry, String actorId) { entry.setProjectId(projectId); entry.setAuthorUserId(actorId); normalize(entry); workItems.get(projectId, entry.getWorkItemId()); entry.setSortIndex(contentOrder.nextSortIndex(projectId, entry.getWorkItemId())); entry.setId(id); entries.insert(entry.getId(), projectId, entry.getWorkItemId(), entry.getSortIndex(), actorId, entry.getType(), entry.getBody(), searchNormalizer.normalize(entry.getBody())); Entry created = get(projectId, entry.getId()); auditLogService.logAfterCommit(audit(actorId, AuditActions.CREATE, created, null, snapshot(created))); notifyEntryCreated(created, actorId); return created; }
     @Transactional public Entry update(String projectId, String id, Entry entry, String actorId) { Entry current = get(projectId, id); Map<String, Object> before = snapshot(current); normalize(entry); if (entries.update(id, projectId, entry.getType(), entry.getBody(), searchNormalizer.normalize(entry.getBody())) == 0) throw WorkItemService.notFound("Entry not found"); Entry updated = get(projectId, id); auditLogService.logAfterCommit(audit(actorId, AuditActions.UPDATE, updated, before, snapshot(updated))); return updated; }
     @Transactional public void delete(String projectId, String id, String actorId) {
         Entry current = get(projectId, id); Map<String, Object> before = snapshot(current);
@@ -55,6 +56,21 @@ public class EntryService {
                 });
         auditLogService.logAfterCommit(audit(actorId, AuditActions.DELETE, current, before, null));
     }
+    private void notifyEntryCreated(Entry created, String actorId) {
+        try {
+            WorkItem item = workItems.get(created.getProjectId(), created.getWorkItemId());
+            notificationService.notifyWorkItemActivity(
+                    notificationAudience.resolve(created.getWorkItemId(), actorId),
+                    actorId,
+                    created.getProjectId(),
+                    created.getWorkItemId(),
+                    item.getTitle(),
+                    List.of("added an entry"));
+        } catch (RuntimeException ignored) {
+            // Notification failures must never fail entry creation.
+        }
+    }
+
     private void normalize(Entry entry) { if (entry == null || WorkItemService.blank(entry.getWorkItemId()) || WorkItemService.blank(entry.getBody())) throw WorkItemService.bad("Entry workItemId and body are required"); entry.setType(WorkItemService.enumValue(entry.getType() == null ? "COMMENT" : entry.getType(), WorkTypes.ENTRY_TYPES, "Entry type")); entry.setBody(entry.getBody().trim()); }
     private List<Entry> populateAuthorDisplayNames(List<Entry> results) { Map<String, AppUser> usersById = new LinkedHashMap<>(); users.findAllById(results.stream().map(Entry::getAuthorUserId).filter(java.util.Objects::nonNull).distinct().toList()).forEach(user -> usersById.put(user.getId(), user)); results.forEach(entry -> entry.setAuthorDisplayName(displayName(usersById.get(entry.getAuthorUserId())))); return results; }
     private Entry populateAuthorDisplayName(Entry entry) { entry.setAuthorDisplayName(users.findById(entry.getAuthorUserId()).map(this::displayName).orElse(null)); return entry; }

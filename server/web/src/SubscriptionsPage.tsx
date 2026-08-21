@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Bell, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react'
+import { Bookmark, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { listSubscriptions, unsubscribeWorkItem, type SubscribedWorkItem } from '@/lib/api'
@@ -82,7 +82,7 @@ export default function SubscriptionsPage() {
             <Empty className="min-h-64 border-0">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <Bell />
+                  <Bookmark />
                 </EmptyMedia>
                 <EmptyTitle>No subscriptions yet</EmptyTitle>
               </EmptyHeader>

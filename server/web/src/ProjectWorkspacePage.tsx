@@ -1,13 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactElement, ReactNode } from 'react'
 import { NavLink, Navigate, useParams, useSearchParams } from 'react-router'
-import { ArrowDown, ArrowUp, Bell, BellRing, Bot, Check, ChevronDown, ChevronRight, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +22,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
@@ -208,9 +206,7 @@ function readWorkspacePanelLayout() {
   return defaultWorkspacePanelLayout
 }
 
-const supportedFieldDataTypes: ProjectNodeFieldDataType[] = ['text', 'number', 'boolean', 'date', 'user', 'team']
 const untitledWorkItemTitle = 'Untitled item'
-const managedWorkItemFieldNames = new Set(['status', 'dueDate', 'priority', 'assigneeUserIds', 'assigneeTeamIds'])
 const workItemTypeOptions = ['TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'] as const
 const entryTypeOptions = ['COMMENT', 'INFORMATION', 'ANSWER', 'EVIDENCE', 'PROPOSAL', 'RESOLUTION'] as const
 const workItemStatusOptions: Record<string, { value: string; label: string }[]> = {
@@ -335,40 +331,6 @@ function formatActivityDate(value: string) {
   }).format(new Date(value))
 }
 
-function formatFieldTypeLabel(dataType: ProjectNodeFieldDataType) {
-  switch (dataType) {
-    case 'text':
-      return 'Text'
-    case 'number':
-      return 'Number'
-    case 'boolean':
-      return 'Boolean'
-    case 'date':
-      return 'Date'
-    case 'user':
-      return 'User list'
-    case 'team':
-      return 'Team list'
-    default:
-      return dataType
-  }
-}
-
-function defaultFieldValue(dataType: ProjectNodeFieldDataType) {
-  switch (dataType) {
-    case 'boolean':
-      return false
-    case 'user':
-    case 'team':
-      return []
-    case 'number':
-    case 'date':
-    case 'text':
-    default:
-      return ''
-  }
-}
-
 function normalizeFieldValueForForm(
   dataType: ProjectNodeFieldDataType,
   value: ProjectNodeField['value'],
@@ -386,25 +348,6 @@ function normalizeFieldValueForForm(
     default:
       return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
   }
-}
-
-function formatFieldValue(field: ProjectNodeField) {
-  if (field.value === null || field.value === undefined || field.value === '') {
-    return null
-  }
-
-  if (field.dataType === 'boolean') {
-    return field.value ? 'Yes' : 'No'
-  }
-  if (field.dataType === 'user' || field.dataType === 'team') {
-    const selectedIds = parseStringArrayValue(field.value)
-    if (selectedIds.length === 0) {
-      return null
-    }
-    return `${selectedIds.length} selected`
-  }
-
-  return String(field.value)
 }
 
 function formatProposalValue(value: unknown) {
@@ -525,25 +468,6 @@ function avatarInitials(label: string) {
     .map((part) => part[0])
     .join('')
     .toUpperCase() || '?'
-}
-
-function buildNextField(existingFields: NodeFormField[]): NodeFormField {
-  let suffix = existingFields.length + 1
-  let candidateName = `field${suffix}`
-
-  while (existingFields.some((field) => field.name.toLowerCase() === candidateName.toLowerCase())) {
-    suffix += 1
-    candidateName = `field${suffix}`
-  }
-
-  return {
-    clientId: createDraftId(),
-    name: candidateName,
-    label: `Field ${suffix}`,
-    dataType: 'text',
-    value: defaultFieldValue('text'),
-    visibleInTree: false,
-  }
 }
 
 function fieldKey(field: ProjectNodeField) {
@@ -1162,60 +1086,6 @@ function referenceTeamLabel(team: Team) {
 
 function entryAuthorLabel(entry: Entry, userLabels: Map<string, string>) {
   return entry.authorDisplayName?.trim() || userLabels.get(entry.authorUserId) || 'Unknown user'
-}
-
-function ReferenceMultiSelect({
-  value,
-  options,
-  onChange,
-}: {
-  value: string[]
-  options: { id: string; label: string }[]
-  onChange: (value: string[]) => void
-}) {
-  const selectedIds = parseStringArrayValue(value)
-  const selectedIdSet = new Set(selectedIds)
-  const optionsById = new Map(options.map((option) => [option.id, option]))
-  const availableOptions = options.filter((option) => !selectedIdSet.has(option.id))
-
-  function removeValue(id: string) {
-    onChange(selectedIds.filter((selectedId) => selectedId !== id))
-  }
-
-  return (
-    <div className="space-y-2">
-      {selectedIds.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {selectedIds.map((id) => (
-            <span key={id} className="inline-flex max-w-full items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs">
-              <span className="truncate">{optionsById.get(id)?.label ?? 'Unknown'}</span>
-              <Button type="button" variant="ghost" size="icon-xs" className="-mr-1 h-5 w-5" onClick={() => removeValue(id)} aria-label="Remove">
-                <X className="h-3 w-3" />
-              </Button>
-            </span>
-          ))}
-        </div>
-      ) : null}
-      <NativeSelect
-        className="w-full"
-        value=""
-        onChange={(event) => {
-          const selectedId = event.target.value
-          if (selectedId) {
-            onChange([...selectedIds, selectedId])
-          }
-        }}
-        disabled={availableOptions.length === 0}
-      >
-        <NativeSelectOption value="">{availableOptions.length === 0 ? 'No options available' : 'Add'}</NativeSelectOption>
-        {availableOptions.map((option) => (
-          <NativeSelectOption key={option.id} value={option.id}>
-            {option.label}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
-    </div>
-  )
 }
 
 function WorkItemEntries({
@@ -1951,12 +1821,6 @@ function TreeRowContent({
     ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')).map((id) => ({ id, label: userLabels.get(id) ?? 'Unknown user', type: 'user' })),
     ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')).map((id) => ({ id, label: teamLabels.get(id) ?? 'Unknown team', type: 'team' })),
   ]
-  const visibleFields = [...(node.fields ?? [])]
-    .filter((field) => field.visibleInTree && !managedWorkItemFieldNames.has(field.name))
-    .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
-    .map((field) => ({ field, value: formatFieldValue(field) }))
-    .filter((item) => item.value !== null)
-    .slice(0, 3)
   const relationBadges = relationBadgesByNodeId.get(node.id) ?? []
   const proposedRelationBadges = relationBadges.filter((badge) => badge.proposed)
   const canonicalRelationBadges = relationBadges.filter((badge) => !badge.proposed)
@@ -2138,16 +2002,6 @@ function TreeRowContent({
                 ) : null}
               </div>
             ) : null}
-            {visibleFields.map(({ field, value }) => (
-            <Badge
-              key={field.name}
-              variant="outline"
-              className="hidden max-w-48 justify-start truncate font-normal text-muted-foreground md:inline-flex"
-              title={`${field.label}: ${value}`}
-            >
-              {field.label}: {value}
-            </Badge>
-            ))}
             </div>
             {proposal || proposedRelationBadges.length > 0 ? (
               <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-primary">
@@ -2756,7 +2610,6 @@ export default function ProjectWorkspacePage() {
   const [workItemInspectorReview, setWorkItemInspectorReview] = useState<WorkItemAiReview | null>(null)
   const [workItemInspectorReviewFeedback, setWorkItemInspectorReviewFeedback] = useState('')
   const [newWorkItemAwaitingInitialReviewId, setNewWorkItemAwaitingInitialReviewId] = useState<string | null>(null)
-  const [editingFieldSettingsId, setEditingFieldSettingsId] = useState<string | null>(null)
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false)
   const [moveTargetContentKey, setMoveTargetContentKey] = useState('')
   const [moveQuery, setMoveQuery] = useState('')
@@ -2912,10 +2765,6 @@ export default function ProjectWorkspacePage() {
       .map((entry) => ({ entityType: 'ENTRY' as const, entityId: entry.id, parentWorkItemId: entry.workItemId, label: entry.body.trim().replace(/\s+/g, ' ').slice(0, 100) || 'Untitled update', detail: 'Update', depth: (flattenedTree.find((node) => node.id === entry.workItemId)?.depth ?? 0) + 1 }))
     return [...workItems, ...updates].filter((item) => !normalizedQuery || [item.label, item.detail, item.entityId].some((value) => value.toLowerCase().includes(normalizedQuery)))
   }, [entries, flattenedTree, invalidMoveDestinationIds, moveQuery])
-  const customFormFields = useMemo(
-    () => form.fields.filter((field) => !managedWorkItemFieldNames.has(field.name)),
-    [form.fields],
-  )
   const selectedChatContext = useMemo(() => {
     if (!selectedNode) {
       return null
@@ -3787,13 +3636,6 @@ export default function ProjectWorkspacePage() {
     ])
   }
 
-  function updateFormField(fieldId: string, updates: Partial<NodeFormField>) {
-    setForm((current) => ({
-      ...current,
-      fields: current.fields.map((field) => (field.clientId === fieldId ? { ...field, ...updates } : field)),
-    }))
-  }
-
   function updateManagedWorkItemField(
     name: string,
     label: string,
@@ -3837,39 +3679,6 @@ export default function ProjectWorkspacePage() {
     const dataType: ProjectNodeFieldDataType = isUser ? 'user' : 'team'
     const assignedIds = isUser ? assignedUserIds : assignedTeamIds
     updateManagedWorkItemField(fieldName, label, dataType, assignedIds.filter((id) => id !== assigneeId), false)
-  }
-
-  function addFormField() {
-    setForm((current) => ({
-      ...current,
-      fields: [...current.fields, buildNextField(current.fields)],
-    }))
-  }
-
-  function deleteFormField(fieldId: string) {
-    setForm((current) => ({
-      ...current,
-      fields: current.fields.filter((field) => field.clientId !== fieldId),
-    }))
-  }
-
-  function moveFormField(fieldId: string, offset: -1 | 1) {
-    setForm((current) => {
-      const currentIndex = current.fields.findIndex((field) => field.clientId === fieldId)
-      const nextIndex = currentIndex + offset
-      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= current.fields.length) {
-        return current
-      }
-
-      const nextFields = [...current.fields]
-      const [field] = nextFields.splice(currentIndex, 1)
-      nextFields.splice(nextIndex, 0, field)
-
-      return {
-        ...current,
-        fields: nextFields,
-      }
-    })
   }
 
   function handleTypeChange(nextType: string) {
@@ -4819,9 +4628,9 @@ export default function ProjectWorkspacePage() {
                       }
                     >
                       {isSelectedWorkItemSubscribed ? (
-                        <BellRing className="h-4 w-4" />
+                        <BookmarkCheck className="h-4 w-4" />
                       ) : (
-                        <Bell className="h-4 w-4" />
+                        <Bookmark className="h-4 w-4" />
                       )}
                     </TooltipTrigger>
                     <TooltipContent>{isSelectedWorkItemSubscribed ? 'Stop receiving updates about this work item' : 'Subscribe to updates about this work item'}</TooltipContent>
@@ -4978,10 +4787,10 @@ export default function ProjectWorkspacePage() {
                         ) : (
                           <div className="space-y-2">
                             {assignedUserIds.map((userId) => (
-                              <div key={`user-${userId}`} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-medium">{assigneeUserLabelById.get(userId) ?? userId}</div>
-                                  <div className="text-xs text-muted-foreground">User</div>
+                              <div key={`user-${userId}`} className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <Badge variant="outline" className="shrink-0 border-sky-200 bg-sky-50 font-medium text-sky-700 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300">User</Badge>
+                                  <span className="truncate text-sm font-medium">{assigneeUserLabelById.get(userId) ?? userId}</span>
                                 </div>
                                 <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('USER', userId)} aria-label="Remove assignee" title="Remove">
                                   <X className="h-4 w-4" />
@@ -4989,10 +4798,10 @@ export default function ProjectWorkspacePage() {
                               </div>
                             ))}
                             {assignedTeamIds.map((teamId) => (
-                              <div key={`team-${teamId}`} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-medium">{assigneeTeamLabelById.get(teamId) ?? teamId}</div>
-                                  <div className="text-xs text-muted-foreground">Team</div>
+                              <div key={`team-${teamId}`} className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <Badge variant="outline" className="shrink-0 border-violet-200 bg-violet-50 font-medium text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300">Team</Badge>
+                                  <span className="truncate text-sm font-medium">{assigneeTeamLabelById.get(teamId) ?? teamId}</span>
                                 </div>
                                 <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('TEAM', teamId)} aria-label="Remove assignee" title="Remove">
                                   <X className="h-4 w-4" />
@@ -5062,178 +4871,6 @@ export default function ProjectWorkspacePage() {
                     </div>
                   </div>
 
-                  <section className="border-b">
-                    <div className="border-b bg-muted/30 px-4 py-2">
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <Button type="button" variant="outline" className="gap-2" onClick={addFormField}>
-                          <Plus className="h-4 w-4" />
-                          Add field
-                        </Button>
-                      </div>
-                    </div>
-
-                    {customFormFields.length === 0 ? (
-                      <Empty className="min-h-32 border-0 p-8" />
-                    ) : (
-                      <div className="divide-y">
-                        {customFormFields.map((field, fieldIndex) => (
-                        <div key={field.clientId} className="bg-background">
-                          <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <label className="min-w-0 truncate text-sm font-semibold text-muted-foreground" title={field.label || field.name}>
-                                {field.label || field.name}
-                              </label>
-                            </div>
-                            <div className="flex min-w-0 items-center gap-2">
-                              <div className="min-w-0 flex-1">
-                                {field.dataType === 'text' ? (
-                                  <Input
-                                    value={String(field.value ?? '')}
-                                    onChange={(event) => updateFormField(field.clientId, { value: event.target.value })}
-                                  />
-                                ) : null}
-
-                                {field.dataType === 'number' ? (
-                                  <Input
-                                    type="number"
-                                    value={field.value === null ? '' : String(field.value)}
-                                    onChange={(event) => updateFormField(field.clientId, { value: event.target.value })}
-                                  />
-                                ) : null}
-
-                                {field.dataType === 'date' ? (
-                                  <Input
-                                    type="date"
-                                    value={String(field.value ?? '')}
-                                    onChange={(event) => updateFormField(field.clientId, { value: event.target.value })}
-                                  />
-                                ) : null}
-
-                                {field.dataType === 'boolean' ? (
-                                  <Field orientation="horizontal" className="min-h-9 rounded-md border px-3 py-2">
-                                    <Checkbox
-                                      checked={Boolean(field.value)}
-                                      onCheckedChange={(checked) => updateFormField(field.clientId, { value: checked === true })}
-                                    />
-                                    <label className="block text-sm font-semibold">Checked</label>
-                                  </Field>
-                                ) : null}
-
-                                {field.dataType === 'user' ? (
-                                  <ReferenceMultiSelect
-                                    value={parseStringArrayValue(field.value)}
-                                    options={referenceUserOptions}
-                                    onChange={(value) => updateFormField(field.clientId, { value })}
-                                  />
-                                ) : null}
-
-                                {field.dataType === 'team' ? (
-                                  <ReferenceMultiSelect
-                                    value={parseStringArrayValue(field.value)}
-                                    options={referenceTeamOptions}
-                                    onChange={(value) => updateFormField(field.clientId, { value })}
-                                  />
-                                ) : null}
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => setEditingFieldSettingsId((current) => current === field.clientId ? null : field.clientId)}
-                                aria-label="Field settings"
-                                title="Field settings"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {editingFieldSettingsId === field.clientId ? (
-                            <div className="border-t bg-muted/20 px-4 py-3">
-                              <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
-                                <div />
-                                <div className="grid gap-3">
-                                  <div className="grid gap-2 sm:grid-cols-2">
-                                    <Field>
-                                      <label className="text-sm font-semibold">Label</label>
-                                      <Input
-                                        value={field.label}
-                                        onChange={(event) => updateFormField(field.clientId, { label: event.target.value })}
-                                      />
-                                    </Field>
-                                    <Field>
-                                      <label className="text-sm font-semibold">Data type</label>
-                                      <NativeSelect
-                                        className="w-full"
-                                        value={field.dataType}
-                                        onChange={(event) =>
-                                          updateFormField(field.clientId, {
-                                            dataType: event.target.value as ProjectNodeFieldDataType,
-                                            value: defaultFieldValue(event.target.value as ProjectNodeFieldDataType),
-                                          })
-                                        }
-                                      >
-                                        {supportedFieldDataTypes.map((dataType) => (
-                                          <NativeSelectOption key={dataType} value={dataType}>
-                                            {formatFieldTypeLabel(dataType)}
-                                          </NativeSelectOption>
-                                        ))}
-                                      </NativeSelect>
-                                    </Field>
-                                  </div>
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <Field orientation="horizontal" className="min-h-9 px-0 py-2" title="Show in tree">
-                                      <Checkbox
-                                        checked={field.visibleInTree}
-                                        onCheckedChange={(checked) => updateFormField(field.clientId, { visibleInTree: checked === true })}
-                                      />
-                                      <label className="block text-sm font-semibold">Show in tree</label>
-                                    </Field>
-                                    <div className="flex justify-end gap-1">
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="icon-sm"
-                                        onClick={() => moveFormField(field.clientId, -1)}
-                                        disabled={fieldIndex === 0}
-                                        aria-label="Move field up"
-                                        title="Move up"
-                                      >
-                                        <ArrowUp className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="icon-sm"
-                                        onClick={() => moveFormField(field.clientId, 1)}
-                                        disabled={fieldIndex === customFormFields.length - 1}
-                                        aria-label="Move field down"
-                                        title="Move down"
-                                      >
-                                        <ArrowDown className="h-4 w-4" />
-                                      </Button>
-                                      <Button type="button" variant="ghost" size="icon-sm" onClick={() => deleteFormField(field.clientId)} aria-label="Delete field" title="Delete">
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setEditingFieldSettingsId(null)}
-                                      >
-                                        Cancel
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                        ))}
-                      </div>
-                    )}
-                  </section>
                 </div>
 
                 <div className="z-10 mt-auto flex shrink-0 items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur">

@@ -29,6 +29,7 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE id IN (:ids)")
     List<WorkItem> findByIds(@Param("ids") java.util.Collection<String> ids);
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE id = :id") Optional<WorkItem> findById(@Param("id") String id);
+    @Query("SELECT " + COLUMNS + " FROM work_item WHERE id = :id FOR UPDATE") Optional<WorkItem> findByIdForUpdate(@Param("id") String id);
     @Query("SELECT EXISTS(SELECT 1 FROM work_item WHERE id = :id AND project_id = :projectId)") boolean existsInProject(@Param("id") String id, @Param("projectId") String projectId);
     @Query("SELECT COALESCE(MAX(sort_index), 0) FROM work_item WHERE project_id = :projectId AND (:parentId IS NULL AND parent_work_item_id IS NULL OR parent_work_item_id = :parentId)") int maxSortIndex(@Param("projectId") String projectId, @Param("parentId") String parentId);
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE project_id = :projectId AND (:parentId IS NULL AND parent_work_item_id IS NULL OR parent_work_item_id = :parentId) ORDER BY sort_index, id") List<WorkItem> findByParent(@Param("projectId") String projectId, @Param("parentId") String parentId);

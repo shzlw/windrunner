@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.util.DisconnectedClientHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +49,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception exception, HttpServletRequest request) {
+        if (DisconnectedClientHelper.isClientDisconnectedException(exception)
+                || (exception instanceof AsyncRequestTimeoutException
+                && request.getRequestURI().endsWith("/internal-api/v1/notifications/stream"))) {
+            return ResponseEntity.noContent().build();
+        }
         log.error("Unhandled API error: method={} path={} requestId={}",
                 request.getMethod(), request.getRequestURI(), requestId(request), exception);
         return ResponseEntity

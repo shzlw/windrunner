@@ -352,3 +352,37 @@ CREATE TABLE user_setting
 
 CREATE INDEX user_setting_user_idx
     ON user_setting (user_id, key);
+
+CREATE TABLE work_item_subscription
+(
+    id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL,
+    project_id   TEXT NOT NULL,
+    work_item_id TEXT NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, work_item_id)
+);
+
+CREATE INDEX work_item_subscription_user_idx
+    ON work_item_subscription (user_id, created_at DESC, id);
+
+CREATE TABLE user_notification
+(
+    id                TEXT PRIMARY KEY,
+    recipient_user_id TEXT NOT NULL,
+    notification_type TEXT NOT NULL,
+    actor_user_id     TEXT,
+    project_id        TEXT,
+    work_item_id      TEXT,
+    title             TEXT NOT NULL,
+    message           TEXT NOT NULL,
+    read_at           TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX user_notification_recipient_created_idx
+    ON user_notification (recipient_user_id, created_at DESC, id DESC);
+
+CREATE INDEX user_notification_unread_idx
+    ON user_notification (recipient_user_id, created_at DESC)
+    WHERE read_at IS NULL;

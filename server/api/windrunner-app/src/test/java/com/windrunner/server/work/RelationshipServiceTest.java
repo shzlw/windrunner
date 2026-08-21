@@ -38,11 +38,17 @@ class RelationshipServiceTest {
     private AuditLogService auditLogService;
     @Mock
     private com.windrunner.server.search.SearchNormalizer searchNormalizer;
+    @Mock
+    private com.windrunner.server.notification.NotificationService notificationService;
+    @Mock
+    private com.windrunner.server.notification.WorkItemNotificationAudience notificationAudience;
+    @Mock
+    private com.windrunner.server.work.persistence.WorkItemRepository workItemRepository;
     private RelationshipService service;
 
     @BeforeEach
     void setUp() {
-        service = new RelationshipService(relationships, workItems, entries, new EntityIdGenerator(), auditLogService, searchNormalizer);
+        service = new RelationshipService(relationships, workItems, entries, new EntityIdGenerator(), auditLogService, searchNormalizer, notificationService, notificationAudience, workItemRepository);
     }
 
     @Test

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Eye, EyeOff, Bell, FileClock, FolderOpen, KeyRound, ListTodo, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, KeyRound, ListTodo, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
 
 import {
   Sidebar,
@@ -16,6 +16,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
+  SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -37,11 +38,12 @@ import TeamsPage from './TeamsPage'
 import UsersPage from './UsersPage'
 import SubscriptionsPage from './SubscriptionsPage'
 import AssignedPage from './AssignedPage'
+import NotificationCenter, { NotificationProvider } from './components/NotificationCenter'
 
 const baseMenuItems = [
   { label: 'Projects', path: '/app/projects', icon: FolderOpen },
   { label: 'Assigned', path: '/app/assigned', icon: ListTodo },
-  { label: 'Subscriptions', path: '/app/subscriptions', icon: Bell },
+  { label: 'Subscriptions', path: '/app/subscriptions', icon: Bookmark },
   { label: 'Teams', path: '/app/teams', icon: UsersRound },
   { label: 'Users', path: '/app/users', icon: Users },
 ]
@@ -113,6 +115,12 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
           </SidebarContent>
 
           <SidebarFooter>
+            <SidebarSeparator />
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <NotificationCenter inSidebar />
+              </SidebarMenuItem>
+            </SidebarMenu>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -446,7 +454,8 @@ function App() {
   }
 
   return (
-    <>
+    <NotificationProvider key={currentUser?.id ?? 'anonymous'} currentUser={currentUser}>
+      <>
     <Routes>
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route
@@ -497,7 +506,8 @@ function App() {
       <Route path="*" element={<Navigate to="/app" replace />} />
     </Routes>
     <Toaster />
-    </>
+      </>
+    </NotificationProvider>
   )
 }
 

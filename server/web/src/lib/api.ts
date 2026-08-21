@@ -123,6 +123,24 @@ export interface SubscriptionStatus {
   subscribed: boolean
 }
 
+export interface UserNotification {
+  id: string
+  notificationType: string
+  actorUserId: string | null
+  projectId: string | null
+  workItemId: string | null
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+}
+
+export interface UserNotificationPage {
+  items: UserNotification[]
+  unreadCount: number
+  totalItems: number
+}
+
 export type ProjectNodeFieldDataType = 'text' | 'number' | 'boolean' | 'date' | 'user' | 'team'
 
 export interface ProjectNodeField {
@@ -1342,4 +1360,22 @@ export async function rejectNewEntryAiReview(projectId: string, entry: Pick<Entr
 
 export async function deleteEntry(projectId: string, id: string): Promise<void> {
   return request<void>(`/internal-api/v1/projects/${projectId}/entries/${id}`, { method: 'DELETE' })
+}
+
+
+export async function getNotifications(options: { unread?: boolean; limit?: number; offset?: number } = {}): Promise<UserNotificationPage> {
+  const params = new URLSearchParams()
+  if (options.unread !== undefined) params.set('unread', String(options.unread))
+  if (options.limit !== undefined) params.set('limit', String(options.limit))
+  if (options.offset !== undefined) params.set('offset', String(options.offset))
+  const query = params.toString()
+  return request<UserNotificationPage>(`/internal-api/v1/notifications${query ? `?${query}` : ''}`, { method: 'GET' })
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  await request<void>(`/internal-api/v1/notifications/${notificationId}/read`, { method: 'PATCH' })
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await request<void>('/internal-api/v1/notifications/read-all', { method: 'POST' })
 }

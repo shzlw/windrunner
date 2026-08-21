@@ -43,6 +43,9 @@ public interface SubscriptionRepository extends CrudRepository<WorkItemSubscript
     @Query("SELECT EXISTS(SELECT 1 FROM work_item_subscription WHERE user_id = :userId AND work_item_id = :workItemId)")
     boolean exists(@Param("userId") String userId, @Param("workItemId") String workItemId);
 
+    @Query("SELECT user_id FROM work_item_subscription WHERE work_item_id = :workItemId")
+    List<String> findUserIdsByWorkItemId(@Param("workItemId") String workItemId);
+
     @Query("""
             SELECT s.user_id,
                    s.project_id,

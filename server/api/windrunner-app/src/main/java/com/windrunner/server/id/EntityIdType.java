@@ -18,7 +18,8 @@ public enum EntityIdType {
     RELATIONSHIP("rela"),
     WORKSPACE_CHANGE_PROPOSAL("wcpr"),
     WORKSPACE_CHANGE("wchg"),
-    WORK_ITEM_SUBSCRIPTION("wisu");
+    WORK_ITEM_SUBSCRIPTION("wisu"),
+    USER_NOTIFICATION("unot");
 
     private final String prefix;
 
