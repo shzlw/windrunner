@@ -51,7 +51,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseUserResponse"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -89,7 +89,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseUserResponse"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -117,7 +117,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseVoid"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -147,7 +147,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseTeam"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -185,7 +185,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseTeam"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -213,7 +213,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseVoid"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -243,7 +243,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseProject"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -281,7 +281,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseProject"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -309,7 +309,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseVoid"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -351,7 +351,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListUserResponse"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -379,7 +379,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseUserResponse"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -399,7 +399,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListExternalTeamResponse"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -427,7 +427,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseTeam"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -457,7 +457,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListProjectTeam"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -495,7 +495,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseProjectTeam"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -525,7 +525,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListTeamMember"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -563,7 +563,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseTeamMember"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -583,7 +583,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListProject"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -611,7 +611,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseProject"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -641,7 +641,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListProjectTeam"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -679,7 +679,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseProjectTeam"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -709,7 +709,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListProjectMember"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -747,7 +747,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseProjectMember"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -797,7 +797,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListAuditLog"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -839,7 +839,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseListAuditLog"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -877,7 +877,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseVoid"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -915,7 +915,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseVoid"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -953,7 +953,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseVoid"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -991,7 +991,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseVoid"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -1024,60 +1024,76 @@
       },
       "ApiError": {
         "type": "object",
+        "description": "A single error reported for a request.",
         "properties": {
           "code": {
-            "type": "string"
+            "type": "string",
+            "description": "Stable machine-readable error code.",
+            "example": "NOT_FOUND"
           },
           "message": {
-            "type": "string"
+            "type": "string",
+            "description": "Human-readable error message."
           },
           "field": {
-            "type": "string"
+            "type": "string",
+            "description": "Request field the error relates to, when applicable."
           },
           "details": {
             "type": "object",
-            "additionalProperties": {}
+            "additionalProperties": {},
+            "description": "Additional structured details for this error."
           }
         }
       },
       "ApiMeta": {
         "type": "object",
+        "description": "Request metadata. Pagination fields are present only on paginated responses.",
         "properties": {
           "requestId": {
-            "type": "string"
+            "type": "string",
+            "description": "Server-generated request identifier, useful for support."
           },
           "page": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "description": "Current page number, zero-based."
           },
           "size": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "description": "Page size used for this response."
           },
           "totalItems": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Total number of items across all pages."
           },
           "totalPages": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "description": "Total number of pages."
           }
         }
       },
-      "ApiResponseUserResponse": {
+      "ApiResponse": {
         "type": "object",
+        "description": "Standard response envelope for all Windrunner API endpoints.",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/UserResponse"
+            "$ref": "#/components/schemas/UserResponse",
+            "description": "The requested resource. Null when errors is non-empty."
           },
           "errors": {
             "type": "array",
+            "description": "Errors reported for this request. Empty on success.",
             "items": {
               "$ref": "#/components/schemas/ApiError"
             }
           },
           "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
+            "$ref": "#/components/schemas/ApiMeta",
+            "description": "Request metadata. Present on paginated responses."
           }
         }
       },
@@ -1156,23 +1172,6 @@
           }
         }
       },
-      "ApiResponseTeam": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Team"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
       "Project": {
         "type": "object",
         "properties": {
@@ -1208,23 +1207,6 @@
             "additionalProperties": {
               "type": "string"
             }
-          }
-        }
-      },
-      "ApiResponseProject": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Project"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
           }
         }
       },
@@ -1285,76 +1267,6 @@
           }
         }
       },
-      "ApiResponseProjectTeam": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/ProjectTeam"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "ProjectTeam": {
-        "type": "object",
-        "properties": {
-          "projectId": {
-            "type": "string"
-          },
-          "teamId": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "ApiResponseTeamMember": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/TeamMember"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "TeamMember": {
-        "type": "object",
-        "properties": {
-          "teamId": {
-            "type": "string"
-          },
-          "userId": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "CreateProjectRequest": {
         "type": "object",
         "properties": {
@@ -1372,255 +1284,6 @@
             "items": {
               "type": "string"
             }
-          }
-        }
-      },
-      "ApiResponseProjectMember": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/ProjectMember"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "ProjectMember": {
-        "type": "object",
-        "properties": {
-          "projectId": {
-            "type": "string"
-          },
-          "userId": {
-            "type": "string"
-          },
-          "role": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "ApiResponseListUserResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/UserResponse"
-            }
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "ApiResponseListExternalTeamResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ExternalTeamResponse"
-            }
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "ExternalTeamResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "ApiResponseListProjectTeam": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ProjectTeam"
-            }
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "ApiResponseListTeamMember": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TeamMember"
-            }
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "ApiResponseListProject": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Project"
-            }
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "ApiResponseListAuditLog": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditLog"
-            }
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "AuditLog": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "occurredAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "actorUserId": {
-            "type": "string"
-          },
-          "action": {
-            "type": "string"
-          },
-          "entityType": {
-            "type": "string"
-          },
-          "entityId": {
-            "type": "string"
-          },
-          "projectId": {
-            "type": "string"
-          },
-          "outcome": {
-            "type": "string"
-          },
-          "summary": {
-            "type": "string"
-          },
-          "beforeJson": {
-            "type": "string"
-          },
-          "afterJson": {
-            "type": "string"
-          },
-          "changesJson": {
-            "type": "string"
-          },
-          "metadataJson": {
-            "type": "string"
-          },
-          "actorDisplayName": {
-            "type": "string"
-          }
-        }
-      },
-      "ApiResponseListProjectMember": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ProjectMember"
-            }
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          }
-        }
-      },
-      "ApiResponseVoid": {
-        "type": "object",
-        "properties": {
-          "data": {},
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
           }
         }
       }

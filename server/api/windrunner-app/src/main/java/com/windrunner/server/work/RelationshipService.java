@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RelationshipService {
     private final RelationshipRepository relationships; private final WorkItemService workItems; private final EntryRepository entries; private final EntityIdGenerator ids; private final AuditLogService auditLogService; private final com.windrunner.server.search.SearchNormalizer searchNormalizer;
     public java.util.List<Relationship> list(String projectId) { return relationships.findByProjectId(projectId); }
+    public Relationship findInAnyProject(String id) { return relationships.findById(id).orElseThrow(() -> WorkItemService.notFound("Relationship not found")); }
     @Transactional public Relationship create(String projectId, Relationship relationship, String actorId) {
         return createWithId(projectId, ids.generate(EntityIdType.RELATIONSHIP), relationship, actorId);
     }
