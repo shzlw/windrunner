@@ -1,0 +1,310 @@
+@import '@fontsource-variable/inter';
+
+/**
+ * Docusaurus default Infima overrides.
+ */
+
+:root {
+  /* Product primary: Tailwind blue-700 (matches --primary in the app) */
+  --ifm-color-primary: #1d4ed8;
+  --ifm-color-primary-dark: #1e40af;
+  --ifm-color-primary-darker: #1e3a8a;
+  --ifm-color-primary-darkest: #172554;
+  --ifm-color-primary-light: #3b82f6;
+  --ifm-color-primary-lighter: #60a5fa;
+  --ifm-color-primary-lightest: #93c5fd;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+
+  --ifm-font-family-base: 'Inter Variable', system-ui, -apple-system, 'Segoe UI',
+    Helvetica, Arial, sans-serif;
+  --ifm-heading-font-family: var(--ifm-font-family-base);
+  --ifm-heading-font-weight: 700;
+
+  --ifm-line-height-base: 1.7;
+
+  /*
+   * Semantic accents, borrowed from the product's work item type palette.
+   * Used sparingly: feature card icons, tables, small highlights.
+   */
+  --wr-accent-blue: #2563eb;
+  --wr-accent-blue-bg: rgba(37, 99, 235, 0.09);
+  --wr-accent-violet: #7c3aed;
+  --wr-accent-violet-bg: rgba(124, 58, 237, 0.09);
+  --wr-accent-cyan: #0891b2;
+  --wr-accent-cyan-bg: rgba(8, 145, 178, 0.09);
+  --wr-accent-emerald: #059669;
+  --wr-accent-emerald-bg: rgba(5, 150, 105, 0.09);
+  --wr-accent-amber: #d97706;
+  --wr-accent-amber-bg: rgba(217, 119, 6, 0.1);
+  --wr-accent-slate: #475569;
+  --wr-accent-slate-bg: rgba(71, 85, 105, 0.09);
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  /* Lighter product blue for contrast on dark surfaces (app uses blue-800) */
+  --ifm-color-primary: #60a5fa;
+  --ifm-color-primary-dark: #3b82f6;
+  --ifm-color-primary-darker: #2563eb;
+  --ifm-color-primary-darkest: #1d4ed8;
+  --ifm-color-primary-light: #93c5fd;
+  --ifm-color-primary-lighter: #bfdbfe;
+  --ifm-color-primary-lightest: #dbeafe;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+
+  --wr-accent-blue: #60a5fa;
+  --wr-accent-blue-bg: rgba(96, 165, 250, 0.12);
+  --wr-accent-violet: #a78bfa;
+  --wr-accent-violet-bg: rgba(167, 139, 250, 0.12);
+  --wr-accent-cyan: #22d3ee;
+  --wr-accent-cyan-bg: rgba(34, 211, 238, 0.12);
+  --wr-accent-emerald: #34d399;
+  --wr-accent-emerald-bg: rgba(52, 211, 153, 0.12);
+  --wr-accent-amber: #fbbf24;
+  --wr-accent-amber-bg: rgba(251, 191, 36, 0.12);
+  --wr-accent-slate: #94a3b8;
+  --wr-accent-slate-bg: rgba(148, 163, 184, 0.12);
+}
+
+/* ---------- Typography & prose ---------- */
+
+.markdown {
+  max-width: 78ch;
+}
+
+.markdown h1 {
+  letter-spacing: -0.02em;
+}
+
+/* Inline code: soft tinted chip instead of flat gray */
+.markdown code {
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 0.3rem;
+  padding: 0.1rem 0.35rem;
+  background: var(--wr-accent-blue-bg);
+}
+
+[data-theme='dark'] .markdown code {
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+/* ---------- Tables ---------- */
+
+.markdown table {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.markdown table th {
+  background: var(--ifm-color-emphasis-100);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ifm-color-emphasis-600);
+}
+
+[data-theme='dark'] .markdown table th {
+  background: var(--ifm-color-emphasis-200);
+}
+
+.markdown table tbody tr {
+  transition: background 120ms ease;
+}
+
+.markdown table tbody tr:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+/* ---------- Admonitions ---------- */
+
+.admonition {
+  border-radius: 0.5rem;
+  border-left-width: 0.3rem;
+}
+
+.admonition .admonition-title {
+  font-weight: 600;
+}
+
+/* ---------- Footer ---------- */
+
+.footer {
+  background: var(--ifm-color-emphasis-100);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+  color: var(--ifm-color-emphasis-700);
+}
+
+[data-theme='dark'] .footer {
+  background: color-mix(in srgb, var(--ifm-background-color) 60%, black);
+  border-top-color: var(--ifm-color-emphasis-300);
+}
+
+.footer .footer__title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ifm-color-emphasis-600);
+}
+
+.footer .footer__link-item {
+  color: var(--ifm-color-emphasis-700);
+}
+
+[data-theme='dark'] .footer .footer__link-item {
+  color: var(--ifm-color-emphasis-500);
+}
+
+/* ---------- Landing page ---------- */
+
+.home-main {
+  --home-dot-color: rgba(29, 78, 216, 0.32);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-theme='dark'] .home-main {
+  --home-dot-color: rgba(96, 165, 250, 0.3);
+}
+
+.home-main::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--home-dot-color) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(
+    ellipse 110% 110% at 50% 0%,
+    black 65%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 110% 110% at 50% 0%,
+    black 65%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.home-main > * {
+  position: relative;
+}
+
+.home-hero {
+  padding: 5rem 0 4rem;
+}
+
+.home-hero .hero__title {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+
+.home-hero .hero__subtitle {
+  max-width: 42rem;
+  margin: 0 auto 2rem;
+  font-size: 1.15rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+[data-theme='dark'] .home-hero .hero__subtitle {
+  color: var(--ifm-color-emphasis-400);
+}
+
+.home-hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.home-features {
+  padding: 3.5rem 0 4rem;
+}
+
+.home-features-title {
+  text-align: center;
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 2rem;
+}
+
+.home-feature-card {
+  height: 100%;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: none;
+  transition:
+    border-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.home-feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(29, 78, 216, 0.1);
+  text-decoration: none;
+}
+
+.home-feature-card:hover h3 {
+  color: var(--card-accent);
+}
+
+.home-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--card-accent-bg);
+  color: var(--card-accent);
+}
+
+.home-feature-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  transition: color 150ms ease;
+}
+
+.home-feature-card p {
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-600);
+  margin-bottom: 0;
+}
+
+[data-theme='dark'] .home-feature-card p {
+  color: var(--ifm-color-emphasis-400);
+}
+
+.home-feature-card.accent-blue {
+  --card-accent: var(--wr-accent-blue);
+  --card-accent-bg: var(--wr-accent-blue-bg);
+}
+
+.home-feature-card.accent-violet {
+  --card-accent: var(--wr-accent-violet);
+  --card-accent-bg: var(--wr-accent-violet-bg);
+}
+
+.home-feature-card.accent-cyan {
+  --card-accent: var(--wr-accent-cyan);
+  --card-accent-bg: var(--wr-accent-cyan-bg);
+}
+
+.home-feature-card.accent-emerald {
+  --card-accent: var(--wr-accent-emerald);
+  --card-accent-bg: var(--wr-accent-emerald-bg);
+}
+
+.home-feature-card.accent-amber {
+  --card-accent: var(--wr-accent-amber);
+  --card-accent-bg: var(--wr-accent-amber-bg);
+}
+
+.home-feature-card.accent-slate {
+  --card-accent: var(--wr-accent-slate);
+  --card-accent-bg: var(--wr-accent-slate-bg);
+}

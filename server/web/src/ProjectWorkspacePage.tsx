@@ -1,0 +1,5488 @@
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import type { FormEvent, ReactElement, ReactNode } from 'react'
+import { NavLink, Navigate, useParams, useSearchParams } from 'react-router'
+import { ArrowDown, ArrowUp, Bell, BellRing, Bot, Check, ChevronDown, ChevronRight, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
+import { toast } from 'sonner'
+
+import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
+import { Badge } from '@/components/ui/badge'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Field } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  createNode,
+  createEntry,
+  createRelationship,
+  deleteRelationship,
+  acceptEntryAiReview,
+  acceptNewEntryAiReview,
+  decideGraphChangeProposal,
+  deleteEntry,
+  deleteNode,
+  getMySettings,
+  getNode,
+  getProject,
+  getWorkspace,
+  getLlmStatus,
+  updateMySetting,
+  listProjectMembers,
+  listProjectTeams,
+  listTeamMembers,
+  listGraphChangeProposals,
+  listNodeEdges,
+  listNodes,
+  listTreeNodes,
+  listTeams,
+  loadSelectableUsers,
+  type Entry,
+  type EntryAiReview,
+  type WorkItemAiReview,
+  type GraphChangeProposal,
+  type GraphChangeProposalChange,
+  type NodePageResponse,
+  moveWorkItemInContentOrder,
+  type Project,
+  type WorkItem,
+  type ProjectNode,
+  type ProjectNodeEdge,
+  type ProjectNodeField,
+  type ProjectNodeFieldDataType,
+  type ContentOrderItem,
+  type Relationship,
+  type SettingValue,
+  type Team,
+  type User,
+  updateNode,
+  updateEntry,
+  updateRelationshipReason,
+  rejectEntryAiReview,
+  rejectNewEntryAiReview,
+  reorderContentItems,
+  reviewEntryWithAi,
+  reviewWorkItemWithAi,
+  reviewNewEntryWithAi,
+  getSubscriptionStatus,
+  subscribeWorkItem,
+  unsubscribeWorkItem,
+} from '@/lib/api'
+import { cn } from '@/lib/utils'
+import { entryTypeBadgeClass, workItemTypeBadgeClass } from '@/lib/typeBadges'
+import ProjectChatPanel from '@/ProjectChatPanel'
+import WorkItemHistoryPanel from '@/WorkItemHistoryPanel'
+
+type TreeNode = ProjectNode & {
+  children: TreeNode[]
+  proposal?: TreeNodeProposal
+}
+
+type TreeNodeProposal = {
+  proposalId: string
+  changeId: string
+  action: 'ADD' | 'UPDATE' | 'DELETE'
+  status: string
+  summary: string
+  targetId: string
+  previousNode?: ProjectNode | null
+  proposedNode?: ProjectNode | null
+}
+
+type NodeRelationBadge = {
+  key: string
+  label: string
+  title: string
+  proposed?: boolean
+}
+
+type NodeFormField = {
+  clientId: string
+  name: string
+  label: string
+  dataType: ProjectNodeFieldDataType
+  value: string | number | boolean | string[] | null
+  visibleInTree: boolean
+}
+
+type NodeFormState = {
+  type: string
+  title: string
+  fields: NodeFormField[]
+}
+
+type FlatTreeNode = TreeNode & {
+  depth: number
+}
+
+type InspectorMode = 'task' | 'ai' | 'history'
+type CreatedSortDirection = 'ASC' | 'DESC' | null
+type WorkItemFilterField = 'STATUS' | 'PRIORITY' | 'DUE_DATE' | 'ASSIGNEE'
+type WorkItemFilterOperator = 'AND' | 'OR'
+
+type WorkItemFilterCondition = {
+  id: string
+  field: WorkItemFilterField
+  value: string
+  operator: WorkItemFilterOperator
+}
+
+type NodePageInfo = Pick<NodePageResponse, 'page' | 'size' | 'totalItems' | 'totalPages'>
+
+type ProposalFieldDiff = {
+  name: string
+  label: string
+  status: 'added' | 'removed' | 'changed' | 'unchanged'
+  previousValue: string
+  nextValue: string
+}
+
+type PendingProposalNode = ProjectNode & {
+  children: TreeNode[]
+  proposal: TreeNodeProposal
+  placementReason: string
+}
+
+type OrderedWorkItemContent =
+  | { entityType: 'WORK_ITEM'; entityId: string; child: TreeNode }
+  | { entityType: 'ENTRY'; entityId: string; entry: Entry }
+
+const relationType = 'contains'
+const workItemRelationshipTypes = ['BLOCKED_BY', 'DEPENDS_ON', 'RELATED_TO', 'ANSWERS', 'SUPPORTS', 'CONTRADICTS', 'RESOLVES', 'SUPERSEDES'] as const
+
+function relationshipTypeLabel(type: string) {
+  return type.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase())
+}
+
+function relationshipTypeBadgeClass(type: string) {
+  switch (type) {
+    case 'BLOCKED_BY': return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300'
+    case 'DEPENDS_ON': return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300'
+    case 'RELATED_TO': return 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300'
+    case 'ANSWERS': return 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300'
+    case 'SUPPORTS': return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300'
+    case 'CONTRADICTS': return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300'
+    case 'RESOLVES': return 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300'
+    case 'SUPERSEDES': return 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/50 dark:text-orange-300'
+    default: return 'border-border bg-muted text-muted-foreground'
+  }
+}
+
+const treePageSize = 50
+const treeDepthIndentPx = 18
+const workspacePanelLayoutStorageKey = 'windrunner.project-workspace.panel-layout'
+const defaultWorkspacePanelLayout = { 'project-tree': 70, 'project-inspector': 30 }
+
+function readWorkspacePanelLayout() {
+  if (typeof window === 'undefined') {
+    return defaultWorkspacePanelLayout
+  }
+  try {
+    const storedLayout = JSON.parse(window.localStorage.getItem(workspacePanelLayoutStorageKey) ?? '') as Record<string, unknown>
+    const treeSize = Number(storedLayout['project-tree'])
+    const inspectorSize = Number(storedLayout['project-inspector'])
+    if (Number.isFinite(treeSize) && Number.isFinite(inspectorSize) && treeSize >= 45 && treeSize <= 76 && inspectorSize >= 24 && inspectorSize <= 55 && Math.abs(treeSize + inspectorSize - 100) < 0.1) {
+      return { 'project-tree': treeSize, 'project-inspector': inspectorSize }
+    }
+  } catch {
+    // Ignore missing or malformed persisted layouts.
+  }
+  return defaultWorkspacePanelLayout
+}
+
+const supportedFieldDataTypes: ProjectNodeFieldDataType[] = ['text', 'number', 'boolean', 'date', 'user', 'team']
+const untitledWorkItemTitle = 'Untitled item'
+const managedWorkItemFieldNames = new Set(['status', 'dueDate', 'priority', 'assigneeUserIds', 'assigneeTeamIds'])
+const workItemTypeOptions = ['TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'] as const
+const entryTypeOptions = ['COMMENT', 'INFORMATION', 'ANSWER', 'EVIDENCE', 'PROPOSAL', 'RESOLUTION'] as const
+const workItemStatusOptions: Record<string, { value: string; label: string }[]> = {
+  TASK: [
+    { value: 'OPEN', label: 'Open' },
+    { value: 'IN PROGRESS', label: 'In progress' },
+    { value: 'BLOCKED', label: 'Blocked' },
+    { value: 'DONE', label: 'Done' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ],
+  QUESTION: [
+    { value: 'OPEN', label: 'Open' },
+    { value: 'WAITING', label: 'Waiting' },
+    { value: 'ANSWERED', label: 'Answered' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ],
+  APPROVAL: [
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'APPROVED', label: 'Approved' },
+    { value: 'REJECTED', label: 'Rejected' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ],
+  REVIEW: [
+    { value: 'OPEN', label: 'Open' },
+    { value: 'IN PROGRESS', label: 'In progress' },
+    { value: 'BLOCKED', label: 'Blocked' },
+    { value: 'DONE', label: 'Done' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ],
+  DECISION: [
+    { value: 'OPEN', label: 'Open' },
+    { value: 'IN PROGRESS', label: 'In progress' },
+    { value: 'DONE', label: 'Decided' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ],
+}
+const newNodeDefaults: NodeFormState = {
+  type: 'TASK',
+  title: '',
+  fields: [],
+}
+
+function defaultStatusForType(type: string) {
+  return type.trim().toUpperCase() === 'APPROVAL' ? 'PENDING' : 'OPEN'
+}
+
+function statusOptionsForType(type: string) {
+  return workItemStatusOptions[type.trim().toUpperCase()] ?? workItemStatusOptions.TASK
+}
+
+function normalizedStatus(value: unknown) {
+  return String(value ?? '').trim().toUpperCase().replaceAll('_', ' ')
+}
+
+function contentParentKey(parentWorkItemId: string | null | undefined) {
+  return parentWorkItemId ?? '__PROJECT_ROOT__'
+}
+
+function contentEntityKey(entityType: 'WORK_ITEM' | 'ENTRY', entityId: string) {
+  return `${entityType}:${entityId}`
+}
+
+function groupContentOrderByParent(nodes: ProjectNode[], entries: Entry[]) {
+  const grouped = new Map<string, ContentOrderItem[]>()
+  nodes.forEach((node) => {
+    const key = contentParentKey(node.parentNodeId)
+    grouped.set(key, [...(grouped.get(key) ?? []), { entityType: 'WORK_ITEM', entityId: node.id, sortIndex: node.sortIndex ?? 0 }])
+  })
+  entries.forEach((entry) => {
+    const key = contentParentKey(entry.workItemId)
+    grouped.set(key, [...(grouped.get(key) ?? []), { entityType: 'ENTRY', entityId: entry.id, sortIndex: entry.sortIndex }])
+  })
+  grouped.forEach((siblings, key) => grouped.set(key, siblings.sort((left, right) => left.sortIndex - right.sortIndex || contentEntityKey(left.entityType, left.entityId).localeCompare(contentEntityKey(right.entityType, right.entityId)))))
+  return grouped
+}
+
+function sortTreeByContentOrder(nodes: TreeNode[], itemsByParent: Map<string, ContentOrderItem[]>) {
+  function sortSiblings(siblings: TreeNode[], parentId: string | null): TreeNode[] {
+    const positions = new Map(
+      (itemsByParent.get(contentParentKey(parentId)) ?? [])
+        .filter((item) => item.entityType === 'WORK_ITEM')
+        .map((item) => [item.entityId, item.sortIndex]),
+    )
+    return [...siblings]
+      .sort((left, right) => (positions.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (positions.get(right.id) ?? Number.MAX_SAFE_INTEGER) || left.id.localeCompare(right.id))
+      .map((node) => ({ ...node, children: sortSiblings(node.children, node.id) }))
+  }
+  return sortSiblings(nodes, null)
+}
+
+function orderedWorkItemContent(node: TreeNode, entries: Entry[], orderItems: ContentOrderItem[]) {
+  const contentByKey = new Map<string, OrderedWorkItemContent>()
+  node.children.forEach((child) => contentByKey.set(contentEntityKey('WORK_ITEM', child.id), { entityType: 'WORK_ITEM', entityId: child.id, child }))
+  entries.forEach((entry) => contentByKey.set(contentEntityKey('ENTRY', entry.id), { entityType: 'ENTRY', entityId: entry.id, entry }))
+  const ordered: OrderedWorkItemContent[] = []
+  orderItems.forEach((item) => {
+    const content = contentByKey.get(contentEntityKey(item.entityType, item.entityId))
+    if (content) {
+      ordered.push(content)
+      contentByKey.delete(contentEntityKey(item.entityType, item.entityId))
+    }
+  })
+  return [...ordered, ...contentByKey.values()]
+}
+
+function createDraftId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+
+  return `field-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function formatProjectTitle(project: Project) {
+  return project.title?.trim() ? project.title : 'Untitled project'
+}
+
+function formatActivityDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+function formatFieldTypeLabel(dataType: ProjectNodeFieldDataType) {
+  switch (dataType) {
+    case 'text':
+      return 'Text'
+    case 'number':
+      return 'Number'
+    case 'boolean':
+      return 'Boolean'
+    case 'date':
+      return 'Date'
+    case 'user':
+      return 'User list'
+    case 'team':
+      return 'Team list'
+    default:
+      return dataType
+  }
+}
+
+function defaultFieldValue(dataType: ProjectNodeFieldDataType) {
+  switch (dataType) {
+    case 'boolean':
+      return false
+    case 'user':
+    case 'team':
+      return []
+    case 'number':
+    case 'date':
+    case 'text':
+    default:
+      return ''
+  }
+}
+
+function normalizeFieldValueForForm(
+  dataType: ProjectNodeFieldDataType,
+  value: ProjectNodeField['value'],
+): string | number | boolean | string[] | null {
+  switch (dataType) {
+    case 'boolean':
+      return Boolean(value)
+    case 'user':
+    case 'team':
+      return parseStringArrayValue(value)
+    case 'number':
+      return value ?? ''
+    case 'date':
+    case 'text':
+    default:
+      return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
+  }
+}
+
+function formatFieldValue(field: ProjectNodeField) {
+  if (field.value === null || field.value === undefined || field.value === '') {
+    return null
+  }
+
+  if (field.dataType === 'boolean') {
+    return field.value ? 'Yes' : 'No'
+  }
+  if (field.dataType === 'user' || field.dataType === 'team') {
+    const selectedIds = parseStringArrayValue(field.value)
+    if (selectedIds.length === 0) {
+      return null
+    }
+    return `${selectedIds.length} selected`
+  }
+
+  return String(field.value)
+}
+
+function formatProposalValue(value: unknown) {
+  if (value === null || value === undefined || value === '') {
+    return 'Empty'
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'Yes' : 'No'
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0 ? 'Empty' : `${value.length} selected`
+  }
+
+  return String(value)
+}
+
+function parseStringArrayValue(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return [...new Set(value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean))]
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      return []
+    }
+    try {
+      const parsed = JSON.parse(trimmed) as unknown
+      if (Array.isArray(parsed)) {
+        return parseStringArrayValue(parsed)
+      }
+    } catch {
+      return [trimmed]
+    }
+    return []
+  }
+  return []
+}
+
+function toFormField(field: ProjectNodeField): NodeFormField {
+  return {
+    clientId: createDraftId(),
+    name: field.name,
+    label: field.label,
+    dataType: field.dataType,
+    value: normalizeFieldValueForForm(field.dataType, field.value),
+    visibleInTree: Boolean(field.visibleInTree),
+  }
+}
+
+function createFormState(node: ProjectNode | null | undefined): NodeFormState {
+  if (!node) {
+    return {
+      type: newNodeDefaults.type,
+      title: newNodeDefaults.title,
+      fields: [],
+    }
+  }
+
+  return {
+    type: node.type,
+    title: node.title,
+    fields: [...(node.fields ?? [])]
+      .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+      .map(toFormField),
+  }
+}
+
+function formFieldValue(fields: NodeFormField[], name: string) {
+  return fields.find((field) => field.name === name)?.value
+}
+
+function nodeFieldValue(node: ProjectNode, name: string) {
+  return node.fields?.find((field) => field.name === name)?.value
+}
+
+function withNodeFieldValue(node: ProjectNode, name: string, label: string, value: ProjectNodeField['value']) {
+  const hasField = node.fields.some((field) => field.name === name)
+  return {
+    ...node,
+    fields: hasField
+      ? node.fields.map((field) => field.name === name ? { ...field, value } : field)
+      : [...node.fields, { name, label, dataType: 'text' as const, value, visibleInTree: true }],
+  }
+}
+
+function isDefaultWorkItemStatus(value: unknown) {
+  const status = normalizedStatus(value)
+  return !status || status === 'OPEN' || status === 'TODO' || status === 'TO DO'
+}
+
+function formatWorkItemDueDate(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return null
+  }
+
+  const date = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const daysUntilDue = Math.round((date.getTime() - today.getTime()) / 86_400_000)
+  return {
+    label: new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date),
+    title: new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date),
+    isOverdue: daysUntilDue < 0,
+    isDueSoon: daysUntilDue >= 0 && daysUntilDue <= 3,
+  }
+}
+
+function avatarInitials(label: string) {
+  return label
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || '?'
+}
+
+function buildNextField(existingFields: NodeFormField[]): NodeFormField {
+  let suffix = existingFields.length + 1
+  let candidateName = `field${suffix}`
+
+  while (existingFields.some((field) => field.name.toLowerCase() === candidateName.toLowerCase())) {
+    suffix += 1
+    candidateName = `field${suffix}`
+  }
+
+  return {
+    clientId: createDraftId(),
+    name: candidateName,
+    label: `Field ${suffix}`,
+    dataType: 'text',
+    value: defaultFieldValue('text'),
+    visibleInTree: false,
+  }
+}
+
+function fieldKey(field: ProjectNodeField) {
+  return field.name.trim().toLowerCase() || field.label.trim().toLowerCase()
+}
+
+function fieldValueKey(field: ProjectNodeField | undefined) {
+  if (!field) {
+    return ''
+  }
+
+  return JSON.stringify({
+    label: field.label,
+    dataType: field.dataType,
+    value: field.value,
+    visibleInTree: Boolean(field.visibleInTree),
+  })
+}
+
+function buildProposalFieldDiffs(previousFields: ProjectNodeField[], nextFields: ProjectNodeField[]): ProposalFieldDiff[] {
+  const previousByKey = new Map(previousFields.map((field) => [fieldKey(field), field]))
+  const nextByKey = new Map(nextFields.map((field) => [fieldKey(field), field]))
+  const keys = [...new Set([
+    ...previousFields.map(fieldKey),
+    ...nextFields.map(fieldKey),
+  ])]
+
+  return keys.map((key) => {
+    const previousField = previousByKey.get(key)
+    const nextField = nextByKey.get(key)
+    const status: ProposalFieldDiff['status'] = !previousField
+      ? 'added'
+      : !nextField
+        ? 'removed'
+        : fieldValueKey(previousField) === fieldValueKey(nextField)
+          ? 'unchanged'
+          : 'changed'
+
+    return {
+      name: key,
+      label: nextField?.label || previousField?.label || key,
+      status,
+      previousValue: previousField ? formatProposalValue(previousField.value) : '-',
+      nextValue: nextField ? formatProposalValue(nextField.value) : '-',
+    }
+  }).filter((diff) => diff.status !== 'unchanged')
+}
+
+function serializeFields(fields: NodeFormField[]): ProjectNodeField[] {
+  return fields.map((field, index) => {
+    switch (field.dataType) {
+      case 'boolean':
+        return {
+          name: field.name.trim(),
+          label: field.label.trim() || field.name.trim(),
+          dataType: field.dataType,
+          value: Boolean(field.value),
+          order: index,
+          visibleInTree: field.visibleInTree,
+        }
+      case 'number': {
+        const rawValue = typeof field.value === 'number' ? String(field.value) : String(field.value ?? '').trim()
+        return {
+          name: field.name.trim(),
+          label: field.label.trim() || field.name.trim(),
+          dataType: field.dataType,
+          value: rawValue ? Number(rawValue) : null,
+          order: index,
+          visibleInTree: field.visibleInTree,
+        }
+      }
+      case 'user':
+      case 'team':
+        return {
+          name: field.name.trim(),
+          label: field.label.trim() || field.name.trim(),
+          dataType: field.dataType,
+          value: parseStringArrayValue(field.value),
+          order: index,
+          visibleInTree: field.visibleInTree,
+        }
+      case 'date':
+      case 'text':
+      default:
+        return {
+          name: field.name.trim(),
+          label: field.label.trim() || field.name.trim(),
+          dataType: field.dataType,
+          value: String(field.value ?? '').trim(),
+          order: index,
+          visibleInTree: field.visibleInTree,
+        }
+    }
+  })
+}
+
+function buildTree(nodes: ProjectNode[], createdSortDirection: CreatedSortDirection = null) {
+  const nodesById = new Map(nodes.map((node) => [node.id, { ...node, children: [] as TreeNode[] }]))
+
+  const childIds = new Set<string>()
+  for (const node of nodesById.values()) {
+    const parentNodeId = node.parentNodeId ?? null
+    const parent = parentNodeId ? nodesById.get(parentNodeId) : null
+    if (parent) {
+      node.parentNodeId = parentNodeId
+      childIds.add(node.id)
+      parent.children.push(node)
+    }
+  }
+
+  const sortNodes = (items: TreeNode[]) => {
+    items.sort((left, right) => {
+      if (createdSortDirection) {
+        const leftCreatedAt = left.createdAt ? new Date(left.createdAt).getTime() : 0
+        const rightCreatedAt = right.createdAt ? new Date(right.createdAt).getTime() : 0
+        const createdDifference = leftCreatedAt - rightCreatedAt
+        if (createdDifference !== 0) return createdSortDirection === 'ASC' ? createdDifference : -createdDifference
+      }
+      return (left.sortIndex ?? 0) - (right.sortIndex ?? 0) || left.title.localeCompare(right.title) || left.id.localeCompare(right.id)
+    })
+    items.forEach((item) => sortNodes(item.children))
+  }
+
+  const roots = [...nodesById.values()].filter((node) => !childIds.has(node.id))
+  sortNodes(roots)
+  return roots
+}
+
+function isOpenProposalStatus(status: string | null | undefined) {
+  return status === 'PENDING' || status === 'NEEDS_UPDATE'
+}
+
+function openNodeProposalChanges(proposals: GraphChangeProposal[]) {
+  return proposals.flatMap((proposal) => (
+    proposal.changes
+      .filter((change) => change.entityType === 'NODE' && isOpenProposalStatus(change.status))
+      .map((change) => ({ proposal, change }))
+  ))
+}
+
+function openEdgeProposalChanges(proposals: GraphChangeProposal[]) {
+  return proposals.flatMap((proposal) => (
+    proposal.changes
+      .filter((change) => change.entityType === 'EDGE' && isOpenProposalStatus(change.status))
+      .map((change) => ({ proposal, change }))
+  ))
+}
+
+function proposalForChange(proposal: GraphChangeProposal, change: GraphChangeProposalChange, previousNode?: ProjectNode | null): TreeNodeProposal {
+  return {
+    proposalId: proposal.id,
+    changeId: change.id,
+    action: change.action,
+    status: change.status,
+    summary: change.summary,
+    targetId: change.targetId,
+    previousNode: previousNode ?? null,
+    proposedNode: change.node ?? null,
+  }
+}
+
+function canPlaceProposalChangeInTree(change: GraphChangeProposalChange, loadedNodeIds: Set<string>) {
+  if (change.action === 'ADD') {
+    const parentNodeId = change.node?.parentNodeId ?? null
+    return !parentNodeId || loadedNodeIds.has(parentNodeId)
+  }
+
+  return loadedNodeIds.has(change.targetId)
+}
+
+function displayNodeForProposalChange(change: GraphChangeProposalChange) {
+  if (change.action === 'ADD') {
+    return change.node ?? null
+  }
+
+  return change.previousNode ?? change.node ?? null
+}
+
+function placementReasonForProposalChange(change: GraphChangeProposalChange) {
+  if (change.action === 'ADD') {
+    const parentNodeId = change.node?.parentNodeId ?? null
+    return parentNodeId ? 'Parent item is outside the loaded tree' : 'Top-level item proposal is outside the loaded tree'
+  }
+
+  return 'Target item is outside the loaded tree'
+}
+
+function mergeProposalNodes(nodes: ProjectNode[], proposals: GraphChangeProposal[]) {
+  const mergedNodes = nodes.map((node) => ({ ...node }))
+  const nodeIndexById = new Map(mergedNodes.map((node, index) => [node.id, index]))
+  const loadedNodeIds = new Set(nodes.map((node) => node.id))
+  const pendingAddChanges = openNodeProposalChanges(proposals)
+    .filter(({ change }) => change.action === 'ADD' && change.node)
+  const otherChanges = openNodeProposalChanges(proposals)
+    .filter(({ change }) => change.action !== 'ADD')
+
+  let remainingAdds = pendingAddChanges
+  while (remainingAdds.length > 0) {
+    const nextRemainingAdds: typeof pendingAddChanges = []
+    let addedAny = false
+
+    for (const { proposal, change } of remainingAdds) {
+      if (!canPlaceProposalChangeInTree(change, loadedNodeIds)) {
+        nextRemainingAdds.push({ proposal, change })
+        continue
+      }
+      const proposalMeta = proposalForChange(proposal, change)
+      mergedNodes.push({
+        ...change.node!,
+        id: change.targetId,
+        proposal: proposalMeta,
+      } as ProjectNode & { proposal: TreeNodeProposal })
+      nodeIndexById.set(change.targetId, mergedNodes.length - 1)
+      loadedNodeIds.add(change.targetId)
+      addedAny = true
+    }
+
+    if (!addedAny) {
+      break
+    }
+    remainingAdds = nextRemainingAdds
+  }
+
+  for (const { proposal, change } of otherChanges) {
+    const targetIndex = nodeIndexById.get(change.targetId)
+    if (targetIndex === undefined) {
+      continue
+    }
+
+    const currentNode = mergedNodes[targetIndex]
+    const proposalMeta = proposalForChange(proposal, change, change.previousNode ?? currentNode)
+    mergedNodes[targetIndex] = {
+      ...currentNode,
+      proposal: proposalMeta,
+    } as ProjectNode & { proposal: TreeNodeProposal }
+  }
+
+  return mergedNodes
+}
+
+function pendingProposalNodes(nodes: ProjectNode[], proposals: GraphChangeProposal[]): PendingProposalNode[] {
+  const loadedNodeIds = new Set(nodes.map((node) => node.id))
+
+  return openNodeProposalChanges(proposals)
+    .filter(({ change }) => !canPlaceProposalChangeInTree(change, loadedNodeIds))
+    .map(({ proposal, change }) => {
+      const displayNode = displayNodeForProposalChange(change)
+      if (!displayNode) {
+        return null
+      }
+
+      const pendingNode: PendingProposalNode = {
+        ...displayNode,
+        id: change.targetId,
+        children: [],
+        proposal: proposalForChange(proposal, change, change.previousNode ?? displayNode),
+        placementReason: placementReasonForProposalChange(change),
+      }
+      return pendingNode
+    })
+    .filter((node): node is PendingProposalNode => Boolean(node))
+}
+
+function proposalParentIds(proposals: GraphChangeProposal[]) {
+  const nodeParentIds = openNodeProposalChanges(proposals)
+    .map(({ change }) => change.node?.parentNodeId ?? null)
+  const edgeParentIds = openEdgeProposalChanges(proposals)
+    .filter(({ change }) => change.action !== 'DELETE' && change.edge?.relationType === relationType)
+    .map(({ change }) => change.edge?.fromNodeId ?? null)
+
+  return [...nodeParentIds, ...edgeParentIds]
+    .filter((parentNodeId): parentNodeId is string => Boolean(parentNodeId))
+}
+
+function proposalContextNodeIds(proposals: GraphChangeProposal[]) {
+  const ids = new Set<string>()
+
+  for (const { change } of openNodeProposalChanges(proposals)) {
+    const nodeId = change.action === 'ADD' ? change.node?.parentNodeId : change.targetId
+    if (nodeId) {
+      ids.add(nodeId)
+    }
+  }
+  for (const { change } of openEdgeProposalChanges(proposals)) {
+    if (change.edge?.fromNodeId) {
+      ids.add(change.edge.fromNodeId)
+    }
+    if (change.edge?.toNodeId) {
+      ids.add(change.edge.toNodeId)
+    }
+  }
+
+  return ids
+}
+
+async function loadProposalContextNodes(projectId: string, proposals: GraphChangeProposal[], initialNodes: ProjectNode[]) {
+  const nodesById = new Map(initialNodes.map((node) => [node.id, node]))
+  const queuedIds = [...proposalContextNodeIds(proposals)]
+  const visitedIds = new Set<string>()
+
+  while (queuedIds.length > 0) {
+    const nodeIds = queuedIds.splice(0).filter((nodeId) => {
+      if (visitedIds.has(nodeId)) {
+        return false
+      }
+      visitedIds.add(nodeId)
+      return true
+    })
+    const loadedNodes = await Promise.all(nodeIds.map((nodeId) => (
+      nodesById.get(nodeId) ?? getNode(projectId, nodeId).catch(() => null)
+    )))
+
+    for (const node of loadedNodes) {
+      if (!node) {
+        continue
+      }
+      nodesById.set(node.id, node)
+      if (node.parentNodeId && !visitedIds.has(node.parentNodeId)) {
+        queuedIds.push(node.parentNodeId)
+      }
+    }
+  }
+
+  return [...nodesById.values()]
+}
+
+function collectDescendantIds(nodeId: string, tree: TreeNode[]) {
+  const target = findTreeNode(tree, nodeId)
+  if (!target) {
+    return []
+  }
+
+  const ids: string[] = []
+  function visit(node: TreeNode) {
+    ids.push(node.id)
+    node.children.forEach(visit)
+  }
+
+  visit(target)
+  return ids
+}
+
+function flattenTree(nodes: TreeNode[], depth = 0): FlatTreeNode[] {
+  return nodes.flatMap((node) => [
+    { ...node, depth },
+    ...flattenTree(node.children, depth + 1),
+  ])
+}
+
+function nodeMatchesWorkItemFilterCondition(node: ProjectNode, condition: WorkItemFilterCondition) {
+  const status = normalizedStatus(nodeFieldValue(node, 'status')).replaceAll(' ', '_')
+  if (condition.field === 'STATUS') {
+    return status === condition.value
+  }
+
+  const priority = String(nodeFieldValue(node, 'priority') ?? '').trim().toUpperCase()
+  if (condition.field === 'PRIORITY') {
+    return priority === condition.value
+  }
+
+  const dueDateValue = nodeFieldValue(node, 'dueDate')
+  const dueDate = typeof dueDateValue === 'string' && dueDateValue.trim()
+    ? new Date(`${dueDateValue}T00:00:00`)
+    : null
+  const isValidDueDate = dueDate !== null && !Number.isNaN(dueDate.getTime())
+  if (condition.field === 'DUE_DATE') {
+    if (condition.value === 'NONE') return !isValidDueDate
+    if (!isValidDueDate) {
+      return false
+    }
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const daysUntilDue = Math.round((dueDate.getTime() - today.getTime()) / 86_400_000)
+    if (condition.value === 'OVERDUE') return daysUntilDue < 0
+    if (condition.value === 'TODAY') return daysUntilDue === 0
+    return daysUntilDue >= 0 && daysUntilDue <= 7
+  }
+
+  if (condition.field === 'ASSIGNEE') {
+    const [assigneeType, assigneeId] = condition.value.split(':', 2)
+    const assigneeFieldName = assigneeType === 'TEAM' ? 'assigneeTeamIds' : 'assigneeUserIds'
+    return parseStringArrayValue(nodeFieldValue(node, assigneeFieldName)).includes(assigneeId)
+  }
+
+  return false
+}
+
+function conditionsMatchWorkItem(node: ProjectNode, conditions: WorkItemFilterCondition[]) {
+  if (conditions.length === 0) return true
+  let completedOrClause = false
+  let currentAndClause = nodeMatchesWorkItemFilterCondition(node, conditions[0])
+  for (const condition of conditions.slice(1)) {
+    const matches = nodeMatchesWorkItemFilterCondition(node, condition)
+    if (condition.operator === 'OR') {
+      completedOrClause ||= currentAndClause
+      currentAndClause = matches
+    } else {
+      currentAndClause &&= matches
+    }
+  }
+  return completedOrClause || currentAndClause
+}
+
+function filterTreeByWorkItemFilters(nodes: TreeNode[], conditions: WorkItemFilterCondition[]): TreeNode[] {
+  if (conditions.length === 0) {
+    return nodes
+  }
+  return nodes
+    .map((node) => {
+      const filteredChildren = filterTreeByWorkItemFilters(node.children, conditions)
+      const nodeMatches = conditionsMatchWorkItem(node, conditions)
+      if (nodeMatches || filteredChildren.length > 0) {
+        return { ...node, children: filteredChildren }
+      }
+      return null
+    })
+    .filter((node): node is TreeNode => Boolean(node))
+}
+
+function collectExpandableTreeNodeIds(nodes: TreeNode[]) {
+  const ids = new Set<string>()
+
+  function visit(node: TreeNode) {
+    if (node.children.length > 0) {
+      ids.add(node.id)
+      node.children.forEach(visit)
+    }
+  }
+
+  nodes.forEach(visit)
+  return ids
+}
+
+function nodeRelationBadges(
+  nodeId: string,
+  edges: ProjectNodeEdge[],
+  proposals: GraphChangeProposal[],
+): NodeRelationBadge[] {
+  const relatedProposalChanges = proposals.flatMap((proposal) => proposal.changes)
+    .filter((change) => isOpenProposalStatus(change.status))
+    .filter((change) => {
+      if (change.entityType === 'ENTRY') return (change.entry ?? change.previousEntry)?.workItemId === nodeId
+      if (change.entityType !== 'EDGE') return false
+      const relationship = change.relationship ?? change.previousRelationship
+      return Boolean(relationship && relationship.type !== relationType && (
+        (relationship.fromEntityType === 'WORK_ITEM' && relationship.fromEntityId === nodeId)
+        || (relationship.toEntityType === 'WORK_ITEM' && relationship.toEntityId === nodeId)
+      ))
+    })
+  const proposalBadge: NodeRelationBadge[] = relatedProposalChanges.length > 0 ? [{
+    key: `detail-proposals-${nodeId}`,
+    label: `${relatedProposalChanges.length} proposed ${relatedProposalChanges.length === 1 ? 'change' : 'changes'}`,
+    title: 'AI-proposed changes are available in the detail panel',
+    proposed: true,
+  }] : []
+  const relationshipCount = edges
+    .filter((edge) => edge.relationType !== relationType && edge.relationType !== 'BLOCKED_BY')
+    .filter((edge) => edge.fromNodeId === nodeId || edge.toNodeId === nodeId)
+    .length
+  const relationshipBadge: NodeRelationBadge[] = relationshipCount > 0 ? [{
+    key: `relationships-${nodeId}`,
+    label: `${relationshipCount} ${relationshipCount === 1 ? 'relationship' : 'relationships'}`,
+    title: 'View and manage relationships in the detail panel',
+  }] : []
+
+  return [...proposalBadge, ...relationshipBadge]
+}
+
+function openWorkspaceChangesForNode(proposals: GraphChangeProposal[], nodeId: string) {
+  return proposals.flatMap((proposal) => proposal.changes
+    .filter((change) => isOpenProposalStatus(change.status))
+    .filter((change) => {
+      if (change.entityType === 'NODE') return change.targetId === nodeId
+      if (change.entityType === 'ENTRY') return (change.entry ?? change.previousEntry)?.workItemId === nodeId
+      const relationship = change.relationship ?? change.previousRelationship
+      return Boolean(relationship && (
+        (relationship.fromEntityType === 'WORK_ITEM' && relationship.fromEntityId === nodeId)
+        || (relationship.toEntityType === 'WORK_ITEM' && relationship.toEntityId === nodeId)
+      ))
+    })
+    .map((change) => ({ proposalId: proposal.id, change })))
+}
+
+function pageInfoFromResponse(response: NodePageResponse): NodePageInfo {
+  return {
+    page: response.page,
+    size: response.size,
+    totalItems: response.totalItems,
+    totalPages: response.totalPages,
+  }
+}
+
+function mergeNodesById(currentNodes: ProjectNode[], nextNodes: ProjectNode[]) {
+  const nodeById = new Map(currentNodes.map((node) => [node.id, node]))
+  nextNodes.forEach((node) => {
+    nodeById.set(node.id, node)
+  })
+  return [...nodeById.values()]
+}
+
+async function loadRequestedWorkItemTreePath(projectId: string, workItemId: string, rootNodes: ProjectNode[]) {
+  let nextNodes = rootNodes
+  const nodeById = new Map(nextNodes.map((node) => [node.id, node]))
+  const requestedNode = nodeById.get(workItemId) ?? await getNode(projectId, workItemId).catch(() => null)
+
+  if (!requestedNode) {
+    return {
+      nodes: nextNodes,
+      selectedNode: null,
+      expandedNodeIds: [] as string[],
+      loadedChildrenParentIds: new Set<string>(),
+      childrenPageInfoByParentId: new Map<string, NodePageInfo>(),
+    }
+  }
+
+  const ancestorNodes: ProjectNode[] = []
+  const ancestorNodeIds: string[] = []
+  const visitedNodeIds = new Set([requestedNode.id])
+  let parentNodeId = requestedNode.parentNodeId ?? null
+
+  while (parentNodeId && !visitedNodeIds.has(parentNodeId)) {
+    const parentNode = nodeById.get(parentNodeId)
+      ?? ancestorNodes.find((node) => node.id === parentNodeId)
+      ?? await getNode(projectId, parentNodeId).catch(() => null)
+
+    if (!parentNode) {
+      break
+    }
+
+    ancestorNodes.unshift(parentNode)
+    ancestorNodeIds.unshift(parentNode.id)
+    visitedNodeIds.add(parentNode.id)
+    parentNodeId = parentNode.parentNodeId ?? null
+  }
+
+  nextNodes = mergeNodesById(nextNodes, [...ancestorNodes, requestedNode])
+
+  const loadedChildrenParentIds = new Set<string>()
+  const childrenPageInfoByParentId = new Map<string, NodePageInfo>()
+  const childResponses = await Promise.all(
+    ancestorNodeIds.map(async (ancestorNodeId) => ({
+      ancestorNodeId,
+      response: await listTreeNodes(projectId, { parentNodeId: ancestorNodeId, page: 0, size: treePageSize }).catch(() => null),
+    })),
+  )
+
+  for (const { ancestorNodeId, response } of childResponses) {
+    if (!response) {
+      continue
+    }
+
+    nextNodes = mergeNodesById(nextNodes, response.items)
+    loadedChildrenParentIds.add(ancestorNodeId)
+    childrenPageInfoByParentId.set(ancestorNodeId, pageInfoFromResponse(response))
+  }
+
+  return {
+    nodes: nextNodes,
+    selectedNode: requestedNode,
+    expandedNodeIds: ancestorNodeIds,
+    loadedChildrenParentIds,
+    childrenPageInfoByParentId,
+  }
+}
+
+function removeLoadedSubtree(nodes: ProjectNode[], nodeIds: Set<string>) {
+  return nodes.filter((node) => !nodeIds.has(node.id))
+}
+
+function findTreeNode(nodes: TreeNode[], nodeId: string | null): TreeNode | null {
+  if (!nodeId) {
+    return null
+  }
+
+  for (const node of nodes) {
+    if (node.id === nodeId) {
+      return node
+    }
+
+    const childMatch = findTreeNode(node.children, nodeId)
+    if (childMatch) {
+      return childMatch
+    }
+  }
+
+  return null
+}
+
+function findTreeNodePath(nodes: TreeNode[], nodeId: string | null, path: TreeNode[] = []): TreeNode[] {
+  if (!nodeId) {
+    return []
+  }
+
+  for (const node of nodes) {
+    const nextPath = [...path, node]
+    if (node.id === nodeId) {
+      return nextPath
+    }
+
+    const childPath = findTreeNodePath(node.children, nodeId, nextPath)
+    if (childPath.length > 0) {
+      return childPath
+    }
+  }
+
+  return []
+}
+
+function referenceUserLabel(user: User) {
+  return user.displayName?.trim() || user.username || user.email || 'Unnamed user'
+}
+
+function referenceTeamLabel(team: Team) {
+  return team.name || 'Unnamed team'
+}
+
+function entryAuthorLabel(entry: Entry, userLabels: Map<string, string>) {
+  return entry.authorDisplayName?.trim() || userLabels.get(entry.authorUserId) || 'Unknown user'
+}
+
+function ReferenceMultiSelect({
+  value,
+  options,
+  onChange,
+}: {
+  value: string[]
+  options: { id: string; label: string }[]
+  onChange: (value: string[]) => void
+}) {
+  const selectedIds = parseStringArrayValue(value)
+  const selectedIdSet = new Set(selectedIds)
+  const optionsById = new Map(options.map((option) => [option.id, option]))
+  const availableOptions = options.filter((option) => !selectedIdSet.has(option.id))
+
+  function removeValue(id: string) {
+    onChange(selectedIds.filter((selectedId) => selectedId !== id))
+  }
+
+  return (
+    <div className="space-y-2">
+      {selectedIds.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedIds.map((id) => (
+            <span key={id} className="inline-flex max-w-full items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs">
+              <span className="truncate">{optionsById.get(id)?.label ?? 'Unknown'}</span>
+              <Button type="button" variant="ghost" size="icon-xs" className="-mr-1 h-5 w-5" onClick={() => removeValue(id)} aria-label="Remove">
+                <X className="h-3 w-3" />
+              </Button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <NativeSelect
+        className="w-full"
+        value=""
+        onChange={(event) => {
+          const selectedId = event.target.value
+          if (selectedId) {
+            onChange([...selectedIds, selectedId])
+          }
+        }}
+        disabled={availableOptions.length === 0}
+      >
+        <NativeSelectOption value="">{availableOptions.length === 0 ? 'No options available' : 'Add'}</NativeSelectOption>
+        {availableOptions.map((option) => (
+          <NativeSelectOption key={option.id} value={option.id}>
+            {option.label}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    </div>
+  )
+}
+
+function WorkItemEntries({
+  content,
+  renderChild,
+  canReorder,
+  selectedEntryId,
+  startAdding,
+  defaultType,
+  composerPlaceholder,
+  isQuestion,
+  acceptedAnswerEntryId,
+  isAiSuggestionsEnabled,
+  onEntryComposerOpened,
+  onSelect,
+  onCreate,
+  onReviewNew,
+  onAcceptNewReview,
+  onRejectNewReview,
+  onUpdate,
+  onReview,
+  onAcceptReview,
+  onRejectReview,
+  onAcceptAnswer,
+  onMoveContent,
+  onDelete,
+}: {
+  content: OrderedWorkItemContent[]
+  renderChild: (child: TreeNode, index: number, total: number) => ReactNode
+  canReorder: boolean
+  selectedEntryId: string | null
+  startAdding: boolean
+  defaultType: string
+  composerPlaceholder: string
+  isQuestion: boolean
+  acceptedAnswerEntryId: string | null
+  isAiSuggestionsEnabled: boolean
+  onEntryComposerOpened: () => void
+  onSelect: (entry: Entry) => void
+  onCreate: (type: string, body: string) => Promise<void>
+  onReviewNew: (type: string, body: string, instruction?: string) => Promise<EntryAiReview>
+  onAcceptNewReview: (type: string, review: EntryAiReview) => Promise<void>
+  onRejectNewReview: (type: string, review: EntryAiReview) => Promise<void>
+  onUpdate: (entry: Entry, type: string, body: string) => Promise<void>
+  onReview: (entry: Entry, type: string, body: string, instruction?: string) => Promise<EntryAiReview>
+  onAcceptReview: (entry: Entry, review: EntryAiReview) => Promise<void>
+  onRejectReview: (entry: Entry, review: EntryAiReview) => Promise<void>
+  onAcceptAnswer: (entryId: string) => Promise<void>
+  onMoveContent: (entityType: 'WORK_ITEM' | 'ENTRY', entityId: string, offset: number) => Promise<void>
+  onDelete: (entryId: string) => Promise<void>
+}) {
+  const [isAdding, setIsAdding] = useState(false)
+  const [newType, setNewType] = useState(defaultType)
+  const [newBody, setNewBody] = useState('')
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const [editType, setEditType] = useState('COMMENT')
+  const [editBody, setEditBody] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [reviewByEntryId, setReviewByEntryId] = useState<Map<string, EntryAiReview>>(new Map())
+  const [reviewFeedbackByEntryId, setReviewFeedbackByEntryId] = useState<Map<string, string>>(new Map())
+  const [newEntryReview, setNewEntryReview] = useState<EntryAiReview | null>(null)
+  const [newReviewFeedback, setNewReviewFeedback] = useState('')
+  const [skipNewEntryAiReview, setSkipNewEntryAiReview] = useState(false)
+  const [skipEntryAiReviewId, setSkipEntryAiReviewId] = useState<string | null>(null)
+  const [acceptingAnswerEntryId, setAcceptingAnswerEntryId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (startAdding) {
+      setIsAdding(true)
+      setNewType(defaultType)
+      onEntryComposerOpened()
+    }
+  }, [onEntryComposerOpened, startAdding])
+
+  async function saveNewEntry() {
+    if (!newBody.trim()) {
+      toast.error('Update text is required.')
+      return
+    }
+    setIsSaving(true)
+    try {
+      if (isAiSuggestionsEnabled && !skipNewEntryAiReview) {
+        const review = await onReviewNew(newType, newBody.trim())
+        setNewEntryReview({ ...review, entryType: newType })
+        setIsAdding(false)
+      } else {
+        await onCreate(newType, newBody.trim())
+        setNewBody('')
+        setIsAdding(false)
+        setSkipNewEntryAiReview(false)
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add update.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function saveEditedEntry(entry: Entry) {
+    if (!editBody.trim()) {
+      toast.error('Update text is required.')
+      return
+    }
+    setIsSaving(true)
+    try {
+      if (isAiSuggestionsEnabled && skipEntryAiReviewId !== entry.id) {
+        const review = await onReview(entry, editType, editBody.trim())
+        setReviewByEntryId((current) => new Map(current).set(entry.id, { ...review, entryType: editType }))
+      } else {
+        await onUpdate(entry, editType, editBody.trim())
+        setSkipEntryAiReviewId(null)
+      }
+      setEditingEntryId(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save update.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (content.length === 0 && !isAdding && !newEntryReview) {
+    return null
+  }
+
+  return (
+    <div className="space-y-1" data-work-item-entries>
+      {content.map((item, contentIndex) => {
+        if (item.entityType === 'WORK_ITEM') {
+          return <div key={`work-item-${item.entityId}`} className="relative before:absolute before:-left-3 before:top-4 before:h-px before:w-3 before:bg-border">{renderChild(item.child, contentIndex, content.length)}</div>
+        }
+        const entry = item.entry
+        const isEditing = editingEntryId === entry.id
+        const review = reviewByEntryId.get(entry.id)
+        const isAcceptedAnswer = entry.id === acceptedAnswerEntryId
+        return (
+          <div key={entry.id} className={cn('group relative flex items-center gap-2 rounded-md border border-border/50 bg-muted/15 px-2 py-1.5 transition-colors hover:bg-muted/35', selectedEntryId === entry.id && 'border-primary/40 bg-primary/5 ring-1 ring-inset ring-primary/25')} onClick={() => onSelect(entry)}>
+            <span className="absolute top-1/2 -left-3 h-px w-3 bg-border" aria-hidden="true" />
+            <span className="grid h-7 w-7 shrink-0 place-items-center text-muted-foreground" aria-hidden="true"><MessageSquareText className="h-3.5 w-3.5" /></span>
+            {isEditing ? (
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <NativeSelect className="w-32 shrink-0" value={editType} onChange={(event) => setEditType(event.target.value)} disabled={isSaving}>
+                  {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{type}</NativeSelectOption>)}
+                </NativeSelect>
+                <Input
+                  autoFocus
+                  className="h-7 min-w-0 flex-1 text-sm"
+                  value={editBody}
+                  onChange={(event) => setEditBody(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void saveEditedEntry(entry)
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault()
+                      setEditingEntryId(null)
+                    }
+                  }}
+                  disabled={isSaving}
+                  aria-label="Update content"
+                />
+                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveEditedEntry(entry)} aria-label="Save update" title="Save update">
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+                </Button>
+                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => setEditingEntryId(null)} aria-label="Cancel update edit" title="Cancel"><X /></Button>
+              </div>
+            ) : (
+              <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {isAcceptedAnswer ? <Badge className="shrink-0"><Check className="h-3 w-3" /> Accepted answer</Badge> : null}
+                  <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', entryTypeBadgeClass(entry.type))}>{entry.type}</Badge>
+                  <p className="min-w-0 flex-1 truncate text-sm text-foreground" title={entry.body}>{entry.body}</p>
+                </div>
+                {!review ? (
+                  <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                    {canReorder && contentIndex > 0 ? (
+                      <Button type="button" size="icon-xs" variant="ghost" onClick={(event) => { event.stopPropagation(); void onMoveContent('ENTRY', entry.id, -1) }} aria-label="Move update up" title="Move up"><ArrowUp /></Button>
+                    ) : null}
+                    {canReorder && contentIndex < content.length - 1 ? (
+                      <Button type="button" size="icon-xs" variant="ghost" onClick={(event) => { event.stopPropagation(); void onMoveContent('ENTRY', entry.id, 1) }} aria-label="Move update down" title="Move down"><ArrowDown /></Button>
+                    ) : null}
+                    {isQuestion && !isAcceptedAnswer ? (
+                      <Button type="button" size="xs" variant="ghost" disabled={acceptingAnswerEntryId !== null} onClick={async (event) => {
+                        event.stopPropagation()
+                        setAcceptingAnswerEntryId(entry.id)
+                        try {
+                          await onAcceptAnswer(entry.id)
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Failed to accept answer.')
+                        } finally {
+                          setAcceptingAnswerEntryId(null)
+                        }
+                      }}>
+                        {acceptingAnswerEntryId === entry.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        Accept answer
+                      </Button>
+                    ) : null}
+                    <Button type="button" size="icon-xs" variant="ghost" onClick={(event) => { event.stopPropagation(); setEditingEntryId(entry.id); setEditType(entry.type); setEditBody(entry.body) }} aria-label="Edit update"><Pencil /></Button>
+                    <DeleteConfirmPopover
+                      title="Delete update?"
+                      description="This update will be permanently deleted."
+                      trigger={<Button type="button" size="icon-xs" variant="ghost" onClick={(event) => event.stopPropagation()} aria-label="Delete update"><Trash2 /></Button>}
+                      onConfirm={() => onDelete(entry.id)}
+                    />
+                  </div>
+                ) : null}
+              </div>
+              {review ? (
+                <div className="mt-2 ml-4 flex min-w-0 items-start gap-3 rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
+                  <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground">Your draft</p>
+                    <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground line-through">{review.originalBody}</p>
+                    <p className="mt-2 text-xs font-medium text-primary">Suggested</p>
+                    <p className="whitespace-pre-wrap break-words text-sm">{review.proposedBody}</p>
+                    {review.proposedType && review.proposedType !== (review.entryType ?? entry.type) ? (
+                      <p className="mt-2 text-xs text-primary">Classification: {review.entryType ?? entry.type} → {review.proposedType}</p>
+                    ) : null}
+                    {review.rationale ? <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{review.rationale}</p> : null}
+                    <div className="mt-2 flex gap-2">
+                      <Input
+                        className="h-7 bg-white text-xs"
+                        value={reviewFeedbackByEntryId.get(entry.id) ?? ''}
+                        onChange={(event) => setReviewFeedbackByEntryId((current) => new Map(current).set(entry.id, event.target.value))}
+                        placeholder="Tell AI what to change…"
+                        disabled={isSaving}
+                      />
+                      <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={async () => {
+                        setIsSaving(true)
+                        try {
+                          const nextReview = await onReview(entry, review.proposedType ?? review.entryType ?? entry.type, review.proposedBody, reviewFeedbackByEntryId.get(entry.id))
+                          setReviewByEntryId((current) => new Map(current).set(entry.id, { ...nextReview, entryType: review.proposedType ?? review.entryType ?? entry.type }))
+                          setReviewFeedbackByEntryId((current) => { const next = new Map(current); next.delete(entry.id); return next })
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Failed to update AI suggestion.')
+                        } finally {
+                          setIsSaving(false)
+                        }
+                      }}>Ask again</Button>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                  <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
+                    setIsSaving(true)
+                    try {
+                      await onAcceptReview(entry, review)
+                      setReviewByEntryId((current) => {
+                        const next = new Map(current)
+                        next.delete(entry.id)
+                        return next
+                      })
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Failed to accept AI suggestion.')
+                    } finally {
+                      setIsSaving(false)
+                    }
+                  }} aria-label="Accept AI suggestion" title="Accept AI suggestion">
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+                  </Button>
+                  <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={() => {
+                    setEditingEntryId(entry.id)
+                    setEditType(review.proposedType ?? review.entryType ?? entry.type)
+                    setEditBody(review.proposedBody)
+                    setReviewByEntryId((current) => { const next = new Map(current); next.delete(entry.id); return next })
+                    setSkipEntryAiReviewId(entry.id)
+                  }} aria-label="Keep editing AI suggestion" title="Keep editing"><Pencil /></Button>
+                  <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
+                    setIsSaving(true)
+                    try {
+                      await onRejectReview(entry, review)
+                      setReviewByEntryId((current) => {
+                        const next = new Map(current)
+                        next.delete(entry.id)
+                        return next
+                      })
+                      setEditingEntryId(entry.id)
+                      setEditType(review.entryType ?? entry.type)
+                      setEditBody(review.originalBody)
+                      setSkipEntryAiReviewId(entry.id)
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Failed to reject AI suggestion.')
+                    } finally {
+                      setIsSaving(false)
+                    }
+                  }} aria-label="Reject AI suggestion" title="Reject AI suggestion"><X /></Button>
+                  </div>
+                </div>
+              ) : null}
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {isAdding ? (
+        <div className="relative flex min-w-0 items-center gap-2 rounded-sm py-2 pl-3">
+          <span className="absolute top-1/2 left-0 size-1.5 -translate-x-[3px] -translate-y-1/2 rounded-full bg-primary/60" aria-hidden="true" />
+          <NativeSelect className="w-32 shrink-0" value={newType} onChange={(event) => setNewType(event.target.value)} disabled={isSaving} aria-label="Update classification">
+            {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{type}</NativeSelectOption>)}
+          </NativeSelect>
+          <Input
+            autoFocus
+            className="h-7 min-w-0 flex-1 text-sm"
+            value={newBody}
+            onChange={(event) => setNewBody(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                void saveNewEntry()
+              }
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                setIsAdding(false)
+              }
+            }}
+            placeholder={composerPlaceholder}
+            disabled={isSaving}
+            aria-label={composerPlaceholder}
+          />
+          <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveNewEntry()} aria-label="Add update" title="Add update">
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+          </Button>
+          <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => setIsAdding(false)} aria-label="Cancel new update" title="Cancel"><X /></Button>
+        </div>
+      ) : null}
+      {newEntryReview ? (
+        <div className="relative mt-2 ml-3 flex min-w-0 items-start gap-3 rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
+          <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground">Your draft</p>
+            <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground line-through">{newEntryReview.originalBody}</p>
+            <p className="mt-2 text-xs font-medium text-primary">Suggested</p>
+            <p className="whitespace-pre-wrap break-words text-sm">{newEntryReview.proposedBody}</p>
+            {newEntryReview.proposedType && newEntryReview.proposedType !== (newEntryReview.entryType ?? newType) ? (
+              <p className="mt-2 text-xs text-primary">Classification: {newEntryReview.entryType ?? newType} → {newEntryReview.proposedType}</p>
+            ) : null}
+            {newEntryReview.rationale ? <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{newEntryReview.rationale}</p> : null}
+            <div className="mt-2 flex gap-2">
+              <Input className="h-7 bg-white text-xs" value={newReviewFeedback} onChange={(event) => setNewReviewFeedback(event.target.value)} placeholder="Tell AI what to change…" disabled={isSaving} />
+              <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={async () => {
+                setIsSaving(true)
+                try {
+                  const nextReview = await onReviewNew(newEntryReview.proposedType ?? newEntryReview.entryType ?? newType, newEntryReview.proposedBody, newReviewFeedback)
+                  setNewEntryReview({ ...nextReview, entryType: newEntryReview.proposedType ?? newEntryReview.entryType ?? newType })
+                  setNewReviewFeedback('')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Failed to update AI suggestion.')
+                } finally {
+                  setIsSaving(false)
+                }
+              }}>Ask again</Button>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 pt-0.5">
+          <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
+            setIsSaving(true)
+            try {
+              await onAcceptNewReview(newEntryReview.proposedType ?? newEntryReview.entryType ?? 'COMMENT', newEntryReview)
+              setNewEntryReview(null)
+              setNewBody('')
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : 'Failed to accept AI suggestion.')
+            } finally {
+              setIsSaving(false)
+            }
+          }} aria-label="Accept AI suggestion" title="Accept AI suggestion">
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+          </Button>
+          <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={() => {
+            setNewType(newEntryReview.proposedType ?? newEntryReview.entryType ?? newType)
+            setNewBody(newEntryReview.proposedBody)
+            setNewEntryReview(null)
+            setIsAdding(true)
+            setSkipNewEntryAiReview(true)
+          }} aria-label="Keep editing AI suggestion" title="Keep editing"><Pencil /></Button>
+          <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
+            setIsSaving(true)
+            try {
+              await onRejectNewReview(newEntryReview.entryType ?? 'COMMENT', newEntryReview)
+              setNewEntryReview(null)
+              setNewType(newEntryReview.entryType ?? newType)
+              setNewBody(newEntryReview.originalBody)
+              setIsAdding(true)
+              setSkipNewEntryAiReview(true)
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : 'Failed to reject AI suggestion.')
+            } finally {
+              setIsSaving(false)
+            }
+          }} aria-label="Reject AI suggestion" title="Reject AI suggestion"><X /></Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+type BlockerUi = {
+  relationshipsByNodeId: Map<string, Relationship[]>
+  workItems: WorkItem[]
+  titleById: Map<string, string>
+  isSaving: boolean
+  onRefresh: () => void
+  onAdd: (nodeId: string, blockerId: string) => Promise<void>
+  onRemove: (relationshipId: string) => Promise<void>
+  onUpdateReason: (relationshipId: string, reason: string | null) => Promise<void>
+}
+
+function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigger: ReactElement; blockerUi: BlockerUi }) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [addingId, setAddingId] = useState<string | null>(null)
+  const [editingReasonId, setEditingReasonId] = useState<string | null>(null)
+  const [reasonDraft, setReasonDraft] = useState('')
+  const blockers = blockerUi.relationshipsByNodeId.get(nodeId) ?? []
+  const existingIds = new Set(blockers.map((relationship) => relationship.toEntityId))
+  const normalizedSearch = search.trim().toLowerCase()
+  const options = blockerUi.workItems
+    .filter((item) => item.id !== nodeId && !existingIds.has(item.id))
+    .filter((item) => !normalizedSearch || item.title.toLowerCase().includes(normalizedSearch))
+    .slice(0, 8)
+
+  async function addBlocker(blockerId: string) {
+    setAddingId(blockerId)
+    try {
+      await blockerUi.onAdd(nodeId, blockerId)
+      setSearch('')
+    } finally {
+      setAddingId(null)
+    }
+  }
+
+  async function saveReason(relationshipId: string) {
+    await blockerUi.onUpdateReason(relationshipId, reasonDraft.trim() || null)
+    setEditingReasonId(null)
+    setReasonDraft('')
+  }
+
+  return (
+    <Popover open={open} onOpenChange={(nextOpen) => {
+      setOpen(nextOpen)
+      if (nextOpen) blockerUi.onRefresh()
+      else {
+        setSearch('')
+        setEditingReasonId(null)
+      }
+    }}>
+      <PopoverTrigger render={trigger} />
+      <PopoverContent align="start" className="w-96 gap-0 p-0">
+        <PopoverHeader className="border-b px-4 py-3">
+          <PopoverTitle>Blocked by</PopoverTitle>
+        </PopoverHeader>
+
+        {blockers.length > 0 ? (
+          <div className="divide-y border-b">
+            {blockers.map((relationship) => (
+              <div key={relationship.id} className="flex items-start gap-3 px-3 py-2.5">
+                <OctagonAlert className="mt-1 h-4 w-4 shrink-0 text-destructive" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{blockerUi.titleById.get(relationship.toEntityId) ?? relationship.toEntityId}</div>
+                  {editingReasonId === relationship.id ? (
+                    <div className="mt-2 flex gap-1.5">
+                      <Input
+                        autoFocus
+                        className="h-8"
+                        value={reasonDraft}
+                        onChange={(event) => setReasonDraft(event.target.value)}
+                        placeholder="Optional reason"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            void saveReason(relationship.id)
+                          }
+                        }}
+                      />
+                      <Button type="button" size="icon-sm" variant="ghost" disabled={blockerUi.isSaving} onClick={() => void saveReason(relationship.id)} aria-label="Save blocker reason"><Check /></Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mt-0.5 block max-w-full truncate text-left text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setEditingReasonId(relationship.id)
+                        setReasonDraft(relationship.reason ?? '')
+                      }}
+                    >
+                      {relationship.reason || 'Add reason'}
+                    </button>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  disabled={blockerUi.isSaving}
+                  onClick={() => void blockerUi.onRemove(relationship.id)}
+                  aria-label="Remove blocker"
+                  title="Remove blocker"
+                >
+                  <X />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="space-y-4 p-4">
+          <div className="space-y-2">
+            <label htmlFor={`blocker-search-${nodeId}`} className="block text-sm font-semibold">Search work items</label>
+            <Input id={`blocker-search-${nodeId}`} autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search work items…" />
+          </div>
+          <div className="max-h-52 overflow-auto">
+            {options.length === 0 ? (
+              <div className="px-2 py-5 text-center text-sm text-muted-foreground">No available work items</div>
+            ) : options.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="flex min-h-9 w-full items-center gap-2 rounded-sm px-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                disabled={addingId !== null || blockerUi.isSaving}
+                onClick={() => void addBlocker(item.id)}
+              >
+                {addingId === item.id ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <FileText className="h-4 w-4 shrink-0" />}
+                <span className="min-w-0 flex-1 truncate">{item.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+type WorkItemRelationshipUi = {
+  workItems: WorkItem[]
+  isSaving: boolean
+  onAdd: (nodeId: string, relatedNodeId: string, type: string, direction: 'OUTGOING' | 'INCOMING', reason: string | null) => Promise<void>
+}
+
+function WorkItemRelationshipPopover({ nodeId, trigger, relationshipUi }: { nodeId: string; trigger: ReactElement; relationshipUi: WorkItemRelationshipUi }) {
+  const [open, setOpen] = useState(false)
+  const [type, setType] = useState<string>(workItemRelationshipTypes[0])
+  const [direction, setDirection] = useState<'OUTGOING' | 'INCOMING'>('OUTGOING')
+  const [reason, setReason] = useState('')
+  const [search, setSearch] = useState('')
+  const [addingId, setAddingId] = useState<string | null>(null)
+  const normalizedSearch = search.trim().toLowerCase()
+  const options = relationshipUi.workItems
+    .filter((item) => item.id !== nodeId)
+    .filter((item) => !normalizedSearch || item.title.toLowerCase().includes(normalizedSearch))
+    .slice(0, 8)
+
+  async function addRelationship(relatedNodeId: string) {
+    setAddingId(relatedNodeId)
+    try {
+      await relationshipUi.onAdd(nodeId, relatedNodeId, type, direction, reason.trim() || null)
+      setSearch('')
+      setReason('')
+      setOpen(false)
+    } finally {
+      setAddingId(null)
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={(nextOpen) => {
+      setOpen(nextOpen)
+      if (!nextOpen) {
+        setSearch('')
+        setReason('')
+      }
+    }}>
+      <PopoverTrigger render={trigger} />
+      <PopoverContent align="start" className="w-96 gap-0 p-0">
+        <PopoverHeader className="border-b px-4 py-3">
+          <PopoverTitle>Add relationship</PopoverTitle>
+        </PopoverHeader>
+        <div className="space-y-4 p-4">
+          <div className="space-y-2">
+            <label htmlFor={`relationship-type-${nodeId}`} className="block text-sm font-semibold">Type</label>
+            <NativeSelect id={`relationship-type-${nodeId}`} value={type} onChange={(event) => setType(event.target.value)}>
+              {workItemRelationshipTypes.map((option) => <NativeSelectOption key={option} value={option}>{relationshipTypeLabel(option)}</NativeSelectOption>)}
+            </NativeSelect>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor={`relationship-direction-${nodeId}`} className="block text-sm font-semibold">Direction</label>
+            <NativeSelect id={`relationship-direction-${nodeId}`} value={direction} onChange={(event) => setDirection(event.target.value as 'OUTGOING' | 'INCOMING')}>
+              <NativeSelectOption value="OUTGOING">This item → selected item</NativeSelectOption>
+              <NativeSelectOption value="INCOMING">Selected item → this item</NativeSelectOption>
+            </NativeSelect>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor={`relationship-reason-${nodeId}`} className="block text-sm font-semibold">Reason <span className="font-normal text-muted-foreground">(optional)</span></label>
+            <Input id={`relationship-reason-${nodeId}`} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why are these items related?" />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor={`relationship-search-${nodeId}`} className="block text-sm font-semibold">Work item</label>
+            <Input id={`relationship-search-${nodeId}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search work items…" />
+          </div>
+          <div className="max-h-52 overflow-auto">
+            {options.length === 0 ? (
+              <div className="px-2 py-5 text-center text-sm text-muted-foreground">No available work items</div>
+            ) : options.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="flex min-h-9 w-full items-center gap-2 rounded-sm px-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                disabled={addingId !== null || relationshipUi.isSaving}
+                onClick={() => void addRelationship(item.id)}
+              >
+                {addingId === item.id ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <FileText className="h-4 w-4 shrink-0" />}
+                <span className="min-w-0 flex-1 truncate">{item.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function TreeRowContent({
+  node,
+  depth,
+  expandedNodeIds,
+  selectedNodeId,
+  isSaving,
+  decidingProposalChangeId,
+  loadedChildrenParentIds,
+  loadingChildrenNodeIds,
+  childrenPageInfoByParentId,
+  relationBadgesByNodeId,
+  blockerUi,
+  entriesByWorkItemId,
+  contentOrderByParent,
+  acceptedAnswerByQuestionId,
+  userLabels,
+  teamLabels,
+  selectedEntryId,
+  isAiSuggestionsEnabled,
+  canReorder,
+  canMoveUp,
+  canMoveDown,
+  onToggle,
+  onLoadMoreChildren,
+  onSelect,
+  onSelectEntry,
+  onAddChild,
+  onFocus,
+  onMove,
+  onDelete,
+  onEditTitle,
+  onCreateEntry,
+  onReviewNewEntry,
+  onAcceptNewEntryReview,
+  onRejectNewEntryReview,
+  onUpdateEntry,
+  onReviewEntry,
+  onAcceptEntryReview,
+  onRejectEntryReview,
+  onAcceptAnswer,
+  onMoveContentOrder,
+  onMoveInContentOrder,
+  onDeleteEntry,
+  autoEditTitleNodeId,
+  onAutoEditTitleStarted,
+  onDecideProposal,
+}: {
+  node: TreeNode
+  depth: number
+  expandedNodeIds: Set<string>
+  selectedNodeId: string | null
+  isSaving: boolean
+  decidingProposalChangeId: string | null
+  loadedChildrenParentIds: Set<string>
+  loadingChildrenNodeIds: Set<string>
+  childrenPageInfoByParentId: Map<string, NodePageInfo>
+  relationBadgesByNodeId: Map<string, NodeRelationBadge[]>
+  blockerUi: BlockerUi
+  entriesByWorkItemId: Map<string, Entry[]>
+  contentOrderByParent: Map<string, ContentOrderItem[]>
+  acceptedAnswerByQuestionId: Map<string, string>
+  userLabels: Map<string, string>
+  teamLabels: Map<string, string>
+  selectedEntryId: string | null
+  isAiSuggestionsEnabled: boolean
+  canReorder: boolean
+  canMoveUp: boolean
+  canMoveDown: boolean
+  onToggle: (nodeId: string) => void
+  onLoadMoreChildren: (parentId: string) => void
+  onSelect: (node: ProjectNode) => void
+  onSelectEntry: (entry: Entry) => void
+  onAddChild: (parentId: string, type?: string) => void
+  onFocus: (node: TreeNode) => void
+  onMove: (node: TreeNode) => void
+  onDelete: (nodeId: string) => void
+  onEditTitle: (node: ProjectNode, title: string) => Promise<void>
+  onCreateEntry: (workItemId: string, type: string, body: string) => Promise<void>
+  onReviewNewEntry: (workItemId: string, type: string, body: string, instruction?: string) => Promise<EntryAiReview>
+  onAcceptNewEntryReview: (workItemId: string, type: string, review: EntryAiReview) => Promise<void>
+  onRejectNewEntryReview: (workItemId: string, type: string, review: EntryAiReview) => Promise<void>
+  onUpdateEntry: (entry: Entry, type: string, body: string) => Promise<void>
+  onReviewEntry: (entry: Entry, type: string, body: string, instruction?: string) => Promise<EntryAiReview>
+  onAcceptEntryReview: (entry: Entry, review: EntryAiReview) => Promise<void>
+  onRejectEntryReview: (entry: Entry, review: EntryAiReview) => Promise<void>
+  onAcceptAnswer: (questionId: string, entryId: string) => Promise<void>
+  onMoveContentOrder: (parentWorkItemId: string | null, entityType: 'WORK_ITEM' | 'ENTRY', entityId: string, offset: number) => Promise<void>
+  onMoveInContentOrder: (offset: number) => void
+  onDeleteEntry: (entryId: string) => Promise<void>
+  autoEditTitleNodeId: string | null
+  onAutoEditTitleStarted: () => void
+  onDecideProposal: (proposal: TreeNodeProposal, decision: 'ACCEPT' | 'REJECT') => void
+}) {
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [draftTitle, setDraftTitle] = useState(node.title)
+  const [isSavingTitle, setIsSavingTitle] = useState(false)
+  const [entryComposerRequested, setEntryComposerRequested] = useState(false)
+  const isExpanded = expandedNodeIds.has(node.id)
+  const isSelected = selectedNodeId === node.id
+  const isLoadingChildren = loadingChildrenNodeIds.has(node.id)
+  const hasLoadedChildren = loadedChildrenParentIds.has(node.id)
+  const childPageInfo = childrenPageInfoByParentId.get(node.id)
+  const hasMoreChildren = childPageInfo ? childPageInfo.page + 1 < childPageInfo.totalPages : false
+  const canReorderContent = canReorder && hasLoadedChildren && !isLoadingChildren && !hasMoreChildren
+  const proposal = node.proposal
+  const canExpand = !proposal
+  const isDecidingProposal = decidingProposalChangeId === proposal?.changeId
+  const status = nodeFieldValue(node, 'status')
+  const dueDate = formatWorkItemDueDate(nodeFieldValue(node, 'dueDate'))
+  const priority = String(nodeFieldValue(node, 'priority') ?? '').trim().toUpperCase()
+  const assigneeIds = [
+    ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')).map((id) => ({ id, label: userLabels.get(id) ?? 'Unknown user', type: 'user' })),
+    ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')).map((id) => ({ id, label: teamLabels.get(id) ?? 'Unknown team', type: 'team' })),
+  ]
+  const visibleFields = [...(node.fields ?? [])]
+    .filter((field) => field.visibleInTree && !managedWorkItemFieldNames.has(field.name))
+    .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+    .map((field) => ({ field, value: formatFieldValue(field) }))
+    .filter((item) => item.value !== null)
+    .slice(0, 3)
+  const relationBadges = relationBadgesByNodeId.get(node.id) ?? []
+  const proposedRelationBadges = relationBadges.filter((badge) => badge.proposed)
+  const canonicalRelationBadges = relationBadges.filter((badge) => !badge.proposed)
+  const blockerCount = blockerUi.relationshipsByNodeId.get(node.id)?.length ?? 0
+  const orderedContent = orderedWorkItemContent(
+    node,
+    entriesByWorkItemId.get(node.id) ?? [],
+    contentOrderByParent.get(contentParentKey(node.id)) ?? [],
+  )
+
+  useEffect(() => {
+    if (autoEditTitleNodeId === node.id && !proposal) {
+      setDraftTitle('')
+      setIsEditingTitle(true)
+      onAutoEditTitleStarted()
+    }
+  }, [autoEditTitleNodeId, node.id, onAutoEditTitleStarted, proposal])
+
+  function beginTitleEdit() {
+    setDraftTitle(node.title)
+    setIsEditingTitle(true)
+  }
+
+  async function saveTitle() {
+    const title = draftTitle.trim()
+    if (!title) {
+      toast.error('Item title is required.')
+      return
+    }
+    if (title === node.title) {
+      setIsEditingTitle(false)
+      return
+    }
+
+    setIsSavingTitle(true)
+    try {
+      await onEditTitle(node, title)
+      setIsEditingTitle(false)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update item title.')
+    } finally {
+      setIsSavingTitle(false)
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      <div
+        className={cn(
+          'group flex min-h-9 items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground',
+          isSelected ? 'bg-primary/5 text-foreground ring-1 ring-inset ring-primary/35' : null,
+          proposal ? 'border border-primary/30 bg-primary/5 text-foreground hover:bg-primary/10' : null,
+        )}
+        style={{ marginLeft: `${depth * treeDepthIndentPx}px` }}
+      >
+        <button
+          type="button"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-sm hover:bg-background"
+          onClick={() => onToggle(node.id)}
+          disabled={!canExpand}
+          aria-label={isExpanded ? 'Collapse item' : 'Expand item'}
+        >
+          {isLoadingChildren ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : canExpand ? (
+            isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+          ) : (
+            <CircleSmall className="h-3.5 w-3.5" />
+          )}
+        </button>
+        {isEditingTitle ? (
+          <form
+            className="flex min-w-0 flex-1 items-center gap-2.5"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void saveTitle()
+            }}
+          >
+            <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', workItemTypeBadgeClass(node.type))}>
+              {node.type}
+            </Badge>
+            <Input
+              autoFocus
+              className="h-7 min-w-0 flex-1 bg-white text-[15px] font-medium"
+              value={draftTitle}
+              onChange={(event) => setDraftTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setIsEditingTitle(false)
+                }
+              }}
+              disabled={isSavingTitle}
+              aria-label="Item title"
+            />
+            <Button type="submit" size="icon-xs" variant="ghost" disabled={isSavingTitle} aria-label="Save title" title="Save title">
+              {isSavingTitle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+            </Button>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              disabled={isSavingTitle}
+              onClick={() => setIsEditingTitle(false)}
+              aria-label="Cancel title edit"
+              title="Cancel"
+            >
+              <X />
+            </Button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            className="min-w-0 flex-1 text-left"
+            onClick={() => onSelect(node)}
+            onDoubleClick={() => {
+              if (!proposal && !isSaving) {
+                beginTitleEdit()
+              }
+            }}
+            title={node.title}
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
+            <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', workItemTypeBadgeClass(node.type))}>
+              {node.type}
+            </Badge>
+            <span
+              className={cn(
+                'min-w-0 truncate text-[15px] font-medium text-foreground',
+                proposal?.action === 'DELETE' ? 'line-through decoration-destructive decoration-2' : null,
+              )}
+            >
+              {node.title}
+            </span>
+            {canonicalRelationBadges.map((badge) => (
+            <Badge
+              key={badge.key}
+              variant="secondary"
+              className="hidden max-w-48 justify-start truncate font-normal md:inline-flex"
+              title={badge.title}
+            >
+              {badge.label}
+            </Badge>
+            ))}
+            {!isDefaultWorkItemStatus(status) ? (
+              <Badge variant="secondary" className="hidden shrink-0 font-normal md:inline-flex">
+                {String(status).replaceAll('_', ' ')}
+              </Badge>
+            ) : null}
+            {dueDate ? (
+              <Badge
+                variant={dueDate.isOverdue ? 'destructive' : dueDate.isDueSoon ? 'default' : 'outline'}
+                className="hidden shrink-0 font-normal md:inline-flex"
+                title={`Due ${dueDate.title}`}
+              >
+                Due {dueDate.label}
+              </Badge>
+            ) : null}
+            {priority === 'HIGH' || priority === 'URGENT' ? (
+              <Badge variant={priority === 'URGENT' ? 'destructive' : 'default'} className="hidden shrink-0 font-normal md:inline-flex">
+                {priority[0]}{priority.slice(1).toLowerCase()}
+              </Badge>
+            ) : null}
+            {assigneeIds.length > 0 ? (
+              <div className="hidden shrink-0 -space-x-1.5 md:flex" aria-label="Assignees">
+                {assigneeIds.slice(0, 3).map((assignee) => (
+                  <span
+                    key={`${assignee.type}-${assignee.id}`}
+                    className="grid size-5 place-items-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground"
+                    title={`${assignee.label} (${assignee.type})`}
+                  >
+                    {avatarInitials(assignee.label)}
+                  </span>
+                ))}
+                {assigneeIds.length > 3 ? (
+                  <span className="grid size-5 place-items-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground" title={`${assigneeIds.length - 3} more assignees`}>
+                    +{assigneeIds.length - 3}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            {visibleFields.map(({ field, value }) => (
+            <Badge
+              key={field.name}
+              variant="outline"
+              className="hidden max-w-48 justify-start truncate font-normal text-muted-foreground md:inline-flex"
+              title={`${field.label}: ${value}`}
+            >
+              {field.label}: {value}
+            </Badge>
+            ))}
+            </div>
+            {proposal || proposedRelationBadges.length > 0 ? (
+              <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-primary">
+                <Bot className="h-3.5 w-3.5 shrink-0" />
+                <span className="shrink-0 font-medium">AI proposed</span>
+                {proposal ? (
+                  <>
+                    <Badge
+                      variant={proposal.action === 'DELETE' ? 'destructive' : proposal.action === 'UPDATE' ? 'secondary' : 'default'}
+                      className="h-5 shrink-0 px-1.5 text-[10px]"
+                    >
+                      {proposal.action}
+                    </Badge>
+                    <span className="min-w-0 truncate text-muted-foreground" title={proposal.summary}>{proposal.summary}</span>
+                  </>
+                ) : proposedRelationBadges.map((badge) => (
+                  <Badge
+                    key={badge.key}
+                    variant="secondary"
+                    className="h-5 max-w-64 shrink truncate px-1.5 text-[10px] font-normal"
+                    title={badge.title}
+                  >
+                    {badge.label}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </button>
+        )}
+        {blockerCount > 0 && !isEditingTitle ? (
+          <BlockerPopover
+            nodeId={node.id}
+            blockerUi={blockerUi}
+            trigger={(
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                className="h-6 shrink-0 gap-1 border-destructive/40 px-2 text-xs font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
+                title="View and manage blockers"
+              >
+                <OctagonAlert className="h-3.5 w-3.5" />
+                Blocked by {blockerCount}
+              </Button>
+            )}
+          />
+        ) : null}
+        {proposal ? (
+          <>
+            {proposal.action === 'DELETE' ? (
+              <DeleteConfirmPopover
+                title="Apply permanent deletion?"
+                description="This AI suggestion permanently deletes this item and its sub-items."
+                disabled={isDecidingProposal}
+                trigger={<Button type="button" size="icon-xs" variant="ghost" disabled={isDecidingProposal} aria-label="Accept delete proposal" title="Accept delete proposal"><Check /></Button>}
+                onConfirm={() => onDecideProposal(proposal, 'ACCEPT')}
+              />
+            ) : (
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                onClick={() => onDecideProposal(proposal, 'ACCEPT')}
+                disabled={isDecidingProposal}
+                aria-label="Accept proposal"
+                title="Accept proposal"
+              >
+                {isDecidingProposal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              onClick={() => onDecideProposal(proposal, 'REJECT')}
+              disabled={isDecidingProposal}
+              aria-label="Reject proposal"
+              title="Reject proposal"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <X />
+            </Button>
+          </>
+        ) : !isEditingTitle ? (
+          <div
+            className={cn(
+              'ml-auto flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100',
+              isSelected ? 'opacity-100' : 'pointer-events-none group-focus-within:pointer-events-auto group-hover:pointer-events-auto',
+            )}
+          >
+            {canReorder && canMoveUp ? (
+              <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => onMoveInContentOrder(-1)} aria-label="Move item up" title="Move up"><ArrowUp /></Button>
+            ) : null}
+            {canReorder && canMoveDown ? (
+              <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => onMoveInContentOrder(1)} aria-label="Move item down" title="Move down"><ArrowDown /></Button>
+            ) : null}
+            <BlockerPopover
+              nodeId={node.id}
+              blockerUi={blockerUi}
+              trigger={(
+                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} aria-label="Add blocker" title="Add blocker">
+                  <OctagonAlert />
+                </Button>
+              )}
+            />
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              disabled={isSaving}
+              onClick={beginTitleEdit}
+              aria-label="Edit item title"
+              title="Edit title"
+            >
+              <Pencil />
+            </Button>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              disabled={isSaving}
+              onClick={() => onFocus(node)}
+              aria-label="Focus item"
+              title="Focus"
+            >
+              <Focus />
+            </Button>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              disabled={isSaving}
+              onClick={() => onMove(node)}
+              aria-label="Move item"
+              title="Move"
+            >
+              <MoveRight />
+            </Button>
+            <DeleteConfirmPopover
+              title="Delete item?"
+              description="Sub-items will be deleted with this item."
+              trigger={(
+                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} aria-label="Delete item">
+                  <Trash2 />
+                </Button>
+              )}
+              onConfirm={() => onDelete(node.id)}
+            />
+          </div>
+        ) : null}
+      </div>
+      {canExpand && isExpanded ? (
+        <div
+          className="space-y-1 border-l-2 border-border/80 pl-3"
+          style={{ marginLeft: `${(depth + 1) * treeDepthIndentPx}px` }}
+          data-work-item-children
+        >
+          {!hasLoadedChildren && isLoadingChildren ? (
+            <div className="flex min-h-10 items-center gap-2 px-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading sub-items
+            </div>
+          ) : null}
+          <WorkItemEntries
+            content={orderedContent}
+            renderChild={(child, contentIndex, totalContent) => (
+              <TreeRow
+                key={child.id}
+                node={child}
+                depth={0}
+                expandedNodeIds={expandedNodeIds}
+                selectedNodeId={selectedNodeId}
+                isSaving={isSaving}
+                decidingProposalChangeId={decidingProposalChangeId}
+                loadedChildrenParentIds={loadedChildrenParentIds}
+                loadingChildrenNodeIds={loadingChildrenNodeIds}
+                childrenPageInfoByParentId={childrenPageInfoByParentId}
+                relationBadgesByNodeId={relationBadgesByNodeId}
+                blockerUi={blockerUi}
+                entriesByWorkItemId={entriesByWorkItemId}
+                contentOrderByParent={contentOrderByParent}
+                acceptedAnswerByQuestionId={acceptedAnswerByQuestionId}
+                userLabels={userLabels}
+                teamLabels={teamLabels}
+                selectedEntryId={selectedEntryId}
+                isAiSuggestionsEnabled={isAiSuggestionsEnabled}
+                canReorder={canReorderContent}
+                canMoveUp={contentIndex > 0}
+                canMoveDown={contentIndex < totalContent - 1}
+                onToggle={onToggle}
+                onLoadMoreChildren={onLoadMoreChildren}
+                onSelect={onSelect}
+                onSelectEntry={onSelectEntry}
+                onAddChild={onAddChild}
+                onFocus={onFocus}
+                onMove={onMove}
+                onDelete={onDelete}
+                onEditTitle={onEditTitle}
+                onCreateEntry={onCreateEntry}
+                onReviewNewEntry={onReviewNewEntry}
+                onAcceptNewEntryReview={onAcceptNewEntryReview}
+                onRejectNewEntryReview={onRejectNewEntryReview}
+                onUpdateEntry={onUpdateEntry}
+                onReviewEntry={onReviewEntry}
+                onAcceptEntryReview={onAcceptEntryReview}
+                onRejectEntryReview={onRejectEntryReview}
+                onAcceptAnswer={onAcceptAnswer}
+                onMoveContentOrder={onMoveContentOrder}
+                onMoveInContentOrder={(offset) => { void onMoveContentOrder(node.id, 'WORK_ITEM', child.id, offset) }}
+                onDeleteEntry={onDeleteEntry}
+                autoEditTitleNodeId={autoEditTitleNodeId}
+                onAutoEditTitleStarted={onAutoEditTitleStarted}
+                onDecideProposal={onDecideProposal}
+              />
+            )}
+            canReorder={canReorderContent && !isSaving}
+            selectedEntryId={selectedEntryId}
+            startAdding={entryComposerRequested}
+            defaultType={node.type.toUpperCase() === 'QUESTION' ? 'ANSWER' : 'COMMENT'}
+            composerPlaceholder={node.type.toUpperCase() === 'QUESTION' ? 'Write an answer…' : 'Write an update…'}
+            isQuestion={node.type.toUpperCase() === 'QUESTION'}
+            acceptedAnswerEntryId={acceptedAnswerByQuestionId.get(node.id) ?? null}
+            isAiSuggestionsEnabled={isAiSuggestionsEnabled}
+            onEntryComposerOpened={() => setEntryComposerRequested(false)}
+            onSelect={onSelectEntry}
+            onCreate={(type, body) => onCreateEntry(node.id, type, body)}
+            onReviewNew={(type, body, instruction) => onReviewNewEntry(node.id, type, body, instruction)}
+            onAcceptNewReview={(type, review) => onAcceptNewEntryReview(node.id, type, review)}
+            onRejectNewReview={(type, review) => onRejectNewEntryReview(node.id, type, review)}
+            onUpdate={onUpdateEntry}
+            onReview={onReviewEntry}
+            onAcceptReview={onAcceptEntryReview}
+            onRejectReview={onRejectEntryReview}
+            onAcceptAnswer={(entryId) => onAcceptAnswer(node.id, entryId)}
+            onMoveContent={(entityType, entityId, offset) => onMoveContentOrder(node.id, entityType, entityId, offset)}
+            onDelete={onDeleteEntry}
+          />
+          {hasMoreChildren ? (
+            <div className="py-1">
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                onClick={() => onLoadMoreChildren(node.id)}
+                disabled={isLoadingChildren}
+              >
+                {isLoadingChildren ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Load more
+              </Button>
+            </div>
+          ) : null}
+          {isSelected ? <div>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={(
+                  <Button type="button" size="xs" variant="ghost" className="gap-1 text-muted-foreground" disabled={isSaving}>
+                    <Plus className="h-3.5 w-3.5" /> Add
+                  </Button>
+                )}
+              />
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={() => setEntryComposerRequested(true)}>
+                  <MessageSquarePlus className="h-4 w-4" /> {node.type.toUpperCase() === 'QUESTION' ? 'Write an answer' : 'Write an update'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddChild(node.id, 'TASK')}>
+                  <ListTodo className="h-4 w-4" /> Add task
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddChild(node.id, 'QUESTION')}>
+                  <CircleHelp className="h-4 w-4" /> Ask a question
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddChild(node.id, 'APPROVAL')}>
+                  <ClipboardCheck className="h-4 w-4" /> Request approval
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div> : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+const TreeRow = memo(TreeRowContent)
+
+function PendingProposalNodeRow({
+  node,
+  selectedNodeId,
+  decidingProposalChangeId,
+  onSelect,
+  onDecideProposal,
+}: {
+  node: PendingProposalNode
+  selectedNodeId: string | null
+  decidingProposalChangeId: string | null
+  onSelect: (node: ProjectNode) => void
+  onDecideProposal: (proposal: TreeNodeProposal, decision: 'ACCEPT' | 'REJECT') => void
+}) {
+  const isSelected = selectedNodeId === node.id
+  const isDecidingProposal = decidingProposalChangeId === node.proposal.changeId
+
+  return (
+    <div
+      className={cn(
+        'group flex min-h-11 items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-sm transition-colors hover:bg-muted/40',
+        isSelected ? 'border-foreground/30 bg-muted/40 text-foreground shadow-[inset_0_0_0_1px_var(--foreground)]/15' : 'border-primary/30 text-muted-foreground',
+      )}
+    >
+      <FileText className="h-4 w-4 shrink-0" />
+      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onSelect(node)} title={node.title}>
+        <div className="flex min-w-0 items-center gap-2">
+          <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', workItemTypeBadgeClass(node.type))}>
+            {node.type}
+          </Badge>
+          <span
+            className={cn(
+              'min-w-0 truncate text-[15px] font-medium text-foreground',
+              node.proposal.action === 'DELETE' ? 'line-through decoration-destructive decoration-2' : null,
+            )}
+          >
+            {node.title}
+          </span>
+        </div>
+        <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-primary">
+          <Bot className="h-3.5 w-3.5 shrink-0" />
+          <span className="shrink-0 font-medium">AI proposed</span>
+          <Badge
+            variant={node.proposal.action === 'DELETE' ? 'destructive' : node.proposal.action === 'UPDATE' ? 'secondary' : 'default'}
+            className="h-5 shrink-0 px-1.5 text-[10px]"
+          >
+            {node.proposal.action}
+          </Badge>
+          <span className="min-w-0 truncate text-muted-foreground" title={node.proposal.summary}>{node.proposal.summary}</span>
+        </div>
+        <div className="mt-0.5 truncate text-xs text-muted-foreground" title={node.placementReason}>
+          {node.placementReason}
+        </div>
+      </button>
+      {node.proposal.action === 'DELETE' ? (
+        <DeleteConfirmPopover
+          title="Apply permanent deletion?"
+          description="This AI suggestion permanently deletes this item and its sub-items."
+          disabled={isDecidingProposal}
+          trigger={<Button type="button" size="icon-xs" variant="ghost" disabled={isDecidingProposal} aria-label="Accept delete proposal" title="Accept delete proposal"><Check /></Button>}
+          onConfirm={() => onDecideProposal(node.proposal, 'ACCEPT')}
+        />
+      ) : (
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          onClick={() => onDecideProposal(node.proposal, 'ACCEPT')}
+          disabled={isDecidingProposal}
+          aria-label="Accept proposal"
+          title="Accept proposal"
+        >
+          {isDecidingProposal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+        </Button>
+      )}
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="ghost"
+        onClick={() => onDecideProposal(node.proposal, 'REJECT')}
+        disabled={isDecidingProposal}
+        aria-label="Reject proposal"
+        title="Reject proposal"
+        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+      >
+        <X />
+      </Button>
+    </div>
+  )
+}
+
+function ProposalUpdateDiff({ node }: { node: TreeNode }) {
+  if (node.proposal?.action !== 'UPDATE') {
+    return null
+  }
+
+  const previousNode = node.proposal.previousNode ?? node
+  const proposedNode = node.proposal.proposedNode
+
+  if (!proposedNode) {
+    return (
+      <div className="rounded-md border bg-muted/20 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-medium">Proposed update</p>
+            <p className="text-xs text-muted-foreground">New values are not available for this proposal.</p>
+          </div>
+          <Badge variant="secondary">UPDATE</Badge>
+        </div>
+      </div>
+    )
+  }
+
+  const fieldDiffs = buildProposalFieldDiffs(previousNode.fields ?? [], proposedNode.fields ?? [])
+  const parentChanged = (previousNode.parentNodeId ?? null) !== (proposedNode.parentNodeId ?? null)
+  const summaryRows = [
+    previousNode.type !== proposedNode.type
+      ? { label: 'Type', previousValue: previousNode.type, nextValue: proposedNode.type }
+      : null,
+    previousNode.title !== proposedNode.title
+      ? { label: 'Title', previousValue: previousNode.title, nextValue: proposedNode.title }
+      : null,
+    parentChanged
+      ? {
+        label: 'Parent',
+        previousValue: previousNode.parentNodeId ? 'Nested item' : 'Project level',
+        nextValue: proposedNode.parentNodeId ? 'Nested item' : 'Project level',
+      }
+      : null,
+  ].filter((row): row is { label: string; previousValue: string; nextValue: string } => Boolean(row))
+
+  return (
+    <div className="rounded-md border bg-muted/20 p-3">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium">Proposed update</p>
+          <p className="text-xs text-muted-foreground">Review old and new values before accepting.</p>
+        </div>
+        <Badge variant="secondary">UPDATE</Badge>
+      </div>
+
+      {summaryRows.length > 0 ? (
+        <div className="space-y-2">
+          {summaryRows.map((row) => (
+            <div key={row.label} className="grid gap-2 rounded-md border bg-background p-2 text-sm sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="font-medium text-muted-foreground">{row.label}</div>
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">Old</div>
+                <div className="break-words">{row.previousValue}</div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">New</div>
+                <div className="break-words font-medium text-foreground">{row.nextValue}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {fieldDiffs.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Fields</p>
+          {fieldDiffs.map((diff) => (
+            <div key={diff.name} className="grid gap-2 rounded-md border bg-background p-2 text-sm sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="min-w-0">
+                <div className="font-medium text-muted-foreground">{diff.label}</div>
+                <Badge
+                  variant={diff.status === 'removed' ? 'destructive' : diff.status === 'added' ? 'default' : 'secondary'}
+                  className="mt-1"
+                >
+                  {diff.status}
+                </Badge>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">Old</div>
+                <div className="break-words">{diff.previousValue}</div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">New</div>
+                <div className="break-words font-medium text-foreground">{diff.nextValue}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 rounded-md border bg-background p-2 text-sm text-muted-foreground">
+          No changed fields detected.
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WorkspaceProposalPanel({
+  node,
+  changes,
+  isDeciding,
+  nodeTitleById,
+  onDecide,
+}: {
+  node: TreeNode
+  changes: Array<{ proposalId: string; change: GraphChangeProposalChange }>
+  isDeciding: boolean
+  nodeTitleById: Map<string, string>
+  onDecide: (changes: Array<{ proposalId: string; change: GraphChangeProposalChange }>, decision: 'ACCEPT' | 'REJECT') => void
+}) {
+  if (changes.length === 0) return null
+  const entryChanges = changes.filter(({ change }) => change.entityType === 'ENTRY')
+  const relationshipChanges = changes.filter(({ change }) => change.entityType === 'EDGE')
+  const otherNodeChanges = changes.filter(({ change }) => change.entityType === 'NODE' && change.action !== 'UPDATE')
+  const containsDelete = changes.some(({ change }) => change.action === 'DELETE')
+  const acceptButton = (
+    <Button type="button" size="sm" disabled={isDeciding} onClick={containsDelete ? undefined : () => onDecide(changes, 'ACCEPT')}>
+      {isDeciding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+      Accept suggestion
+    </Button>
+  )
+
+  return (
+    <section className="space-y-3 border-b bg-primary/5 px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> AI suggestion</div>
+        <Badge variant="secondary">{changes.length} {changes.length === 1 ? 'change' : 'changes'}</Badge>
+      </div>
+
+      {node.proposal?.action === 'UPDATE' ? <ProposalUpdateDiff node={node} /> : null}
+
+      {otherNodeChanges.map(({ change }) => (
+        <div key={change.id} className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm">
+          <Badge variant={change.action === 'DELETE' ? 'destructive' : 'default'}>{change.action}</Badge>
+          <span className={cn('break-words', change.action === 'DELETE' && 'line-through')}>{change.summary}</span>
+        </div>
+      ))}
+
+      {entryChanges.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Entries</p>
+          {entryChanges.map(({ change }) => (
+            <div key={change.id} className="space-y-2 rounded-md border bg-background p-2 text-sm">
+              <div className="flex items-center gap-2"><Badge variant={change.action === 'DELETE' ? 'destructive' : 'secondary'}>{change.action}</Badge><span>{change.summary}</span></div>
+              {change.previousEntry && change.action === 'UPDATE' ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div><div className="text-xs text-muted-foreground">Old</div><p className="whitespace-pre-wrap break-words">{change.previousEntry.body}</p></div>
+                  <div><div className="text-xs text-muted-foreground">New</div><p className="whitespace-pre-wrap break-words font-medium">{change.entry?.body}</p></div>
+                </div>
+              ) : <p className="whitespace-pre-wrap break-words">{(change.entry ?? change.previousEntry)?.body}</p>}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {relationshipChanges.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Relationships</p>
+          {relationshipChanges.map(({ change }) => {
+            const relationship = change.relationship ?? change.previousRelationship
+            const endpointLabel = (type: string, id: string) => type === 'WORK_ITEM' ? (nodeTitleById.get(id) ?? 'Work item') : 'Entry'
+            return (
+              <div key={change.id} className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm">
+                <Badge variant={change.action === 'DELETE' ? 'destructive' : 'secondary'}>{change.action}</Badge>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {relationship ? <Badge variant="outline" className={cn('font-medium', relationshipTypeBadgeClass(relationship.type))}>{relationshipTypeLabel(relationship.type)}</Badge> : null}
+                    <span className="break-words font-medium">{change.summary}</span>
+                  </div>
+                  {relationship ? <div className="mt-1 break-words text-xs text-muted-foreground">{endpointLabel(relationship.fromEntityType, relationship.fromEntityId)} → {endpointLabel(relationship.toEntityType, relationship.toEntityId)}</div> : null}
+                  {relationship?.reason ? <div className="mt-0.5 break-words text-xs text-muted-foreground">{relationship.reason}</div> : null}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
+
+      <div className="flex gap-2">
+        {containsDelete ? (
+          <DeleteConfirmPopover
+            title="Apply permanent deletion?"
+            description="This AI suggestion permanently deletes one or more records."
+            disabled={isDeciding}
+            trigger={acceptButton}
+            onConfirm={() => onDecide(changes, 'ACCEPT')}
+          />
+        ) : acceptButton}
+        <Button type="button" size="sm" variant="outline" disabled={isDeciding} onClick={() => onDecide(changes, 'REJECT')}>Reject</Button>
+      </div>
+    </section>
+  )
+}
+
+export default function ProjectWorkspacePage() {
+  const { projectId } = useParams()
+  const [searchParams] = useSearchParams()
+  const requestedWorkItemId = searchParams.get('workItemId')?.trim() || null
+  const [project, setProject] = useState<Project | null>(null)
+  const [workspacePanelLayout] = useState(readWorkspacePanelLayout)
+  const [nodes, setNodes] = useState<ProjectNode[]>([])
+  const [entries, setEntries] = useState<Entry[]>([])
+  const [relationships, setRelationships] = useState<Relationship[]>([])
+  const [nodeEdges, setNodeEdges] = useState<ProjectNodeEdge[]>([])
+  const [graphChangeProposals, setGraphChangeProposals] = useState<GraphChangeProposal[]>([])
+  const [referenceUsers, setReferenceUsers] = useState<User[]>([])
+  const [referenceTeams, setReferenceTeams] = useState<Team[]>([])
+  const [projectMemberUserIds, setProjectMemberUserIds] = useState<Set<string>>(() => new Set())
+  const [projectTeamIds, setProjectTeamIds] = useState<Set<string>>(() => new Set())
+  const [newAssigneeType, setNewAssigneeType] = useState<'USER' | 'TEAM'>('USER')
+  const [newAssigneeId, setNewAssigneeId] = useState('')
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
+  const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set())
+  const [loadedChildrenParentIds, setLoadedChildrenParentIds] = useState<Set<string>>(() => new Set())
+  const [loadingChildrenNodeIds, setLoadingChildrenNodeIds] = useState<Set<string>>(() => new Set())
+  const [isExpandingSelectedSubtree, setIsExpandingSelectedSubtree] = useState(false)
+  const [rootPageInfo, setRootPageInfo] = useState<NodePageInfo | null>(null)
+  const [childrenPageInfoByParentId, setChildrenPageInfoByParentId] = useState<Map<string, NodePageInfo>>(() => new Map())
+  const [isLoadingMoreRoots, setIsLoadingMoreRoots] = useState(false)
+  const [form, setForm] = useState<NodeFormState>(newNodeDefaults)
+  const [entryInspectorType, setEntryInspectorType] = useState('COMMENT')
+  const [entryInspectorBody, setEntryInspectorBody] = useState('')
+  const [entryInspectorReview, setEntryInspectorReview] = useState<EntryAiReview | null>(null)
+  const [entryInspectorReviewFeedback, setEntryInspectorReviewFeedback] = useState('')
+  const [skipInspectorEntryAiReview, setSkipInspectorEntryAiReview] = useState(false)
+  const [workItemInspectorReview, setWorkItemInspectorReview] = useState<WorkItemAiReview | null>(null)
+  const [workItemInspectorReviewFeedback, setWorkItemInspectorReviewFeedback] = useState('')
+  const [newWorkItemAwaitingInitialReviewId, setNewWorkItemAwaitingInitialReviewId] = useState<string | null>(null)
+  const [editingFieldSettingsId, setEditingFieldSettingsId] = useState<string | null>(null)
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false)
+  const [moveTargetContentKey, setMoveTargetContentKey] = useState('')
+  const [moveQuery, setMoveQuery] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [decidingProposalChangeId, setDecidingProposalChangeId] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isLlmAvailable, setIsLlmAvailable] = useState(false)
+  const [isAiSuggestionsEnabled, setIsAiSuggestionsEnabled] = useState(false)
+  const isAiSuggestionsActive = isLlmAvailable && isAiSuggestionsEnabled
+  const [subscribedWorkItemIds, setSubscribedWorkItemIds] = useState<ReadonlySet<string>>(new Set())
+  const [workItemSearchQuery, setWorkItemSearchQuery] = useState('')
+  const [appliedWorkItemSearchQuery, setAppliedWorkItemSearchQuery] = useState('')
+  const [workItemFilterConditions, setWorkItemFilterConditions] = useState<WorkItemFilterCondition[]>([])
+  const [appliedWorkItemFilterConditions, setAppliedWorkItemFilterConditions] = useState<WorkItemFilterCondition[]>([])
+  const [isRunningWorkItemFilters, setIsRunningWorkItemFilters] = useState(false)
+  const [createdSortDirection, setCreatedSortDirection] = useState<CreatedSortDirection>(null)
+  const [isRunningCreatedSort, setIsRunningCreatedSort] = useState(false)
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null)
+  const [inspectorMode, setInspectorMode] = useState<InspectorMode>('task')
+  const [autoEditTitleNodeId, setAutoEditTitleNodeId] = useState<string | null>(null)
+  const [blockerWorkItems, setBlockerWorkItems] = useState<WorkItem[]>([])
+  const [isSavingBlocker, setIsSavingBlocker] = useState(false)
+
+  const displayedNodes = useMemo(() => mergeProposalNodes(nodes, graphChangeProposals), [nodes, graphChangeProposals])
+  const pendingProposalItems = useMemo(() => pendingProposalNodes(nodes, graphChangeProposals), [nodes, graphChangeProposals])
+  const contentOrderByParent = useMemo(() => groupContentOrderByParent(nodes, entries), [entries, nodes])
+  const tree = useMemo(() => {
+    const builtTree = buildTree(displayedNodes, createdSortDirection)
+    return createdSortDirection ? builtTree : sortTreeByContentOrder(builtTree, contentOrderByParent)
+  }, [createdSortDirection, displayedNodes, contentOrderByParent])
+  const focusedNodePath = useMemo(() => findTreeNodePath(tree, focusedNodeId), [focusedNodeId, tree])
+  const focusedNode = focusedNodePath.at(-1) ?? null
+  const focusedTree = useMemo(() => focusedNode ? [focusedNode] : tree, [focusedNode, tree])
+  const filteredTree = useMemo(
+    () => filterTreeByWorkItemFilters(focusedTree, appliedWorkItemFilterConditions),
+    [focusedTree, appliedWorkItemFilterConditions],
+  )
+  const filteredPendingProposalItems = useMemo(
+    () => focusedNode ? [] : pendingProposalItems,
+    [focusedNode, pendingProposalItems],
+  )
+  const displayedExpandedNodeIds = useMemo(
+    () => appliedWorkItemSearchQuery || appliedWorkItemFilterConditions.length > 0 ? collectExpandableTreeNodeIds(filteredTree) : expandedNodeIds,
+    [appliedWorkItemFilterConditions.length, appliedWorkItemSearchQuery, expandedNodeIds, filteredTree],
+  )
+  const selectedNode = useMemo(
+    () => findTreeNode(tree, selectedNodeId) ?? pendingProposalItems.find((node) => node.id === selectedNodeId) ?? null,
+    [pendingProposalItems, tree, selectedNodeId],
+  )
+  const selectedEntry = useMemo(
+    () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
+    [entries, selectedEntryId],
+  )
+  const selectedWorkspaceProposalChanges = useMemo(
+    () => selectedNode ? openWorkspaceChangesForNode(graphChangeProposals, selectedNode.id) : [],
+    [graphChangeProposals, selectedNode],
+  )
+  const flattenedTree = useMemo(() => flattenTree(tree), [tree])
+  const nodeTitleById = useMemo(() => new Map(displayedNodes.map((node) => [node.id, node.title])), [displayedNodes])
+  const entriesByWorkItemId = useMemo(() => {
+    const result = new Map<string, Entry[]>()
+    entries.forEach((entry) => result.set(entry.workItemId, [...(result.get(entry.workItemId) ?? []), entry]))
+    return result
+  }, [entries])
+  const acceptedAnswerByQuestionId = useMemo(() => new Map(
+    relationships
+      .filter((relationship) => relationship.type === 'ACCEPTED_ANSWER' && relationship.fromEntityType === 'WORK_ITEM' && relationship.toEntityType === 'ENTRY')
+      .map((relationship) => [relationship.fromEntityId, relationship.toEntityId]),
+  ), [relationships])
+  const blockedByRelationshipsByNodeId = useMemo(() => {
+    const result = new Map<string, Relationship[]>()
+    relationships
+      .filter((relationship) => relationship.type === 'BLOCKED_BY' && relationship.fromEntityType === 'WORK_ITEM' && relationship.toEntityType === 'WORK_ITEM')
+      .forEach((relationship) => result.set(relationship.fromEntityId, [...(result.get(relationship.fromEntityId) ?? []), relationship]))
+    return result
+  }, [relationships])
+  const workItemRelationshipsByNodeId = useMemo(() => {
+    const result = new Map<string, Relationship[]>()
+    relationships
+      .filter((relationship) => relationship.type !== 'ACCEPTED_ANSWER')
+      .filter((relationship) => relationship.fromEntityType === 'WORK_ITEM' && relationship.toEntityType === 'WORK_ITEM')
+      .forEach((relationship) => {
+        result.set(relationship.fromEntityId, [...(result.get(relationship.fromEntityId) ?? []), relationship])
+        result.set(relationship.toEntityId, [...(result.get(relationship.toEntityId) ?? []), relationship])
+      })
+    return result
+  }, [relationships])
+  const blockerTitleById = useMemo(() => new Map([
+    ...blockerWorkItems.map((item) => [item.id, item.title] as const),
+    ...displayedNodes.map((node) => [node.id, node.title] as const),
+  ]), [blockerWorkItems, displayedNodes])
+  const userLabels = useMemo(() => new Map(referenceUsers.map((user) => [user.id, referenceUserLabel(user)])), [referenceUsers])
+  const teamLabels = useMemo(() => new Map(referenceTeams.map((team) => [team.id, referenceTeamLabel(team)])), [referenceTeams])
+  const relationBadgesByNodeId = useMemo(() => {
+    const badgesByNodeId = new Map<string, NodeRelationBadge[]>()
+    for (const node of displayedNodes) {
+      badgesByNodeId.set(node.id, nodeRelationBadges(node.id, nodeEdges, graphChangeProposals))
+    }
+    return badgesByNodeId
+  }, [displayedNodes, graphChangeProposals, nodeEdges])
+  const referenceUserOptions = useMemo(() => (
+    referenceUsers.map((user) => ({ id: user.id, label: referenceUserLabel(user) }))
+  ), [referenceUsers])
+  const referenceTeamOptions = useMemo(() => (
+    referenceTeams.map((team) => ({ id: team.id, label: referenceTeamLabel(team) }))
+  ), [referenceTeams])
+  const assigneeUserOptions = useMemo(() => (
+    referenceUserOptions.filter((user) => projectMemberUserIds.has(user.id))
+  ), [projectMemberUserIds, referenceUserOptions])
+  const assigneeTeamOptions = useMemo(() => (
+    referenceTeamOptions.filter((team) => projectTeamIds.has(team.id))
+  ), [projectTeamIds, referenceTeamOptions])
+  const assignedUserIds = useMemo(
+    () => parseStringArrayValue(formFieldValue(form.fields, 'assigneeUserIds')),
+    [form.fields],
+  )
+  const assignedTeamIds = useMemo(
+    () => parseStringArrayValue(formFieldValue(form.fields, 'assigneeTeamIds')),
+    [form.fields],
+  )
+  const availableAssigneeOptions = useMemo(() => {
+    const assignedIds = new Set(newAssigneeType === 'USER' ? assignedUserIds : assignedTeamIds)
+    const options = newAssigneeType === 'USER' ? assigneeUserOptions : assigneeTeamOptions
+    return options.filter((option) => !assignedIds.has(option.id))
+  }, [assignedTeamIds, assignedUserIds, assigneeTeamOptions, assigneeUserOptions, newAssigneeType])
+  const hasActiveWorkItemFilters = appliedWorkItemFilterConditions.length > 0 || Boolean(appliedWorkItemSearchQuery)
+  const hasDraftWorkItemFilters = workItemFilterConditions.length > 0 || Boolean(workItemSearchQuery.trim())
+  const hasVisibleWorkItemProposals = displayedNodes.some((node) => Boolean((node as ProjectNode & { proposal?: TreeNodeProposal }).proposal))
+  const areRootItemsFullyLoaded = Boolean(rootPageInfo && rootPageInfo.page + 1 >= rootPageInfo.totalPages && !isLoadingMoreRoots)
+  const canReorderContent = !hasActiveWorkItemFilters && !createdSortDirection && !focusedNode && !hasVisibleWorkItemProposals && areRootItemsFullyLoaded
+  const canReorderSelectedContent = Boolean(selectedNode && canReorderContent && (
+    selectedNode.parentNodeId == null
+      ? areRootItemsFullyLoaded
+      : loadedChildrenParentIds.has(selectedNode.parentNodeId)
+        && !loadingChildrenNodeIds.has(selectedNode.parentNodeId)
+        && Boolean(childrenPageInfoByParentId.get(selectedNode.parentNodeId))
+        && (childrenPageInfoByParentId.get(selectedNode.parentNodeId)?.page ?? -1) + 1 >= (childrenPageInfoByParentId.get(selectedNode.parentNodeId)?.totalPages ?? 0)
+  ))
+  const assigneeUserLabelById = useMemo(() => new Map(assigneeUserOptions.map((user) => [user.id, user.label])), [assigneeUserOptions])
+  const assigneeTeamLabelById = useMemo(() => new Map(assigneeTeamOptions.map((team) => [team.id, team.label])), [assigneeTeamOptions])
+  const invalidMoveDestinationIds = useMemo(
+    () => new Set(selectedNodeId ? collectDescendantIds(selectedNodeId, tree) : []),
+    [selectedNodeId, tree],
+  )
+  const moveTargetOptions = useMemo(() => {
+    const normalizedQuery = moveQuery.trim().toLowerCase()
+    const workItems = flattenedTree
+      .filter((node) => !invalidMoveDestinationIds.has(node.id))
+      .map((node) => ({ entityType: 'WORK_ITEM' as const, entityId: node.id, parentWorkItemId: node.parentNodeId ?? null, label: node.title, detail: node.type, depth: node.depth }))
+    const updates = entries
+      .filter((entry) => !invalidMoveDestinationIds.has(entry.workItemId))
+      .map((entry) => ({ entityType: 'ENTRY' as const, entityId: entry.id, parentWorkItemId: entry.workItemId, label: entry.body.trim().replace(/\s+/g, ' ').slice(0, 100) || 'Untitled update', detail: 'Update', depth: (flattenedTree.find((node) => node.id === entry.workItemId)?.depth ?? 0) + 1 }))
+    return [...workItems, ...updates].filter((item) => !normalizedQuery || [item.label, item.detail, item.entityId].some((value) => value.toLowerCase().includes(normalizedQuery)))
+  }, [entries, flattenedTree, invalidMoveDestinationIds, moveQuery])
+  const customFormFields = useMemo(
+    () => form.fields.filter((field) => !managedWorkItemFieldNames.has(field.name)),
+    [form.fields],
+  )
+  const selectedChatContext = useMemo(() => {
+    if (!selectedNode) {
+      return null
+    }
+    if (selectedNode.proposal) {
+      return {
+        label: `Proposal: ${selectedNode.title}`,
+        context: {
+          selectedProposalId: selectedNode.proposal.proposalId,
+          selectedProposalChangeId: selectedNode.proposal.changeId,
+        },
+      }
+    }
+    return {
+      label: `Item: ${selectedNode.title}`,
+      context: {
+        selectedNodeId: selectedNode.id,
+      },
+    }
+  }, [selectedNode])
+  const handleInlineTitleUpdate = useCallback(async (node: ProjectNode, title: string) => {
+    if (!projectId) {
+      throw new Error('Project is unavailable.')
+    }
+
+    if (isAiSuggestionsActive && newWorkItemAwaitingInitialReviewId === node.id) {
+      const draft = { ...createFormState(node), title }
+      setSelectedNodeId(node.id)
+      setSelectedEntryId(null)
+      setInspectorMode('task')
+      try {
+        const review = await reviewWorkItemWithAi(projectId, node.id, {
+          title,
+          type: node.type as WorkItem['type'],
+          status: (normalizedStatus(nodeFieldValue(node, 'status')) || defaultStatusForType(node.type)).replaceAll(' ', '_') as WorkItem['status'],
+          dueDate: String(nodeFieldValue(node, 'dueDate') ?? '').trim() || null,
+          priority: String(nodeFieldValue(node, 'priority') ?? '').trim() || null,
+          assignees: [
+            ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')).map((assigneeId) => ({ assigneeType: 'USER' as const, assigneeId })),
+            ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')).map((assigneeId) => ({ assigneeType: 'TEAM' as const, assigneeId })),
+          ],
+        })
+        setForm(draft)
+        setWorkItemInspectorReview(review)
+        setWorkItemInspectorReviewFeedback('')
+        setNewWorkItemAwaitingInitialReviewId(null)
+        return
+      } catch (error) {
+        setForm(draft)
+        throw error
+      }
+    }
+
+    const updated = await updateNode(projectId, node.id, {
+      projectId,
+      parentNodeId: node.parentNodeId ?? null,
+      sortIndex: node.sortIndex ?? 0,
+      type: node.type,
+      title,
+      fields: node.fields ?? [],
+    })
+
+    setNodes((current) => current.map((currentNode) => (
+      currentNode.id === updated.id
+        ? { ...updated, childrenCount: currentNode.childrenCount ?? updated.childrenCount }
+        : currentNode
+    )))
+  }, [isAiSuggestionsActive, newWorkItemAwaitingInitialReviewId, projectId])
+  const handleCreateEntry = useCallback(async (workItemId: string, type: string, body: string) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    const created = await createEntry(projectId, { workItemId, type, body })
+    setEntries((current) => [...current, created])
+    setSelectedEntryId(created.id)
+    setSelectedNodeId(null)
+    setInspectorMode('task')
+  }, [projectId])
+  const handleReviewNewEntryWithAi = useCallback(async (workItemId: string, type: string, body: string, instruction?: string) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    return reviewNewEntryWithAi(projectId, { workItemId, type, body }, instruction)
+  }, [projectId])
+  const handleAcceptNewEntryAiReview = useCallback(async (workItemId: string, type: string, review: EntryAiReview) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    const created = await acceptNewEntryAiReview(projectId, { workItemId, type }, review.originalBody, review.proposedBody)
+    setEntries((current) => [...current, created])
+    setSelectedEntryId(created.id)
+    setSelectedNodeId(null)
+    setInspectorMode('task')
+  }, [projectId])
+  const handleRejectNewEntryAiReview = useCallback(async (workItemId: string, type: string, review: EntryAiReview) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    await rejectNewEntryAiReview(projectId, { workItemId, type }, review.originalBody, review.proposedBody)
+  }, [projectId])
+  const handleUpdateEntry = useCallback(async (entry: Entry, type: string, body: string) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    const updated = await updateEntry(projectId, entry.id, { workItemId: entry.workItemId, type, body })
+    setEntries((current) => current.map((currentEntry) => currentEntry.id === updated.id ? updated : currentEntry))
+    setSelectedEntryId(updated.id)
+    setSelectedNodeId(null)
+    setInspectorMode('task')
+  }, [projectId])
+  const handleReviewEntryWithAi = useCallback(async (entry: Entry, type: string, body: string, instruction?: string) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    return reviewEntryWithAi(projectId, entry.id, body, type, instruction)
+  }, [projectId])
+  const handleAcceptEntryAiReview = useCallback(async (entry: Entry, review: EntryAiReview) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    const updated = await acceptEntryAiReview(projectId, entry.id, review.originalBody, review.proposedBody, review.proposedType ?? review.entryType)
+    setEntries((current) => current.map((currentEntry) => currentEntry.id === updated.id ? updated : currentEntry))
+    setSelectedEntryId(updated.id)
+    setSelectedNodeId(null)
+    setInspectorMode('task')
+  }, [projectId])
+  const handleRejectEntryAiReview = useCallback(async (entry: Entry, review: EntryAiReview) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    await rejectEntryAiReview(projectId, entry.id, review.originalBody, review.proposedBody)
+  }, [projectId])
+  const handleAcceptAnswer = useCallback(async (questionId: string, entryId: string) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    const acceptedAnswer = await createRelationship(projectId, {
+      fromEntityType: 'WORK_ITEM',
+      fromEntityId: questionId,
+      toEntityType: 'ENTRY',
+      toEntityId: entryId,
+      type: 'ACCEPTED_ANSWER',
+      reason: null,
+      sourceEntryId: entryId,
+    })
+    setRelationships((current) => [
+      ...current.filter((relationship) => relationship.type !== 'ACCEPTED_ANSWER' || relationship.fromEntityId !== questionId),
+      acceptedAnswer,
+    ])
+    setNodes((current) => current.map((node) => node.id === questionId ? withNodeFieldValue(node, 'status', 'Status', 'ANSWERED') : node))
+    if (selectedNodeId === questionId) {
+      setForm((current) => {
+        const hasStatus = current.fields.some((field) => field.name === 'status')
+        return {
+          ...current,
+          fields: hasStatus
+            ? current.fields.map((field) => field.name === 'status' ? { ...field, value: 'ANSWERED' } : field)
+            : [...current.fields, { clientId: createDraftId(), name: 'status', label: 'Status', dataType: 'text', value: 'ANSWERED', visibleInTree: true }],
+        }
+      })
+    }
+    toast.success('Accepted answer updated.')
+  }, [projectId, selectedNodeId])
+  const refreshBlockers = useCallback(() => {
+    if (!projectId) return
+    void getWorkspace(projectId)
+      .then((workspace) => {
+        setBlockerWorkItems(workspace.workItems.map((item) => item.workItem))
+        setRelationships(workspace.relationships)
+      })
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to refresh blockers.'))
+  }, [projectId])
+  const handleAddBlocker = useCallback(async (nodeId: string, blockerId: string) => {
+    if (!projectId) return
+    setIsSavingBlocker(true)
+    try {
+      const blocker = await createRelationship(projectId, {
+        fromEntityType: 'WORK_ITEM',
+        fromEntityId: nodeId,
+        toEntityType: 'WORK_ITEM',
+        toEntityId: blockerId,
+        type: 'BLOCKED_BY',
+        reason: null,
+        sourceEntryId: null,
+      })
+      setRelationships((current) => [...current, blocker])
+      setNodeEdges((current) => [...current, {
+        id: blocker.id,
+        projectId: blocker.projectId,
+        fromNodeId: blocker.fromEntityId,
+        toNodeId: blocker.toEntityId,
+        relationType: blocker.type,
+      }])
+      toast.success('Blocker added.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add blocker.')
+    } finally {
+      setIsSavingBlocker(false)
+    }
+  }, [projectId])
+  const handleRemoveBlocker = useCallback(async (relationshipId: string) => {
+    if (!projectId) return
+    setIsSavingBlocker(true)
+    try {
+      await deleteRelationship(projectId, relationshipId)
+      setRelationships((current) => current.filter((relationship) => relationship.id !== relationshipId))
+      setNodeEdges((current) => current.filter((edge) => edge.id !== relationshipId))
+      toast.success('Blocker removed.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to remove blocker.')
+    } finally {
+      setIsSavingBlocker(false)
+    }
+  }, [projectId])
+  const handleUpdateBlockerReason = useCallback(async (relationshipId: string, reason: string | null) => {
+    if (!projectId) return
+    setIsSavingBlocker(true)
+    try {
+      const updated = await updateRelationshipReason(projectId, relationshipId, reason)
+      setRelationships((current) => current.map((relationship) => relationship.id === updated.id ? updated : relationship))
+      toast.success(reason ? 'Blocker reason updated.' : 'Blocker reason removed.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update blocker reason.')
+    } finally {
+      setIsSavingBlocker(false)
+    }
+  }, [projectId])
+  const blockerUi = useMemo<BlockerUi>(() => ({
+    relationshipsByNodeId: blockedByRelationshipsByNodeId,
+    workItems: blockerWorkItems,
+    titleById: blockerTitleById,
+    isSaving: isSavingBlocker,
+    onRefresh: refreshBlockers,
+    onAdd: handleAddBlocker,
+    onRemove: handleRemoveBlocker,
+    onUpdateReason: handleUpdateBlockerReason,
+  }), [blockedByRelationshipsByNodeId, blockerTitleById, blockerWorkItems, handleAddBlocker, handleRemoveBlocker, handleUpdateBlockerReason, isSavingBlocker, refreshBlockers])
+  const handleAddWorkItemRelationship = useCallback(async (
+    nodeId: string,
+    relatedNodeId: string,
+    type: string,
+    direction: 'OUTGOING' | 'INCOMING',
+    reason: string | null,
+  ) => {
+    if (!projectId) return
+    setIsSavingBlocker(true)
+    try {
+      const relationship = await createRelationship(projectId, {
+        fromEntityType: 'WORK_ITEM',
+        fromEntityId: direction === 'OUTGOING' ? nodeId : relatedNodeId,
+        toEntityType: 'WORK_ITEM',
+        toEntityId: direction === 'OUTGOING' ? relatedNodeId : nodeId,
+        type,
+        reason,
+        sourceEntryId: null,
+      })
+      setRelationships((current) => [...current, relationship])
+      setNodeEdges((current) => [...current, {
+        id: relationship.id,
+        projectId: relationship.projectId,
+        fromNodeId: relationship.fromEntityId,
+        toNodeId: relationship.toEntityId,
+        relationType: relationship.type,
+      }])
+      toast.success('Relationship added.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add relationship.')
+    } finally {
+      setIsSavingBlocker(false)
+    }
+  }, [projectId])
+  const handleRemoveWorkItemRelationship = useCallback(async (relationshipId: string) => {
+    if (!projectId) return
+    setIsSavingBlocker(true)
+    try {
+      await deleteRelationship(projectId, relationshipId)
+      setRelationships((current) => current.filter((relationship) => relationship.id !== relationshipId))
+      setNodeEdges((current) => current.filter((edge) => edge.id !== relationshipId))
+      toast.success('Relationship removed.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to remove relationship.')
+    } finally {
+      setIsSavingBlocker(false)
+    }
+  }, [projectId])
+  const workItemRelationshipUi = useMemo<WorkItemRelationshipUi>(() => ({
+    workItems: blockerWorkItems,
+    isSaving: isSavingBlocker,
+    onAdd: handleAddWorkItemRelationship,
+  }), [blockerWorkItems, handleAddWorkItemRelationship, isSavingBlocker])
+  const handleSaveInspectorEntry = useCallback(async () => {
+    if (!projectId || !selectedEntry) return
+    const body = entryInspectorBody.trim()
+    if (!body) {
+      toast.error('Update text is required.')
+      return
+    }
+    setIsSaving(true)
+    try {
+      if (isAiSuggestionsActive && !skipInspectorEntryAiReview) {
+        const review = await reviewEntryWithAi(projectId, selectedEntry.id, body, entryInspectorType)
+        setEntryInspectorReview({ ...review, entryType: entryInspectorType })
+      } else {
+        const updated = await updateEntry(projectId, selectedEntry.id, { workItemId: selectedEntry.workItemId, type: entryInspectorType, body })
+        setEntries((current) => current.map((entry) => entry.id === updated.id ? updated : entry))
+        setSkipInspectorEntryAiReview(false)
+        toast.success('Update saved.')
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save update.')
+    } finally {
+      setIsSaving(false)
+    }
+  }, [entryInspectorBody, entryInspectorType, isAiSuggestionsActive, projectId, selectedEntry, skipInspectorEntryAiReview])
+  const handleAcceptInspectorEntryReview = useCallback(async () => {
+    if (!projectId || !selectedEntry || !entryInspectorReview) return
+    setIsSaving(true)
+    try {
+      const updated = await acceptEntryAiReview(projectId, selectedEntry.id, entryInspectorReview.originalBody, entryInspectorReview.proposedBody, entryInspectorReview.proposedType ?? entryInspectorReview.entryType)
+      setEntries((current) => current.map((entry) => entry.id === updated.id ? updated : entry))
+      setEntryInspectorReview(null)
+      setEntryInspectorReviewFeedback('')
+      toast.success('AI suggestion accepted.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to accept AI suggestion.')
+    } finally {
+      setIsSaving(false)
+    }
+  }, [entryInspectorReview, projectId, selectedEntry])
+  const handleRejectInspectorEntryReview = useCallback(async () => {
+    if (!projectId || !selectedEntry || !entryInspectorReview) return
+    setIsSaving(true)
+    try {
+      await rejectEntryAiReview(projectId, selectedEntry.id, entryInspectorReview.originalBody, entryInspectorReview.proposedBody)
+      setEntryInspectorReview(null)
+      setEntryInspectorReviewFeedback('')
+      setSkipInspectorEntryAiReview(true)
+      toast.success('AI suggestion rejected.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reject AI suggestion.')
+    } finally {
+      setIsSaving(false)
+    }
+  }, [entryInspectorReview, projectId, selectedEntry])
+  const handleRefineInspectorEntryReview = useCallback(async () => {
+    if (!projectId || !selectedEntry || !entryInspectorReview) return
+    setIsSaving(true)
+    try {
+      const nextReview = await reviewEntryWithAi(
+        projectId,
+        selectedEntry.id,
+        entryInspectorReview.proposedBody,
+        entryInspectorReview.proposedType ?? entryInspectorReview.entryType ?? entryInspectorType,
+        entryInspectorReviewFeedback,
+      )
+      setEntryInspectorReview({ ...nextReview, entryType: entryInspectorReview.proposedType ?? entryInspectorReview.entryType ?? entryInspectorType })
+      setEntryInspectorReviewFeedback('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update AI suggestion.')
+    } finally {
+      setIsSaving(false)
+    }
+  }, [entryInspectorReview, entryInspectorReviewFeedback, entryInspectorType, projectId, selectedEntry])
+  function keepEditingInspectorEntrySuggestion() {
+    if (!entryInspectorReview) return
+    setEntryInspectorBody(entryInspectorReview.proposedBody)
+    setEntryInspectorType(entryInspectorReview.proposedType ?? entryInspectorReview.entryType ?? entryInspectorType)
+    setEntryInspectorReview(null)
+    setEntryInspectorReviewFeedback('')
+    setSkipInspectorEntryAiReview(true)
+  }
+  const handleDeleteEntry = useCallback(async (entryId: string) => {
+    if (!projectId) throw new Error('Project is unavailable.')
+    const affectedQuestionIds = new Set(relationships
+      .filter((relationship) => relationship.type === 'ACCEPTED_ANSWER' && relationship.toEntityType === 'ENTRY' && relationship.toEntityId === entryId)
+      .map((relationship) => relationship.fromEntityId))
+    await deleteEntry(projectId, entryId)
+    setEntries((current) => current.filter((entry) => entry.id !== entryId))
+    setRelationships((current) => current.filter((relationship) => (
+      relationship.fromEntityId !== entryId
+      && relationship.toEntityId !== entryId
+      && relationship.sourceEntryId !== entryId
+    )))
+    if (affectedQuestionIds.size > 0) {
+      setNodes((current) => current.map((node) => affectedQuestionIds.has(node.id) ? withNodeFieldValue(node, 'status', 'Status', 'OPEN') : node))
+      if (selectedNodeId && affectedQuestionIds.has(selectedNodeId)) {
+        setForm((current) => ({
+          ...current,
+          fields: current.fields.map((field) => field.name === 'status' ? { ...field, value: 'OPEN' } : field),
+        }))
+      }
+    }
+    if (selectedEntryId === entryId) clearSelectedNode()
+  }, [projectId, relationships, selectedEntryId, selectedNodeId])
+  const handleRunWorkItemFilters = useCallback(async () => {
+    if (!projectId) return
+    setIsRunningWorkItemFilters(true)
+    try {
+      const searchQuery = workItemSearchQuery.trim()
+      const allProjectNodes = await listNodes(projectId, searchQuery)
+      setNodes(allProjectNodes)
+      setRootPageInfo(null)
+      setChildrenPageInfoByParentId(new Map())
+      setLoadedChildrenParentIds(new Set(allProjectNodes.filter((node) => node.childrenCount).map((node) => node.id)))
+      setAppliedWorkItemFilterConditions(workItemFilterConditions)
+      setAppliedWorkItemSearchQuery(searchQuery)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to run work item filters.')
+    } finally {
+      setIsRunningWorkItemFilters(false)
+    }
+  }, [projectId, workItemFilterConditions, workItemSearchQuery])
+  const handleClearWorkItemFilters = useCallback(async () => {
+    if (!projectId) return
+    setIsRunningWorkItemFilters(true)
+    try {
+      const allProjectNodes = await listNodes(projectId)
+      setNodes(allProjectNodes)
+      setRootPageInfo(null)
+      setChildrenPageInfoByParentId(new Map())
+      setLoadedChildrenParentIds(new Set(allProjectNodes.filter((node) => node.childrenCount).map((node) => node.id)))
+      setWorkItemSearchQuery('')
+      setAppliedWorkItemSearchQuery('')
+      setWorkItemFilterConditions([])
+      setAppliedWorkItemFilterConditions([])
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to clear work item filters.')
+    } finally {
+      setIsRunningWorkItemFilters(false)
+    }
+  }, [projectId])
+  const handleRunCreatedSort = useCallback(async () => {
+    if (!projectId) return
+    const nextDirection: Exclude<CreatedSortDirection, null> = createdSortDirection === 'DESC' ? 'ASC' : 'DESC'
+    setIsRunningCreatedSort(true)
+    try {
+      const allProjectNodes = await listNodes(projectId)
+      setNodes(allProjectNodes)
+      setRootPageInfo(null)
+      setChildrenPageInfoByParentId(new Map())
+      setLoadedChildrenParentIds(new Set(allProjectNodes.filter((node) => node.childrenCount).map((node) => node.id)))
+      setCreatedSortDirection(nextDirection)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to sort work items.')
+    } finally {
+      setIsRunningCreatedSort(false)
+    }
+  }, [createdSortDirection, projectId])
+  useEffect(() => {
+    if (!projectId) {
+      return
+    }
+
+    const currentProjectId = projectId
+    let isMounted = true
+
+    async function loadPage() {
+      setIsLoading(true)
+      setErrorMessage(null)
+
+      try {
+        const [nextProject, nextRootNodes, nextWorkspace, nextGraphChangeProposals, nextNodeEdges, nextLlmStatus, nextUsers, nextTeams, nextProjectMembers, nextProjectTeams, nextSettings] = await Promise.all([
+          getProject(currentProjectId),
+          listTreeNodes(currentProjectId, { page: 0, size: treePageSize }),
+          getWorkspace(currentProjectId),
+          listGraphChangeProposals(currentProjectId),
+          listNodeEdges(currentProjectId),
+          getLlmStatus().catch(() => ({ provider: 'none', available: false })),
+          loadSelectableUsers().catch(() => []),
+          listTeams().catch(() => []),
+          listProjectMembers(currentProjectId).catch(() => []),
+          listProjectTeams(currentProjectId).catch(() => []),
+          getMySettings().catch(() => ({}) as Record<string, SettingValue>),
+        ])
+
+        if (!isMounted) {
+          return
+        }
+
+        const proposalContextNodes = await loadProposalContextNodes(
+          currentProjectId,
+          nextGraphChangeProposals,
+          nextRootNodes.items,
+        )
+        const projectTeamMembers = await Promise.all(
+          nextProjectTeams.map((team) => listTeamMembers(team.teamId).catch(() => [])),
+        )
+        let nextNodes = proposalContextNodes
+        let initialSelectedNode: ProjectNode | null = null
+        let initialExpandedNodeIds = [
+          ...proposalParentIds(nextGraphChangeProposals),
+          ...proposalContextNodes.map((node) => node.parentNodeId).filter((nodeId): nodeId is string => Boolean(nodeId)),
+        ]
+        let initialLoadedChildrenParentIds = new Set<string>()
+        let initialChildrenPageInfoByParentId = new Map<string, NodePageInfo>()
+
+        if (requestedWorkItemId) {
+          const requestedNodePath = await loadRequestedWorkItemTreePath(currentProjectId, requestedWorkItemId, nextNodes)
+
+          if (requestedNodePath.selectedNode) {
+            nextNodes = requestedNodePath.nodes
+            initialSelectedNode = requestedNodePath.selectedNode
+            initialExpandedNodeIds = [...initialExpandedNodeIds, ...requestedNodePath.expandedNodeIds]
+            initialLoadedChildrenParentIds = requestedNodePath.loadedChildrenParentIds
+            initialChildrenPageInfoByParentId = requestedNodePath.childrenPageInfoByParentId
+          }
+        }
+
+        if (!isMounted) {
+          return
+        }
+
+        setProject(nextProject)
+        setNodes(nextNodes)
+        setEntries(nextWorkspace.entries)
+        setRelationships(nextWorkspace.relationships)
+        setBlockerWorkItems(nextWorkspace.workItems.map((item) => item.workItem))
+        setRootPageInfo(pageInfoFromResponse(nextRootNodes))
+        setReferenceUsers(nextUsers)
+        setReferenceTeams(nextTeams)
+        setProjectMemberUserIds(new Set([
+          ...nextProjectMembers.map((member) => member.userId),
+          ...projectTeamMembers.flatMap((members) => members.map((member) => member.userId)),
+        ]))
+        setProjectTeamIds(new Set(nextProjectTeams.map((team) => team.teamId)))
+        setGraphChangeProposals(nextGraphChangeProposals)
+        setNodeEdges(nextNodeEdges)
+        setIsLlmAvailable(nextLlmStatus.available)
+        setIsAiSuggestionsEnabled(nextSettings['ai-suggestions']?.value === true)
+        setExpandedNodeIds(new Set(initialExpandedNodeIds))
+        setLoadedChildrenParentIds(initialLoadedChildrenParentIds)
+        setChildrenPageInfoByParentId(initialChildrenPageInfoByParentId)
+
+        setSelectedNodeId(initialSelectedNode?.id ?? null)
+        setForm(createFormState(initialSelectedNode))
+        if (initialSelectedNode) {
+          setInspectorMode('task')
+        }
+      } catch (error) {
+        if (isMounted) {
+          setProject(null)
+          setErrorMessage(error instanceof Error ? error.message : 'Failed to load project.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadPage()
+
+    return () => {
+      isMounted = false
+    }
+  }, [projectId, requestedWorkItemId])
+
+  useEffect(() => {
+    if (selectedNode) {
+      const selectTimer = window.setTimeout(() => {
+        setForm(createFormState(selectedNode))
+        setWorkItemInspectorReview(null)
+        setWorkItemInspectorReviewFeedback('')
+      }, 0)
+
+      return () => window.clearTimeout(selectTimer)
+    }
+  }, [selectedNode])
+  useEffect(() => {
+    if (selectedEntry) {
+      setEntryInspectorType(selectedEntry.type)
+      setEntryInspectorBody(selectedEntry.body)
+      setEntryInspectorReview(null)
+      setEntryInspectorReviewFeedback('')
+      setSkipInspectorEntryAiReview(false)
+    }
+  }, [selectedEntry])
+  useEffect(() => {
+    if (focusedNodeId && !findTreeNode(tree, focusedNodeId)) {
+      setFocusedNodeId(null)
+    }
+  }, [focusedNodeId, tree])
+  useEffect(() => {
+    if (!projectId || !selectedNodeId) {
+      return
+    }
+    let cancelled = false
+    getSubscriptionStatus(projectId, selectedNodeId)
+      .then((status) => {
+        if (cancelled) {
+          return
+        }
+        setSubscribedWorkItemIds((current) => {
+          const next = new Set(current)
+          if (status.subscribed) {
+            next.add(selectedNodeId)
+          } else {
+            next.delete(selectedNodeId)
+          }
+          return next
+        })
+      })
+      .catch(() => {
+        if (cancelled) {
+          return
+        }
+        setSubscribedWorkItemIds((current) => {
+          const next = new Set(current)
+          next.delete(selectedNodeId)
+          return next
+        })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [projectId, selectedNodeId])
+
+  if (!projectId) {
+    return <Navigate to="/app/projects" replace />
+  }
+
+  function selectNode(node: ProjectNode) {
+    if (selectedNodeId === node.id) {
+      clearSelectedNode()
+      return
+    }
+    setSelectedNodeId(node.id)
+    setSelectedEntryId(null)
+    setForm(createFormState(node))
+    setInspectorMode('task')
+  }
+
+  function selectEntry(entry: Entry) {
+    if (selectedEntryId === entry.id) {
+      clearSelectedNode()
+      return
+    }
+    setSelectedEntryId(entry.id)
+    setSelectedNodeId(null)
+    setInspectorMode('task')
+  }
+
+  function clearSelectedNode() {
+    setSelectedNodeId(null)
+    setSelectedEntryId(null)
+    setForm(newNodeDefaults)
+  }
+
+  const isSelectedWorkItemSubscribed = selectedNodeId ? subscribedWorkItemIds.has(selectedNodeId) : false
+
+  async function handleToggleSelectedWorkItemSubscription() {
+    if (!projectId || !selectedNodeId || selectedNode?.proposal) {
+      return
+    }
+    try {
+      if (isSelectedWorkItemSubscribed) {
+        const status = await unsubscribeWorkItem(projectId, selectedNodeId)
+        setSubscribedWorkItemIds((current) => {
+          const next = new Set(current)
+          if (status.subscribed) {
+            next.add(selectedNodeId)
+          } else {
+            next.delete(selectedNodeId)
+          }
+          return next
+        })
+        toast.success('Unsubscribed from this work item.')
+      } else {
+        const status = await subscribeWorkItem(projectId, selectedNodeId)
+        setSubscribedWorkItemIds((current) => {
+          const next = new Set(current)
+          if (status.subscribed) {
+            next.add(selectedNodeId)
+          } else {
+            next.delete(selectedNodeId)
+          }
+          return next
+        })
+        toast.success('Subscribed to this work item.')
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update subscription.')
+    }
+  }
+
+  async function loadRootNodes(page = 0, append = false) {
+    if (!projectId) {
+      return
+    }
+
+    const response = await listTreeNodes(projectId, { page, size: treePageSize })
+    setRootPageInfo(pageInfoFromResponse(response))
+    setNodes((current) => (append ? mergeNodesById(current, response.items) : response.items))
+    return response
+  }
+
+  async function loadChildren(parentNodeId: string, page = 0, append = false) {
+    if (!projectId) {
+      return
+    }
+
+    setLoadingChildrenNodeIds((current) => new Set(current).add(parentNodeId))
+
+    try {
+      const response = await listTreeNodes(projectId, { parentNodeId, page, size: treePageSize })
+      setChildrenPageInfoByParentId((current) => {
+        const next = new Map(current)
+        next.set(parentNodeId, pageInfoFromResponse(response))
+        return next
+      })
+      setLoadedChildrenParentIds((current) => new Set(current).add(parentNodeId))
+      setNodes((current) => {
+        const retainedNodes = append ? current : current.filter((node) => node.parentNodeId !== parentNodeId)
+        return mergeNodesById(retainedNodes, response.items)
+      })
+      return response
+    } finally {
+      setLoadingChildrenNodeIds((current) => {
+        const next = new Set(current)
+        next.delete(parentNodeId)
+        return next
+      })
+    }
+  }
+
+  async function toggleNode(nodeId: string) {
+    const isExpanded = expandedNodeIds.has(nodeId)
+    if (isExpanded) {
+      setExpandedNodeIds((current) => {
+        const next = new Set(current)
+        next.delete(nodeId)
+        return next
+      })
+      return
+    }
+
+    setExpandedNodeIds((current) => new Set(current).add(nodeId))
+    if (!loadedChildrenParentIds.has(nodeId) && !loadingChildrenNodeIds.has(nodeId)) {
+      try {
+        await loadChildren(nodeId)
+      } catch (error) {
+        setExpandedNodeIds((current) => {
+          const next = new Set(current)
+          next.delete(nodeId)
+          return next
+        })
+        toast.error(error instanceof Error ? error.message : 'Failed to load sub-items.')
+      }
+    }
+  }
+
+  async function handleExpandSelectedSubtree() {
+    if (!projectId || !selectedNode || selectedNode.proposal || isExpandingSelectedSubtree) {
+      return
+    }
+
+    setIsExpandingSelectedSubtree(true)
+    try {
+      const queuedParentIds = [selectedNode.id]
+      const visitedParentIds = new Set<string>()
+      const loadedNodes: ProjectNode[] = []
+      const pageInfoByParentId = new Map<string, NodePageInfo>()
+
+      while (queuedParentIds.length > 0) {
+        const parentNodeId = queuedParentIds.shift()
+        if (!parentNodeId || visitedParentIds.has(parentNodeId)) {
+          continue
+        }
+        visitedParentIds.add(parentNodeId)
+
+        let page = 0
+        let response: NodePageResponse
+        do {
+          response = await listTreeNodes(projectId, { parentNodeId, page, size: treePageSize })
+          loadedNodes.push(...response.items)
+          response.items.forEach((child) => queuedParentIds.push(child.id))
+          pageInfoByParentId.set(parentNodeId, pageInfoFromResponse(response))
+          page += 1
+        } while (page < response.totalPages)
+      }
+
+      setNodes((current) => mergeNodesById(current, loadedNodes))
+      setLoadedChildrenParentIds((current) => new Set([...current, ...visitedParentIds]))
+      setChildrenPageInfoByParentId((current) => new Map([...current, ...pageInfoByParentId]))
+      setExpandedNodeIds((current) => new Set([...current, ...visitedParentIds]))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to expand sub-items.')
+    } finally {
+      setIsExpandingSelectedSubtree(false)
+    }
+  }
+
+  function handleCollapseSelectedSubtree() {
+    if (!selectedNode || selectedNode.proposal) {
+      return
+    }
+
+    const subtreeNodeIds = new Set(collectDescendantIds(selectedNode.id, tree))
+    setExpandedNodeIds((current) => new Set([...current].filter((nodeId) => !subtreeNodeIds.has(nodeId))))
+  }
+
+  async function loadMoreRootNodes() {
+    if (!rootPageInfo || rootPageInfo.page + 1 >= rootPageInfo.totalPages || isLoadingMoreRoots) {
+      return
+    }
+
+    setIsLoadingMoreRoots(true)
+    try {
+      await loadRootNodes(rootPageInfo.page + 1, true)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load more items.')
+    } finally {
+      setIsLoadingMoreRoots(false)
+    }
+  }
+
+  async function loadMoreChildren(parentNodeId: string) {
+    const pageInfo = childrenPageInfoByParentId.get(parentNodeId)
+    if (!pageInfo || pageInfo.page + 1 >= pageInfo.totalPages || loadingChildrenNodeIds.has(parentNodeId)) {
+      return
+    }
+
+    try {
+      await loadChildren(parentNodeId, pageInfo.page + 1, true)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load more sub-items.')
+    }
+  }
+
+  async function reloadLoadedTree(nextSelectedNodeId?: string, extraParentNodeIds: string[] = []) {
+    if (!projectId) {
+      return
+    }
+
+    const previouslyExpandedNodeIds = [...new Set([...expandedNodeIds, ...extraParentNodeIds])]
+    const rootResponse = await loadRootNodes(0)
+    const childResponses = await Promise.all(previouslyExpandedNodeIds.map((parentNodeId) => loadChildren(parentNodeId).catch(() => null)))
+
+    const selectedId = nextSelectedNodeId ?? selectedNodeId
+    const availableNodes = mergeNodesById(
+      rootResponse?.items ?? [],
+      childResponses.flatMap((response) => response?.items ?? []),
+    )
+    const nextSelectedNode = availableNodes.find((node) => node.id === selectedId) ?? null
+    setSelectedNodeId(nextSelectedNode?.id ?? null)
+    setForm(createFormState(nextSelectedNode))
+  }
+
+  async function reloadGraphChangeProposals() {
+    if (!projectId) {
+      return
+    }
+
+    const nextGraphChangeProposals = await listGraphChangeProposals(projectId)
+    setGraphChangeProposals(nextGraphChangeProposals)
+    setExpandedNodeIds((current) => new Set([
+      ...current,
+      ...proposalParentIds(nextGraphChangeProposals),
+    ]))
+  }
+
+  async function reloadNodeEdges() {
+    if (!projectId) {
+      return
+    }
+
+    setNodeEdges(await listNodeEdges(projectId))
+  }
+
+  async function reloadWorkspaceRelationships() {
+    if (!projectId) {
+      return
+    }
+
+    const workspace = await getWorkspace(projectId)
+    setEntries(workspace.entries)
+    setRelationships(workspace.relationships)
+    setBlockerWorkItems(workspace.workItems.map((item) => item.workItem))
+  }
+
+  async function reloadTreeAndProposals(nextSelectedNodeId?: string) {
+    await Promise.all([
+      reloadLoadedTree(nextSelectedNodeId),
+      reloadGraphChangeProposals(),
+      reloadNodeEdges(),
+      reloadWorkspaceRelationships(),
+    ])
+  }
+
+  function updateFormField(fieldId: string, updates: Partial<NodeFormField>) {
+    setForm((current) => ({
+      ...current,
+      fields: current.fields.map((field) => (field.clientId === fieldId ? { ...field, ...updates } : field)),
+    }))
+  }
+
+  function updateManagedWorkItemField(
+    name: string,
+    label: string,
+    dataType: ProjectNodeFieldDataType,
+    value: NodeFormField['value'],
+    visibleInTree: boolean,
+  ) {
+    setForm((current) => {
+      const existing = current.fields.find((field) => field.name === name)
+      if (existing) {
+        return {
+          ...current,
+          fields: current.fields.map((field) => (field.name === name ? { ...field, value } : field)),
+        }
+      }
+      return {
+        ...current,
+        fields: [...current.fields, { clientId: createDraftId(), name, label, dataType, value, visibleInTree }],
+      }
+    })
+  }
+
+  function handleAddAssignee() {
+    if (!newAssigneeId) {
+      return
+    }
+
+    const isUser = newAssigneeType === 'USER'
+    const fieldName = isUser ? 'assigneeUserIds' : 'assigneeTeamIds'
+    const label = isUser ? 'Assigned users' : 'Assigned teams'
+    const dataType: ProjectNodeFieldDataType = isUser ? 'user' : 'team'
+    const assignedIds = isUser ? assignedUserIds : assignedTeamIds
+    updateManagedWorkItemField(fieldName, label, dataType, [...assignedIds, newAssigneeId], false)
+    setNewAssigneeId('')
+  }
+
+  function removeAssignee(type: 'USER' | 'TEAM', assigneeId: string) {
+    const isUser = type === 'USER'
+    const fieldName = isUser ? 'assigneeUserIds' : 'assigneeTeamIds'
+    const label = isUser ? 'Assigned users' : 'Assigned teams'
+    const dataType: ProjectNodeFieldDataType = isUser ? 'user' : 'team'
+    const assignedIds = isUser ? assignedUserIds : assignedTeamIds
+    updateManagedWorkItemField(fieldName, label, dataType, assignedIds.filter((id) => id !== assigneeId), false)
+  }
+
+  function addFormField() {
+    setForm((current) => ({
+      ...current,
+      fields: [...current.fields, buildNextField(current.fields)],
+    }))
+  }
+
+  function deleteFormField(fieldId: string) {
+    setForm((current) => ({
+      ...current,
+      fields: current.fields.filter((field) => field.clientId !== fieldId),
+    }))
+  }
+
+  function moveFormField(fieldId: string, offset: -1 | 1) {
+    setForm((current) => {
+      const currentIndex = current.fields.findIndex((field) => field.clientId === fieldId)
+      const nextIndex = currentIndex + offset
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= current.fields.length) {
+        return current
+      }
+
+      const nextFields = [...current.fields]
+      const [field] = nextFields.splice(currentIndex, 1)
+      nextFields.splice(nextIndex, 0, field)
+
+      return {
+        ...current,
+        fields: nextFields,
+      }
+    })
+  }
+
+  function handleTypeChange(nextType: string) {
+    setForm((current) => {
+      const currentStatus = normalizedStatus(formFieldValue(current.fields, 'status'))
+      const allowedStatuses = statusOptionsForType(nextType)
+      const nextStatus = allowedStatuses.some((option) => option.value === currentStatus)
+        ? currentStatus
+        : defaultStatusForType(nextType)
+      const fieldsWithCompatibleStatus = current.fields.some((field) => field.name === 'status')
+        ? current.fields.map((field) => field.name === 'status' ? { ...field, value: nextStatus } : field)
+        : [...current.fields, { clientId: createDraftId(), name: 'status', label: 'Status', dataType: 'text' as const, value: nextStatus, visibleInTree: true }]
+
+      return { ...current, type: nextType, fields: fieldsWithCompatibleStatus }
+    })
+  }
+
+  function focusNode(node: TreeNode) {
+    setFocusedNodeId(node.id)
+    setExpandedNodeIds((current) => new Set(current).add(node.id))
+  }
+
+  async function handleCreateNode(parentId?: string, type = 'TASK') {
+    if (!projectId) {
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      const created = await createNode(projectId, {
+        projectId,
+        parentNodeId: parentId ?? null,
+        type,
+        title: untitledWorkItemTitle,
+        fields: [{ name: 'status', label: 'Status', dataType: 'text', value: defaultStatusForType(type), visibleInTree: true }],
+      })
+      if (parentId) {
+        setExpandedNodeIds((current) => new Set(current).add(parentId))
+        setLoadedChildrenParentIds((current) => new Set(current).add(parentId))
+        setChildrenPageInfoByParentId((current) => {
+          const next = new Map(current)
+          const currentPageInfo = next.get(parentId)
+          if (currentPageInfo) {
+            next.set(parentId, {
+              ...currentPageInfo,
+              totalItems: currentPageInfo.totalItems + 1,
+              totalPages: Math.ceil((currentPageInfo.totalItems + 1) / currentPageInfo.size),
+            })
+          }
+          return next
+        })
+        setNodes((current) => mergeNodesById(
+          current.map((node) => (
+            node.id === parentId
+              ? { ...node, childrenCount: (node.childrenCount ?? 0) + 1 }
+              : node
+          )),
+          [created],
+        ))
+      } else {
+        setRootPageInfo((current) => current ? {
+          ...current,
+          totalItems: current.totalItems + 1,
+          totalPages: Math.ceil((current.totalItems + 1) / current.size),
+        } : current)
+        setNodes((current) => mergeNodesById(current, [created]))
+      }
+
+      setSelectedNodeId(created.id)
+      setForm(createFormState(created))
+      setInspectorMode('task')
+      setNewWorkItemAwaitingInitialReviewId(isAiSuggestionsActive ? created.id : null)
+      setAutoEditTitleNodeId(created.id)
+      toast.success(parentId ? 'Sub-item created.' : 'Item created.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create item.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleSaveNode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!projectId || !selectedNode) {
+      return
+    }
+
+    if (selectedNode.proposal) {
+      toast.error('Accept or reject this proposal from the tree row.')
+      return
+    }
+
+    const type = form.type.trim()
+    const title = form.title.trim()
+    if (!type || !title) {
+      toast.error('Item type and title are required.')
+      return
+    }
+
+    const fieldNames = new Set<string>()
+    for (const field of form.fields) {
+      const normalizedName = field.name.trim()
+      if (!normalizedName) {
+        toast.error('Every field needs a name.')
+        return
+      }
+
+      const normalizedKey = normalizedName.toLowerCase()
+      if (fieldNames.has(normalizedKey)) {
+        toast.error('Field names must be unique.')
+        return
+      }
+      fieldNames.add(normalizedKey)
+
+      if (field.dataType === 'number') {
+        const rawValue = String(field.value ?? '').trim()
+        if (rawValue && Number.isNaN(Number(rawValue))) {
+          toast.error(`Field "${field.label || field.name}" must be a valid number.`)
+          return
+        }
+      }
+    }
+
+    setIsSaving(true)
+
+    try {
+      const updated = await updateNode(projectId, selectedNode.id, {
+        projectId,
+        parentNodeId: selectedNode.parentNodeId ?? null,
+        sortIndex: selectedNode.sortIndex ?? 0,
+        type,
+        title,
+        fields: serializeFields(form.fields),
+      })
+      setNodes((current) => current.map((node) => (
+        node.id === updated.id ? { ...updated, childrenCount: node.childrenCount ?? updated.childrenCount } : node
+      )))
+      setSelectedNodeId(updated.id)
+      setForm(createFormState(updated))
+      toast.success('Item updated.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update item.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleReviewWorkItemWithAi() {
+    if (!projectId || !selectedNode || selectedNode.proposal) return
+    const title = form.title.trim()
+    const type = form.type.trim()
+    if (!title || !type) {
+      toast.error('Item type and title are required.')
+      return
+    }
+    setIsSaving(true)
+    try {
+      const review = await reviewWorkItemWithAi(projectId, selectedNode.id, {
+        title,
+        type: type as WorkItem['type'],
+        status: (normalizedStatus(formFieldValue(form.fields, 'status')) || defaultStatusForType(type)).replaceAll(' ', '_') as WorkItem['status'],
+        dueDate: String(formFieldValue(form.fields, 'dueDate') ?? '').trim() || null,
+        priority: String(formFieldValue(form.fields, 'priority') ?? '').trim() || null,
+        assignees: [
+          ...parseStringArrayValue(formFieldValue(form.fields, 'assigneeUserIds')).map((assigneeId) => ({ assigneeType: 'USER' as const, assigneeId })),
+          ...parseStringArrayValue(formFieldValue(form.fields, 'assigneeTeamIds')).map((assigneeId) => ({ assigneeType: 'TEAM' as const, assigneeId })),
+        ],
+      })
+      setWorkItemInspectorReview(review)
+      setWorkItemInspectorReviewFeedback('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to get an AI suggestion.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  function applyWorkItemAiReview(review: WorkItemAiReview) {
+    const updateField = (fields: NodeFormField[], name: string, label: string, value: NodeFormField['value']) => {
+      const existing = fields.find((field) => field.name === name)
+      return existing
+        ? fields.map((field) => field.name === name ? { ...field, value } : field)
+        : [...fields, { clientId: createDraftId(), name, label, dataType: 'text' as const, value, visibleInTree: true }]
+    }
+    setForm((current) => {
+      let fields = updateField(current.fields, 'status', 'Status', review.proposedStatus)
+      fields = updateField(fields, 'dueDate', 'Due date', review.proposedDueDate ?? '')
+      fields = updateField(fields, 'priority', 'Priority', review.proposedPriority ?? '')
+      fields = updateField(fields, 'assigneeUserIds', 'Assignee users', review.proposedAssignees.filter((assignee) => assignee.assigneeType === 'USER').map((assignee) => assignee.assigneeId))
+      fields = updateField(fields, 'assigneeTeamIds', 'Assignee teams', review.proposedAssignees.filter((assignee) => assignee.assigneeType === 'TEAM').map((assignee) => assignee.assigneeId))
+      return { ...current, title: review.proposedTitle, type: review.proposedType, fields }
+    })
+    setWorkItemInspectorReview(null)
+    setWorkItemInspectorReviewFeedback('')
+  }
+
+  async function handleAddSuggestedBlockers(review: WorkItemAiReview) {
+    if (!projectId || !selectedNode) return
+    const existingBlockerIds = new Set((blockedByRelationshipsByNodeId.get(selectedNode.id) ?? []).map((relationship) => relationship.toEntityId))
+    const suggestions = review.proposedBlockers.filter((blocker) => !existingBlockerIds.has(blocker.workItemId))
+    if (suggestions.length === 0) return
+    setIsSaving(true)
+    try {
+      const added: Relationship[] = []
+      for (const suggestion of suggestions) {
+        added.push(await createRelationship(projectId, {
+          fromEntityType: 'WORK_ITEM',
+          fromEntityId: selectedNode.id,
+          toEntityType: 'WORK_ITEM',
+          toEntityId: suggestion.workItemId,
+          type: 'BLOCKED_BY',
+          reason: suggestion.reason,
+          sourceEntryId: null,
+        }))
+      }
+      setRelationships((current) => [...current, ...added])
+      setWorkItemInspectorReview((current) => current ? { ...current, proposedBlockers: current.proposedBlockers.filter((blocker) => !suggestions.some((suggestion) => suggestion.workItemId === blocker.workItemId)) } : null)
+      toast.success(`${added.length} blocker${added.length === 1 ? '' : 's'} added.`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to add suggested blockers.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleRefineWorkItemAiReview() {
+    if (!projectId || !selectedNode || !workItemInspectorReview) return
+    setIsSaving(true)
+    try {
+      const nextReview = await reviewWorkItemWithAi(projectId, selectedNode.id, {
+        title: workItemInspectorReview.proposedTitle,
+        type: workItemInspectorReview.proposedType,
+        status: workItemInspectorReview.proposedStatus,
+        dueDate: workItemInspectorReview.proposedDueDate,
+        priority: workItemInspectorReview.proposedPriority,
+        assignees: workItemInspectorReview.proposedAssignees,
+        instruction: workItemInspectorReviewFeedback,
+      })
+      setWorkItemInspectorReview(nextReview)
+      setWorkItemInspectorReviewFeedback('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update AI suggestion.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleDeleteNode(nodeId: string) {
+    if (!projectId) {
+      return
+    }
+
+    const deleteIds = collectDescendantIds(nodeId, tree)
+    const deleteSet = new Set(deleteIds)
+    if (deleteIds.length === 0) {
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      const targetNode = findTreeNode(tree, nodeId)
+      await deleteNode(projectId, nodeId)
+      setEntries((current) => current.filter((entry) => !deleteSet.has(entry.workItemId)))
+      setNodes((current) => {
+        const nextNodes = removeLoadedSubtree(current, deleteSet)
+        if (!targetNode?.parentNodeId) {
+          return nextNodes
+        }
+        return nextNodes.map((node) => (
+          node.id === targetNode.parentNodeId
+            ? { ...node, childrenCount: Math.max(0, (node.childrenCount ?? 0) - 1) }
+            : node
+        ))
+      })
+      if (!targetNode?.parentNodeId) {
+        setRootPageInfo((current) => current ? {
+          ...current,
+          totalItems: Math.max(0, current.totalItems - 1),
+          totalPages: Math.ceil(Math.max(0, current.totalItems - 1) / current.size),
+        } : current)
+      } else {
+        const parentNodeId = targetNode.parentNodeId
+        setChildrenPageInfoByParentId((current) => {
+          const next = new Map(current)
+          const currentPageInfo = next.get(parentNodeId)
+          if (currentPageInfo) {
+            const totalItems = Math.max(0, currentPageInfo.totalItems - 1)
+            next.set(parentNodeId, {
+              ...currentPageInfo,
+              totalItems,
+              totalPages: Math.ceil(totalItems / currentPageInfo.size),
+            })
+          }
+          return next
+        })
+      }
+      if (selectedNodeId && deleteSet.has(selectedNodeId)) {
+        clearSelectedNode()
+      }
+      toast.success('Item deleted.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete item.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  function openMoveDialog(node?: ProjectNode) {
+    const nodeToMove = node ?? selectedNode
+    if (!nodeToMove || (nodeToMove as ProjectNode & { proposal?: TreeNodeProposal }).proposal) {
+      return
+    }
+
+    setSelectedNodeId(nodeToMove.id)
+    setMoveTargetContentKey('')
+    setMoveQuery('')
+    setIsMoveDialogOpen(true)
+  }
+
+  async function handleMoveNode() {
+    if (!projectId || !selectedNode) {
+      return
+    }
+
+    const target = moveTargetOptions.find((item) => contentEntityKey(item.entityType, item.entityId) === moveTargetContentKey)
+    const destinationParentId = target?.parentWorkItemId ?? null
+
+    setIsSaving(true)
+
+    try {
+      const moved = await moveWorkItemInContentOrder(projectId, selectedNode.id, destinationParentId, target)
+      if (destinationParentId) {
+        setExpandedNodeIds((current) => new Set(current).add(destinationParentId))
+      }
+      await reloadLoadedTree(selectedNode.id, destinationParentId ? [destinationParentId] : [])
+      setNodes((current) => mergeNodesById(current, [{ ...moved, childrenCount: selectedNode.childrenCount }]))
+      setSelectedNodeId(moved.id)
+      setForm(createFormState(moved))
+      setIsMoveDialogOpen(false)
+      toast.success(target ? 'Item moved.' : 'Item moved to the end of the project level.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to move item.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleMoveContentItem(parentWorkItemId: string | null, entityType: 'WORK_ITEM' | 'ENTRY', entityId: string, offset: number) {
+    if (!projectId || isSaving) {
+      return
+    }
+    const siblings = [...(contentOrderByParent.get(contentParentKey(parentWorkItemId)) ?? [])]
+    const currentIndex = siblings.findIndex((item) => item.entityType === entityType && item.entityId === entityId)
+    if (currentIndex < 0) {
+      return
+    }
+    const nextIndex = currentIndex + offset
+    if (nextIndex < 0 || nextIndex >= siblings.length) {
+      return
+    }
+    const reordered = [...siblings]
+    ;[reordered[currentIndex], reordered[nextIndex]] = [reordered[nextIndex], reordered[currentIndex]]
+    setIsSaving(true)
+    try {
+      const updated = await reorderContentItems(projectId, parentWorkItemId, reordered.map((item) => ({ entityType: item.entityType, entityId: item.entityId })))
+      const updatedSortIndexes = new Map(updated.map((item) => [contentEntityKey(item.entityType, item.entityId), item.sortIndex]))
+      setNodes((current) => current.map((node) => {
+        const sortIndex = updatedSortIndexes.get(contentEntityKey('WORK_ITEM', node.id))
+        return sortIndex == null ? node : { ...node, sortIndex }
+      }))
+      setEntries((current) => current.map((entry) => {
+        const sortIndex = updatedSortIndexes.get(contentEntityKey('ENTRY', entry.id))
+        return sortIndex == null ? entry : { ...entry, sortIndex }
+      }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reorder content.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleMoveNodeByOffset(node: ProjectNode, offset: number) {
+    if ((node as ProjectNode & { proposal?: TreeNodeProposal }).proposal) return
+    await handleMoveContentItem(node.parentNodeId ?? null, 'WORK_ITEM', node.id, offset)
+  }
+
+  async function handleMoveSelectedNodeByOffset(offset: number) {
+    if (!selectedNode) {
+      return
+    }
+
+    await handleMoveNodeByOffset(selectedNode, offset)
+  }
+
+  async function handleDecideProposal(proposal: TreeNodeProposal, decision: 'ACCEPT' | 'REJECT') {
+    const related = openWorkspaceChangesForNode(graphChangeProposals, proposal.targetId)
+    const selectedChange = graphChangeProposals.flatMap((item) => item.changes).find((change) => change.id === proposal.changeId)
+    if (related.length === 0 && !selectedChange) {
+      toast.error('Proposal change is no longer available.')
+      return
+    }
+    await handleDecideWorkspaceChanges(
+      related.length > 0 ? related : [{ proposalId: proposal.proposalId, change: selectedChange! }],
+      decision,
+    )
+  }
+
+  async function handleDecideWorkspaceChanges(
+    proposalChanges: Array<{ proposalId: string; change: GraphChangeProposalChange }>,
+    decision: 'ACCEPT' | 'REJECT',
+  ) {
+    if (!projectId || decidingProposalChangeId || proposalChanges.length === 0) return
+    const allOpenChanges = graphChangeProposals.flatMap((proposal) => proposal.changes
+      .filter((change) => isOpenProposalStatus(change.status))
+      .map((change) => ({ proposalId: proposal.id, change })))
+    const proposedNodeAddById = new Map(allOpenChanges
+      .filter(({ change }) => change.entityType === 'NODE' && change.action === 'ADD')
+      .map((item) => [item.change.targetId, item]))
+    const expandedChanges = [...proposalChanges]
+    const includedChangeIds = new Set(expandedChanges.map(({ change }) => change.id))
+
+    if (decision === 'ACCEPT') {
+      const includeRequiredParent = (parentId: string | null | undefined) => {
+        if (!parentId || nodes.some((node) => node.id === parentId)) return
+        const parentChange = proposedNodeAddById.get(parentId)
+        if (!parentChange || includedChangeIds.has(parentChange.change.id)) return
+        includedChangeIds.add(parentChange.change.id)
+        includeRequiredParent(parentChange.change.node?.parentNodeId)
+        expandedChanges.push(parentChange)
+      }
+      for (const { change } of [...expandedChanges]) {
+        if (change.entityType === 'NODE' && change.action === 'ADD') includeRequiredParent(change.node?.parentNodeId)
+        if (change.entityType === 'ENTRY' && change.action === 'ADD') includeRequiredParent(change.entry?.workItemId)
+      }
+    }
+
+    const plannedNodeIds = new Set(expandedChanges
+      .filter(({ change }) => change.entityType === 'NODE' && change.action === 'ADD')
+      .map(({ change }) => change.targetId))
+    const plannedEntryIds = new Set(expandedChanges
+      .filter(({ change }) => change.entityType === 'ENTRY' && change.action === 'ADD')
+      .map(({ change }) => change.targetId))
+    const canonicalNodeIds = new Set(nodes.map((node) => node.id))
+    const canonicalEntryIds = new Set(entries.map((entry) => entry.id))
+    const entityWillExist = (type: string, id: string) => type === 'WORK_ITEM'
+      ? canonicalNodeIds.has(id) || plannedNodeIds.has(id)
+      : canonicalEntryIds.has(id) || plannedEntryIds.has(id)
+    const readyChanges = decision === 'ACCEPT' ? expandedChanges.filter(({ change }) => {
+      if (change.entityType !== 'EDGE' || change.action !== 'ADD') return true
+      const relationship = change.relationship
+      return Boolean(relationship
+        && entityWillExist(relationship.fromEntityType, relationship.fromEntityId)
+        && entityWillExist(relationship.toEntityType, relationship.toEntityId)
+        && (!relationship.sourceEntryId || entityWillExist('ENTRY', relationship.sourceEntryId)))
+    }) : expandedChanges
+    const deferredCount = expandedChanges.length - readyChanges.length
+    const nodeAddDepth = (change: GraphChangeProposalChange) => {
+      let depth = 0
+      let parentId = change.node?.parentNodeId
+      const visited = new Set<string>()
+      while (parentId && plannedNodeIds.has(parentId) && !visited.has(parentId)) {
+        visited.add(parentId)
+        depth += 1
+        parentId = proposedNodeAddById.get(parentId)?.change.node?.parentNodeId
+      }
+      return depth
+    }
+    const ordered = [...readyChanges].sort((left, right) => {
+      if (decision === 'REJECT') return left.change.sortIndex - right.change.sortIndex
+      const weight = (change: GraphChangeProposalChange) => {
+        if (change.entityType === 'NODE' && change.action === 'ADD') return nodeAddDepth(change)
+        if (change.entityType === 'NODE' && change.action === 'UPDATE') return 50
+        if (change.entityType === 'ENTRY' && change.action !== 'DELETE') return 100
+        if (change.entityType === 'EDGE' && change.action !== 'DELETE') return 200
+        if (change.entityType === 'EDGE') return 300
+        if (change.entityType === 'ENTRY') return 400
+        return 500
+      }
+      return weight(left.change) - weight(right.change) || left.change.sortIndex - right.change.sortIndex
+    })
+    if (ordered.length === 0) {
+      toast.info('Accept the proposed work items before accepting this relationship.')
+      return
+    }
+    setDecidingProposalChangeId(ordered[0].change.id)
+    try {
+      for (const { proposalId, change } of ordered) {
+        await decideGraphChangeProposal(projectId, proposalId, change.id, change.entityType, decision)
+      }
+      await reloadTreeAndProposals(selectedNodeId ?? undefined)
+      toast.success(decision === 'ACCEPT'
+        ? deferredCount > 0
+          ? 'Available changes accepted. Relationships waiting for other proposed items remain pending.'
+          : 'AI suggestion accepted.'
+        : 'AI suggestion rejected.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Failed to ${decision.toLowerCase()} AI suggestion.`)
+    } finally {
+      setDecidingProposalChangeId(null)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+          <h1 className="text-xl font-semibold leading-none tracking-normal">Projects</h1>
+        </div>
+        <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto p-6">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!project || errorMessage) {
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+          <h1 className="text-xl font-semibold leading-none tracking-normal">Projects</h1>
+        </div>
+        <div className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
+          <div className="rounded-md border bg-background">
+            <Empty className="min-h-[50vh] border-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FolderOpen />
+                </EmptyMedia>
+                <EmptyTitle>Project not found</EmptyTitle>
+              </EmptyHeader>
+              <div className="flex justify-center">
+                <NavLink to="/app/projects" className={buttonVariants()}>
+                  Back to projects
+                </NavLink>
+              </div>
+            </Empty>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 md:px-6">
+        <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold leading-none tracking-normal">
+          <NavLink to="/app/projects" className="shrink-0 text-muted-foreground hover:text-foreground">
+            Projects
+          </NavLink>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="flex min-w-0 items-center gap-1.5">
+            <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="truncate">{formatProjectTitle(project)}</span>
+          </span>
+        </h1>
+        <Button render={<NavLink to={`/app/projects/${project.id}/settings`} />} variant="ghost" size="icon-sm" aria-label="Project settings">
+          <Settings className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <ResizablePanelGroup
+        orientation="horizontal"
+        defaultLayout={workspacePanelLayout}
+        onLayoutChanged={(layout, meta) => {
+          if (!meta.isUserInteraction) return
+          try {
+            window.localStorage.setItem(workspacePanelLayoutStorageKey, JSON.stringify(layout))
+          } catch {
+            // Layout persistence is optional when browser storage is unavailable.
+          }
+        }}
+        className="min-h-0 min-w-0 flex-1 overflow-hidden border-b"
+      >
+        <ResizablePanel id="project-tree" defaultSize="70" minSize="45">
+          <section className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+          <div className="flex min-h-12 shrink-0 items-center gap-2 border-b p-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden">
+            <Popover>
+              <PopoverTrigger
+                render={(
+                  <Button type="button" size="sm" variant={hasActiveWorkItemFilters ? 'default' : 'outline'} className="gap-2">
+                    <Filter className="h-4 w-4" />
+                    Filters{hasActiveWorkItemFilters ? ` (${appliedWorkItemFilterConditions.length + (appliedWorkItemSearchQuery ? 1 : 0)})` : ''}
+                  </Button>
+                )}
+              />
+              <PopoverContent align="start" className="w-[34rem] gap-0 p-0">
+                <PopoverHeader className="border-b px-4 py-3"><PopoverTitle>Filter work items</PopoverTitle></PopoverHeader>
+                <div className="space-y-5 px-4 py-4">
+                  <div className="space-y-2">
+                    <label htmlFor="work-item-filter-search" className="block text-sm font-semibold">Search</label>
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="work-item-filter-search" className="h-9 pl-10" value={workItemSearchQuery} onChange={(event) => setWorkItemSearchQuery(event.target.value)} placeholder="Search titles, entries, and relationships…" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold">Conditions</label>
+                    <div className="space-y-2">
+                      {workItemFilterConditions.map((condition, index) => (
+                        <div key={condition.id} className="flex min-h-9 items-center gap-2">
+                          {index === 0 ? (
+                            <span className="w-14 shrink-0 text-xs font-medium text-muted-foreground">Where</span>
+                          ) : (
+                            <NativeSelect
+                              className="h-9 w-14 shrink-0"
+                              value={condition.operator}
+                              onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, operator: event.target.value as WorkItemFilterOperator } : item))}
+                              aria-label="Condition operator"
+                            >
+                              <NativeSelectOption value="AND">AND</NativeSelectOption>
+                              <NativeSelectOption value="OR">OR</NativeSelectOption>
+                            </NativeSelect>
+                          )}
+                          <NativeSelect
+                            className="h-9 w-32"
+                            value={condition.field}
+                            onChange={(event) => {
+                              const field = event.target.value as WorkItemFilterField
+                              const value = field === 'STATUS' ? 'OPEN' : field === 'PRIORITY' ? 'MEDIUM' : field === 'DUE_DATE' ? 'OVERDUE' : ''
+                              setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, field, value } : item))
+                            }}
+                          >
+                            <NativeSelectOption value="STATUS">Status</NativeSelectOption>
+                            <NativeSelectOption value="PRIORITY">Priority</NativeSelectOption>
+                            <NativeSelectOption value="DUE_DATE">Due date</NativeSelectOption>
+                            <NativeSelectOption value="ASSIGNEE">Assignee</NativeSelectOption>
+                          </NativeSelect>
+                          {condition.field === 'STATUS' ? (
+                            <NativeSelect className="h-9 min-w-0 flex-1" value={condition.value} onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, value: event.target.value } : item))}>
+                              {['OPEN', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'WAITING', 'ANSWERED', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map((status) => <NativeSelectOption key={status} value={status}>{status.replaceAll('_', ' ')}</NativeSelectOption>)}
+                            </NativeSelect>
+                          ) : condition.field === 'PRIORITY' ? (
+                            <NativeSelect className="h-9 min-w-0 flex-1" value={condition.value} onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, value: event.target.value } : item))}>
+                              {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => <NativeSelectOption key={priority} value={priority}>{priority[0]}{priority.slice(1).toLowerCase()}</NativeSelectOption>)}
+                            </NativeSelect>
+                          ) : condition.field === 'DUE_DATE' ? (
+                            <NativeSelect className="h-9 min-w-0 flex-1" value={condition.value} onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, value: event.target.value } : item))}>
+                              <NativeSelectOption value="OVERDUE">Overdue</NativeSelectOption><NativeSelectOption value="TODAY">Due today</NativeSelectOption><NativeSelectOption value="NEXT_7_DAYS">Next 7 days</NativeSelectOption><NativeSelectOption value="NONE">No due date</NativeSelectOption>
+                            </NativeSelect>
+                          ) : (
+                            <NativeSelect className="h-9 min-w-0 flex-1" value={condition.value} onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, value: event.target.value } : item))}>
+                              <NativeSelectOption value="">Select assignee</NativeSelectOption>
+                              {assigneeUserOptions.map((user) => <NativeSelectOption key={`user-${user.id}`} value={`USER:${user.id}`}>{user.label}</NativeSelectOption>)}
+                              {assigneeTeamOptions.map((team) => <NativeSelectOption key={`team-${team.id}`} value={`TEAM:${team.id}`}>{team.label} (team)</NativeSelectOption>)}
+                            </NativeSelect>
+                          )}
+                          <Button type="button" variant="ghost" size="icon-xs" onClick={() => setWorkItemFilterConditions((current) => current.filter((item) => item.id !== condition.id))} aria-label="Remove filter condition"><X /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t bg-muted/30 px-4 py-3">
+                  <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={() => setWorkItemFilterConditions((current) => [...current, { id: `${Date.now()}-${Math.random()}`, field: 'STATUS', value: 'OPEN', operator: 'AND' }])}>
+                    <Plus className="h-3.5 w-3.5" /> Add condition
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {hasDraftWorkItemFilters || hasActiveWorkItemFilters ? <Button type="button" size="sm" variant="ghost" onClick={() => void handleClearWorkItemFilters()} disabled={isRunningWorkItemFilters}>Clear</Button> : null}
+                    <Button type="button" size="sm" onClick={() => void handleRunWorkItemFilters()} disabled={isRunningWorkItemFilters}>
+                      {isRunningWorkItemFilters ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Run filters
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Button
+              type="button"
+              size="sm"
+              variant={createdSortDirection ? 'default' : 'outline'}
+              className="gap-2"
+              onClick={() => void handleRunCreatedSort()}
+              disabled={isRunningCreatedSort}
+              title={createdSortDirection === 'ASC' ? 'Created time: oldest first' : 'Created time: newest first'}
+            >
+              {isRunningCreatedSort ? <Loader2 className="h-4 w-4 animate-spin" /> : createdSortDirection === 'ASC' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+              Created
+            </Button>
+            <div className="order-first">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={(
+                  <Button type="button" size="sm" className="gap-2" disabled={isSaving}>
+                    <Plus className="h-4 w-4" />
+                    {focusedNode ? 'Add sub-item' : 'New item'}
+                  </Button>
+                )}
+              />
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem onClick={() => void handleCreateNode(focusedNodeId ?? undefined, 'TASK')}>
+                  <ListTodo className="h-4 w-4" /> Task
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void handleCreateNode(focusedNodeId ?? undefined, 'QUESTION')}>
+                  <CircleHelp className="h-4 w-4" /> Ask a question
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void handleCreateNode(focusedNodeId ?? undefined, 'APPROVAL')}>
+                  <ClipboardCheck className="h-4 w-4" /> Request approval
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            </div>
+            </div>
+            {isLlmAvailable ? (
+              <Button
+                type="button"
+                size="sm"
+                variant={isAiSuggestionsEnabled ? 'default' : 'outline'}
+                className="ml-auto shrink-0 gap-2"
+                onClick={() => {
+                  const nextEnabled = !isAiSuggestionsEnabled
+                  setIsAiSuggestionsEnabled(nextEnabled)
+                  void updateMySetting('ai-suggestions', { dataType: 'boolean', value: nextEnabled }).catch(() => {
+                    setIsAiSuggestionsEnabled(!nextEnabled)
+                    toast.error('Failed to update AI suggestions setting.')
+                  })
+                }}
+                aria-pressed={isAiSuggestionsEnabled}
+                title="Review update edits with AI before saving"
+              >
+                <Bot className="h-4 w-4" />
+                AI Suggestions
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col p-2">
+            {focusedNode ? (
+              <div className="mb-2 flex min-h-9 flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+                <div className="flex min-w-0 items-center gap-1 text-sm">
+                  <span className="shrink-0 text-muted-foreground">Focused:</span>
+                  <div className="flex min-w-0 items-center gap-1">
+                    {focusedNodePath.map((node, index) => (
+                      <span key={node.id} className="flex min-w-0 items-center gap-1">
+                        {index > 0 ? <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
+                        <button
+                          type="button"
+                          className={cn(
+                            'min-w-0 truncate rounded-sm px-1 hover:bg-background',
+                            index === focusedNodePath.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground',
+                          )}
+                          onClick={() => setFocusedNodeId(node.id)}
+                          title={node.title}
+                        >
+                          {node.title}
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <Button type="button" variant="outline" size="xs" onClick={() => setFocusedNodeId(null)}>
+                  Exit focus
+                </Button>
+              </div>
+            ) : null}
+            {filteredTree.length === 0 && filteredPendingProposalItems.length === 0 ? (
+              <Empty className="min-h-64 border-0">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <FolderOpen />
+                  </EmptyMedia>
+                  <EmptyTitle>No items</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-auto">
+                {filteredPendingProposalItems.length > 0 ? (
+                  <section className="mb-4 space-y-1">
+                    <div className="flex min-h-8 items-center gap-2 px-2 text-xs font-medium uppercase text-muted-foreground">
+                      <span className="truncate">Pending proposals outside loaded tree</span>
+                      <Badge variant="outline" className="ml-auto">
+                        {filteredPendingProposalItems.length}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {filteredPendingProposalItems.map((node) => (
+                        <PendingProposalNodeRow
+                          key={`${node.proposal.changeId}-${node.id}`}
+                          node={node}
+                          selectedNodeId={selectedNodeId}
+                          decidingProposalChangeId={decidingProposalChangeId}
+                          onSelect={selectNode}
+                          onDecideProposal={(proposal, decision) => void handleDecideProposal(proposal, decision)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+                <div className="space-y-1">
+                    {filteredTree.map((node, rootIndex) => (
+                      <TreeRow
+                        key={node.id}
+                        node={node}
+                        depth={0}
+                        expandedNodeIds={displayedExpandedNodeIds}
+                        selectedNodeId={selectedNodeId}
+                        isSaving={isSaving}
+                        decidingProposalChangeId={decidingProposalChangeId}
+                        loadedChildrenParentIds={loadedChildrenParentIds}
+                        loadingChildrenNodeIds={loadingChildrenNodeIds}
+                        childrenPageInfoByParentId={childrenPageInfoByParentId}
+                        relationBadgesByNodeId={relationBadgesByNodeId}
+                        blockerUi={blockerUi}
+                        entriesByWorkItemId={entriesByWorkItemId}
+                        contentOrderByParent={contentOrderByParent}
+                        acceptedAnswerByQuestionId={acceptedAnswerByQuestionId}
+                        userLabels={userLabels}
+                        teamLabels={teamLabels}
+                        selectedEntryId={selectedEntryId}
+                        isAiSuggestionsEnabled={isAiSuggestionsActive}
+                        canReorder={canReorderContent}
+                        canMoveUp={rootIndex > 0}
+                        canMoveDown={rootIndex < filteredTree.length - 1}
+                        onToggle={(nodeId) => void toggleNode(nodeId)}
+                        onLoadMoreChildren={(parentId) => void loadMoreChildren(parentId)}
+                        onSelect={selectNode}
+                        onSelectEntry={selectEntry}
+                        onAddChild={(parentId, type) => void handleCreateNode(parentId, type)}
+                        onFocus={focusNode}
+                        onMove={(node) => openMoveDialog(node)}
+                        onDelete={(nextNodeId) => void handleDeleteNode(nextNodeId)}
+                        onEditTitle={handleInlineTitleUpdate}
+                        onCreateEntry={handleCreateEntry}
+                        onReviewNewEntry={handleReviewNewEntryWithAi}
+                        onAcceptNewEntryReview={handleAcceptNewEntryAiReview}
+                        onRejectNewEntryReview={handleRejectNewEntryAiReview}
+                        onUpdateEntry={handleUpdateEntry}
+                        onReviewEntry={handleReviewEntryWithAi}
+                        onAcceptEntryReview={handleAcceptEntryAiReview}
+                        onRejectEntryReview={handleRejectEntryAiReview}
+                        onAcceptAnswer={handleAcceptAnswer}
+                        onMoveContentOrder={handleMoveContentItem}
+                        onMoveInContentOrder={(offset) => { void handleMoveContentItem(null, 'WORK_ITEM', node.id, offset) }}
+                        onDeleteEntry={handleDeleteEntry}
+                        autoEditTitleNodeId={autoEditTitleNodeId}
+                        onAutoEditTitleStarted={() => setAutoEditTitleNodeId(null)}
+                        onDecideProposal={(proposal, decision) => void handleDecideProposal(proposal, decision)}
+                      />
+                    ))}
+                  </div>
+                {rootPageInfo && rootPageInfo.page + 1 < rootPageInfo.totalPages ? (
+                  <div className="flex justify-center py-2">
+                    <Button type="button" size="sm" variant="outline" className="gap-2" onClick={() => void loadMoreRootNodes()} disabled={isLoadingMoreRoots}>
+                      {isLoadingMoreRoots ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Load more roots
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+          </section>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        <ResizablePanel id="project-inspector" defaultSize="30" minSize="24" maxSize="55">
+          <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+            <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b px-3 py-2">
+              <div className="inline-flex rounded-md border bg-background p-0.5" role="group" aria-label="Inspector mode">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={inspectorMode === 'task' ? 'default' : 'ghost'}
+                  className={cn('gap-1 rounded-sm', inspectorMode === 'task' ? 'shadow-xs' : 'text-muted-foreground')}
+                  disabled={!selectedNode && !selectedEntry}
+                  onClick={() => setInspectorMode('task')}
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Details
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={inspectorMode === 'history' ? 'default' : 'ghost'}
+                  className={cn('gap-1 rounded-sm', inspectorMode === 'history' ? 'shadow-xs' : 'text-muted-foreground')}
+                  disabled={!selectedNode}
+                  onClick={() => setInspectorMode('history')}
+                >
+                  <History className="h-3.5 w-3.5" />
+                  History
+                </Button>
+                {isLlmAvailable ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={inspectorMode === 'ai' ? 'default' : 'ghost'}
+                    className={cn('gap-1 rounded-sm', inspectorMode === 'ai' ? 'shadow-xs' : 'text-muted-foreground')}
+                    onClick={() => setInspectorMode('ai')}
+                  >
+                    <Bot className="h-3.5 w-3.5" />
+                    AI
+                  </Button>
+                ) : null}
+              </div>
+              {selectedNode ? (
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="outline"
+                          disabled={Boolean(selectedNode.proposal) || isExpandingSelectedSubtree}
+                          onClick={() => void handleExpandSelectedSubtree()}
+                          aria-label="Expand all"
+                        />
+                      }
+                    >
+                      {isExpandingSelectedSubtree ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}
+                    </TooltipTrigger>
+                    <TooltipContent>Load and expand every nested sub-item</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="outline"
+                          disabled={Boolean(selectedNode.proposal) || isExpandingSelectedSubtree}
+                          onClick={handleCollapseSelectedSubtree}
+                          aria-label="Collapse"
+                        />
+                      }
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </TooltipTrigger>
+                    <TooltipContent>Collapse this item and all nested sub-items</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="outline"
+                          className={cn(isSelectedWorkItemSubscribed && 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100')}
+                          disabled={Boolean(selectedNode.proposal)}
+                          onClick={() => void handleToggleSelectedWorkItemSubscription()}
+                          aria-label={isSelectedWorkItemSubscribed ? 'Stop receiving updates about this work item' : 'Subscribe to updates about this work item'}
+                        />
+                      }
+                    >
+                      {isSelectedWorkItemSubscribed ? (
+                        <BellRing className="h-4 w-4" />
+                      ) : (
+                        <Bell className="h-4 w-4" />
+                      )}
+                    </TooltipTrigger>
+                    <TooltipContent>{isSelectedWorkItemSubscribed ? 'Stop receiving updates about this work item' : 'Subscribe to updates about this work item'}</TooltipContent>
+                  </Tooltip>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-hidden">
+              {inspectorMode === 'task' && selectedNode ? (
+              <form className="flex h-full min-h-0 flex-col overflow-hidden" onSubmit={handleSaveNode}>
+                <div className="min-h-0 flex-1 overflow-auto">
+                  <WorkspaceProposalPanel
+                    node={selectedNode}
+                    changes={selectedWorkspaceProposalChanges}
+                    isDeciding={Boolean(decidingProposalChangeId)}
+                    nodeTitleById={nodeTitleById}
+                    onDecide={(changes, decision) => void handleDecideWorkspaceChanges(changes, decision)}
+                  />
+
+                  <div className="divide-y border-b">
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-sm font-semibold text-muted-foreground">Type</label>
+                      <NativeSelect value={form.type} onChange={(event) => handleTypeChange(event.target.value)} disabled={isSaving || Boolean(selectedNode.proposal)}>
+                        {workItemTypeOptions.map((type) => (
+                          <NativeSelectOption key={type} value={type}>{type[0]}{type.slice(1).toLowerCase()}</NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+                      <label className="text-sm font-semibold text-muted-foreground">Title</label>
+                      <Textarea
+                        rows={3}
+                        value={form.title}
+                        onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+                      />
+                    </div>
+
+                    {workItemInspectorReview ? (
+                      <section className="space-y-3 bg-primary/5 px-4 py-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> AI suggestion</div>
+                        <div className="grid gap-1 text-sm">
+                          <span>Title: <s>{workItemInspectorReview.originalTitle}</s> → <strong>{workItemInspectorReview.proposedTitle}</strong></span>
+                          <span>Type: {form.type} → <strong>{workItemInspectorReview.proposedType}</strong></span>
+                          <span>Status: {normalizedStatus(formFieldValue(form.fields, 'status')) || defaultStatusForType(form.type)} → <strong>{workItemInspectorReview.proposedStatus}</strong></span>
+                          <span>Due date: {String(formFieldValue(form.fields, 'dueDate') ?? 'Not set')} → <strong>{workItemInspectorReview.proposedDueDate ?? 'Not set'}</strong></span>
+                          <span>Priority: {String(formFieldValue(form.fields, 'priority') ?? 'Not set')} → <strong>{workItemInspectorReview.proposedPriority ?? 'Not set'}</strong></span>
+                          <span>Assignees: <strong>{workItemInspectorReview.proposedAssignees.length || 'None'}</strong></span>
+                        </div>
+                        {workItemInspectorReview.proposedBlockers.length > 0 ? (
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-medium text-muted-foreground">Suggested blockers</span>
+                            <div className="grid gap-1.5">
+                              {workItemInspectorReview.proposedBlockers.map((blocker) => (
+                                <div key={blocker.workItemId} className="flex items-start gap-2 rounded-md border border-destructive/25 bg-background/70 px-2 py-1.5 text-sm">
+                                  <OctagonAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                                  <div className="min-w-0">
+                                    <div className="truncate font-medium">{blockerTitleById.get(blocker.workItemId) ?? blocker.workItemId}</div>
+                                    {blocker.reason ? <div className="mt-0.5 break-words text-xs text-muted-foreground">{blocker.reason}</div> : null}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                        {workItemInspectorReview.rationale ? <p className="text-xs text-muted-foreground">{workItemInspectorReview.rationale}</p> : null}
+                        <div className="flex gap-2">
+                          <Input className="bg-white" value={workItemInspectorReviewFeedback} onChange={(event) => setWorkItemInspectorReviewFeedback(event.target.value)} placeholder="Tell AI what to change…" disabled={isSaving} />
+                          <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRefineWorkItemAiReview()}>Ask again</Button>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" disabled={isSaving} onClick={() => applyWorkItemAiReview(workItemInspectorReview)}>Apply to draft</Button>
+                          {workItemInspectorReview.proposedBlockers.length > 0 ? (
+                            <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleAddSuggestedBlockers(workItemInspectorReview)}>Add suggested blockers</Button>
+                          ) : null}
+                          <Button type="button" variant="outline" disabled={isSaving} onClick={() => { setWorkItemInspectorReview(null); setWorkItemInspectorReviewFeedback('') }}>Reject</Button>
+                        </div>
+                      </section>
+                    ) : null}
+
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-sm font-semibold text-muted-foreground">Status</label>
+                      <NativeSelect
+                        value={normalizedStatus(formFieldValue(form.fields, 'status')) || defaultStatusForType(form.type)}
+                        onChange={(event) => updateManagedWorkItemField('status', 'Status', 'text', event.target.value, true)}
+                      >
+                        {statusOptionsForType(form.type).map((status) => (
+                          <NativeSelectOption key={status.value} value={status.value}>{status.label}</NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </div>
+
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-sm font-semibold text-muted-foreground">Due date</label>
+                      <Input
+                        type="date"
+                        value={String(formFieldValue(form.fields, 'dueDate') ?? '')}
+                        onChange={(event) => updateManagedWorkItemField('dueDate', 'Due date', 'date', event.target.value, true)}
+                      />
+                    </div>
+
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-sm font-semibold text-muted-foreground">Priority</label>
+                      <NativeSelect
+                        value={String(formFieldValue(form.fields, 'priority') ?? '')}
+                        onChange={(event) => updateManagedWorkItemField('priority', 'Priority', 'text', event.target.value, true)}
+                      >
+                        <NativeSelectOption value="">No priority</NativeSelectOption>
+                        <NativeSelectOption value="LOW">Low</NativeSelectOption>
+                        <NativeSelectOption value="MEDIUM">Medium</NativeSelectOption>
+                        <NativeSelectOption value="HIGH">High</NativeSelectOption>
+                        <NativeSelectOption value="URGENT">Urgent</NativeSelectOption>
+                      </NativeSelect>
+                    </div>
+
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+                      <label className="pt-2 text-sm font-semibold text-muted-foreground">Assignees</label>
+                      <div className="grid gap-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <NativeSelect
+                            className="w-full sm:w-28"
+                            value={newAssigneeType}
+                            onChange={(event) => {
+                              setNewAssigneeType(event.target.value as 'USER' | 'TEAM')
+                              setNewAssigneeId('')
+                            }}
+                          >
+                            <NativeSelectOption value="USER">User</NativeSelectOption>
+                            <NativeSelectOption value="TEAM">Team</NativeSelectOption>
+                          </NativeSelect>
+                          <NativeSelect
+                            className="w-full sm:flex-1"
+                            value={newAssigneeId}
+                            onChange={(event) => setNewAssigneeId(event.target.value)}
+                            disabled={availableAssigneeOptions.length === 0}
+                          >
+                            <NativeSelectOption value="">
+                              {availableAssigneeOptions.length === 0
+                                ? `No ${newAssigneeType === 'USER' ? 'users' : 'teams'} available`
+                                : `Select ${newAssigneeType === 'USER' ? 'user' : 'team'}`}
+                            </NativeSelectOption>
+                            {availableAssigneeOptions.map((option) => (
+                              <NativeSelectOption key={option.id} value={option.id}>{option.label}</NativeSelectOption>
+                            ))}
+                          </NativeSelect>
+                          <Button type="button" className="gap-2" disabled={!newAssigneeId} onClick={handleAddAssignee}>
+                            <Plus className="h-4 w-4" />
+                            Add
+                          </Button>
+                        </div>
+
+                        {assignedUserIds.length === 0 && assignedTeamIds.length === 0 ? (
+                          <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">No assignees.</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {assignedUserIds.map((userId) => (
+                              <div key={`user-${userId}`} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-medium">{assigneeUserLabelById.get(userId) ?? userId}</div>
+                                  <div className="text-xs text-muted-foreground">User</div>
+                                </div>
+                                <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('USER', userId)} aria-label="Remove assignee" title="Remove">
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            {assignedTeamIds.map((teamId) => (
+                              <div key={`team-${teamId}`} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-medium">{assigneeTeamLabelById.get(teamId) ?? teamId}</div>
+                                  <div className="text-xs text-muted-foreground">Team</div>
+                                </div>
+                                <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('TEAM', teamId)} aria-label="Remove assignee" title="Remove">
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-start">
+                      <label className="pt-2 text-sm font-semibold text-muted-foreground">Relationships</label>
+                      <div className="grid min-w-0 gap-2">
+                        {(workItemRelationshipsByNodeId.get(selectedNode.id) ?? []).map((relationship) => {
+                          const isOutgoing = relationship.fromEntityId === selectedNode.id
+                          const relatedNodeId = isOutgoing ? relationship.toEntityId : relationship.fromEntityId
+                          const relatedTitle = blockerTitleById.get(relatedNodeId) ?? relatedNodeId
+                          const isBlocker = relationship.type === 'BLOCKED_BY'
+                          return (
+                            <span key={relationship.id} className={cn('flex min-w-0 items-center gap-2 rounded-md border py-1 pl-2 pr-1 text-sm', isBlocker && 'border-destructive/30 bg-destructive/5')}>
+                              {isBlocker
+                                ? <OctagonAlert className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                                : <MoveRight className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground', !isOutgoing && 'rotate-180')} />}
+                              <Badge variant="outline" className={cn('shrink-0 font-medium', relationshipTypeBadgeClass(relationship.type))}>
+                                {relationshipTypeLabel(relationship.type)}
+                              </Badge>
+                              <span className="min-w-0 flex-1 truncate text-muted-foreground" title={relationship.reason ?? undefined}>
+                                {isOutgoing ? '→' : '←'} <span className="font-medium text-foreground">{relatedTitle}</span>
+                              </span>
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="ghost"
+                                className="ml-auto"
+                                disabled={isSavingBlocker}
+                                onClick={() => void handleRemoveWorkItemRelationship(relationship.id)}
+                                aria-label={`Remove relationship with ${relatedTitle}`}
+                                title="Remove relationship"
+                              >
+                                <X />
+                              </Button>
+                            </span>
+                          )
+                        })}
+                        <div>
+                          <WorkItemRelationshipPopover
+                            nodeId={selectedNode.id}
+                            relationshipUi={workItemRelationshipUi}
+                            trigger={(
+                              <Button type="button" size="sm" className="gap-1" disabled={Boolean(selectedNode.proposal)}>
+                                <Plus className="h-3.5 w-3.5" /> Add relationship
+                              </Button>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-sm font-semibold text-muted-foreground">Created</span>
+                      <span className="text-sm">{selectedNode.createdAt ? formatActivityDate(selectedNode.createdAt) : '—'}</span>
+                    </div>
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-sm font-semibold text-muted-foreground">Updated</span>
+                      <span className="text-sm">{selectedNode.updatedAt ? formatActivityDate(selectedNode.updatedAt) : '—'}</span>
+                    </div>
+                  </div>
+
+                  <section className="border-b">
+                    <div className="border-b bg-muted/30 px-4 py-2">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button type="button" variant="outline" className="gap-2" onClick={addFormField}>
+                          <Plus className="h-4 w-4" />
+                          Add field
+                        </Button>
+                      </div>
+                    </div>
+
+                    {customFormFields.length === 0 ? (
+                      <Empty className="min-h-32 border-0 p-8" />
+                    ) : (
+                      <div className="divide-y">
+                        {customFormFields.map((field, fieldIndex) => (
+                        <div key={field.clientId} className="bg-background">
+                          <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <label className="min-w-0 truncate text-sm font-semibold text-muted-foreground" title={field.label || field.name}>
+                                {field.label || field.name}
+                              </label>
+                            </div>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <div className="min-w-0 flex-1">
+                                {field.dataType === 'text' ? (
+                                  <Input
+                                    value={String(field.value ?? '')}
+                                    onChange={(event) => updateFormField(field.clientId, { value: event.target.value })}
+                                  />
+                                ) : null}
+
+                                {field.dataType === 'number' ? (
+                                  <Input
+                                    type="number"
+                                    value={field.value === null ? '' : String(field.value)}
+                                    onChange={(event) => updateFormField(field.clientId, { value: event.target.value })}
+                                  />
+                                ) : null}
+
+                                {field.dataType === 'date' ? (
+                                  <Input
+                                    type="date"
+                                    value={String(field.value ?? '')}
+                                    onChange={(event) => updateFormField(field.clientId, { value: event.target.value })}
+                                  />
+                                ) : null}
+
+                                {field.dataType === 'boolean' ? (
+                                  <Field orientation="horizontal" className="min-h-9 rounded-md border px-3 py-2">
+                                    <Checkbox
+                                      checked={Boolean(field.value)}
+                                      onCheckedChange={(checked) => updateFormField(field.clientId, { value: checked === true })}
+                                    />
+                                    <label className="block text-sm font-semibold">Checked</label>
+                                  </Field>
+                                ) : null}
+
+                                {field.dataType === 'user' ? (
+                                  <ReferenceMultiSelect
+                                    value={parseStringArrayValue(field.value)}
+                                    options={referenceUserOptions}
+                                    onChange={(value) => updateFormField(field.clientId, { value })}
+                                  />
+                                ) : null}
+
+                                {field.dataType === 'team' ? (
+                                  <ReferenceMultiSelect
+                                    value={parseStringArrayValue(field.value)}
+                                    options={referenceTeamOptions}
+                                    onChange={(value) => updateFormField(field.clientId, { value })}
+                                  />
+                                ) : null}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => setEditingFieldSettingsId((current) => current === field.clientId ? null : field.clientId)}
+                                aria-label="Field settings"
+                                title="Field settings"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {editingFieldSettingsId === field.clientId ? (
+                            <div className="border-t bg-muted/20 px-4 py-3">
+                              <div className="grid gap-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+                                <div />
+                                <div className="grid gap-3">
+                                  <div className="grid gap-2 sm:grid-cols-2">
+                                    <Field>
+                                      <label className="text-sm font-semibold">Label</label>
+                                      <Input
+                                        value={field.label}
+                                        onChange={(event) => updateFormField(field.clientId, { label: event.target.value })}
+                                      />
+                                    </Field>
+                                    <Field>
+                                      <label className="text-sm font-semibold">Data type</label>
+                                      <NativeSelect
+                                        className="w-full"
+                                        value={field.dataType}
+                                        onChange={(event) =>
+                                          updateFormField(field.clientId, {
+                                            dataType: event.target.value as ProjectNodeFieldDataType,
+                                            value: defaultFieldValue(event.target.value as ProjectNodeFieldDataType),
+                                          })
+                                        }
+                                      >
+                                        {supportedFieldDataTypes.map((dataType) => (
+                                          <NativeSelectOption key={dataType} value={dataType}>
+                                            {formatFieldTypeLabel(dataType)}
+                                          </NativeSelectOption>
+                                        ))}
+                                      </NativeSelect>
+                                    </Field>
+                                  </div>
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <Field orientation="horizontal" className="min-h-9 px-0 py-2" title="Show in tree">
+                                      <Checkbox
+                                        checked={field.visibleInTree}
+                                        onCheckedChange={(checked) => updateFormField(field.clientId, { visibleInTree: checked === true })}
+                                      />
+                                      <label className="block text-sm font-semibold">Show in tree</label>
+                                    </Field>
+                                    <div className="flex justify-end gap-1">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon-sm"
+                                        onClick={() => moveFormField(field.clientId, -1)}
+                                        disabled={fieldIndex === 0}
+                                        aria-label="Move field up"
+                                        title="Move up"
+                                      >
+                                        <ArrowUp className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon-sm"
+                                        onClick={() => moveFormField(field.clientId, 1)}
+                                        disabled={fieldIndex === customFormFields.length - 1}
+                                        aria-label="Move field down"
+                                        title="Move down"
+                                      >
+                                        <ArrowDown className="h-4 w-4" />
+                                      </Button>
+                                      <Button type="button" variant="ghost" size="icon-sm" onClick={() => deleteFormField(field.clientId)} aria-label="Delete field" title="Delete">
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setEditingFieldSettingsId(null)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </div>
+
+                <div className="z-10 mt-auto flex shrink-0 items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur">
+                  <div className="flex items-center gap-2">
+                    <Button type="submit" className="gap-2" disabled={isSaving || Boolean(selectedNode.proposal)}>
+                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Save
+                    </Button>
+                    {isLlmAvailable ? (
+                      <Button type="button" variant="outline" className="gap-2" disabled={isSaving || Boolean(selectedNode.proposal)} onClick={() => void handleReviewWorkItemWithAi()}>
+                        <Bot className="h-4 w-4" />
+                        AI Review
+                      </Button>
+                    ) : null}
+                    <div className="flex items-center rounded-md border bg-background">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={isSaving || Boolean(selectedNode.proposal) || !canReorderSelectedContent}
+                        onClick={() => void handleMoveSelectedNodeByOffset(-1)}
+                        aria-label="Move item up"
+                        title="Move up"
+                        className="rounded-r-none"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <div className="h-5 w-px bg-border" />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={isSaving || Boolean(selectedNode.proposal) || !canReorderSelectedContent}
+                        onClick={() => void handleMoveSelectedNodeByOffset(1)}
+                        aria-label="Move item down"
+                        title="Move down"
+                        className="rounded-l-none"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={(
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            disabled={isSaving || Boolean(selectedNode.proposal)}
+                            aria-label="Item actions"
+                            title="Actions"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        )}
+                      />
+                      <DropdownMenuContent align="start" className="w-44">
+                        <DropdownMenuItem onClick={() => void handleCreateNode(selectedNode.id)}>
+                          <Plus className="h-4 w-4" />
+                          Add sub-item
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openMoveDialog()}>
+                          <MoveRight className="h-4 w-4" />
+                          Move
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => focusNode(selectedNode)}>
+                          <Focus className="h-4 w-4" />
+                          Focus
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <DeleteConfirmPopover
+                    title="Delete item?"
+                    description="Sub-items will be deleted with this item."
+                    disabled={isSaving || Boolean(selectedNode.proposal)}
+                    trigger={(
+                      <Button type="button" variant="destructive" size="icon-sm" disabled={isSaving || Boolean(selectedNode.proposal)} aria-label="Delete item">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                    onConfirm={() => handleDeleteNode(selectedNode.id)}
+                  />
+                </div>
+              </form>
+              ) : null}
+
+              {inspectorMode === 'history' && selectedNode && projectId ? (
+                <WorkItemHistoryPanel key={selectedNode.id} projectId={projectId} workItemId={selectedNode.id} userLabels={userLabels} />
+              ) : null}
+
+              {inspectorMode === 'task' && selectedEntry ? (
+                <div className="flex h-full min-h-0 flex-col overflow-hidden">
+                  <div className="min-h-0 flex-1 overflow-auto">
+                    <div className="divide-y border-b">
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-sm font-semibold text-muted-foreground">Type</label>
+                      <NativeSelect value={entryInspectorType} onChange={(event) => setEntryInspectorType(event.target.value)} disabled={isSaving || Boolean(entryInspectorReview)}>
+                        {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{type}</NativeSelectOption>)}
+                      </NativeSelect>
+                    </div>
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-sm font-semibold text-muted-foreground">Author</span>
+                      <span className="text-sm">{entryAuthorLabel(selectedEntry, userLabels)}</span>
+                    </div>
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
+                      <label className="text-sm font-semibold text-muted-foreground">Content</label>
+                      <Textarea
+                        className="min-h-52 resize-y bg-white"
+                        value={entryInspectorBody}
+                        onChange={(event) => setEntryInspectorBody(event.target.value)}
+                        disabled={isSaving || Boolean(entryInspectorReview)}
+                        aria-label="Update content"
+                      />
+                    </div>
+                    {entryInspectorReview ? (
+                      <section className="space-y-3 bg-primary/5 px-4 py-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> AI suggestion</div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">Your draft</p>
+                          <p className="whitespace-pre-wrap break-words rounded-sm bg-background/70 p-2 text-sm">{entryInspectorReview.originalBody}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-primary">Suggested</p>
+                          <p className="whitespace-pre-wrap break-words rounded-sm bg-background/70 p-2 text-sm">{entryInspectorReview.proposedBody}</p>
+                        </div>
+                        {entryInspectorReview.proposedType && entryInspectorReview.proposedType !== (entryInspectorReview.entryType ?? entryInspectorType) ? (
+                          <p className="text-sm text-primary">Classification: {entryInspectorReview.entryType ?? entryInspectorType} → {entryInspectorReview.proposedType}</p>
+                        ) : null}
+                        {entryInspectorReview.rationale ? <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">{entryInspectorReview.rationale}</p> : null}
+                        <div className="flex gap-2">
+                          <Input className="bg-white" value={entryInspectorReviewFeedback} onChange={(event) => setEntryInspectorReviewFeedback(event.target.value)} placeholder="Tell AI what to change…" disabled={isSaving} />
+                          <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRefineInspectorEntryReview()}>Ask again</Button>
+                        </div>
+                      </section>
+                    ) : null}
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-sm font-semibold text-muted-foreground">Created</span>
+                      <span className="text-sm">{formatActivityDate(selectedEntry.createdAt)}</span>
+                    </div>
+                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-sm font-semibold text-muted-foreground">Updated</span>
+                      <span className="text-sm">{selectedEntry.updatedAt ? formatActivityDate(selectedEntry.updatedAt) : '—'}</span>
+                    </div>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-t bg-background px-4 py-3">
+                    {entryInspectorReview ? (
+                      <>
+                        <Button type="button" className="gap-2" disabled={isSaving} onClick={() => void handleAcceptInspectorEntryReview()}>
+                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Accept suggestion
+                        </Button>
+                        <Button type="button" variant="outline" disabled={isSaving} onClick={keepEditingInspectorEntrySuggestion}>Keep editing</Button>
+                        <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRejectInspectorEntryReview()}>Reject</Button>
+                      </>
+                    ) : (
+                      <Button type="button" className="gap-2" disabled={isSaving} onClick={() => void handleSaveInspectorEntry()}>
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {isAiSuggestionsEnabled ? 'Review with AI' : 'Save'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {inspectorMode === 'task' && !selectedNode && !selectedEntry ? (
+                <Empty className="min-h-64 border-0">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <FileText />
+                    </EmptyMedia>
+                    <EmptyTitle>Select an item or update</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : null}
+
+              {inspectorMode === 'ai' && isLlmAvailable ? (
+                <ProjectChatPanel
+                  projectId={projectId}
+                  selectedContext={selectedChatContext}
+                  onClearSelectedContext={clearSelectedNode}
+                  onGraphChangeProposalSaved={() => reloadTreeAndProposals()}
+                  flush
+                  className="h-full min-h-0"
+                />
+              ) : null}
+            </div>
+          </aside>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+
+      <Dialog open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader className="-mx-6 -mt-6 border-b px-6 pt-6 pb-5">
+            <DialogTitle className="text-xl font-semibold">Move item</DialogTitle>
+            <DialogDescription>{selectedNode ? `Choose where to place ${selectedNode.title}.` : 'Choose where to place this item.'}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Move before</label>
+              <Input value={moveQuery} onChange={(event) => setMoveQuery(event.target.value)} placeholder="Find a work item or update…" />
+            </div>
+            <div className="max-h-80 overflow-auto rounded-md border p-1">
+              <button
+                type="button"
+                className={cn(
+                  'flex min-h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted',
+                  moveTargetContentKey === '' ? 'bg-muted text-foreground' : 'text-muted-foreground',
+                )}
+                onClick={() => setMoveTargetContentKey('')}
+              >
+                <FolderOpen className="h-4 w-4" />
+                End of project level
+              </button>
+
+              {moveTargetOptions.length === 0 ? (
+                <div className="px-2 py-8 text-center text-sm text-muted-foreground">No valid placement targets</div>
+              ) : (
+                moveTargetOptions.map((item) => (
+                  <button
+                    key={contentEntityKey(item.entityType, item.entityId)}
+                    type="button"
+                    className={cn(
+                      'flex min-h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted',
+                      moveTargetContentKey === contentEntityKey(item.entityType, item.entityId) ? 'bg-muted text-foreground' : 'text-muted-foreground',
+                    )}
+                    style={{ paddingLeft: `${item.depth * 16 + 8}px` }}
+                    onClick={() => setMoveTargetContentKey(contentEntityKey(item.entityType, item.entityId))}
+                  >
+                    {item.entityType === 'WORK_ITEM' ? <FileText className="h-4 w-4 shrink-0" /> : <MessageSquarePlus className="h-4 w-4 shrink-0" />}
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{item.detail}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsMoveDialogOpen(false)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button type="button" className="gap-2" onClick={() => void handleMoveNode()} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoveRight className="h-4 w-4" />}
+              Move
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

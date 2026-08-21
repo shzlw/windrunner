@@ -1,0 +1,148 @@
+package com.windrunner.server.work;
+
+import com.windrunner.server.audit.AuditActions;
+import com.windrunner.server.audit.AuditEntityTypes;
+import com.windrunner.server.audit.AuditLogEntry;
+import com.windrunner.server.audit.AuditLogService;
+import com.windrunner.server.audit.AuditOutcomes;
+import com.windrunner.server.id.EntityIdGenerator;
+import com.windrunner.server.id.EntityIdType;
+import com.windrunner.server.project.ProjectRoles;
+import com.windrunner.server.project.persistence.ProjectMemberRepository;
+import com.windrunner.server.team.persistence.ProjectTeamRepository;
+import com.windrunner.server.work.domain.WorkItem;
+import com.windrunner.server.work.domain.WorkItemAssignee;
+import com.windrunner.server.work.api.WorkItemMoveRequest;
+import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
+import com.windrunner.server.work.persistence.WorkItemRepository;
+import com.windrunner.server.work.persistence.EntryRepository;
+import com.windrunner.server.work.persistence.RelationshipRepository;
+import java.util.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service @RequiredArgsConstructor
+public class WorkItemService {
+    private final WorkItemRepository workItems;
+    private final WorkItemAssigneeRepository assignees;
+    private final ProjectMemberRepository projectMembers;
+    private final ProjectTeamRepository projectTeams;
+    private final EntryRepository entries;
+    private final RelationshipRepository relationships;
+    private final ContentOrderService contentOrder;
+    private final EntityIdGenerator ids;
+    private final AuditLogService auditLogService;
+    private final com.windrunner.server.search.SearchNormalizer searchNormalizer;
+    private final com.windrunner.server.subscription.persistence.SubscriptionRepository subscriptions;
+
+    public List<WorkItem> list(String projectId) { return workItems.findByProjectId(projectId); }
+    public WorkItem get(String projectId, String id) { return require(projectId, id); }
+
+    @Transactional public WorkItem create(String projectId, WorkItem item, List<WorkItemAssignee> requestedAssignees, String actorId) {
+        return createWithId(projectId, ids.generate(EntityIdType.WORK_ITEM), item, requestedAssignees, actorId);
+    }
+
+    @Transactional public WorkItem createWithId(String projectId, String id, WorkItem item, List<WorkItemAssignee> requestedAssignees, String actorId) {
+        if (blank(id)) throw bad("Work item id is required");
+        item.setProjectId(projectId); item.setCreatedByUserId(actorId); item.setId(id); normalize(item, null);
+        workItems.insert(item.getId(), projectId, item.getParentWorkItemId(), item.getSortIndex(), item.getType(), item.getTitle(), item.getStatus(), item.getDueDate(), item.getPriority(), actorId, searchNormalizer.normalize(item.getTitle()));
+        replaceAssignees(projectId, item.getId(), requestedAssignees);
+        WorkItem created = get(projectId, item.getId());
+        auditLogService.logAfterCommit(audit(actorId, AuditActions.CREATE, created, null, snapshot(created)));
+        return created;
+    }
+
+    @Transactional public WorkItem update(String projectId, String id, WorkItem item, List<WorkItemAssignee> requestedAssignees, String actorId) {
+        WorkItem current = require(projectId, id); Map<String, Object> before = snapshot(current); item.setProjectId(projectId); item.setId(id); normalize(item, current);
+        boolean parentChanged = !Objects.equals(current.getParentWorkItemId(), item.getParentWorkItemId());
+        if (parentChanged) {
+            contentOrder.moveWorkItem(projectId, id, current.getParentWorkItemId(), item.getParentWorkItemId(), null, null);
+            item.setSortIndex(require(projectId, id).getSortIndex());
+        } else item.setSortIndex(current.getSortIndex());
+        if (workItems.update(id, projectId, item.getParentWorkItemId(), item.getSortIndex(), item.getType(), item.getTitle(), item.getStatus(), item.getDueDate(), item.getPriority(), searchNormalizer.normalize(item.getTitle())) == 0) throw notFound("Work item not found");
+        if (requestedAssignees != null) replaceAssignees(projectId, id, requestedAssignees);
+        WorkItem updated = get(projectId, id);
+        auditLogService.logAfterCommit(audit(actorId, AuditActions.UPDATE, updated, before, snapshot(updated)));
+        return updated;
+    }
+
+    @Transactional public WorkItem move(String projectId, String id, WorkItemMoveRequest request, String actorId) {
+        WorkItem current = require(projectId, id); Map<String, Object> before = snapshot(current);
+        String destinationParentId = request == null || blank(request.parentWorkItemId()) ? null : request.parentWorkItemId();
+        if (destinationParentId != null) {
+            if (id.equals(destinationParentId)) throw bad("A WorkItem cannot be its own parent");
+            require(projectId, destinationParentId); ensureNoCycle(projectId, id, destinationParentId);
+        }
+        contentOrder.moveWorkItem(projectId, id, current.getParentWorkItemId(), destinationParentId,
+                request == null ? null : request.beforeEntityType(), request == null ? null : request.beforeEntityId());
+        WorkItem updated = get(projectId, id);
+        auditLogService.logAfterCommit(audit(actorId, AuditActions.UPDATE, updated, before, snapshot(updated)));
+        return updated;
+    }
+
+    @Transactional public void delete(String projectId, String id, String actorId) {
+        WorkItem current = get(projectId, id); Map<String, Object> before = snapshot(current);
+        deleteSubtree(projectId, id, workItems.findByProjectId(projectId));
+        auditLogService.logAfterCommit(audit(actorId, AuditActions.DELETE, current, before, null));
+    }
+
+    private void deleteSubtree(String projectId, String id, List<WorkItem> projectItems) {
+        projectItems.stream()
+                .filter(item -> id.equals(item.getParentWorkItemId()))
+                .forEach(child -> deleteSubtree(projectId, child.getId(), projectItems));
+        for (var entry : entries.findByWorkItemId(id)) relationships.deleteForEntity(projectId, "ENTRY", entry.getId());
+        relationships.deleteForEntity(projectId, "WORK_ITEM", id);
+        entries.deleteByWorkItemId(projectId, id); assignees.deleteByWorkItemId(id); workItems.deleteInProject(id, projectId);
+    }
+    public List<WorkItemAssignee> assignees(String workItemId) { return assignees.findByWorkItemId(workItemId); }
+
+    private void normalize(WorkItem item, WorkItem current) {
+        if (item == null || blank(item.getTitle())) throw bad("Work item title is required");
+        item.setType(enumValue(item.getType() == null ? "TASK" : item.getType(), WorkTypes.WORK_ITEM_TYPES, "Work item type"));
+        item.setStatus(enumValue(item.getStatus() == null ? "OPEN" : item.getStatus(), WorkTypes.WORK_ITEM_STATUSES, "Work item status"));
+        item.setTitle(item.getTitle().trim()); item.setPriority(blank(item.getPriority()) ? null : item.getPriority().trim().toUpperCase());
+        if (item.getParentWorkItemId() != null && item.getParentWorkItemId().isBlank()) item.setParentWorkItemId(null);
+        if (item.getParentWorkItemId() != null) {
+            if (item.getId() != null && item.getId().equals(item.getParentWorkItemId())) throw bad("A WorkItem cannot be its own parent");
+            require(item.getProjectId(), item.getParentWorkItemId());
+            ensureNoCycle(item.getProjectId(), item.getId(), item.getParentWorkItemId());
+        }
+        if (item.getSortIndex() == null) item.setSortIndex(current == null ? contentOrder.nextSortIndex(item.getProjectId(), item.getParentWorkItemId()) : current.getSortIndex());
+    }
+
+    private void replaceAssignees(String projectId, String workItemId, List<WorkItemAssignee> requested) {
+        assignees.deleteByWorkItemId(workItemId);
+        if (requested == null) return;
+        Set<String> seen = new HashSet<>();
+        for (WorkItemAssignee assignee : requested) {
+            String type = enumValue(assignee.getAssigneeType(), WorkTypes.ASSIGNEE_TYPES, "Assignee type");
+            if (blank(assignee.getAssigneeId())) throw bad("Assignee id is required");
+            String key = type + ":" + assignee.getAssigneeId().trim();
+            if (!seen.add(key)) continue;
+            boolean valid = "USER".equals(type)
+                    ? projectMembers.findByProjectIdAndUserId(projectId, assignee.getAssigneeId().trim()).isPresent()
+                    || projectMembers.hasTeamRole(projectId, assignee.getAssigneeId().trim(), List.of(ProjectRoles.OWNER, ProjectRoles.EDITOR, ProjectRoles.VIEWER))
+                    : projectTeams.findByProjectIdAndTeamId(projectId, assignee.getAssigneeId().trim()).isPresent();
+            if (!valid) throw bad("Assignee must belong to the project");
+            assignees.insert(ids.generate(EntityIdType.WORK_ITEM_ASSIGNEE), workItemId, type, assignee.getAssigneeId().trim());
+            if ("USER".equals(type)) {
+                subscriptions.insert(ids.generate(EntityIdType.WORK_ITEM_SUBSCRIPTION), assignee.getAssigneeId().trim(), projectId, workItemId);
+            }
+        }
+    }
+    private void ensureNoCycle(String projectId, String id, String parentId) {
+        if (id == null) return;
+        String cursor = parentId;
+        while (cursor != null) { if (id.equals(cursor)) throw bad("Work item hierarchy cannot contain a cycle"); cursor = require(projectId, cursor).getParentWorkItemId(); }
+    }
+    private WorkItem require(String projectId, String id) { return workItems.findById(id).filter(x -> projectId.equals(x.getProjectId())).orElseThrow(() -> notFound("Work item not found")); }
+    private Map<String, Object> snapshot(WorkItem item) { Map<String, Object> snapshot = new LinkedHashMap<>(); snapshot.put("id", item.getId()); snapshot.put("parentWorkItemId", item.getParentWorkItemId()); snapshot.put("sortIndex", item.getSortIndex()); snapshot.put("type", item.getType()); snapshot.put("title", item.getTitle()); snapshot.put("status", item.getStatus()); snapshot.put("dueDate", item.getDueDate()); snapshot.put("priority", item.getPriority()); snapshot.put("assignees", assignees(item.getId())); return snapshot; }
+    private AuditLogEntry audit(String actorId, String action, WorkItem item, Map<String, Object> before, Map<String, Object> after) { return new AuditLogEntry(actorId, action, AuditEntityTypes.WORK_ITEM, item.getId(), item.getProjectId(), AuditOutcomes.SUCCESS, action + " work item " + item.getTitle(), auditLogService.json(before), auditLogService.json(after), auditLogService.changes(before, after), null); }
+    static String enumValue(String value, Set<String> allowed, String name) { String v = value == null ? null : value.trim().toUpperCase(); if (v == null || !allowed.contains(v)) throw bad(name + " is invalid"); return v; }
+    static boolean blank(String v) { return v == null || v.isBlank(); }
+    static ResponseStatusException bad(String m) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, m); }
+    static ResponseStatusException notFound(String m) { return new ResponseStatusException(HttpStatus.NOT_FOUND, m); }
+}

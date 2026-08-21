@@ -1,0 +1,1637 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Windrunner API",
+    "description": "API-key authenticated endpoints for Windrunner integrations.",
+    "version": "v1"
+  },
+  "security": [
+    {
+      "ApiKeyBearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Teams",
+      "description": "Create teams, manage members and linked projects."
+    },
+    {
+      "name": "Projects",
+      "description": "Create projects, manage members and linked teams."
+    },
+    {
+      "name": "Users",
+      "description": "Create and manage users."
+    },
+    {
+      "name": "Audit log",
+      "description": "Read audit log entries."
+    }
+  ],
+  "paths": {
+    "/api/v1/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "getUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "updateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "deleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{id}": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "getTeam",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTeam"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "updateTeam",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Team"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTeam"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "deleteTeam",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "getProject",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseProject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "updateProject",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Project"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseProject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "deleteProject",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "listUsers",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListUserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "createUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseUserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "listTeams",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListExternalTeamResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "createTeam",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTeam"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{id}/projects": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "listProjects",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListProjectTeam"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "addProject",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseProjectTeam"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{id}/members": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "listMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListTeamMember"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "addMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTeamMember"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "listProjects_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListProject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "createProject",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseProject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/teams": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "listProjectTeams",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListProjectTeam"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "assignTeam",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseProjectTeam"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/members": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "listProjectMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListProjectMember"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "upsertProjectMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseProjectMember"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/audit-logs": {
+      "get": {
+        "tags": [
+          "Audit log"
+        ],
+        "operationId": "listProjectAuditLogs",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListAuditLog"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit-logs": {
+      "get": {
+        "tags": [
+          "Audit log"
+        ],
+        "operationId": "listAuditLogs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListAuditLog"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{id}/projects/{projectId}": {
+      "delete": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "removeProject",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{id}/members/{userId}": {
+      "delete": {
+        "tags": [
+          "Teams"
+        ],
+        "operationId": "removeMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/teams/{teamId}": {
+      "delete": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "unassignTeam",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/members/{userId}": {
+      "delete": {
+        "tags": [
+          "Projects"
+        ],
+        "operationId": "removeProjectMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      },
+      "ApiMeta": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ApiResponseUserResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/UserResponse"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "globalRole": {
+            "type": "string"
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Team": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "memberUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "memberDisplayNames": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "projectCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentUserRole": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseTeam": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Team"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ownerUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ownerDisplayNames": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApiResponseProject": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "CreateUserRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "globalRole": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateTeamRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ownerUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TeamLinkRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseProjectTeam": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProjectTeam"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ProjectTeam": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponseTeamMember": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TeamMember"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "TeamMember": {
+        "type": "object",
+        "properties": {
+          "teamId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateProjectRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ownerUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ownerTeamIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApiResponseProjectMember": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProjectMember"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ProjectMember": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponseListUserResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserResponse"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ApiResponseListExternalTeamResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExternalTeamResponse"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ExternalTeamResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseListProjectTeam": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectTeam"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ApiResponseListTeamMember": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMember"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ApiResponseListProject": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ApiResponseListAuditLog": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLog"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "beforeJson": {
+            "type": "string"
+          },
+          "afterJson": {
+            "type": "string"
+          },
+          "changesJson": {
+            "type": "string"
+          },
+          "metadataJson": {
+            "type": "string"
+          },
+          "actorDisplayName": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseListProjectMember": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectMember"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ApiResponseVoid": {
+        "type": "object",
+        "properties": {
+          "data": {},
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyBearerAuth": {
+        "type": "http",
+        "name": "Authorization",
+        "scheme": "bearer",
+        "bearerFormat": "API key"
+      }
+    }
+  }
+}

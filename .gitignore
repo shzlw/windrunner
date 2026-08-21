@@ -1,0 +1,134 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+/build-local.sh
+/start-local.sh
+
+# Gradle (if you ever switch)
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Node / frontend
+node_modules/
+jspm_packages/
+dist/
+out/
+.pnp
+.pnp.js
+.pnp.*
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# JavaScript package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# JavaScript tool caches
+.npm/
+.eslintcache
+.stylelintcache
+.vite/
+.cache/
+.parcel-cache/
+.turbo/
+.nyc_output/
+
+# Yarn v2+
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Frontend/test outputs
+coverage/
+lib-cov/
+*.lcov
+playwright-report/
+storybook-static/
+.netlify/
+.vercel/
+.serverless/
+.next/
+.nuxt/
+
+# Runtime data
+pids/
+pids
+*.pid
+*.seed
+*.pid.lock
+tmp/
+temp/
+
+# Spring Boot
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+spring-shell.log
+server/api/windrunner-app/src/main/resources/static/
+
+# Application secrets - NEVER commit these
+application-prod.properties
+application-prod.yml
+application-local.properties
+application-local.yml
+*.env
+.env
+.env.*
+
+# Slack credentials specifically
+slack-credentials.properties
+
+# IDE - IntelliJ
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# IDE - Eclipse
+.eclipse/
+.classpath
+.project
+.settings/
+bin/
+
+# IDE - VS Code
+.vscode/
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Test output
+test-results/
+surefire-reports/
+dev.*

@@ -1,0 +1,11 @@
+.dockerignore
+.git
+.gitignore
+Dockerfile*
+**/node_modules
+**/dist
+**/target
+**/.DS_Store
+**/*.log
+docs/build
+server/web/coverage
