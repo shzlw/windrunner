@@ -1,12 +1,8 @@
 package com.windrunner.server.user;
 
-import com.windrunner.server.audit.AuditActions;
-import com.windrunner.server.audit.AuditEntityTypes;
-import com.windrunner.server.audit.AuditLogEntry;
-import com.windrunner.server.audit.AuditLogService;
-import com.windrunner.server.audit.AuditOutcomes;
-import com.windrunner.server.auth.security.AppRoles;
+import com.windrunner.server.audit.*;
 import com.windrunner.server.auth.AuthService;
+import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.project.ProjectAccessService;
@@ -14,11 +10,7 @@ import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.domain.ProjectMember;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
-import com.windrunner.server.user.api.CreateUserRequest;
-import com.windrunner.server.user.api.UpdateUserPasswordRequest;
-import com.windrunner.server.user.api.UpdateUserRequest;
-import com.windrunner.server.user.api.UserPageResponse;
-import com.windrunner.server.user.api.UserResponse;
+import com.windrunner.server.user.api.*;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.utils.DateUtils;
@@ -32,8 +24,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DateTimeException;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 

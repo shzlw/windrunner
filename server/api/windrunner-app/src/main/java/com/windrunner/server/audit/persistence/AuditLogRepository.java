@@ -1,13 +1,14 @@
 package com.windrunner.server.audit.persistence;
 
 import com.windrunner.server.audit.domain.AuditLog;
-import java.time.OffsetDateTime;
-import java.util.List;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.time.OffsetDateTime;
+import java.util.List;
 
 @Repository
 public interface AuditLogRepository extends CrudRepository<AuditLog, String> {

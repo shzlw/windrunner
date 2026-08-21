@@ -1,6 +1,7 @@
 package com.windrunner.server.notification.api;
 
 import com.windrunner.server.notification.domain.UserNotification;
+
 import java.time.OffsetDateTime;
 
 public record UserNotificationView(

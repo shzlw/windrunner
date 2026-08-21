@@ -7,13 +7,15 @@ import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.RelationshipRepository;
 import com.windrunner.server.work.persistence.WorkItemRepository;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-@Service @RequiredArgsConstructor
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+@Service
+@RequiredArgsConstructor
 public class ProjectSearchService {
     private static final int DEFAULT_LIMIT = 20;
 
@@ -37,7 +39,8 @@ public class ProjectSearchService {
         matchedItems.forEach(item -> referencedItemIds.add(item.getId()));
         matchedEntries.forEach(entry -> referencedItemIds.add(entry.getWorkItemId()));
         matchedRelationships.forEach(relationship -> {
-            if ("WORK_ITEM".equals(relationship.getFromEntityType())) referencedItemIds.add(relationship.getFromEntityId());
+            if ("WORK_ITEM".equals(relationship.getFromEntityType()))
+                referencedItemIds.add(relationship.getFromEntityId());
             if ("WORK_ITEM".equals(relationship.getToEntityType())) referencedItemIds.add(relationship.getToEntityId());
         });
         List<WorkItem> allItems = referencedItemIds.isEmpty() ? List.of() : workItems.findByIds(referencedItemIds);

@@ -12,10 +12,11 @@ import com.windrunner.server.subscription.api.SubscriptionView;
 import com.windrunner.server.subscription.persistence.SubscriptionRepository;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.persistence.WorkItemRepository;
-import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @Service
 public class SubscriptionService {

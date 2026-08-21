@@ -1,12 +1,6 @@
 package com.windrunner.server.llmproviders.gemini;
 
-import com.windrunner.server.llm.AgentService;
-import com.windrunner.server.llm.LlmException;
-import com.windrunner.server.llm.LlmMessage;
-import com.windrunner.server.llm.LlmResult;
-import com.windrunner.server.llm.LlmService;
-import com.windrunner.server.llm.LlmTool;
-import com.windrunner.server.llm.LlmToolCall;
+import com.windrunner.server.llm.*;
 import com.windrunner.server.llmproviders.gemini.client.GeminiJsonSchema;
 import com.windrunner.server.llmproviders.gemini.client.GeminiRequest;
 import com.windrunner.server.llmproviders.gemini.client.GeminiResponse;
@@ -15,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -209,7 +202,7 @@ public class GeminiService implements LlmService {
 
     private List<LlmToolCall> findToolCalls(GeminiResponse response) {
         List<LlmToolCall> toolCalls = new ArrayList<>();
-        
+
         if (response.steps() == null || response.steps().isEmpty()) {
             return toolCalls;
         }

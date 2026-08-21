@@ -6,9 +6,10 @@ import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.api.AssignedWorkItemView;
 import com.windrunner.server.work.persistence.WorkItemRepository;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor

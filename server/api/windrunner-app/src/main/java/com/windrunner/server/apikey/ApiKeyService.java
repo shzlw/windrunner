@@ -7,31 +7,22 @@ import com.windrunner.server.apikey.domain.ApiKey;
 import com.windrunner.server.apikey.domain.AuthenticatedApiKey;
 import com.windrunner.server.apikey.persistence.ApiKeyRepository;
 import com.windrunner.server.apikey.persistence.ApiKeyScopeRepository;
-import com.windrunner.server.audit.AuditActions;
-import com.windrunner.server.audit.AuditEntityTypes;
-import com.windrunner.server.audit.AuditLogEntry;
-import com.windrunner.server.audit.AuditLogService;
-import com.windrunner.server.audit.AuditOutcomes;
+import com.windrunner.server.audit.*;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.user.UserStatuses;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.utils.DateUtils;
-import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.security.SecureRandom;
+import java.util.*;
 
 @RequiredArgsConstructor
 @Service

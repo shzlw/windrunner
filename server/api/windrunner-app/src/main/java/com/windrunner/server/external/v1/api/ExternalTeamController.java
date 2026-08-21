@@ -4,26 +4,19 @@ import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
 import com.windrunner.server.external.v1.dto.ExternalTeamResponse;
+import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.api.CreateTeamRequest;
 import com.windrunner.server.team.api.TeamLinkRequest;
 import com.windrunner.server.team.domain.ProjectTeam;
-import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.domain.TeamMember;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController

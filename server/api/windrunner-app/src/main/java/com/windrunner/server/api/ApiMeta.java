@@ -1,8 +1,7 @@
 package com.windrunner.server.api;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(name = "ApiMeta", description = "Request metadata. Pagination fields are present only on paginated responses.")

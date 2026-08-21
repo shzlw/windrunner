@@ -1,7 +1,8 @@
 package com.windrunner.server.subscription.api;
 
-import java.util.List;
 import lombok.Builder;
+
+import java.util.List;
 
 @Builder
 public record SubscriptionPageResponse(

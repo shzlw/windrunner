@@ -5,11 +5,12 @@ import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.notification.api.UserNotificationView;
 import com.windrunner.server.notification.domain.UserNotification;
 import com.windrunner.server.notification.persistence.UserNotificationRepository;
-import java.util.Collection;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collection;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -71,7 +72,8 @@ public class NotificationService {
     private String actorLabel(String actorUserId) {
         return users.findById(actorUserId)
                 .map(user -> {
-                    if (user.getDisplayName() != null && !user.getDisplayName().isBlank()) return user.getDisplayName().trim();
+                    if (user.getDisplayName() != null && !user.getDisplayName().isBlank())
+                        return user.getDisplayName().trim();
                     if (user.getUsername() != null && !user.getUsername().isBlank()) return user.getUsername();
                     return user.getEmail();
                 })
@@ -98,5 +100,6 @@ public class NotificationService {
         notifications.markAllRead(userId);
     }
 
-    public record NotificationPage(List<UserNotificationView> items, long unreadCount, long totalItems) { }
+    public record NotificationPage(List<UserNotificationView> items, long unreadCount, long totalItems) {
+    }
 }

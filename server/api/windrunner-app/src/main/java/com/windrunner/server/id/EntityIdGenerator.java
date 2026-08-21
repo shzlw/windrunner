@@ -1,7 +1,8 @@
 package com.windrunner.server.id;
 
-import java.security.SecureRandom;
 import org.springframework.stereotype.Service;
+
+import java.security.SecureRandom;
 
 @Service
 public class EntityIdGenerator {

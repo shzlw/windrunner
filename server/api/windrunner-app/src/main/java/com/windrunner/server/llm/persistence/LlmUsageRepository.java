@@ -1,13 +1,14 @@
 package com.windrunner.server.llm.persistence;
 
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Optional;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface LlmUsageRepository extends CrudRepository<com.windrunner.server.llm.domain.LlmUsage, String> {
@@ -15,13 +16,15 @@ public interface LlmUsageRepository extends CrudRepository<com.windrunner.server
     record TotalsRow(long requests, long inputTokens, long outputTokens, long successes, double avgDurationMs) {
     }
 
-    record ProjectRow(String projectId, long requests, long inputTokens, long outputTokens, long successes, double avgDurationMs) {
+    record ProjectRow(String projectId, long requests, long inputTokens, long outputTokens, long successes,
+                      double avgDurationMs) {
     }
 
     record FeatureRow(String feature, long requests, long inputTokens, long outputTokens, long successes) {
     }
 
-    record ProviderRow(String provider, String model, long requests, long inputTokens, long outputTokens, long successes) {
+    record ProviderRow(String provider, String model, long requests, long inputTokens, long outputTokens,
+                       long successes) {
     }
 
     @Query("""

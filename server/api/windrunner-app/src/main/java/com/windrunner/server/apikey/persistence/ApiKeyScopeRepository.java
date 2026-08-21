@@ -1,11 +1,12 @@
 package com.windrunner.server.apikey.persistence;
 
 import com.windrunner.server.apikey.domain.ApiKeyScope;
-import java.util.List;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 
 @org.springframework.stereotype.Repository
 public interface ApiKeyScopeRepository extends Repository<ApiKeyScope, String> {

@@ -1,10 +1,6 @@
 package com.windrunner.server.team;
 
-import com.windrunner.server.audit.AuditActions;
-import com.windrunner.server.audit.AuditEntityTypes;
-import com.windrunner.server.audit.AuditLogEntry;
-import com.windrunner.server.audit.AuditLogService;
-import com.windrunner.server.audit.AuditOutcomes;
+import com.windrunner.server.audit.*;
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
@@ -24,17 +20,13 @@ import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.*;
 
 @RequiredArgsConstructor
 @Service
@@ -52,6 +44,7 @@ public class TeamService {
     private final EntityIdGenerator idGenerator;
 
     private final com.windrunner.server.work.persistence.WorkItemAssigneeRepository workItemAssigneeRepository;
+
     public List<Team> listTeams(String currentUserId) {
         List<Team> teams = teamRepository.findAllOrdered();
         if (teams.isEmpty()) return teams;
@@ -332,7 +325,8 @@ public class TeamService {
         String status = switch (decision) {
             case "APPROVE", "APPROVED" -> TeamJoinRequestStatuses.APPROVED;
             case "REJECT", "REJECTED" -> TeamJoinRequestStatuses.REJECTED;
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Join request decision must be APPROVE or REJECT");
+            default ->
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Join request decision must be APPROVE or REJECT");
         };
 
         if (TeamJoinRequestStatuses.APPROVED.equals(status)) {

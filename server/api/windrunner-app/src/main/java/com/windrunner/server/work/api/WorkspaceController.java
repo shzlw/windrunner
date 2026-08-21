@@ -9,16 +9,21 @@ import com.windrunner.server.work.ProjectSearchService;
 import com.windrunner.server.work.RelationshipService;
 import com.windrunner.server.work.WorkItemService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-@RestController @RequiredArgsConstructor @RequestMapping("/internal-api/v1/projects/{projectId}/workspace")
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/internal-api/v1/projects/{projectId}/workspace")
 public class WorkspaceController {
-    private final WorkItemService workItems; private final EntryService entries; private final RelationshipService relationships; private final AuthService auth; private final ProjectAccessService access; private final ProjectSearchService search;
-    @GetMapping public ApiResponse<WorkspaceView> get(@PathVariable("projectId") String projectId, @RequestParam(value = "q", required = false) String query, jakarta.servlet.http.HttpServletRequest request) {
+    private final WorkItemService workItems;
+    private final EntryService entries;
+    private final RelationshipService relationships;
+    private final AuthService auth;
+    private final ProjectAccessService access;
+    private final ProjectSearchService search;
+
+    @GetMapping
+    public ApiResponse<WorkspaceView> get(@PathVariable("projectId") String projectId, @RequestParam(value = "q", required = false) String query, jakarta.servlet.http.HttpServletRequest request) {
         access.requireProjectRole(projectId, auth.requireCurrentUser(request), ProjectRoles.VIEWER);
         if (query != null && !query.isBlank()) {
             var result = search.search(projectId, query, 100);

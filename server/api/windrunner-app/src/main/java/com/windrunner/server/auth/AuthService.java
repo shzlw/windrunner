@@ -1,10 +1,6 @@
 package com.windrunner.server.auth;
 
-import com.windrunner.server.audit.AuditLogEntry;
-import com.windrunner.server.audit.AuditLogService;
-import com.windrunner.server.audit.AuditActions;
-import com.windrunner.server.audit.AuditEntityTypes;
-import com.windrunner.server.audit.AuditOutcomes;
+import com.windrunner.server.audit.*;
 import com.windrunner.server.auth.api.AuthUserResponse;
 import com.windrunner.server.auth.api.LoginRequest;
 import com.windrunner.server.auth.api.UpdatePasswordRequest;
@@ -16,8 +12,8 @@ import com.windrunner.server.auth.persistence.AuthSessionRepository;
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
-import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.UserStatuses;
+import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.utils.DateUtils;
 import jakarta.servlet.http.Cookie;
@@ -35,11 +31,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor

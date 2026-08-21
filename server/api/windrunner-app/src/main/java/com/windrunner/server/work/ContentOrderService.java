@@ -4,14 +4,11 @@ import com.windrunner.server.work.api.ContentOrderItem;
 import com.windrunner.server.work.api.ContentOrderItemRef;
 import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.WorkItemRepository;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -52,7 +49,9 @@ public class ContentOrderService {
         return applyOrder(projectId, requestedKeys.stream().map(currentByKey::get).toList());
     }
 
-    /** Moves a WorkItem and reindexes the source and destination mixed-content streams as one transaction. */
+    /**
+     * Moves a WorkItem and reindexes the source and destination mixed-content streams as one transaction.
+     */
     @Transactional
     public void moveWorkItem(String projectId, String workItemId, String sourceParentWorkItemId, String destinationParentWorkItemId,
                              String beforeEntityType, String beforeEntityId) {
@@ -93,7 +92,8 @@ public class ContentOrderService {
     private List<ContentOrderItem> contentItems(String projectId, String parentWorkItemId) {
         List<ContentOrderItem> result = new ArrayList<>();
         workItems.findByParent(projectId, parentWorkItemId).forEach(item -> result.add(new ContentOrderItem("WORK_ITEM", item.getId(), item.getSortIndex())));
-        if (parentWorkItemId != null) entries.findByWorkItemId(parentWorkItemId).forEach(entry -> result.add(new ContentOrderItem("ENTRY", entry.getId(), entry.getSortIndex())));
+        if (parentWorkItemId != null)
+            entries.findByWorkItemId(parentWorkItemId).forEach(entry -> result.add(new ContentOrderItem("ENTRY", entry.getId(), entry.getSortIndex())));
         result.sort(java.util.Comparator.comparingInt(ContentOrderItem::sortIndex).thenComparing(item -> key(item.entityType(), item.entityId())));
         return result;
     }
@@ -111,7 +111,8 @@ public class ContentOrderService {
     }
 
     private int indexOf(List<ContentOrderItem> items, String requestedKey) {
-        for (int index = 0; index < items.size(); index++) if (requestedKey.equals(key(items.get(index).entityType(), items.get(index).entityId()))) return index;
+        for (int index = 0; index < items.size(); index++)
+            if (requestedKey.equals(key(items.get(index).entityType(), items.get(index).entityId()))) return index;
         return -1;
     }
 

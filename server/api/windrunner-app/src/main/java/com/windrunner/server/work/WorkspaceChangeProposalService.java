@@ -5,24 +5,15 @@ import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.utils.JsonUtils;
 import com.windrunner.server.work.api.WorkItemView;
 import com.windrunner.server.work.api.WorkspaceChangeProposalView;
-import com.windrunner.server.work.domain.Entry;
-import com.windrunner.server.work.domain.Relationship;
-import com.windrunner.server.work.domain.WorkItem;
-import com.windrunner.server.work.domain.WorkItemAssignee;
-import com.windrunner.server.work.domain.WorkspaceChange;
-import com.windrunner.server.work.domain.WorkspaceChangeProposal;
+import com.windrunner.server.work.domain.*;
 import com.windrunner.server.work.persistence.WorkspaceChangeProposalRepository;
 import com.windrunner.server.work.persistence.WorkspaceChangeRepository;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +30,7 @@ public class WorkspaceChangeProposalService {
 
     @Transactional
     public WorkspaceChangeProposalView create(String projectId, String chatSessionId, String sourceMessageId,
-                                               String sourceText, ProposalDraft draft) {
+                                              String sourceText, ProposalDraft draft) {
         if (draft == null || draft.changes() == null || draft.changes().isEmpty()) {
             throw WorkItemService.bad("At least one workspace change is required");
         }
@@ -71,8 +62,9 @@ public class WorkspaceChangeProposalService {
 
     @Transactional
     public WorkspaceChangeProposalView decide(String projectId, String proposalId, String changeId,
-                                               DecisionRequest request, String actorId) {
-        if (request == null || WorkItemService.blank(request.decision())) throw WorkItemService.bad("Proposal decision is required");
+                                              DecisionRequest request, String actorId) {
+        if (request == null || WorkItemService.blank(request.decision()))
+            throw WorkItemService.bad("Proposal decision is required");
         WorkspaceChange change = changes.findInProposal(changeId, proposalId, projectId)
                 .orElseThrow(() -> WorkItemService.notFound("Workspace proposal change not found"));
         if (!Set.of("PENDING", "NEEDS_UPDATE").contains(change.getStatus())) {
@@ -87,7 +79,8 @@ public class WorkspaceChangeProposalService {
         } else if ("REJECT".equals(decision)) {
             status = "REJECTED";
         } else if ("REQUEST_UPDATE".equals(decision)) {
-            if (WorkItemService.blank(request.feedback())) throw WorkItemService.bad("Feedback is required when requesting an update");
+            if (WorkItemService.blank(request.feedback()))
+                throw WorkItemService.bad("Feedback is required when requesting an update");
             status = "NEEDS_UPDATE";
         } else {
             throw WorkItemService.bad("Proposal decision must be ACCEPT, REJECT, or REQUEST_UPDATE");
@@ -123,15 +116,26 @@ public class WorkspaceChangeProposalService {
     private void applyEntry(String projectId, WorkspaceChange change, String actorId) {
         Entry payload = read(change.getPayloadJson(), Entry.class);
         if ("ADD".equals(change.getAction())) entries.createWithId(projectId, change.getTargetId(), payload, actorId);
-        else if ("UPDATE".equals(change.getAction())) { requireUnchangedEntry(projectId, change); entries.update(projectId, change.getTargetId(), payload, actorId); }
-        else { requireUnchangedEntry(projectId, change); entries.delete(projectId, change.getTargetId(), actorId); }
+        else if ("UPDATE".equals(change.getAction())) {
+            requireUnchangedEntry(projectId, change);
+            entries.update(projectId, change.getTargetId(), payload, actorId);
+        } else {
+            requireUnchangedEntry(projectId, change);
+            entries.delete(projectId, change.getTargetId(), actorId);
+        }
     }
 
     private void applyRelationship(String projectId, WorkspaceChange change, String actorId) {
         Relationship payload = read(change.getPayloadJson(), Relationship.class);
-        if ("ADD".equals(change.getAction())) relationships.createWithId(projectId, change.getTargetId(), payload, actorId);
-        else if ("UPDATE".equals(change.getAction())) { requireUnchangedRelationship(projectId, change); relationships.updateReason(projectId, change.getTargetId(), payload.getReason(), actorId); }
-        else { requireUnchangedRelationship(projectId, change); relationships.delete(projectId, change.getTargetId(), actorId); }
+        if ("ADD".equals(change.getAction()))
+            relationships.createWithId(projectId, change.getTargetId(), payload, actorId);
+        else if ("UPDATE".equals(change.getAction())) {
+            requireUnchangedRelationship(projectId, change);
+            relationships.updateReason(projectId, change.getTargetId(), payload.getReason(), actorId);
+        } else {
+            requireUnchangedRelationship(projectId, change);
+            relationships.delete(projectId, change.getTargetId(), actorId);
+        }
     }
 
     private void requireUnchangedWorkItem(String projectId, WorkspaceChange change) {
@@ -193,7 +197,8 @@ public class WorkspaceChangeProposalService {
         return switch (entityType) {
             case "WORK_ITEM" -> normalizeWorkItem(projectId, action, targetId, summary, change.workItem(), reservedIds);
             case "ENTRY" -> normalizeEntry(projectId, action, targetId, summary, change.entry(), reservedIds);
-            case "RELATIONSHIP" -> normalizeRelationship(projectId, action, targetId, summary, change.relationship(), reservedIds);
+            case "RELATIONSHIP" ->
+                    normalizeRelationship(projectId, action, targetId, summary, change.relationship(), reservedIds);
             default -> throw WorkItemService.bad("Unsupported proposal entity type");
         };
     }
@@ -204,11 +209,16 @@ public class WorkspaceChangeProposalService {
         WorkItem item;
         List<WorkItemAssignee> assignees;
         if ("ADD".equals(action)) {
-            if (draft == null || WorkItemService.blank(draft.title())) throw WorkItemService.bad("New work items require a title");
+            if (draft == null || WorkItemService.blank(draft.title()))
+                throw WorkItemService.bad("New work items require a title");
             item = new WorkItem();
-            item.setId(targetId); item.setProjectId(projectId);
-            item.setTitle(draft.title().trim()); item.setType(valueOr(draft.type(), "TASK")); item.setStatus(valueOr(draft.status(), "OPEN"));
-            item.setDueDate(date(draft.dueDate())); item.setPriority(blankToNull(draft.priority()));
+            item.setId(targetId);
+            item.setProjectId(projectId);
+            item.setTitle(draft.title().trim());
+            item.setType(valueOr(draft.type(), "TASK"));
+            item.setStatus(valueOr(draft.status(), "OPEN"));
+            item.setDueDate(date(draft.dueDate()));
+            item.setPriority(blankToNull(draft.priority()));
             item.setParentWorkItemId(resolveNullableRef(draft.parentWorkItemId(), reservedIds));
             assignees = assignees(draft.assignees());
         } else {
@@ -224,7 +234,8 @@ public class WorkspaceChangeProposalService {
                 if (!WorkItemService.blank(draft.status())) item.setStatus(draft.status());
                 if (draft.dueDate() != null) item.setDueDate(date(draft.dueDate()));
                 if (draft.priority() != null) item.setPriority(blankToNull(draft.priority()));
-                if (draft.parentWorkItemId() != null) item.setParentWorkItemId(resolveNullableRef(draft.parentWorkItemId(), reservedIds));
+                if (draft.parentWorkItemId() != null)
+                    item.setParentWorkItemId(resolveNullableRef(draft.parentWorkItemId(), reservedIds));
                 if (draft.assignees() != null) assignees = assignees(draft.assignees());
             }
         }
@@ -242,9 +253,11 @@ public class WorkspaceChangeProposalService {
             if (draft == null || WorkItemService.blank(draft.body()) || WorkItemService.blank(draft.workItemId())) {
                 throw WorkItemService.bad("New entries require workItemId and body");
             }
-            entry.setId(targetId); entry.setProjectId(projectId);
+            entry.setId(targetId);
+            entry.setProjectId(projectId);
             entry.setWorkItemId(resolveRef(draft.workItemId(), reservedIds));
-            entry.setType(valueOr(draft.type(), "COMMENT")); entry.setBody(draft.body().trim());
+            entry.setType(valueOr(draft.type(), "COMMENT"));
+            entry.setBody(draft.body().trim());
         } else {
             previous = entries.get(projectId, targetId);
             entry = copy(previous);
@@ -264,7 +277,8 @@ public class WorkspaceChangeProposalService {
         Relationship relationship = new Relationship();
         if ("ADD".equals(action)) {
             if (draft == null) throw WorkItemService.bad("New relationships require proposed values");
-            relationship.setId(targetId); relationship.setProjectId(projectId);
+            relationship.setId(targetId);
+            relationship.setProjectId(projectId);
             relationship.setFromEntityType(normalizeRelationshipEntityType(draft.fromEntityType()));
             relationship.setFromEntityId(resolveRef(draft.fromEntityId(), reservedIds));
             relationship.setToEntityType(normalizeRelationshipEntityType(draft.toEntityType()));
@@ -290,9 +304,12 @@ public class WorkspaceChangeProposalService {
     private WorkspaceChangeProposalView view(WorkspaceChangeProposal proposal, List<WorkspaceChange> storedChanges) {
         List<WorkspaceChangeProposalView.ChangeView> views = new ArrayList<>();
         for (WorkspaceChange change : storedChanges) {
-            WorkItemView workItem = null; WorkItemView previousWorkItem = null;
-            Entry entry = null; Entry previousEntry = null;
-            Relationship relationship = null; Relationship previousRelationship = null;
+            WorkItemView workItem = null;
+            WorkItemView previousWorkItem = null;
+            Entry entry = null;
+            Entry previousEntry = null;
+            Relationship relationship = null;
+            Relationship previousRelationship = null;
             if ("WORK_ITEM".equals(change.getEntityType())) {
                 WorkItemPayload payload = read(change.getPayloadJson(), WorkItemPayload.class);
                 WorkItemPayload before = readNullable(change.getPreviousJson(), WorkItemPayload.class);
@@ -316,12 +333,37 @@ public class WorkspaceChangeProposalService {
     private NormalizedChange normalized(String entityType, String action, String targetId, String summary, Object payload, Object previous) {
         return new NormalizedChange(entityType, action, targetId, summary, JsonUtils.toJson(payload), previous == null ? null : JsonUtils.toJson(previous));
     }
-    private String normalizeEntityType(String value) { String normalized = normalizeToken(value); if (!ENTITY_TYPES.contains(normalized)) throw WorkItemService.bad("Entity type must be WORK_ITEM, ENTRY, or RELATIONSHIP"); return normalized; }
-    private String normalizeRelationshipEntityType(String value) { return WorkItemService.enumValue(value, WorkTypes.ENTITY_TYPES, "Relationship entity type"); }
-    private String normalizeToken(String value) { return value == null ? "" : value.trim().toUpperCase(); }
-    private String resolveRef(String value, Map<String, String> refs) { String normalized = trim(value); if (WorkItemService.blank(normalized)) throw WorkItemService.bad("Entity reference is required"); return refs.getOrDefault(normalized, normalized); }
-    private String resolveNullableRef(String value, Map<String, String> refs) { if (value == null || value.isBlank() || "PROJECT_ROOT".equalsIgnoreCase(value.trim())) return null; return resolveRef(value, refs); }
-    private String valueOr(String value, String fallback) { return WorkItemService.blank(value) ? fallback : value.trim(); }
+
+    private String normalizeEntityType(String value) {
+        String normalized = normalizeToken(value);
+        if (!ENTITY_TYPES.contains(normalized))
+            throw WorkItemService.bad("Entity type must be WORK_ITEM, ENTRY, or RELATIONSHIP");
+        return normalized;
+    }
+
+    private String normalizeRelationshipEntityType(String value) {
+        return WorkItemService.enumValue(value, WorkTypes.ENTITY_TYPES, "Relationship entity type");
+    }
+
+    private String normalizeToken(String value) {
+        return value == null ? "" : value.trim().toUpperCase();
+    }
+
+    private String resolveRef(String value, Map<String, String> refs) {
+        String normalized = trim(value);
+        if (WorkItemService.blank(normalized)) throw WorkItemService.bad("Entity reference is required");
+        return refs.getOrDefault(normalized, normalized);
+    }
+
+    private String resolveNullableRef(String value, Map<String, String> refs) {
+        if (value == null || value.isBlank() || "PROJECT_ROOT".equalsIgnoreCase(value.trim())) return null;
+        return resolveRef(value, refs);
+    }
+
+    private String valueOr(String value, String fallback) {
+        return WorkItemService.blank(value) ? fallback : value.trim();
+    }
+
     private List<WorkItemAssignee> assignees(List<AssigneeDraft> requested) {
         if (requested == null) return List.of();
         return requested.stream().map(value -> {
@@ -333,26 +375,109 @@ public class WorkspaceChangeProposalService {
             return assignee;
         }).toList();
     }
-    private String blankToNull(String value) { return WorkItemService.blank(value) ? null : value.trim(); }
-    private String trim(String value) { return value == null ? null : value.trim(); }
-    private LocalDate date(String value) { if (WorkItemService.blank(value)) return null; try { return LocalDate.parse(value.trim()); } catch (Exception exception) { throw WorkItemService.bad("Date must use YYYY-MM-DD"); } }
-    private <T> T read(String json, Class<T> type) { if (WorkItemService.blank(json)) throw WorkItemService.bad("Proposal payload is missing"); return JsonUtils.fromJson(json, type); }
-    private <T> T readNullable(String json, Class<T> type) { return WorkItemService.blank(json) ? null : JsonUtils.fromJson(json, type); }
 
-    private WorkItem copy(WorkItem source) { WorkItem copy = new WorkItem(); copy.setId(source.getId()); copy.setProjectId(source.getProjectId()); copy.setParentWorkItemId(source.getParentWorkItemId()); copy.setSortIndex(source.getSortIndex()); copy.setType(source.getType()); copy.setTitle(source.getTitle()); copy.setStatus(source.getStatus()); copy.setDueDate(source.getDueDate()); copy.setPriority(source.getPriority()); copy.setCreatedByUserId(source.getCreatedByUserId()); copy.setCreatedAt(source.getCreatedAt()); copy.setUpdatedAt(source.getUpdatedAt()); return copy; }
-    private Entry copy(Entry source) { Entry copy = new Entry(); copy.setId(source.getId()); copy.setProjectId(source.getProjectId()); copy.setWorkItemId(source.getWorkItemId()); copy.setSortIndex(source.getSortIndex()); copy.setAuthorUserId(source.getAuthorUserId()); copy.setAuthorDisplayName(source.getAuthorDisplayName()); copy.setType(source.getType()); copy.setBody(source.getBody()); copy.setCreatedAt(source.getCreatedAt()); copy.setUpdatedAt(source.getUpdatedAt()); return copy; }
-    private Relationship copy(Relationship source) { Relationship copy = new Relationship(); copy.setId(source.getId()); copy.setProjectId(source.getProjectId()); copy.setFromEntityType(source.getFromEntityType()); copy.setFromEntityId(source.getFromEntityId()); copy.setToEntityType(source.getToEntityType()); copy.setToEntityId(source.getToEntityId()); copy.setType(source.getType()); copy.setReason(source.getReason()); copy.setSourceEntryId(source.getSourceEntryId()); copy.setCreatedByUserId(source.getCreatedByUserId()); copy.setCreatedAt(source.getCreatedAt()); return copy; }
+    private String blankToNull(String value) {
+        return WorkItemService.blank(value) ? null : value.trim();
+    }
 
-    public record ProposalDraft(List<ChangeDraft> changes) { }
+    private String trim(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    private LocalDate date(String value) {
+        if (WorkItemService.blank(value)) return null;
+        try {
+            return LocalDate.parse(value.trim());
+        } catch (Exception exception) {
+            throw WorkItemService.bad("Date must use YYYY-MM-DD");
+        }
+    }
+
+    private <T> T read(String json, Class<T> type) {
+        if (WorkItemService.blank(json)) throw WorkItemService.bad("Proposal payload is missing");
+        return JsonUtils.fromJson(json, type);
+    }
+
+    private <T> T readNullable(String json, Class<T> type) {
+        return WorkItemService.blank(json) ? null : JsonUtils.fromJson(json, type);
+    }
+
+    private WorkItem copy(WorkItem source) {
+        WorkItem copy = new WorkItem();
+        copy.setId(source.getId());
+        copy.setProjectId(source.getProjectId());
+        copy.setParentWorkItemId(source.getParentWorkItemId());
+        copy.setSortIndex(source.getSortIndex());
+        copy.setType(source.getType());
+        copy.setTitle(source.getTitle());
+        copy.setStatus(source.getStatus());
+        copy.setDueDate(source.getDueDate());
+        copy.setPriority(source.getPriority());
+        copy.setCreatedByUserId(source.getCreatedByUserId());
+        copy.setCreatedAt(source.getCreatedAt());
+        copy.setUpdatedAt(source.getUpdatedAt());
+        return copy;
+    }
+
+    private Entry copy(Entry source) {
+        Entry copy = new Entry();
+        copy.setId(source.getId());
+        copy.setProjectId(source.getProjectId());
+        copy.setWorkItemId(source.getWorkItemId());
+        copy.setSortIndex(source.getSortIndex());
+        copy.setAuthorUserId(source.getAuthorUserId());
+        copy.setAuthorDisplayName(source.getAuthorDisplayName());
+        copy.setType(source.getType());
+        copy.setBody(source.getBody());
+        copy.setCreatedAt(source.getCreatedAt());
+        copy.setUpdatedAt(source.getUpdatedAt());
+        return copy;
+    }
+
+    private Relationship copy(Relationship source) {
+        Relationship copy = new Relationship();
+        copy.setId(source.getId());
+        copy.setProjectId(source.getProjectId());
+        copy.setFromEntityType(source.getFromEntityType());
+        copy.setFromEntityId(source.getFromEntityId());
+        copy.setToEntityType(source.getToEntityType());
+        copy.setToEntityId(source.getToEntityId());
+        copy.setType(source.getType());
+        copy.setReason(source.getReason());
+        copy.setSourceEntryId(source.getSourceEntryId());
+        copy.setCreatedByUserId(source.getCreatedByUserId());
+        copy.setCreatedAt(source.getCreatedAt());
+        return copy;
+    }
+
+    public record ProposalDraft(List<ChangeDraft> changes) {
+    }
+
     public record ChangeDraft(String entityType, String action, String targetId, String clientRef, String summary,
-                              WorkItemDraft workItem, EntryDraft entry, RelationshipDraft relationship) { }
+                              WorkItemDraft workItem, EntryDraft entry, RelationshipDraft relationship) {
+    }
+
     public record WorkItemDraft(String title, String type, String status, String dueDate, String priority,
-                                String parentWorkItemId, List<AssigneeDraft> assignees) { }
-    public record AssigneeDraft(String assigneeType, String assigneeId) { }
-    public record EntryDraft(String workItemId, String type, String body) { }
+                                String parentWorkItemId, List<AssigneeDraft> assignees) {
+    }
+
+    public record AssigneeDraft(String assigneeType, String assigneeId) {
+    }
+
+    public record EntryDraft(String workItemId, String type, String body) {
+    }
+
     public record RelationshipDraft(String fromEntityType, String fromEntityId, String toEntityType, String toEntityId,
-                                    String type, String reason, String sourceEntryId) { }
-    public record DecisionRequest(String decision, String feedback) { }
-    public record WorkItemPayload(WorkItem workItem, List<WorkItemAssignee> assignees) { }
-    private record NormalizedChange(String entityType, String action, String targetId, String summary, String payloadJson, String previousJson) { }
+                                    String type, String reason, String sourceEntryId) {
+    }
+
+    public record DecisionRequest(String decision, String feedback) {
+    }
+
+    public record WorkItemPayload(WorkItem workItem, List<WorkItemAssignee> assignees) {
+    }
+
+    private record NormalizedChange(String entityType, String action, String targetId, String summary,
+                                    String payloadJson, String previousJson) {
+    }
 }

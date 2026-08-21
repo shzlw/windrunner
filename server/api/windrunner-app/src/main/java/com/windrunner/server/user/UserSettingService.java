@@ -6,15 +6,16 @@ import com.windrunner.server.user.domain.SettingValue;
 import com.windrunner.server.user.domain.UserSetting;
 import com.windrunner.server.user.persistence.UserSettingRepository;
 import com.windrunner.server.utils.JsonUtils;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @RequiredArgsConstructor
 @Service

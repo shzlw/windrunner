@@ -5,12 +5,13 @@ import com.windrunner.server.audit.domain.AuditLog;
 import com.windrunner.server.audit.persistence.AuditLogRepository;
 import com.windrunner.server.auth.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController

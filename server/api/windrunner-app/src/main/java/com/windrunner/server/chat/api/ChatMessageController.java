@@ -5,12 +5,7 @@ import com.windrunner.server.auth.domain.UserContext;
 import com.windrunner.server.chat.ChatService;
 import com.windrunner.server.chat.domain.ChatMessage;
 import com.windrunner.server.chat.domain.ChatSession;
-import com.windrunner.server.llm.LlmMessage;
-import com.windrunner.server.llm.LlmResult;
-import com.windrunner.server.llm.LlmService;
-import com.windrunner.server.llm.LlmTool;
-import com.windrunner.server.llm.LlmUsageContext;
-import com.windrunner.server.llm.LlmUsageService;
+import com.windrunner.server.llm.*;
 import com.windrunner.server.llm.domain.LlmUsageFeature;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
@@ -26,28 +21,23 @@ import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.domain.WorkItemAssignee;
 import jakarta.servlet.http.HttpServletRequest;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-/** Handles the conversational inspector.  The response is delivered as SSE so the UI can
- * retain its streaming contract even though the current provider returns a completed answer. */
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Handles the conversational inspector.  The response is delivered as SSE so the UI can
+ * retain its streaming contract even though the current provider returns a completed answer.
+ */
 @Slf4j
 @RequiredArgsConstructor
 @RestController
@@ -237,11 +227,22 @@ public class ChatMessageController {
                 : exception.getMessage();
     }
 
-    public record ProjectChatRequest(List<LlmMessage> messages, ProjectChatContext context) { }
-    public record ProjectChatContext(String selectedNodeId, String selectedProposalId, String selectedProposalChangeId) { }
-    public record ChatDelta(String text) { }
-    public record ChatDone(String chatSessionId, String sourceMessageId, String assistantMessageId) { }
-    public record ChatError(String message) { }
+    public record ProjectChatRequest(List<LlmMessage> messages, ProjectChatContext context) {
+    }
+
+    public record ProjectChatContext(String selectedNodeId, String selectedProposalId,
+                                     String selectedProposalChangeId) {
+    }
+
+    public record ChatDelta(String text) {
+    }
+
+    public record ChatDone(String chatSessionId, String sourceMessageId, String assistantMessageId) {
+    }
+
+    public record ChatError(String message) {
+    }
+
     private record ScopeContent(int sortIndex, String stableId, WorkItem workItem, Entry entry) {
         static ScopeContent forWorkItem(WorkItem item) {
             return new ScopeContent(item.getSortIndex() == null ? Integer.MAX_VALUE : item.getSortIndex(), item.getId(), item, null);

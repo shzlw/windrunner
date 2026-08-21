@@ -1,10 +1,6 @@
 package com.windrunner.server.llmproviders.gemini.client;
 
-import com.github.victools.jsonschema.generator.Option;
-import com.github.victools.jsonschema.generator.OptionPreset;
-import com.github.victools.jsonschema.generator.SchemaGenerator;
-import com.github.victools.jsonschema.generator.SchemaGeneratorConfigBuilder;
-import com.github.victools.jsonschema.generator.SchemaVersion;
+import com.github.victools.jsonschema.generator.*;
 import com.github.victools.jsonschema.module.jackson.JacksonModule;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -49,7 +45,7 @@ public final class GeminiJsonSchema {
         if (node.isObject()) {
             ObjectNode objectNode = (ObjectNode) node;
             objectNode.remove("additionalProperties");
-            
+
             // Recursively remove from nested objects and arrays
             objectNode.properties().forEach(entry -> removeAdditionalProperties(entry.getValue()));
         } else if (node.isArray()) {

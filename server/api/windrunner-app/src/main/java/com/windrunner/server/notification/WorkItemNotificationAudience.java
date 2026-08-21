@@ -4,12 +4,13 @@ import com.windrunner.server.subscription.persistence.SubscriptionRepository;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.work.domain.WorkItemAssignee;
 import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * Resolves the notification audience for a work item: subscribers plus

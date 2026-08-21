@@ -1,9 +1,10 @@
 package com.windrunner.server.user.domain;
 
-import java.time.OffsetDateTime;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
+
+import java.time.OffsetDateTime;
 
 @Data
 @Table("user_setting")

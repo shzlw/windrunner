@@ -1,36 +1,26 @@
 package com.windrunner.server.work;
 
-import com.windrunner.server.audit.AuditActions;
-import com.windrunner.server.audit.AuditEntityTypes;
-import com.windrunner.server.audit.AuditLogEntry;
-import com.windrunner.server.audit.AuditLogService;
-import com.windrunner.server.audit.AuditOutcomes;
-import com.windrunner.server.llm.LlmAvailabilityService;
-import com.windrunner.server.llm.LlmException;
-import com.windrunner.server.llm.LlmMessage;
-import com.windrunner.server.llm.LlmResult;
-import com.windrunner.server.llm.LlmService;
-import com.windrunner.server.llm.LlmTool;
-import com.windrunner.server.llm.LlmUsageContext;
-import com.windrunner.server.llm.LlmUsageService;
+import com.windrunner.server.audit.*;
+import com.windrunner.server.llm.*;
 import com.windrunner.server.llm.domain.LlmUsageFeature;
 import com.windrunner.server.utils.FileUtils;
-import com.windrunner.server.work.api.EntryAiReviewDecisionRequest;
 import com.windrunner.server.work.api.EntryAiCreateReviewDecisionRequest;
 import com.windrunner.server.work.api.EntryAiNewReviewRequest;
+import com.windrunner.server.work.api.EntryAiReviewDecisionRequest;
 import com.windrunner.server.work.api.EntryAiReviewResponse;
 import com.windrunner.server.work.domain.Entry;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @RequiredArgsConstructor
