@@ -11,5 +11,7 @@ public final class WorkTypes {
             "PENDING", "APPROVED", "REJECTED", "CANCELLED");
     public static final Set<String> ASSIGNEE_TYPES = Set.of("USER", "TEAM");
     public static final Set<String> ENTITY_TYPES = Set.of("WORK_ITEM", "ENTRY");
-    private WorkTypes() { }
+
+    private WorkTypes() {
+    }
 }

@@ -45,7 +45,8 @@ public record GeminiRequest(
     public record ContentPart(
             String type,
             String text
-    ) {}
+    ) {
+    }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Tool(
@@ -64,5 +65,6 @@ public record GeminiRequest(
             @JsonProperty("max_output_tokens")
             Integer maxOutputTokens,
             Float temperature
-    ) {}
+    ) {
+    }
 }

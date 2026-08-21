@@ -29,13 +29,15 @@ public record GeminiResponse(
             // thought fields
             String signature,
             List<ContentPart> summary
-    ) {}
+    ) {
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ContentPart(
             String type,
             String text
-    ) {}
+    ) {
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Usage(
@@ -63,5 +65,6 @@ public record GeminiResponse(
     public record Error(
             String message,
             Integer code
-    ) {}
+    ) {
+    }
 }

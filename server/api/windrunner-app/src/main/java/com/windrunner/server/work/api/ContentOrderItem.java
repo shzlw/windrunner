@@ -1,3 +1,4 @@
 package com.windrunner.server.work.api;
 
-public record ContentOrderItem(String entityType, String entityId, int sortIndex) { }
+public record ContentOrderItem(String entityType, String entityId, int sortIndex) {
+}
