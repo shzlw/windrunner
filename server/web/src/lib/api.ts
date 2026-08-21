@@ -609,9 +609,6 @@ export async function updateMySetting(key: string, setting: SettingValue) {
   })
 }
 
-export async function deleteMySetting(key: string) {
-  return request<void>(`/internal-api/v1/me/settings/${encodeURIComponent(key)}`, { method: 'DELETE' })
-}
 
 function normalizeProject(project: {
   id: string
@@ -894,13 +891,6 @@ export async function deleteNode(projectId: string, id: string): Promise<void> {
   return request<void>(`/internal-api/v1/projects/${projectId}/work-items/${id}`, { method: 'DELETE' })
 }
 
-export async function moveNode(projectId: string, nodeId: string, newParentNodeId: string | null, sortIndex?: number | null): Promise<ProjectNode> {
-  const workspace = await getWorkspace(projectId)
-  const current = workspace.workItems.find((view) => view.workItem.id === nodeId)
-  if (!current) throw new Error('WorkItem not found')
-  const updated = await updateWorkItem(projectId, nodeId, { ...current.workItem, parentWorkItemId: newParentNodeId, sortIndex: sortIndex ?? current.workItem.sortIndex }, current.assignees)
-  return legacyNode(updated, workspace.workItems.map((view) => view.workItem.id === nodeId ? updated : view))
-}
 
 export async function moveWorkItemInContentOrder(
   projectId: string,
@@ -1038,18 +1028,7 @@ export async function decideGraphChangeProposal(
   )
 }
 
-export async function createNodeEdge(projectId: string, edge: Omit<ProjectNodeEdge, 'id'> & { id?: string | null }): Promise<ProjectNodeEdge> {
-  return request<ProjectNodeEdge>(`/internal-api/v1/projects/${projectId}/node-edges`, {
-    method: 'POST',
-    body: JSON.stringify(edge),
-  })
-}
 
-export async function deleteNodeEdge(projectId: string, id: string): Promise<void> {
-  return request<void>(`/internal-api/v1/projects/${projectId}/node-edges/${id}`, {
-    method: 'DELETE',
-  })
-}
 
 export async function listUsers(page = 0, size = 100): Promise<UserPageResponse> {
   const envelope = await requestEnvelope<User[]>(`/internal-api/v1/users?page=${page}&size=${size}`, { method: 'GET' })
@@ -1087,16 +1066,6 @@ export async function listAuditLogs(page = 0, size = 20): Promise<AuditLogPageRe
   }
 }
 
-export async function listProjectAuditLogs(projectId: string, page = 0, size = 20): Promise<AuditLogPageResponse> {
-  const envelope = await requestEnvelope<AuditLog[]>(`/internal-api/v1/projects/${projectId}/audit-logs?page=${page}&size=${size}`, { method: 'GET' })
-  return {
-    items: envelope.data ?? [],
-    page: envelope.meta?.page ?? page,
-    size: envelope.meta?.size ?? size,
-    totalItems: envelope.meta?.totalItems ?? envelope.data?.length ?? 0,
-    totalPages: envelope.meta?.totalPages ?? 0,
-  }
-}
 
 export async function listWorkItemAuditLogs(projectId: string, workItemId: string, page = 0, size = 20): Promise<AuditLogPageResponse> {
   const envelope = await requestEnvelope<AuditLog[]>(`/internal-api/v1/projects/${projectId}/work-items/${workItemId}/audit-logs?page=${page}&size=${size}`, { method: 'GET' })
@@ -1109,16 +1078,7 @@ export async function listWorkItemAuditLogs(projectId: string, workItemId: strin
   }
 }
 
-export interface ProjectSearchResult {
-  workItems: WorkItem[]
-  entries: Entry[]
-  relationships: Relationship[]
-}
 
-export async function searchProject(projectId: string, query: string, limit = 20): Promise<ProjectSearchResult> {
-  const params = new URLSearchParams({ q: query, limit: String(limit) })
-  return request<ProjectSearchResult>(`/internal-api/v1/projects/${projectId}/search?${params}`, { method: 'GET' })
-}
 
 export async function listTeams(): Promise<Team[]> {
   return request<Team[]>('/internal-api/v1/teams', { method: 'GET' })
@@ -1148,12 +1108,6 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
   return request<TeamMember[]>(`/internal-api/v1/teams/${teamId}/members`, { method: 'GET' })
 }
 
-export async function addTeamMember(teamId: string, userId: string): Promise<TeamMember> {
-  return request<TeamMember>(`/internal-api/v1/teams/${teamId}/members`, {
-    method: 'POST',
-    body: JSON.stringify({ userId, role: 'TEAM_MEMBER' }),
-  })
-}
 
 export async function upsertTeamMember(teamId: string, userId: string, role: TeamMember['role']): Promise<TeamMember> {
   return request<TeamMember>(`/internal-api/v1/teams/${teamId}/members`, {
