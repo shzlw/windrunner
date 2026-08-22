@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import type { FormEvent, KeyboardEvent } from 'react'
+import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { useParams } from 'react-router'
-import { AlertTriangle, Bot, Loader2, Plus, SendHorizontal, Square, User, X } from 'lucide-react'
+import { AlertTriangle, Bot, FileText, Loader2, Plus, SendHorizontal, Square, User, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { Textarea } from '@/components/ui/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import {
   getActiveChatSession,
@@ -28,6 +29,16 @@ type SelectedChatContext = {
   context: ProjectChatContext
 }
 
+export type ChatWorkItemReference = {
+  id: string
+  title: string
+  type: string
+  status: string
+  dueDate?: string | null
+}
+
+const workItemReferencePattern = /\[\[workitem:([A-Za-z0-9_-]+)\]\]/g
+
 function createMessageId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -35,11 +46,82 @@ function createMessageId() {
   return `message-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+function workItemStatusLabel(status: string) {
+  return status.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase())
+}
+
+// A partially-streamed marker (e.g. "[[workitem:witm_ab" without its "]]")
+// would flash as raw text before completing, so it is hidden until closed.
+const incompleteTrailingMarkerPattern = /\[\[workitem:[^\]\s]*$/
+
+function renderAssistantContent(
+  content: string,
+  references: Map<string, ChatWorkItemReference>,
+  onReferenceClick?: (workItemId: string) => void,
+) {
+  const rendered: ReactNode[] = []
+  content = content.replace(incompleteTrailingMarkerPattern, '')
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let referenceIndex = 0
+
+  workItemReferencePattern.lastIndex = 0
+  while ((match = workItemReferencePattern.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      rendered.push(<span key={`text-${match.index}`} className="whitespace-pre-wrap">{content.slice(lastIndex, match.index)}</span>)
+    }
+
+    const workItemId = match[1]
+    const reference = references.get(workItemId)
+    // Unresolved IDs stay visible (truncated) so hallucinated or missing
+    // references are diagnosable instead of blending in.
+    const label = reference?.title
+      ?? (workItemId.length > 18 ? `${workItemId.slice(0, 15)}\u2026` : workItemId)
+    const isClickable = Boolean(onReferenceClick)
+    const referenceButton = (
+      <button
+        type="button"
+        className={cn(
+          'mx-0.5 inline-flex max-w-full items-center gap-1 rounded border px-1.5 py-0.5 align-baseline text-xs font-medium transition-colors',
+          isClickable
+            ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/15'
+            : 'border-border bg-muted text-muted-foreground',
+        )}
+        onClick={() => onReferenceClick?.(workItemId)}
+        disabled={!isClickable}
+        aria-label={`Select work item ${label}`}
+      >
+        <FileText className="h-3 w-3 shrink-0" />
+        <span className="truncate">{label}</span>
+      </button>
+    )
+
+    rendered.push(
+      <Tooltip key={`reference-${referenceIndex}`}>
+        <TooltipTrigger render={referenceButton} />
+        <TooltipContent>
+          <span>{reference ? `${workItemStatusLabel(reference.status)} · ${reference.type}` : 'Unresolved reference'}</span>
+        </TooltipContent>
+      </Tooltip>,
+    )
+    referenceIndex += 1
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < content.length) {
+    rendered.push(<span key={`text-${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex)}</span>)
+  }
+
+  return rendered.length > 0 ? rendered : <span className="whitespace-pre-wrap">{content}</span>
+}
+
 export default function ProjectChatPanel({
   projectId = '',
   selectedContext,
   onClearSelectedContext,
   onGraphChangeProposalSaved,
+  workItemReferences = new Map(),
+  onWorkItemReferenceClick,
   className,
   flush = false,
   onClose,
@@ -48,6 +130,8 @@ export default function ProjectChatPanel({
   selectedContext?: SelectedChatContext | null
   onClearSelectedContext?: () => void
   onGraphChangeProposalSaved?: () => void | Promise<void>
+  workItemReferences?: Map<string, ChatWorkItemReference>
+  onWorkItemReferenceClick?: (workItemId: string) => void | Promise<void>
   className?: string
   flush?: boolean
   onClose?: () => void
@@ -291,7 +375,9 @@ export default function ProjectChatPanel({
                           <span className="min-w-0">{message.content}</span>
                         </span>
                       ) : (
-                        message.content || <Loader2 className="h-4 w-4 animate-spin" />
+                        message.content
+                          ? renderAssistantContent(message.content, workItemReferences, onWorkItemReferenceClick)
+                          : <Loader2 className="h-4 w-4 animate-spin" />
                       )}
                     </BubbleContent>
                   </Bubble>

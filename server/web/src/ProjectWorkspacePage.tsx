@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactElement, ReactNode } from 'react'
 import { NavLink, Navigate, useParams, useSearchParams } from 'react-router'
 import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
@@ -86,7 +86,7 @@ import {
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { entryTypeBadgeClass, workItemTypeBadgeClass } from '@/lib/typeBadges'
-import ProjectChatPanel from '@/ProjectChatPanel'
+import ProjectChatPanel, { type ChatWorkItemReference } from '@/ProjectChatPanel'
 import WorkItemHistoryPanel from '@/WorkItemHistoryPanel'
 
 type TreeNode = ProjectNode & {
@@ -1712,6 +1712,7 @@ function TreeRowContent({
   depth,
   expandedNodeIds,
   selectedNodeId,
+  highlightedNodeId,
   isSaving,
   decidingProposalChangeId,
   loadedChildrenParentIds,
@@ -1758,6 +1759,7 @@ function TreeRowContent({
   depth: number
   expandedNodeIds: Set<string>
   selectedNodeId: string | null
+  highlightedNodeId: string | null
   isSaving: boolean
   decidingProposalChangeId: string | null
   loadedChildrenParentIds: Set<string>
@@ -1806,6 +1808,7 @@ function TreeRowContent({
   const [entryComposerRequested, setEntryComposerRequested] = useState(false)
   const isExpanded = expandedNodeIds.has(node.id)
   const isSelected = selectedNodeId === node.id
+  const isChatHighlighted = highlightedNodeId === node.id
   const isLoadingChildren = loadingChildrenNodeIds.has(node.id)
   const hasLoadedChildren = loadedChildrenParentIds.has(node.id)
   const childPageInfo = childrenPageInfoByParentId.get(node.id)
@@ -1872,9 +1875,11 @@ function TreeRowContent({
         className={cn(
           'group flex min-h-9 items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground',
           isSelected ? 'bg-primary/5 text-foreground ring-1 ring-inset ring-primary/35' : null,
+          isChatHighlighted ? 'bg-primary/10 text-foreground ring-2 ring-primary/50' : null,
           proposal ? 'border border-primary/30 bg-primary/5 text-foreground hover:bg-primary/10' : null,
         )}
         style={{ marginLeft: `${depth * treeDepthIndentPx}px` }}
+        data-work-item-id={node.id}
       >
         <button
           type="button"
@@ -2174,6 +2179,7 @@ function TreeRowContent({
                 depth={0}
                 expandedNodeIds={expandedNodeIds}
                 selectedNodeId={selectedNodeId}
+                highlightedNodeId={highlightedNodeId}
                 isSaving={isSaving}
                 decidingProposalChangeId={decidingProposalChangeId}
                 loadedChildrenParentIds={loadedChildrenParentIds}
@@ -2629,10 +2635,30 @@ export default function ProjectWorkspacePage() {
   const [createdSortDirection, setCreatedSortDirection] = useState<CreatedSortDirection>(null)
   const [isRunningCreatedSort, setIsRunningCreatedSort] = useState(false)
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null)
+  const [chatHighlightedNodeId, setChatHighlightedNodeId] = useState<string | null>(null)
+  const chatHighlightTimerRef = useRef<number | null>(null)
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>('task')
   const [autoEditTitleNodeId, setAutoEditTitleNodeId] = useState<string | null>(null)
   const [blockerWorkItems, setBlockerWorkItems] = useState<WorkItem[]>([])
   const [isSavingBlocker, setIsSavingBlocker] = useState(false)
+
+  useEffect(() => () => {
+    if (chatHighlightTimerRef.current !== null) {
+      window.clearTimeout(chatHighlightTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!chatHighlightedNodeId) {
+      return
+    }
+    const scrollTimer = window.setTimeout(() => {
+      const row = [...document.querySelectorAll<HTMLElement>('[data-work-item-id]')]
+        .find((element) => element.dataset.workItemId === chatHighlightedNodeId)
+      row?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 0)
+    return () => window.clearTimeout(scrollTimer)
+  }, [chatHighlightedNodeId])
 
   const displayedNodes = useMemo(() => mergeProposalNodes(nodes, graphChangeProposals), [nodes, graphChangeProposals])
   const pendingProposalItems = useMemo(() => pendingProposalNodes(nodes, graphChangeProposals), [nodes, graphChangeProposals])
@@ -2702,6 +2728,24 @@ export default function ProjectWorkspacePage() {
     ...blockerWorkItems.map((item) => [item.id, item.title] as const),
     ...displayedNodes.map((node) => [node.id, node.title] as const),
   ]), [blockerWorkItems, displayedNodes])
+  const chatWorkItemReferences = useMemo(() => {
+    const references = new Map<string, ChatWorkItemReference>()
+    blockerWorkItems.forEach((item) => references.set(item.id, {
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      status: item.status,
+      dueDate: item.dueDate,
+    }))
+    displayedNodes.forEach((node) => references.set(node.id, {
+      id: node.id,
+      title: node.title,
+      type: node.type,
+      status: String(nodeFieldValue(node, 'status') ?? 'OPEN'),
+      dueDate: String(nodeFieldValue(node, 'dueDate') ?? '').trim() || null,
+    }))
+    return references
+  }, [blockerWorkItems, displayedNodes])
   const userLabels = useMemo(() => new Map(referenceUsers.map((user) => [user.id, referenceUserLabel(user)])), [referenceUsers])
   const teamLabels = useMemo(() => new Map(referenceTeams.map((team) => [team.id, referenceTeamLabel(team)])), [referenceTeams])
   const relationBadgesByNodeId = useMemo(() => {
@@ -3701,6 +3745,61 @@ export default function ProjectWorkspacePage() {
     setExpandedNodeIds((current) => new Set(current).add(node.id))
   }
 
+  function highlightChatReference(workItemId: string) {
+    if (chatHighlightTimerRef.current !== null) {
+      window.clearTimeout(chatHighlightTimerRef.current)
+    }
+    setChatHighlightedNodeId(workItemId)
+    chatHighlightTimerRef.current = window.setTimeout(() => {
+      setChatHighlightedNodeId((current) => current === workItemId ? null : current)
+      chatHighlightTimerRef.current = null
+    }, 1800)
+  }
+
+  async function handleChatWorkItemReference(workItemId: string) {
+    if (!projectId) {
+      return
+    }
+
+    setFocusedNodeId(null)
+    setWorkItemSearchQuery('')
+    setAppliedWorkItemSearchQuery('')
+    setWorkItemFilterConditions([])
+    setAppliedWorkItemFilterConditions([])
+
+    const loadedNode = findTreeNode(tree, workItemId) ?? pendingProposalItems.find((node) => node.id === workItemId) ?? null
+    if (loadedNode) {
+      const path = findTreeNodePath(tree, workItemId)
+      setExpandedNodeIds((current) => new Set([...current, ...path.slice(0, -1).map((node) => node.id)]))
+      setSelectedNodeId(loadedNode.id)
+      setSelectedEntryId(null)
+      setForm(createFormState(loadedNode))
+      setInspectorMode('task')
+      highlightChatReference(loadedNode.id)
+      return
+    }
+
+    try {
+      const requestedNodePath = await loadRequestedWorkItemTreePath(projectId, workItemId, nodes)
+      if (!requestedNodePath.selectedNode) {
+        toast.error('That WorkItem is no longer available.')
+        return
+      }
+
+      setNodes((current) => mergeNodesById(current, requestedNodePath.nodes))
+      setExpandedNodeIds((current) => new Set([...current, ...requestedNodePath.expandedNodeIds]))
+      setLoadedChildrenParentIds((current) => new Set([...current, ...requestedNodePath.loadedChildrenParentIds]))
+      setChildrenPageInfoByParentId((current) => new Map([...current, ...requestedNodePath.childrenPageInfoByParentId]))
+      setSelectedNodeId(requestedNodePath.selectedNode.id)
+      setSelectedEntryId(null)
+      setForm(createFormState(requestedNodePath.selectedNode))
+      setInspectorMode('task')
+      highlightChatReference(requestedNodePath.selectedNode.id)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to locate that WorkItem.')
+    }
+  }
+
   async function handleCreateNode(parentId?: string, type = 'TASK') {
     if (!projectId) {
       return
@@ -4478,6 +4577,7 @@ export default function ProjectWorkspacePage() {
                         depth={0}
                         expandedNodeIds={displayedExpandedNodeIds}
                         selectedNodeId={selectedNodeId}
+                        highlightedNodeId={chatHighlightedNodeId}
                         isSaving={isSaving}
                         decidingProposalChangeId={decidingProposalChangeId}
                         loadedChildrenParentIds={loadedChildrenParentIds}
@@ -5052,6 +5152,8 @@ export default function ProjectWorkspacePage() {
                   selectedContext={selectedChatContext}
                   onClearSelectedContext={clearSelectedNode}
                   onGraphChangeProposalSaved={() => reloadTreeAndProposals()}
+                  workItemReferences={chatWorkItemReferences}
+                  onWorkItemReferenceClick={(workItemId) => void handleChatWorkItemReference(workItemId)}
                   flush
                   className="h-full min-h-0"
                 />
