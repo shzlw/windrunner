@@ -1,14 +1,24 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 title: Access control
 ---
 
 # Access control
 
-{/* TODO: absorb from ACCESS_MODEL_DESIGN.md */}
+<!-- TODO: absorb from ACCESS_MODEL_DESIGN.md -->
 
 - Global roles: USER, ADMIN, SUPERADMIN
 - Project roles: VIEWER, EDITOR, OWNER — what each can do
 - Team roles: TEAM_OWNER, TEAM_MEMBER
 - How project access is granted: direct membership vs. team membership
-- The last-owner protection rule
+
+## Teams are a company-wide directory
+
+Teams are visible to every authenticated user and every API key with the
+relevant scope. Seeing a team — its name, members, and linked projects —
+grants no permissions beyond that visibility; all authorization is decided by
+project roles. This mirrors the internal product behavior, where the Teams
+page lists the same directory to everyone.
+
+If private teams are ever introduced, this section is where the policy will be
+defined.

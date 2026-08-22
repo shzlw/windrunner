@@ -92,6 +92,8 @@ public class ExternalProjectController {
         project.setName(name);
         project.setCreatedByUserId(actor.getId());
         projectRepository.insert(project.getId(), project.getName(), actor.getId());
+        // The API-key owner always becomes an owner so the caller retains access to the project it created.
+        projectMemberRepository.upsert(project.getId(), actor.getId(), ProjectRoles.OWNER);
         for (String ownerUserId : ownerUserIds) {
             projectMemberRepository.upsert(project.getId(), ownerUserId, ProjectRoles.OWNER);
         }
@@ -140,7 +142,7 @@ public class ExternalProjectController {
                 auditLogService.json(after),
                 auditLogService.changes(before, after),
                 null));
-        return ApiResponse.success(project);
+        return ApiResponse.success(requireProject(id));
     }
 
     @DeleteMapping("/{id}")

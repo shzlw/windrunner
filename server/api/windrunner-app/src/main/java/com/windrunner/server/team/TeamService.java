@@ -114,20 +114,21 @@ public class TeamService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found");
         }
         team.setId(id);
-        Map<String, Object> after = teamSnapshot(team);
+        Team updatedTeam = requireTeam(id);
+        Map<String, Object> after = teamSnapshot(updatedTeam);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor == null ? null : actor.getId(),
                 AuditActions.UPDATE,
                 AuditEntityTypes.TEAM,
-                team.getId(),
+                updatedTeam.getId(),
                 null,
                 AuditOutcomes.SUCCESS,
-                "Updated team " + team.getName(),
+                "Updated team " + updatedTeam.getName(),
                 auditLogService.json(before),
                 auditLogService.json(after),
                 auditLogService.changes(before, after),
                 null));
-        return team;
+        return updatedTeam;
     }
 
     @Transactional

@@ -81,9 +81,9 @@ public class RelationshipService {
         Map<String, Object> before = snapshot(relationship);
         if (relationships.updateReason(id, projectId, normalizedReason, searchNormalizer.normalize(normalizedReason)) == 0)
             throw WorkItemService.notFound("Relationship not found");
-        relationship.setReason(normalizedReason);
-        auditLogService.logAfterCommit(audit(actorId, AuditActions.UPDATE, relationship, before, snapshot(relationship)));
-        return relationship;
+        Relationship updated = relationships.findById(id).filter(r -> projectId.equals(r.getProjectId())).orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
+        auditLogService.logAfterCommit(audit(actorId, AuditActions.UPDATE, updated, before, snapshot(updated)));
+        return updated;
     }
 
     private void normalize(String projectId, Relationship r) {
