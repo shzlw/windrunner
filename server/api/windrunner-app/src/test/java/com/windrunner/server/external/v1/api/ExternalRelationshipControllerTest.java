@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalRelationshipResponse;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
@@ -69,11 +70,12 @@ class ExternalRelationshipControllerTest {
         when(relationshipRepository.findPageByProjectId(PROJECT_ID, "BLOCKED_BY", after, 25, 0L)).thenReturn(items);
         when(relationshipRepository.countByProjectId(PROJECT_ID, "BLOCKED_BY", after)).thenReturn(1L);
 
-        ApiResponse<List<Relationship>> response = controller().list(
+        ApiResponse<List<ExternalRelationshipResponse>> response = controller().list(
                 PROJECT_ID, 0, 25, " blocked_by ", after, request);
 
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.VIEWER);
-        assertThat(response.data()).containsExactlyElementsOf(items);
+        assertThat(response.data()).containsExactlyElementsOf(
+                items.stream().map(ExternalRelationshipResponse::from).toList());
         assertThat(response.meta().totalItems()).isEqualTo(1L);
     }
 
@@ -84,10 +86,10 @@ class ExternalRelationshipControllerTest {
         Relationship created = relationship("rela-new", PROJECT_ID, "BLOCKED_BY");
         when(relationships.create(PROJECT_ID, body, ACTOR_ID)).thenReturn(created);
 
-        ApiResponse<Relationship> response = controller().create(PROJECT_ID, body, request);
+        ApiResponse<ExternalRelationshipResponse> response = controller().create(PROJECT_ID, body, request);
 
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.EDITOR);
-        assertThat(response.data()).isEqualTo(created);
+        assertThat(response.data()).isEqualTo(ExternalRelationshipResponse.from(created));
     }
 
     @Test
@@ -108,11 +110,11 @@ class ExternalRelationshipControllerTest {
         Relationship reloaded = relationship("rela-1", "project-other", "BLOCKED_BY");
         when(relationships.updateReason("project-other", "rela-1", " why ", ACTOR_ID)).thenReturn(reloaded);
 
-        ApiResponse<Relationship> response = controller().updateReason(
+        ApiResponse<ExternalRelationshipResponse> response = controller().updateReason(
                 "rela-1", new ExternalRelationshipController.RelationshipReasonRequest(" why "), request);
 
         verify(projectAccessService).requireProjectRole("project-other", actor(), ProjectRoles.EDITOR);
-        assertThat(response.data()).isEqualTo(reloaded);
+        assertThat(response.data()).isEqualTo(ExternalRelationshipResponse.from(reloaded));
     }
 
     @Test

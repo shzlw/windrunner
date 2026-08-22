@@ -3,6 +3,7 @@ package com.windrunner.server.external.v1.api;
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalRelationshipResponse;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
@@ -27,7 +28,7 @@ public class ExternalRelationshipController {
     private final ProjectAccessService projectAccessService;
 
     @GetMapping("/projects/{projectId}/relationships")
-    public ApiResponse<List<Relationship>> list(@PathVariable("projectId") String projectId,
+    public ApiResponse<List<ExternalRelationshipResponse>> list(@PathVariable("projectId") String projectId,
                                                 @RequestParam(name = "page", defaultValue = "0") int page,
                                                 @RequestParam(name = "size", defaultValue = "50") int size,
                                                 @RequestParam(name = "type", required = false) String type,
@@ -44,7 +45,7 @@ public class ExternalRelationshipController {
         List<Relationship> items = relationshipRepository.findPageByProjectId(projectId, normalizedType, createdAfter, normalizedSize, (long) normalizedPage * normalizedSize);
         long totalItems = relationshipRepository.countByProjectId(projectId, normalizedType, createdAfter);
         return ApiResponse.page(
-                items,
+                items.stream().map(ExternalRelationshipResponse::from).toList(),
                 normalizedPage,
                 normalizedSize,
                 totalItems,
@@ -53,7 +54,7 @@ public class ExternalRelationshipController {
 
     @PostMapping("/projects/{projectId}/relationships")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Relationship> create(@PathVariable("projectId") String projectId,
+    public ApiResponse<ExternalRelationshipResponse> create(@PathVariable("projectId") String projectId,
                                             @RequestBody Relationship relationship,
                                             HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.RELATIONSHIPS_WRITE);
@@ -61,21 +62,21 @@ public class ExternalRelationshipController {
         if (relationship == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Relationship is required");
         }
-        return ApiResponse.success(relationships.create(projectId, relationship, actor.getId()));
+        return ApiResponse.success(ExternalRelationshipResponse.from(relationships.create(projectId, relationship, actor.getId())));
     }
 
     public record RelationshipReasonRequest(String reason) {
     }
 
     @PutMapping("/relationships/{id}/reason")
-    public ApiResponse<Relationship> updateReason(@PathVariable("id") String id,
+    public ApiResponse<ExternalRelationshipResponse> updateReason(@PathVariable("id") String id,
                                                   @RequestBody RelationshipReasonRequest body,
                                                   HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.RELATIONSHIPS_WRITE);
         Relationship current = requireRelationship(id);
         projectAccessService.requireProjectRole(current.getProjectId(), actor, ProjectRoles.EDITOR);
-        return ApiResponse.success(relationships.updateReason(
-                current.getProjectId(), id, body == null ? null : body.reason(), actor.getId()));
+        return ApiResponse.success(ExternalRelationshipResponse.from(relationships.updateReason(
+                current.getProjectId(), id, body == null ? null : body.reason(), actor.getId())));
     }
 
     @DeleteMapping("/relationships/{id}")

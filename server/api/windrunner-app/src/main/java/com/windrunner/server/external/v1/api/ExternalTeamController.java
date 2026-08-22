@@ -3,6 +3,8 @@ package com.windrunner.server.external.v1.api;
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalProjectTeamResponse;
+import com.windrunner.server.external.v1.dto.ExternalTeamMemberResponse;
 import com.windrunner.server.external.v1.dto.ExternalTeamResponse;
 import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.api.CreateTeamRequest;
@@ -46,27 +48,27 @@ public class ExternalTeamController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<Team> getTeam(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<ExternalTeamResponse> getTeam(@PathVariable("id") String id, HttpServletRequest request) {
         externalAccessService.requireScope(request, ApiKeyScopes.TEAMS_READ);
-        return ApiResponse.success(teamService.getTeam(id));
+        return ApiResponse.success(ExternalTeamResponse.from(teamService.getTeam(id)));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Team> createTeam(@RequestBody CreateTeamRequest createRequest, HttpServletRequest request) {
-        return ApiResponse.success(teamService.createTeam(
+    public ApiResponse<ExternalTeamResponse> createTeam(@RequestBody CreateTeamRequest createRequest, HttpServletRequest request) {
+        return ApiResponse.success(ExternalTeamResponse.from(teamService.createTeam(
                 createRequest,
-                externalAccessService.requireAdminScope(request, ApiKeyScopes.TEAMS_WRITE)));
+                externalAccessService.requireAdminScope(request, ApiKeyScopes.TEAMS_WRITE))));
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<Team> updateTeam(@PathVariable("id") String id,
+    public ApiResponse<ExternalTeamResponse> updateTeam(@PathVariable("id") String id,
                                         @RequestBody Team team,
                                         HttpServletRequest request) {
-        return ApiResponse.success(teamService.updateTeam(
+        return ApiResponse.success(ExternalTeamResponse.from(teamService.updateTeam(
                 id,
                 team,
-                externalAccessService.requireAdminScope(request, ApiKeyScopes.TEAMS_WRITE)));
+                externalAccessService.requireAdminScope(request, ApiKeyScopes.TEAMS_WRITE))));
     }
 
     @DeleteMapping("/{id}")
@@ -76,20 +78,22 @@ public class ExternalTeamController {
     }
 
     @GetMapping("/{id}/members")
-    public ApiResponse<List<TeamMember>> listMembers(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<List<ExternalTeamMemberResponse>> listMembers(@PathVariable("id") String id, HttpServletRequest request) {
         externalAccessService.requireScope(request, ApiKeyScopes.TEAM_MEMBERS_READ);
-        return ApiResponse.success(teamService.listMembers(id));
+        return ApiResponse.success(teamService.listMembers(id).stream()
+                .map(ExternalTeamMemberResponse::from)
+                .toList());
     }
 
     @PostMapping("/{id}/members")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<TeamMember> addMember(@PathVariable("id") String id,
+    public ApiResponse<ExternalTeamMemberResponse> addMember(@PathVariable("id") String id,
                                              @RequestBody TeamLinkRequest linkRequest,
                                              HttpServletRequest request) {
-        return ApiResponse.success(teamService.addMember(
+        return ApiResponse.success(ExternalTeamMemberResponse.from(teamService.addMember(
                 id,
                 linkRequest,
-                externalAccessService.requireAdminScope(request, ApiKeyScopes.TEAM_MEMBERS_WRITE)));
+                externalAccessService.requireAdminScope(request, ApiKeyScopes.TEAM_MEMBERS_WRITE))));
     }
 
     @DeleteMapping("/{id}/members/{userId}")
@@ -101,20 +105,22 @@ public class ExternalTeamController {
     }
 
     @GetMapping("/{id}/projects")
-    public ApiResponse<List<ProjectTeam>> listProjects(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<List<ExternalProjectTeamResponse>> listProjects(@PathVariable("id") String id, HttpServletRequest request) {
         externalAccessService.requireScope(request, ApiKeyScopes.TEAM_PROJECTS_READ);
-        return ApiResponse.success(teamService.listProjects(id));
+        return ApiResponse.success(teamService.listProjects(id).stream()
+                .map(ExternalProjectTeamResponse::from)
+                .toList());
     }
 
     @PostMapping("/{id}/projects")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<ProjectTeam> addProject(@PathVariable("id") String id,
+    public ApiResponse<ExternalProjectTeamResponse> addProject(@PathVariable("id") String id,
                                                @RequestBody TeamLinkRequest linkRequest,
                                                HttpServletRequest request) {
-        return ApiResponse.success(teamService.addProject(
+        return ApiResponse.success(ExternalProjectTeamResponse.from(teamService.addProject(
                 id,
                 linkRequest,
-                externalAccessService.requireScope(request, ApiKeyScopes.TEAM_PROJECTS_WRITE)));
+                externalAccessService.requireScope(request, ApiKeyScopes.TEAM_PROJECTS_WRITE))));
     }
 
     @DeleteMapping("/{id}/projects/{projectId}")

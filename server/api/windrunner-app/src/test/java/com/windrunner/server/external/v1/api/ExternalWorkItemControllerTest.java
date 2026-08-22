@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalWorkItemResponse;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
@@ -83,12 +84,11 @@ class ExternalWorkItemControllerTest {
         when(workItemRepository.countForProject(PROJECT_ID, null, null, null, null)).thenReturn(42L);
         when(workItems.assignees("witm-1")).thenReturn(assignees);
 
-        ApiResponse<List<WorkItemView>> response = controller().list(
+        ApiResponse<List<ExternalWorkItemResponse>> response = controller().list(
                 PROJECT_ID, 0, 25, null, null, null, null, request);
 
         assertThat(response.data()).hasSize(1);
-        assertThat(response.data().get(0).workItem()).isEqualTo(item);
-        assertThat(response.data().get(0).assignees()).isEqualTo(assignees);
+        assertThat(response.data().get(0)).isEqualTo(ExternalWorkItemResponse.from(item, assignees));
         assertThat(response.meta().page()).isZero();
         assertThat(response.meta().size()).isEqualTo(25);
         assertThat(response.meta().totalItems()).isEqualTo(42L);
@@ -119,12 +119,11 @@ class ExternalWorkItemControllerTest {
         when(workItems.create(PROJECT_ID, requested, assignees, ACTOR_ID)).thenReturn(saved);
         when(workItems.assignees("witm-new")).thenReturn(assignees);
 
-        ApiResponse<WorkItemView> response = controller().create(
+        ApiResponse<ExternalWorkItemResponse> response = controller().create(
                 PROJECT_ID, new WorkItemRequest(requested, assignees), request);
 
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.EDITOR);
-        assertThat(response.data().workItem()).isEqualTo(saved);
-        assertThat(response.data().assignees()).isEqualTo(assignees);
+        assertThat(response.data()).isEqualTo(ExternalWorkItemResponse.from(saved, assignees));
     }
 
     @Test
@@ -147,10 +146,10 @@ class ExternalWorkItemControllerTest {
         when(workItemRepository.findById("witm-1")).thenReturn(Optional.of(item));
         when(workItems.assignees("witm-1")).thenReturn(List.of());
 
-        ApiResponse<WorkItemView> response = controller().get("witm-1", request);
+        ApiResponse<ExternalWorkItemResponse> response = controller().get("witm-1", request);
 
         verify(projectAccessService).requireProjectRole("project-other", actor(), ProjectRoles.VIEWER);
-        assertThat(response.data().workItem()).isEqualTo(item);
+        assertThat(response.data()).isEqualTo(ExternalWorkItemResponse.from(item, List.of()));
     }
 
     @Test
@@ -184,11 +183,11 @@ class ExternalWorkItemControllerTest {
         when(workItemRepository.findById("witm-1")).thenReturn(Optional.of(current));
         when(workItems.move(eq(PROJECT_ID), eq("witm-1"), any(WorkItemMoveRequest.class), eq(ACTOR_ID))).thenReturn(moved);
 
-        ApiResponse<WorkItemView> response = controller().move(
+        ApiResponse<ExternalWorkItemResponse> response = controller().move(
                 "witm-1", new WorkItemMoveRequest("parent-1", null, null), request);
 
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.EDITOR);
-        assertThat(response.data().workItem()).isEqualTo(moved);
+        assertThat(response.data()).isEqualTo(ExternalWorkItemResponse.from(moved, List.of()));
     }
 
     private ExternalWorkItemController controller() {

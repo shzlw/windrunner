@@ -3,6 +3,7 @@ package com.windrunner.server.external.v1.api;
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalSearchResultResponse;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
@@ -35,16 +36,16 @@ public class ExternalProjectContentController {
     private final ProjectAccessService projectAccessService;
 
     @GetMapping("/search")
-    public ApiResponse<ProjectSearchResult> search(@PathVariable("projectId") String projectId,
+    public ApiResponse<ExternalSearchResultResponse> search(@PathVariable("projectId") String projectId,
                                                    @RequestParam(value = "q", defaultValue = "") String query,
                                                    @RequestParam(value = "limit", required = false) Integer limit,
                                                    HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
         if (query == null || query.isBlank()) {
-            return ApiResponse.success(new ProjectSearchResult(List.of(), List.of(), List.of()));
+            return ApiResponse.success(new ExternalSearchResultResponse(List.of(), List.of(), List.of()));
         }
-        return ApiResponse.success(searchService.search(projectId, query, limit));
+        return ApiResponse.success(ExternalSearchResultResponse.from(searchService.search(projectId, query, limit)));
     }
 
     @PutMapping("/content-order")

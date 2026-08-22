@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalEntryResponse;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
@@ -82,10 +83,11 @@ class ExternalEntryControllerTest {
         when(entryRepository.findPageByWorkItemId(WORK_ITEM_ID, after, 25, 0L)).thenReturn(items);
         when(entryRepository.countByWorkItemId(WORK_ITEM_ID, after)).thenReturn(1L);
 
-        ApiResponse<List<Entry>> response = controller().list(WORK_ITEM_ID, 0, 25, after, request);
+        ApiResponse<List<ExternalEntryResponse>> response = controller().list(WORK_ITEM_ID, 0, 25, after, request);
 
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.VIEWER);
-        assertThat(response.data()).containsExactlyElementsOf(items);
+        assertThat(response.data()).containsExactlyElementsOf(
+                items.stream().map(ExternalEntryResponse::from).toList());
         assertThat(response.meta().totalItems()).isEqualTo(1L);
     }
 
@@ -108,14 +110,14 @@ class ExternalEntryControllerTest {
         Entry created = entry("entr-new", PROJECT_ID, WORK_ITEM_ID);
         when(entries.create(eq(PROJECT_ID), any(Entry.class), eq(ACTOR_ID))).thenReturn(created);
 
-        ApiResponse<Entry> response = controller().create(WORK_ITEM_ID, body, request);
+        ApiResponse<ExternalEntryResponse> response = controller().create(WORK_ITEM_ID, body, request);
 
         org.mockito.ArgumentCaptor<Entry> captured = org.mockito.ArgumentCaptor.forClass(Entry.class);
         verify(entries).create(eq(PROJECT_ID), captured.capture(), eq(ACTOR_ID));
         // The path variable wins over anything supplied in the request body.
         assertThat(captured.getValue().getWorkItemId()).isEqualTo(WORK_ITEM_ID);
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.EDITOR);
-        assertThat(response.data()).isEqualTo(created);
+        assertThat(response.data()).isEqualTo(ExternalEntryResponse.from(created));
     }
 
     @Test
@@ -137,10 +139,10 @@ class ExternalEntryControllerTest {
         Entry updated = entry("entr-1", "project-other", WORK_ITEM_ID);
         when(entries.update("project-other", "entr-1", current, ACTOR_ID)).thenReturn(updated);
 
-        ApiResponse<Entry> response = controller().update("entr-1", current, request);
+        ApiResponse<ExternalEntryResponse> response = controller().update("entr-1", current, request);
 
         verify(projectAccessService).requireProjectRole("project-other", actor(), ProjectRoles.EDITOR);
-        assertThat(response.data()).isEqualTo(updated);
+        assertThat(response.data()).isEqualTo(ExternalEntryResponse.from(updated));
     }
 
     @Test

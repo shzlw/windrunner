@@ -12,6 +12,7 @@ import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.audit.AuditLogService;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalProjectResponse;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
@@ -78,7 +79,18 @@ class ExternalProjectControllerTest {
     void createProjectAlwaysAddsKeyOwnerAsOwner() {
         when(externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_WRITE)).thenReturn(actor());
         when(appUserRepository.existsById(anyString())).thenReturn(true);
-        ApiResponse<Project> response = controller().createProject(
+        // createProject reloads the persisted row before responding (Fix 2).
+        when(projectRepository.findById(anyString())).thenAnswer(invocation -> {
+            Project created = new Project();
+            created.setId(invocation.getArgument(0));
+            created.setName("Integration target");
+            created.setCreatedByUserId(ACTOR_ID);
+            created.setCreatedAt(OffsetDateTime.now());
+            created.setUpdatedAt(OffsetDateTime.now());
+            return Optional.of(created);
+        });
+
+        ApiResponse<ExternalProjectResponse> response = controller().createProject(
                 new CreateProjectRequest("Integration target", List.of("user-other"), List.of()),
                 request);
 
@@ -87,6 +99,8 @@ class ExternalProjectControllerTest {
         verify(projectMemberRepository, org.mockito.Mockito.times(2))
                 .upsert(org.mockito.ArgumentMatchers.anyString(), ownerIds.capture(), eq(ProjectRoles.OWNER));
         assertThat(ownerIds.getAllValues()).containsExactly(ACTOR_ID, "user-other");
+        assertThat(response.data().id()).startsWith("proj_");
+        assertThat(response.data().name()).isEqualTo("Integration target");
         verify(appUserRepository).existsById("user-other");
     }
 
@@ -114,13 +128,12 @@ class ExternalProjectControllerTest {
         reloaded.setName("Renamed by API");
         when(projectRepository.findById("proj-1")).thenReturn(Optional.of(current), Optional.of(reloaded));
 
-        ApiResponse<Project> response = controller().updateProject("proj-1", requested, request);
+        ApiResponse<ExternalProjectResponse> response = controller().updateProject("proj-1", requested, request);
 
         // Fix 2: the response is the reloaded row with server-owned fields intact.
-        assertThat(response.data()).isSameAs(reloaded);
-        assertThat(response.data().getName()).isEqualTo("Renamed by API");
-        assertThat(response.data().getCreatedAt()).isEqualTo(reloaded.getCreatedAt());
-        assertThat(response.data().getCreatedByUserId()).isEqualTo("someone-else");
+        assertThat(response.data().name()).isEqualTo("Renamed by API");
+        assertThat(response.data().createdAt()).isEqualTo(reloaded.getCreatedAt());
+        assertThat(response.data().createdByUserId()).isEqualTo("someone-else");
     }
 
     private ExternalProjectController controller() {

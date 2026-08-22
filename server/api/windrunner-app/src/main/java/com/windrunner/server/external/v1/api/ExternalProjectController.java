@@ -5,6 +5,9 @@ import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.audit.*;
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalProjectMemberResponse;
+import com.windrunner.server.external.v1.dto.ExternalProjectResponse;
+import com.windrunner.server.external.v1.dto.ExternalProjectTeamResponse;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.project.ProjectAccessService;
@@ -47,7 +50,7 @@ public class ExternalProjectController {
     private final EntityIdGenerator idGenerator;
 
     @GetMapping
-    public ApiResponse<List<Project>> listProjects(@RequestParam(name = "page", defaultValue = "0") int page,
+    public ApiResponse<List<ExternalProjectResponse>> listProjects(@RequestParam(name = "page", defaultValue = "0") int page,
                                                    @RequestParam(name = "size", defaultValue = "50") int size,
                                                    HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_READ);
@@ -63,7 +66,7 @@ public class ExternalProjectController {
             items = projectRepository.findVisibleToUserPaged(actor.getId(), normalizedSize, (long) normalizedPage * normalizedSize);
         }
         return ApiResponse.page(
-                items,
+                items.stream().map(ExternalProjectResponse::from).toList(),
                 normalizedPage,
                 normalizedSize,
                 totalItems,
@@ -71,16 +74,16 @@ public class ExternalProjectController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<Project> getProject(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<ExternalProjectResponse> getProject(@PathVariable("id") String id, HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_READ);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.VIEWER);
-        return ApiResponse.success(requireProject(id));
+        return ApiResponse.success(ExternalProjectResponse.from(requireProject(id)));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
-    public ApiResponse<Project> createProject(@RequestBody CreateProjectRequest createRequest, HttpServletRequest request) {
+    public ApiResponse<ExternalProjectResponse> createProject(@RequestBody CreateProjectRequest createRequest, HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_WRITE);
         if (createRequest == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
@@ -127,12 +130,12 @@ public class ExternalProjectController {
                 auditLogService.json(projectSnapshot(project)),
                 null,
                 null));
-        return ApiResponse.success(project);
+        return ApiResponse.success(ExternalProjectResponse.from(requireProject(project.getId())));
     }
 
     @PutMapping("/{id}")
     @Transactional
-    public ApiResponse<Project> updateProject(@PathVariable("id") String id,
+    public ApiResponse<ExternalProjectResponse> updateProject(@PathVariable("id") String id,
                                               @RequestBody Project project,
                                               HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_WRITE);
@@ -157,7 +160,7 @@ public class ExternalProjectController {
                 auditLogService.json(after),
                 auditLogService.changes(before, after),
                 null));
-        return ApiResponse.success(requireProject(id));
+        return ApiResponse.success(ExternalProjectResponse.from(requireProject(id)));
     }
 
     @DeleteMapping("/{id}")
@@ -186,25 +189,29 @@ public class ExternalProjectController {
     }
 
     @GetMapping("/{id}/teams")
-    public ApiResponse<List<ProjectTeam>> listProjectTeams(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<List<ExternalProjectTeamResponse>> listProjectTeams(@PathVariable("id") String id, HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_READ);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.VIEWER);
         requireProject(id);
-        return ApiResponse.success(projectTeamRepository.findByProjectId(id));
+        return ApiResponse.success(projectTeamRepository.findByProjectId(id).stream()
+                .map(ExternalProjectTeamResponse::from)
+                .toList());
     }
 
     @GetMapping("/{id}/members")
-    public ApiResponse<List<ProjectMember>> listProjectMembers(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<List<ExternalProjectMemberResponse>> listProjectMembers(@PathVariable("id") String id, HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_READ);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.VIEWER);
         requireProject(id);
-        return ApiResponse.success(projectMemberRepository.findByProjectId(id));
+        return ApiResponse.success(projectMemberRepository.findByProjectId(id).stream()
+                .map(ExternalProjectMemberResponse::from)
+                .toList());
     }
 
     @PostMapping("/{id}/members")
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
-    public ApiResponse<ProjectMember> upsertProjectMember(@PathVariable("id") String id,
+    public ApiResponse<ExternalProjectMemberResponse> upsertProjectMember(@PathVariable("id") String id,
                                                           @RequestBody TeamLinkRequest linkRequest,
                                                           HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_WRITE);
@@ -237,7 +244,7 @@ public class ExternalProjectController {
                 null,
                 null,
                 auditLogService.json(Map.of("operation", "UPSERT_MEMBER", "userId", userId, "role", role))));
-        return ApiResponse.success(projectMember);
+        return ApiResponse.success(ExternalProjectMemberResponse.from(projectMember));
     }
 
     @DeleteMapping("/{id}/members/{userId}")
@@ -270,7 +277,7 @@ public class ExternalProjectController {
     @PostMapping("/{id}/teams")
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
-    public ApiResponse<ProjectTeam> assignTeam(@PathVariable("id") String id,
+    public ApiResponse<ExternalProjectTeamResponse> assignTeam(@PathVariable("id") String id,
                                                @RequestBody TeamLinkRequest linkRequest,
                                                HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_WRITE);
@@ -303,7 +310,7 @@ public class ExternalProjectController {
                 null,
                 null,
                 auditLogService.json(Map.of("operation", "ASSIGN_TEAM", "teamId", teamId, "role", role))));
-        return ApiResponse.success(projectTeam);
+        return ApiResponse.success(ExternalProjectTeamResponse.from(projectTeam));
     }
 
     @DeleteMapping("/{id}/teams/{teamId}")

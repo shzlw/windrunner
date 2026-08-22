@@ -3,6 +3,7 @@ package com.windrunner.server.external.v1.api;
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalEntryResponse;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
@@ -29,7 +30,7 @@ public class ExternalEntryController {
     private final ProjectAccessService projectAccessService;
 
     @GetMapping("/work-items/{workItemId}/entries")
-    public ApiResponse<List<Entry>> list(@PathVariable("workItemId") String workItemId,
+    public ApiResponse<List<ExternalEntryResponse>> list(@PathVariable("workItemId") String workItemId,
                                          @RequestParam(name = "page", defaultValue = "0") int page,
                                          @RequestParam(name = "size", defaultValue = "50") int size,
                                          @RequestParam(name = "updated_after", required = false)
@@ -44,7 +45,7 @@ public class ExternalEntryController {
         List<Entry> items = entryRepository.findPageByWorkItemId(workItemId, updatedAfter, normalizedSize, (long) normalizedPage * normalizedSize);
         long totalItems = entryRepository.countByWorkItemId(workItemId, updatedAfter);
         return ApiResponse.page(
-                items,
+                items.stream().map(ExternalEntryResponse::from).toList(),
                 normalizedPage,
                 normalizedSize,
                 totalItems,
@@ -53,7 +54,7 @@ public class ExternalEntryController {
 
     @PostMapping("/work-items/{workItemId}/entries")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Entry> create(@PathVariable("workItemId") String workItemId,
+    public ApiResponse<ExternalEntryResponse> create(@PathVariable("workItemId") String workItemId,
                                      @RequestBody Entry entry,
                                      HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.ENTRIES_WRITE);
@@ -63,20 +64,20 @@ public class ExternalEntryController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Entry is required");
         }
         entry.setWorkItemId(workItemId);
-        return ApiResponse.success(entries.create(projectId, entry, actor.getId()));
+        return ApiResponse.success(ExternalEntryResponse.from(entries.create(projectId, entry, actor.getId())));
     }
 
     @GetMapping("/entries/{id}")
-    public ApiResponse<Entry> get(@PathVariable("id") String id,
+    public ApiResponse<ExternalEntryResponse> get(@PathVariable("id") String id,
                                   HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.ENTRIES_READ);
         Entry entry = requireEntry(id);
         projectAccessService.requireProjectRole(entry.getProjectId(), actor, ProjectRoles.VIEWER);
-        return ApiResponse.success(entry);
+        return ApiResponse.success(ExternalEntryResponse.from(entry));
     }
 
     @PutMapping("/entries/{id}")
-    public ApiResponse<Entry> update(@PathVariable("id") String id,
+    public ApiResponse<ExternalEntryResponse> update(@PathVariable("id") String id,
                                      @RequestBody Entry entry,
                                      HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.ENTRIES_WRITE);
@@ -85,7 +86,7 @@ public class ExternalEntryController {
         if (entry == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Entry is required");
         }
-        return ApiResponse.success(entries.update(current.getProjectId(), id, entry, actor.getId()));
+        return ApiResponse.success(ExternalEntryResponse.from(entries.update(current.getProjectId(), id, entry, actor.getId())));
     }
 
     @DeleteMapping("/entries/{id}")

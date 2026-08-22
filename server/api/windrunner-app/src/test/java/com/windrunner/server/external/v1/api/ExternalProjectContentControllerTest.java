@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalSearchResultResponse;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
@@ -58,7 +59,7 @@ class ExternalProjectContentControllerTest {
     void searchBlankQueryReturnsEmptyResultWithoutTouchingSearchService() {
         when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ)).thenReturn(actor());
 
-        ApiResponse<ProjectSearchResult> response = controller().search(PROJECT_ID, "   ", null, request);
+        ApiResponse<ExternalSearchResultResponse> response = controller().search(PROJECT_ID, "   ", null, request);
 
         verifyNoInteractions(searchService);
         assertThat(response.data().workItems()).isEmpty();
@@ -73,10 +74,10 @@ class ExternalProjectContentControllerTest {
                 List.of(new WorkItem()), List.of(new Entry()), List.of(new Relationship()));
         when(searchService.search(PROJECT_ID, "deploy", 20)).thenReturn(result);
 
-        ApiResponse<ProjectSearchResult> response = controller().search(PROJECT_ID, "deploy", 20, request);
+        ApiResponse<ExternalSearchResultResponse> response = controller().search(PROJECT_ID, "deploy", 20, request);
 
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.VIEWER);
-        assertThat(response.data()).isEqualTo(result);
+        assertThat(response.data()).isEqualTo(ExternalSearchResultResponse.from(result));
     }
 
     @Test
