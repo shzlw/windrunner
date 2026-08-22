@@ -30,13 +30,25 @@ public class ExternalEntryController {
 
     @GetMapping("/work-items/{workItemId}/entries")
     public ApiResponse<List<Entry>> list(@PathVariable("workItemId") String workItemId,
+                                         @RequestParam(name = "page", defaultValue = "0") int page,
+                                         @RequestParam(name = "size", defaultValue = "50") int size,
+                                         @RequestParam(name = "updated_after", required = false)
+                                         @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
+                                         java.time.OffsetDateTime updatedAfter,
                                          HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.ENTRIES_READ);
         String projectId = requireProjectId(workItemId);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
-        return ApiResponse.success(entries.list(projectId).stream()
-                .filter(entry -> workItemId.equals(entry.getWorkItemId()))
-                .toList());
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        List<Entry> items = entryRepository.findPageByWorkItemId(workItemId, updatedAfter, normalizedSize, (long) normalizedPage * normalizedSize);
+        long totalItems = entryRepository.countByWorkItemId(workItemId, updatedAfter);
+        return ApiResponse.page(
+                items,
+                normalizedPage,
+                normalizedSize,
+                totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @PostMapping("/work-items/{workItemId}/entries")

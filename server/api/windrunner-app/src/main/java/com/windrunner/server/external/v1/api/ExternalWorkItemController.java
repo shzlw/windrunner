@@ -32,12 +32,57 @@ public class ExternalWorkItemController {
 
     @GetMapping("/projects/{projectId}/work-items")
     public ApiResponse<List<WorkItemView>> list(@PathVariable("projectId") String projectId,
+                                                @RequestParam(name = "page", defaultValue = "0") int page,
+                                                @RequestParam(name = "size", defaultValue = "50") int size,
+                                                @RequestParam(name = "status", required = false) String status,
+                                                @RequestParam(name = "type", required = false) String type,
+                                                @RequestParam(name = "priority", required = false) String priority,
+                                                @RequestParam(name = "updated_after", required = false)
+                                                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
+                                                java.time.OffsetDateTime updatedAfter,
                                                 HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
-        return ApiResponse.success(workItems.list(projectId).stream()
-                .map(item -> new WorkItemView(item, workItems.assignees(item.getId())))
-                .toList());
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        List<WorkItem> items = workItemsPage(projectId, normalizedSize, (long) normalizedPage * normalizedSize, status, type, priority, updatedAfter);
+        long totalItems = workItemsCount(projectId, status, type, priority, updatedAfter);
+        return ApiResponse.page(
+                items.stream().map(item -> new WorkItemView(item, workItems.assignees(item.getId()))).toList(),
+                normalizedPage,
+                normalizedSize,
+                totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
+    }
+
+    private List<WorkItem> workItemsPage(String projectId, int limit, long offset, String status, String type, String priority, java.time.OffsetDateTime updatedAfter) {
+        return workItemRepository.findPageForProject(projectId,
+                normalizedEnumFilter(status),
+                normalizedEnumFilter(type),
+                normalizedEnumFilter(priority),
+                updatedAfter,
+                limit,
+                offset);
+    }
+
+    private long workItemsCount(String projectId, String status, String type, String priority, java.time.OffsetDateTime updatedAfter) {
+        return workItemRepository.countForProject(projectId,
+                normalizedEnumFilter(status),
+                normalizedEnumFilter(type),
+                normalizedEnumFilter(priority),
+                updatedAfter);
+    }
+
+    /**
+     * Enum filters are stored uppercase (the write path enforces this via
+     * enumValue), so matching is case-insensitive for callers. Blank values
+     * mean "no filter".
+     */
+    private static String normalizedEnumFilter(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim().toUpperCase();
     }
 
     @PostMapping("/projects/{projectId}/work-items")

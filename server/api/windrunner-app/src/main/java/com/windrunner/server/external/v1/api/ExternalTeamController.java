@@ -25,14 +25,24 @@ import java.util.List;
 public class ExternalTeamController {
 
     private final TeamService teamService;
+    private final com.windrunner.server.team.persistence.TeamRepository teamRepository;
     private final ExternalAccessService externalAccessService;
 
     @GetMapping
-    public ApiResponse<List<ExternalTeamResponse>> listTeams(HttpServletRequest request) {
+    public ApiResponse<List<ExternalTeamResponse>> listTeams(@RequestParam(name = "page", defaultValue = "0") int page,
+                                                             @RequestParam(name = "size", defaultValue = "50") int size,
+                                                             HttpServletRequest request) {
         externalAccessService.requireScope(request, ApiKeyScopes.TEAMS_READ);
-        return ApiResponse.success(teamService.listTeams(null).stream()
-                .map(ExternalTeamResponse::from)
-                .toList());
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        List<Team> teams = teamRepository.findAllPage(normalizedSize, (long) normalizedPage * normalizedSize);
+        long totalItems = teamRepository.countTeams();
+        return ApiResponse.page(
+                teams.stream().map(ExternalTeamResponse::from).toList(),
+                normalizedPage,
+                normalizedSize,
+                totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @GetMapping("/{id}")

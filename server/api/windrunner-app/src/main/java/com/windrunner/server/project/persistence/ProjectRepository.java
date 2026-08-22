@@ -15,6 +15,9 @@ public interface ProjectRepository extends CrudRepository<Project, String> {
     @Query("SELECT id, name, created_by_user_id, created_at, updated_at, archived_at FROM project ORDER BY name ASC, id ASC")
     List<Project> findAllByOrderByNameAscIdAsc();
 
+    @Query("SELECT COUNT(*) FROM project")
+    long countProjects();
+
     @Query("""
             SELECT DISTINCT p.id, p.name, p.created_by_user_id, p.created_at, p.updated_at, p.archived_at
             FROM project p
@@ -34,6 +37,56 @@ public interface ProjectRepository extends CrudRepository<Project, String> {
             ORDER BY p.name ASC, p.id ASC
             """)
     List<Project> findVisibleToUser(@Param("userId") String userId);
+
+    @Query("""
+            SELECT DISTINCT p.id, p.name, p.created_by_user_id, p.created_at, p.updated_at, p.archived_at
+            FROM project p
+            WHERE EXISTS (
+                SELECT 1
+                FROM project_member pm
+                WHERE pm.project_id = p.id
+                  AND pm.user_id = :userId
+            )
+               OR EXISTS (
+                SELECT 1
+                FROM project_team pt
+                JOIN team_member tm ON tm.team_id = pt.team_id
+                WHERE pt.project_id = p.id
+                  AND tm.user_id = :userId
+            )
+            ORDER BY p.name ASC, p.id ASC
+            LIMIT :limit OFFSET :offset
+            """)
+    List<Project> findVisibleToUserPaged(@Param("userId") String userId,
+                                         @Param("limit") int limit,
+                                         @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(DISTINCT p.id)
+            FROM project p
+            WHERE EXISTS (
+                SELECT 1
+                FROM project_member pm
+                WHERE pm.project_id = p.id
+                  AND pm.user_id = :userId
+            )
+               OR EXISTS (
+                SELECT 1
+                FROM project_team pt
+                JOIN team_member tm ON tm.team_id = pt.team_id
+                WHERE pt.project_id = p.id
+                  AND tm.user_id = :userId
+            )
+            """)
+    long countVisibleToUser(@Param("userId") String userId);
+
+    @Query("""
+            SELECT id, name, created_by_user_id, created_at, updated_at, archived_at
+            FROM project
+            ORDER BY name ASC, id ASC
+            LIMIT :limit OFFSET :offset
+            """)
+    List<Project> findAllPage(@Param("limit") int limit, @Param("offset") long offset);
 
     @Override
     @Query("""

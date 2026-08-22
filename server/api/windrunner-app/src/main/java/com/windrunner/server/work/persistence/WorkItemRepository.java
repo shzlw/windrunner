@@ -33,6 +33,40 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE id IN (:ids)")
     List<WorkItem> findByIds(@Param("ids") java.util.Collection<String> ids);
 
+    @Query("""
+            SELECT w.id, w.project_id, w.parent_work_item_id, w.sort_index, w.type, w.title, w.status, w.due_date, w.priority, w.created_by_user_id, w.created_at, w.updated_at
+            FROM work_item w
+            WHERE w.project_id = :projectId
+              AND (:status IS NULL OR w.status = :status)
+              AND (:type IS NULL OR w.type = :type)
+              AND (:priority IS NULL OR w.priority = :priority)
+              AND (:updatedAfter IS NULL OR w.updated_at > :updatedAfter)
+            ORDER BY w.updated_at DESC, w.id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<WorkItem> findPageForProject(@Param("projectId") String projectId,
+                                      @Param("status") String status,
+                                      @Param("type") String type,
+                                      @Param("priority") String priority,
+                                      @Param("updatedAfter") java.time.OffsetDateTime updatedAfter,
+                                      @Param("limit") int limit,
+                                      @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM work_item w
+            WHERE w.project_id = :projectId
+              AND (:status IS NULL OR w.status = :status)
+              AND (:type IS NULL OR w.type = :type)
+              AND (:priority IS NULL OR w.priority = :priority)
+              AND (:updatedAfter IS NULL OR w.updated_at > :updatedAfter)
+            """)
+    long countForProject(@Param("projectId") String projectId,
+                         @Param("status") String status,
+                         @Param("type") String type,
+                         @Param("priority") String priority,
+                         @Param("updatedAfter") java.time.OffsetDateTime updatedAfter);
+
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE id = :id")
     Optional<WorkItem> findById(@Param("id") String id);
 

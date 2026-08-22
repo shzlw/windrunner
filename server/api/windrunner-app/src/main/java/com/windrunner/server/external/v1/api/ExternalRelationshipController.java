@@ -22,15 +22,33 @@ import java.util.List;
 public class ExternalRelationshipController {
 
     private final RelationshipService relationships;
+    private final com.windrunner.server.work.persistence.RelationshipRepository relationshipRepository;
     private final ExternalAccessService externalAccessService;
     private final ProjectAccessService projectAccessService;
 
     @GetMapping("/projects/{projectId}/relationships")
     public ApiResponse<List<Relationship>> list(@PathVariable("projectId") String projectId,
+                                                @RequestParam(name = "page", defaultValue = "0") int page,
+                                                @RequestParam(name = "size", defaultValue = "50") int size,
+                                                @RequestParam(name = "type", required = false) String type,
+                                                @RequestParam(name = "created_after", required = false)
+                                                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
+                                                java.time.OffsetDateTime createdAfter,
                                                 HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.RELATIONSHIPS_READ);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
-        return ApiResponse.success(relationships.list(projectId));
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        // Relationship types are stored uppercase; match case-insensitively.
+        String normalizedType = type == null || type.isBlank() ? null : type.trim().toUpperCase();
+        List<Relationship> items = relationshipRepository.findPageByProjectId(projectId, normalizedType, createdAfter, normalizedSize, (long) normalizedPage * normalizedSize);
+        long totalItems = relationshipRepository.countByProjectId(projectId, normalizedType, createdAfter);
+        return ApiResponse.page(
+                items,
+                normalizedPage,
+                normalizedSize,
+                totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @PostMapping("/projects/{projectId}/relationships")

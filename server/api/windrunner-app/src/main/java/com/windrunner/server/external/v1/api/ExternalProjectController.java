@@ -47,12 +47,27 @@ public class ExternalProjectController {
     private final EntityIdGenerator idGenerator;
 
     @GetMapping
-    public ApiResponse<List<Project>> listProjects(HttpServletRequest request) {
+    public ApiResponse<List<Project>> listProjects(@RequestParam(name = "page", defaultValue = "0") int page,
+                                                   @RequestParam(name = "size", defaultValue = "50") int size,
+                                                   HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_READ);
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        long totalItems;
+        List<Project> items;
         if (AppRoles.isSuperAdmin(actor.getGlobalRole())) {
-            return ApiResponse.success(projectRepository.findAllByOrderByNameAscIdAsc());
+            totalItems = projectRepository.countProjects();
+            items = projectRepository.findAllPage(normalizedSize, (long) normalizedPage * normalizedSize);
+        } else {
+            totalItems = projectRepository.countVisibleToUser(actor.getId());
+            items = projectRepository.findVisibleToUserPaged(actor.getId(), normalizedSize, (long) normalizedPage * normalizedSize);
         }
-        return ApiResponse.success(projectRepository.findVisibleToUser(actor.getId()));
+        return ApiResponse.page(
+                items,
+                normalizedPage,
+                normalizedSize,
+                totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @GetMapping("/{id}")

@@ -23,6 +23,17 @@ public interface TeamRepository extends CrudRepository<Team, String> {
     @Query("""
             SELECT id, name, created_at, updated_at
             FROM team
+            ORDER BY lower(name) ASC, id ASC
+            LIMIT :limit OFFSET :offset
+            """)
+    List<Team> findAllPage(@Param("limit") int limit, @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM team")
+    long countTeams();
+
+    @Query("""
+            SELECT id, name, created_at, updated_at
+            FROM team
             WHERE :query IS NULL
                OR :query = ''
                OR LOWER(name) LIKE CONCAT('%', LOWER(:query), '%')
