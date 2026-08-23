@@ -155,6 +155,26 @@
   color: var(--ifm-color-emphasis-500);
 }
 
+/* ---------- Code blocks ---------- */
+
+.theme-code-block {
+  border-radius: 0.5rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: none;
+}
+
+[data-theme='dark'] .theme-code-block {
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+.theme-code-block pre {
+  border-radius: 0 0 0.5rem 0.5rem;
+}
+
+.clean-btn:hover {
+  background: var(--ifm-color-emphasis-200) !important;
+}
+
 /* ---------- Landing page ---------- */
 
 .home-main {

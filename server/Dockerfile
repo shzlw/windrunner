@@ -8,10 +8,10 @@ ARG RUNTIME_IMAGE=eclipse-temurin:25-jre
 FROM ${NODE_IMAGE} AS web-build
 WORKDIR /workspace/web
 
-COPY server/web/package*.json ./
+COPY web/package*.json ./
 RUN npm ci --no-audit --no-fund --progress=false
 
-COPY server/web/ ./
+COPY web/ ./
 RUN npm run build
 
 # ---------- Build the API jar ----------
@@ -19,15 +19,15 @@ FROM ${MAVEN_IMAGE} AS api-build
 WORKDIR /workspace/api
 
 # Copy poms first so dependency downloads are cached independently of source.
-COPY server/VERSION /workspace/VERSION
-COPY server/api/pom.xml ./
-COPY server/api/windrunner-app/pom.xml windrunner-app/pom.xml
+COPY VERSION /workspace/VERSION
+COPY api/pom.xml ./
+COPY api/windrunner-app/pom.xml windrunner-app/pom.xml
 RUN APP_VERSION="$(tr -d '\r\n' < /workspace/VERSION)" \
     && mvn --batch-mode --no-transfer-progress -q \
         -Drevision="$APP_VERSION" \
         -pl windrunner-app -am dependency:go-offline
 
-COPY server/api/ ./
+COPY api/ ./
 COPY --from=web-build /workspace/web/dist/ windrunner-app/src/main/resources/static/
 
 RUN APP_VERSION="$(tr -d '\r\n' < /workspace/VERSION)" \

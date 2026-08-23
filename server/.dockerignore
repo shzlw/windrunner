@@ -7,5 +7,8 @@ Dockerfile*
 **/target
 **/.DS_Store
 **/*.log
-docs/build
-server/web/coverage
+docs/
+e2e/test-results
+web/coverage
+web/dist
+.env*

@@ -1,13 +1,15 @@
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: windrunner
       POSTGRES_USER: ${POSTGRES_USER:-windrunner}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-windrunner}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PG 18+ images expect the mount at /var/lib/postgresql (data lands
+      # in a versioned subdirectory, enabling in-place upgrades later).
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-windrunner} -d windrunner"]
       interval: 5s
@@ -15,11 +17,9 @@ services:
       retries: 10
 
   app:
-    build:
-      # Context is the repository root; run compose from the server/ folder.
-      context: ..
-      dockerfile: server/Dockerfile
-    image: windrunner:1.0
+    # Pulled from Docker Hub. Building from source instead? See the
+    # Installation guide's "Building from source" section.
+    image: shzlwio/windrunner:1.0
     restart: unless-stopped
     depends_on:
       db:

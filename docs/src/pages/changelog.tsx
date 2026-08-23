@@ -12,7 +12,40 @@ export default function Changelog(): ReactNode {
 
         <article style={{marginTop: '3rem', paddingBottom: '2rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)'}}>
           <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem'}}>
-            <h2 style={{margin: 0}}>v0.2.0</h2>
+            <h2 style={{margin: 0}}>1.0</h2>
+            <span style={{fontSize: '0.9rem', color: 'var(--ifm-color-emphasis-600)'}}>August 2026 · First stable release</span>
+          </div>
+          <p style={{marginTop: '1rem'}}>
+            First stable release of Windrunner.
+          </p>
+          <ul style={{marginTop: '1rem'}}>
+            <li>
+              <strong>Structured work graph</strong>: Hierarchical work items, semantic entries,
+              and typed relationships (blockers, dependencies, accepted answers).
+            </li>
+            <li>
+              <strong>AI assistance</strong>: Work item and entry reviews, project chat,
+              change proposals, and usage metrics.
+            </li>
+            <li>
+              <strong>Search &amp; navigation</strong>: Full-text search across items,
+              entries, and relationships; per-item history; clickable references in AI
+              responses.
+            </li>
+            <li>
+              <strong>Notifications</strong>: Assignment and activity updates via the
+              in-app notification center; cross-project Assigned view.
+            </li>
+            <li>
+              <strong>Self-hosting</strong>: External REST API with scoped API keys,
+              multi-arch Docker images, Compose deployment with PostgreSQL 18.
+            </li>
+          </ul>
+        </article>
+
+        <article style={{marginTop: '3rem', paddingBottom: '2rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)'}}>
+          <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem'}}>
+            <h2 style={{margin: 0}}>0.2</h2>
             <span style={{fontSize: '0.9rem', color: 'var(--ifm-color-emphasis-600)'}}>August 2026</span>
           </div>
           <ul style={{marginTop: '1rem'}}>
@@ -30,7 +63,7 @@ export default function Changelog(): ReactNode {
 
         <article style={{marginTop: '2.5rem'}}>
           <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem'}}>
-            <h2 style={{margin: 0}}>v0.1.0</h2>
+            <h2 style={{margin: 0}}>0.1</h2>
             <span style={{fontSize: '0.9rem', color: 'var(--ifm-color-emphasis-600)'}}>Initial Release</span>
           </div>
           <ul style={{marginTop: '1rem'}}>

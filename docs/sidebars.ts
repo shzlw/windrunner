@@ -2,7 +2,6 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 
 const sidebars: SidebarsConfig = {
   docs: [
-    'overview',
     {
       type: 'category',
       label: 'Getting Started',
@@ -32,16 +31,9 @@ const sidebars: SidebarsConfig = {
         'guides/search-and-filtering',
         'guides/following-work',
         'guides/account-management',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Administration',
-      link: {type: 'doc', id: 'administration/users-and-teams'},
-      items: [
-        'administration/users-and-teams',
-        'administration/access-control',
-        'administration/audit-log',
+        'guides/users-and-teams',
+        'guides/access-control',
+        'guides/audit-log',
       ],
     },
     {

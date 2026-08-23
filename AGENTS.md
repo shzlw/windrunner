@@ -12,3 +12,9 @@
 
 - UI icon convention: use a trash-can icon only when permanently deleting the underlying record. Use an X icon when removing a relationship, a pending selection, a filter condition, an assignee, or another non-destructive row-level association.
 - UI deletion convention: every action that permanently deletes an underlying record must require explicit confirmation in a popover before the delete request is sent.
+
+## Docker
+
+- Images are published to Docker Hub under the `shzlwio` namespace, e.g. `shzlwio/windrunner:1.0`.
+- The build context is the `server/` folder (not the repo root): run `cd server && docker build -t shzlwio/windrunner:<tag> .`
+- The app version lives in `server/VERSION`; keep it in sync with the image tag.

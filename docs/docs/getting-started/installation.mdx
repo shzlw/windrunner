@@ -5,26 +5,94 @@ title: Installation
 
 # Installation
 
-<!-- TODO: expand prerequisites section -->
+{/* TODO: expand prerequisites section */}
 
 ## Run with Docker Compose (recommended)
 
-Prerequisites: Docker (with Compose v2). No other tooling required.
+Prerequisites: Docker with Compose v2. No other tooling required.
+
+```bash title="Terminal"
+mkdir windrunner && cd windrunner
+
+curl -fsSL https://raw.githubusercontent.com/shzlw/windrunner/main/server/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/shzlw/windrunner/main/server/.env.example -o .env
+```
+
+At minimum, change these two default passwords in `.env`:
+
+```bash {2,7}
+POSTGRES_PASSWORD=change-me-please
+...
+WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD=change-me-please
+```
+
+Then:
 
 ```bash
-git clone https://github.com/shzlw/windrunner.git
-cd windrunner/server
-
-cp .env.example .env        # adjust passwords and ports
-docker compose up --build
+docker compose up -d
 ```
 
 Then open http://localhost:8066 and sign in with the bootstrap superadmin
 account from your `.env` (`admin` / from `WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD`
 by default).
 
-Data lives in the `pgdata` Docker volume. To upgrade, pull the latest code and
-run `docker compose up --build` again — migrations apply automatically.
+Data lives in the `pgdata` Docker volume. To upgrade to a newer release, pull
+the updated compose file and run `docker compose pull && docker compose up -d`
+— migrations apply automatically.
+
+:::note PostgreSQL 18 data directory
+PostgreSQL 18+ images store data under `/var/lib/postgresql/<version>/`, so the
+volume is mounted at `/var/lib/postgresql` rather than
+`/var/lib/postgresql/data`. If you deployed an earlier Windrunner version with
+the old mount path and a PostgreSQL 17 volume, do **not** point the new stack
+at that volume directly — either start fresh with an empty volume and re-import,
+or migrate using `pg_upgrade`.
+:::
+
+The app image supports both `linux/amd64` and `linux/arm64` hosts.
+
+<details>
+<summary>Full docker-compose.yml reference</summary>
+
+```yaml
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: windrunner
+      POSTGRES_USER: ${POSTGRES_USER:-windrunner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-windrunner}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-windrunner} -d windrunner"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: shzlwio/windrunner:1.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/windrunner
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-windrunner}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-windrunner}
+      WINDRUNNER_BOOTSTRAP_SUPERADMIN_USERNAME: ${WINDRUNNER_BOOTSTRAP_SUPERADMIN_USERNAME:-admin}
+      WINDRUNNER_BOOTSTRAP_SUPERADMIN_EMAIL: ${WINDRUNNER_BOOTSTRAP_SUPERADMIN_EMAIL:-admin@localhost}
+      WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD: ${WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD:-changeme}
+      WINDRUNNER_AUTH_COOKIE_SECURE: ${WINDRUNNER_AUTH_COOKIE_SECURE:-false}
+    ports:
+      - "${APP_PORT:-8066}:8066"
+
+volumes:
+  pgdata:
+```
+
+</details>
 
 ## Building from source
 
@@ -36,6 +104,9 @@ Prerequisites:
 - PostgreSQL with the `pg_trgm` extension available
 
 ```bash
+git clone https://github.com/shzlw/windrunner.git
+cd windrunner
+
 ./server/build.sh          # builds web UI + API jar
 ./server/start-local.sh    # starts against a local PostgreSQL
 ```

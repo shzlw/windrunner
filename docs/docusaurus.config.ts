@@ -96,7 +96,8 @@ const config: Config = {
             {label: 'Getting started', to: '/docs/getting-started/installation'},
             {label: 'Core concepts', to: '/docs/core-concepts/work-items'},
             {label: 'Guides', to: '/docs/guides/ai-assistance'},
-            {label: 'Administration', to: '/docs/administration/users-and-teams'},
+            {label: 'Guides', to: '/docs/guides/ai-assistance'},
+            {label: 'Users & teams', to: '/docs/guides/users-and-teams'},
           ],
         },
         {
@@ -118,8 +119,8 @@ const config: Config = {
       copyright: `Copyright © ${new Date().getFullYear()} Windrunner.`,
     },
     prism: {
-      theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      theme: prismThemes.oneLight,
+      darkTheme: prismThemes.oneDark,
     },
   } satisfies Preset.ThemeConfig,
 };
