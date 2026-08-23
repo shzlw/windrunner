@@ -254,6 +254,7 @@ public class UserAdminService {
         if (!StringUtils.hasText(request.getPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
         }
+        PasswordPolicy.assertValid(request.getPassword());
     }
 
     private void ensureUniqueUser(String username, String email, String excludedUserId) {

@@ -326,6 +326,11 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       return
     }
 
+    if (!passwordResetValue || passwordResetValue.length < 6) {
+      toast.error('Password must be at least 6 characters.')
+      return
+    }
+
     setIsResettingPassword(true)
 
     try {

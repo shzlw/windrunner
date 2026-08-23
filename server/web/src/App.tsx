@@ -313,6 +313,11 @@ function ChangePasswordPage({
       return
     }
 
+    if (newPassword.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.')
+      return
+    }
+
     if (newPassword !== confirmPassword) {
       setErrorMessage('Passwords do not match.')
       return

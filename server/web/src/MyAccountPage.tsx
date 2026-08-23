@@ -354,6 +354,10 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       toast.error('New password is required.')
       return
     }
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters.')
+      return
+    }
     if (newPassword !== confirmPassword) {
       toast.error('Passwords do not match.')
       return
