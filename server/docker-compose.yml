@@ -16,7 +16,8 @@ services:
 
   app:
     build:
-      context: .
+      # Context is the repository root; run compose from the server/ folder.
+      context: ..
       dockerfile: server/Dockerfile
     image: windrunner:1.0
     restart: unless-stopped
@@ -36,7 +37,9 @@ services:
       # Set to true when serving over HTTPS behind a reverse proxy.
       WINDRUNNER_AUTH_COOKIE_SECURE: ${WINDRUNNER_AUTH_COOKIE_SECURE:-false}
 
-      # Optional AI providers (bring your own key).
+      # Optional AI features. Pick one provider, supply its API key, and
+      # restart. Without these, everything except AI features still works.
+      # WINDRUNNER_LLM_PROVIDER: ${WINDRUNNER_LLM_PROVIDER:-}   # openai | gemini | claude
       # OPENAI_API_KEY:
       # GEMINI_API_KEY:
       # CLAUDE_API_KEY:
