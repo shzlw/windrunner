@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: windrunner
+      POSTGRES_USER: ${POSTGRES_USER:-windrunner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-windrunner}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-windrunner} -d windrunner"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: windrunner:1.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/windrunner
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-windrunner}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-windrunner}
+
+      # Bootstrap superadmin, only created when no users exist.
+      WINDRUNNER_BOOTSTRAP_SUPERADMIN_USERNAME: ${WINDRUNNER_BOOTSTRAP_SUPERADMIN_USERNAME:-admin}
+      WINDRUNNER_BOOTSTRAP_SUPERADMIN_EMAIL: ${WINDRUNNER_BOOTSTRAP_SUPERADMIN_EMAIL:-admin@localhost}
+      WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD: ${WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD:-changeme}
+
+      # Set to true when serving over HTTPS behind a reverse proxy.
+      WINDRUNNER_AUTH_COOKIE_SECURE: ${WINDRUNNER_AUTH_COOKIE_SECURE:-false}
+
+      # Optional AI providers (bring your own key).
+      # OPENAI_API_KEY:
+      # GEMINI_API_KEY:
+      # CLAUDE_API_KEY:
+
+    ports:
+      - "${APP_PORT:-8066}:8066"
+
+volumes:
+  pgdata:

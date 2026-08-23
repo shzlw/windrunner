@@ -5,9 +5,43 @@ title: Installation
 
 # Installation
 
-{/* TODO: expand — prerequisites (Java 25, Node, PostgreSQL with pg_trgm), build via build.sh or Docker, first run via start.sh */}
+<!-- TODO: expand prerequisites section -->
 
-- Prerequisites
-- Building from source
-- Running with Docker
-- First-time setup
+## Run with Docker Compose (recommended)
+
+Prerequisites: Docker (with Compose v2). No other tooling required.
+
+```bash
+git clone https://github.com/shzlw/windrunner.git
+cd windrunner
+
+cp .env.example .env        # adjust passwords and ports
+docker compose up --build
+```
+
+Then open http://localhost:8066 and sign in with the bootstrap superadmin
+account from your `.env` (`admin` / from `WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD`
+by default).
+
+Data lives in the `pgdata` Docker volume. To upgrade, pull the latest code and
+run `docker compose up --build` again — migrations apply automatically.
+
+## Building from source
+
+Prerequisites:
+
+- Java 25 (Temurin recommended)
+- Maven 3.9+
+- Node.js 25+ and npm
+- PostgreSQL with the `pg_trgm` extension available
+
+```bash
+./server/build.sh          # builds web UI + API jar
+./server/start-local.sh    # starts against a local PostgreSQL
+```
+
+Database connection defaults live in `server/start-local.sh`; override
+`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and
+`SPRING_DATASOURCE_PASSWORD` as needed.
+
+See [Configuration](../reference/configuration) for all environment variables.
