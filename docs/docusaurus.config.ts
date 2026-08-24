@@ -5,6 +5,7 @@ import type {ScalarOptions} from '@scalar/docusaurus';
 
 const config: Config = {
   title: 'Windrunner',
+  tagline: 'Ask the project. Move work forward.',
   favicon: 'img/favicon.svg',
 
   future: {
@@ -12,7 +13,7 @@ const config: Config = {
   },
 
   url: 'https://shzlw.github.io',
-  baseUrl: '/',
+  baseUrl: '/windrunner',
 
   organizationName: 'shzlw',
   projectName: 'windrunner',
@@ -95,8 +96,8 @@ const config: Config = {
           items: [
             {label: 'Getting started', to: '/docs/getting-started/installation'},
             {label: 'Core concepts', to: '/docs/core-concepts/work-items'},
-            {label: 'Guides', to: '/docs/guides/ai-assistance'},
-            {label: 'Guides', to: '/docs/guides/ai-assistance'},
+            {label: 'Search & filtering', to: '/docs/guides/search-and-filtering'},
+            {label: 'AI assistance', to: '/docs/guides/ai-assistance'},
             {label: 'Users & teams', to: '/docs/guides/users-and-teams'},
           ],
         },
