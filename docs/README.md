@@ -1,43 +1,35 @@
-# Website
+# Windrunner documentation site
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+This directory contains the Docusaurus documentation site for Windrunner.
 
-## Installation
-
-```bash
-npm install
-```
-
-**Note**: feel free to use the package manager of your choice.
-
-## Local Development
+## Local development
 
 ```bash
+cd docs
+npm ci
 npm run start
 ```
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+The development server opens the site locally with hot reload.
 
-## Build
+## Checks
+
+Build the production site and run the TypeScript check before submitting docs
+changes:
 
 ```bash
 npm run build
+npm run typecheck
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+The generated site is written to `docs/build` and can be previewed with:
+
+```bash
+npm run serve
+```
 
 ## Deployment
 
-Using SSH:
-
-```bash
-USE_SSH=true npm run deploy
-```
-
-Not using SSH:
-
-```bash
-GIT_USER=<Your GitHub username> npm run deploy
-```
-
-If you are using GitHub Pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+Pushes to `main` build and deploy the site through GitHub Pages using
+[`deploy-docs.yml`](../.github/workflows/deploy-docs.yml). The repository's
+Pages source must be set to **GitHub Actions**.
