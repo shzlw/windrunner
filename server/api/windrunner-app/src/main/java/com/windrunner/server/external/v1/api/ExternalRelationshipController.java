@@ -9,6 +9,7 @@ import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.RelationshipService;
 import com.windrunner.server.work.domain.Relationship;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
+@Tag(name = "Relationships", description = "Create and manage work item relationships.")
 public class ExternalRelationshipController {
 
     private final RelationshipService relationships;

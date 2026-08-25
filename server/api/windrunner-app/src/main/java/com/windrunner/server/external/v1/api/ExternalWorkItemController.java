@@ -13,6 +13,7 @@ import com.windrunner.server.work.api.WorkItemRequest;
 import com.windrunner.server.work.api.WorkItemView;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.WorkItemRepository;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
+@Tag(name = "Work items", description = "Create and manage work items.")
 public class ExternalWorkItemController {
 
     private final WorkItemService workItems;

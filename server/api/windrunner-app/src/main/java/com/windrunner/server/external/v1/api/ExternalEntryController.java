@@ -10,6 +10,7 @@ import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.EntryService;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.persistence.WorkItemRepository;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
+@Tag(name = "Entries", description = "Create and manage work item entries.")
 public class ExternalEntryController {
 
     private final EntryService entries;

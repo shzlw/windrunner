@@ -20,8 +20,24 @@
       "description": "Create projects, manage members and linked teams."
     },
     {
+      "name": "Project content",
+      "description": "Search project content and manage content order."
+    },
+    {
       "name": "Users",
       "description": "Create and manage users."
+    },
+    {
+      "name": "Relationships",
+      "description": "Create and manage work item relationships."
+    },
+    {
+      "name": "Entries",
+      "description": "Create and manage work item entries."
+    },
+    {
+      "name": "Work items",
+      "description": "Create and manage work items."
     },
     {
       "name": "Audit log",
@@ -32,7 +48,7 @@
     "/api/v1/work-items/{id}": {
       "get": {
         "tags": [
-          "external-work-item-controller"
+          "Work items"
         ],
         "operationId": "get",
         "parameters": [
@@ -60,7 +76,7 @@
       },
       "put": {
         "tags": [
-          "external-work-item-controller"
+          "Work items"
         ],
         "operationId": "update",
         "parameters": [
@@ -98,7 +114,7 @@
       },
       "delete": {
         "tags": [
-          "external-work-item-controller"
+          "Work items"
         ],
         "operationId": "delete",
         "parameters": [
@@ -128,7 +144,7 @@
     "/api/v1/work-items/{id}/move": {
       "put": {
         "tags": [
-          "external-work-item-controller"
+          "Work items"
         ],
         "operationId": "move",
         "parameters": [
@@ -360,7 +376,7 @@
     "/api/v1/relationships/{id}/reason": {
       "put": {
         "tags": [
-          "external-relationship-controller"
+          "Relationships"
         ],
         "operationId": "updateReason",
         "parameters": [
@@ -400,7 +416,7 @@
     "/api/v1/projects/{projectId}/content-order": {
       "put": {
         "tags": [
-          "external-project-content-controller"
+          "Project content"
         ],
         "operationId": "reorder",
         "parameters": [
@@ -536,7 +552,7 @@
     "/api/v1/entries/{id}": {
       "get": {
         "tags": [
-          "external-entry-controller"
+          "Entries"
         ],
         "operationId": "get_1",
         "parameters": [
@@ -564,7 +580,7 @@
       },
       "put": {
         "tags": [
-          "external-entry-controller"
+          "Entries"
         ],
         "operationId": "update_1",
         "parameters": [
@@ -602,7 +618,7 @@
       },
       "delete": {
         "tags": [
-          "external-entry-controller"
+          "Entries"
         ],
         "operationId": "delete_1",
         "parameters": [
@@ -632,7 +648,7 @@
     "/api/v1/work-items/{workItemId}/entries": {
       "get": {
         "tags": [
-          "external-entry-controller"
+          "Entries"
         ],
         "operationId": "list",
         "parameters": [
@@ -689,7 +705,7 @@
       },
       "post": {
         "tags": [
-          "external-entry-controller"
+          "Entries"
         ],
         "operationId": "create",
         "parameters": [
@@ -1075,7 +1091,7 @@
     "/api/v1/projects/{projectId}/work-items": {
       "get": {
         "tags": [
-          "external-work-item-controller"
+          "Work items"
         ],
         "operationId": "list_1",
         "parameters": [
@@ -1156,7 +1172,7 @@
       },
       "post": {
         "tags": [
-          "external-work-item-controller"
+          "Work items"
         ],
         "operationId": "create_1",
         "parameters": [
@@ -1196,7 +1212,7 @@
     "/api/v1/projects/{projectId}/relationships": {
       "get": {
         "tags": [
-          "external-relationship-controller"
+          "Relationships"
         ],
         "operationId": "list_2",
         "parameters": [
@@ -1261,7 +1277,7 @@
       },
       "post": {
         "tags": [
-          "external-relationship-controller"
+          "Relationships"
         ],
         "operationId": "create_2",
         "parameters": [
@@ -1437,7 +1453,7 @@
     "/api/v1/projects/{projectId}/search": {
       "get": {
         "tags": [
-          "external-project-content-controller"
+          "Project content"
         ],
         "operationId": "search",
         "parameters": [
@@ -1653,7 +1669,7 @@
     "/api/v1/relationships/{id}": {
       "delete": {
         "tags": [
-          "external-relationship-controller"
+          "Relationships"
         ],
         "operationId": "delete_2",
         "parameters": [

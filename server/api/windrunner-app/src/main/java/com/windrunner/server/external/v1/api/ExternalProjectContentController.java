@@ -12,6 +12,7 @@ import com.windrunner.server.work.ProjectSearchService;
 import com.windrunner.server.work.api.ContentOrderItem;
 import com.windrunner.server.work.api.ContentReorderRequest;
 import com.windrunner.server.work.api.ProjectSearchResult;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/projects/{projectId}")
+@Tag(name = "Project content", description = "Search project content and manage content order.")
 public class ExternalProjectContentController {
 
     private final ProjectSearchService searchService;
