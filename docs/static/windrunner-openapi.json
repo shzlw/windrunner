@@ -29,6 +29,142 @@
     }
   ],
   "paths": {
+    "/api/v1/work-items/{id}": {
+      "get": {
+        "tags": [
+          "external-work-item-controller"
+        ],
+        "operationId": "get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "external-work-item-controller"
+        ],
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "external-work-item-controller"
+        ],
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/{id}/move": {
+      "put": {
+        "tags": [
+          "external-work-item-controller"
+        ],
+        "operationId": "move",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkItemMoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/{id}": {
       "get": {
         "tags": [
@@ -221,6 +357,86 @@
         }
       }
     },
+    "/api/v1/relationships/{id}/reason": {
+      "put": {
+        "tags": [
+          "external-relationship-controller"
+        ],
+        "operationId": "updateReason",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelationshipReasonRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/content-order": {
+      "put": {
+        "tags": [
+          "external-project-content-controller"
+        ],
+        "operationId": "reorder",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentReorderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{id}": {
       "get": {
         "tags": [
@@ -317,6 +533,199 @@
         }
       }
     },
+    "/api/v1/entries/{id}": {
+      "get": {
+        "tags": [
+          "external-entry-controller"
+        ],
+        "operationId": "get_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "external-entry-controller"
+        ],
+        "operationId": "update_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Entry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "external-entry-controller"
+        ],
+        "operationId": "delete_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/{workItemId}/entries": {
+      "get": {
+        "tags": [
+          "external-entry-controller"
+        ],
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "workItemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          },
+          {
+            "name": "updated_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "external-entry-controller"
+        ],
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "workItemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Entry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users": {
       "get": {
         "tags": [
@@ -393,6 +802,28 @@
           "Teams"
         ],
         "operationId": "listTeams",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -577,6 +1008,28 @@
           "Projects"
         ],
         "operationId": "listProjects_1",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -600,6 +1053,232 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/work-items": {
+      "get": {
+        "tags": [
+          "external-work-item-controller"
+        ],
+        "operationId": "list_1",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "updated_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "external-work-item-controller"
+        ],
+        "operationId": "create_1",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkItemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/relationships": {
+      "get": {
+        "tags": [
+          "external-relationship-controller"
+        ],
+        "operationId": "list_2",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "created_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "external-relationship-controller"
+        ],
+        "operationId": "create_2",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Relationship"
               }
             }
           },
@@ -744,6 +1423,54 @@
         "responses": {
           "201": {
             "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/search": {
+      "get": {
+        "tags": [
+          "external-project-content-controller"
+        ],
+        "operationId": "search",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
             "content": {
               "*/*": {
                 "schema": {
@@ -923,6 +1650,36 @@
         }
       }
     },
+    "/api/v1/relationships/{id}": {
+      "delete": {
+        "tags": [
+          "external-relationship-controller"
+        ],
+        "operationId": "delete_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{id}/teams/{teamId}": {
       "delete": {
         "tags": [
@@ -1002,6 +1759,190 @@
   },
   "components": {
     "schemas": {
+      "WorkItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "parentWorkItemId": {
+            "type": "string"
+          },
+          "sortIndex": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkItemAssignee": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workItemId": {
+            "type": "string"
+          },
+          "assigneeType": {
+            "type": "string"
+          },
+          "assigneeId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkItemRequest": {
+        "type": "object",
+        "properties": {
+          "workItem": {
+            "$ref": "#/components/schemas/WorkItem"
+          },
+          "assignees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkItemAssignee"
+            }
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "default": null,
+        "description": "A single error reported for a request.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "default": "",
+            "description": "Stable machine-readable error code.",
+            "example": "NOT_FOUND"
+          },
+          "message": {
+            "type": "string",
+            "default": "",
+            "description": "Human-readable error message."
+          },
+          "field": {
+            "type": "string",
+            "default": "",
+            "description": "Request field the error relates to, when applicable."
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": {},
+            "default": "",
+            "description": "Additional structured details for this error."
+          }
+        }
+      },
+      "ApiMeta": {
+        "type": "object",
+        "default": null,
+        "description": "Request metadata. Pagination fields are present only on paginated responses.",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "default": "",
+            "description": "Server-generated request identifier, useful for support."
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "default": "",
+            "description": "Current page number, zero-based."
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "default": "",
+            "description": "Page size used for this response."
+          },
+          "totalItems": {
+            "type": "integer",
+            "format": "int64",
+            "default": "",
+            "description": "Total number of items across all pages."
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "default": "",
+            "description": "Total number of pages."
+          }
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "default": null,
+        "description": "Standard response envelope for all Windrunner API endpoints.",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkItem",
+            "default": "",
+            "description": "The requested resource. Null when errors is non-empty."
+          },
+          "errors": {
+            "type": "array",
+            "default": "",
+            "description": "Errors reported for this request. Empty on success.",
+            "items": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta",
+            "default": "",
+            "description": "Request metadata. Present on paginated responses."
+          }
+        }
+      },
+      "WorkItemMoveRequest": {
+        "type": "object",
+        "properties": {
+          "parentWorkItemId": {
+            "type": "string"
+          },
+          "beforeEntityType": {
+            "type": "string"
+          },
+          "beforeEntityId": {
+            "type": "string"
+          }
+        }
+      },
       "UpdateUserRequest": {
         "type": "object",
         "properties": {
@@ -1019,118 +1960,6 @@
           },
           "status": {
             "type": "string"
-          }
-        }
-      },
-      "ApiError": {
-        "type": "object",
-        "description": "A single error reported for a request.",
-        "properties": {
-          "code": {
-            "type": "string",
-            "description": "Stable machine-readable error code.",
-            "example": "NOT_FOUND"
-          },
-          "message": {
-            "type": "string",
-            "description": "Human-readable error message."
-          },
-          "field": {
-            "type": "string",
-            "description": "Request field the error relates to, when applicable."
-          },
-          "details": {
-            "type": "object",
-            "additionalProperties": {},
-            "description": "Additional structured details for this error."
-          }
-        }
-      },
-      "ApiMeta": {
-        "type": "object",
-        "description": "Request metadata. Pagination fields are present only on paginated responses.",
-        "properties": {
-          "requestId": {
-            "type": "string",
-            "description": "Server-generated request identifier, useful for support."
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Current page number, zero-based."
-          },
-          "size": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Page size used for this response."
-          },
-          "totalItems": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Total number of items across all pages."
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Total number of pages."
-          }
-        }
-      },
-      "ApiResponse": {
-        "type": "object",
-        "description": "Standard response envelope for all Windrunner API endpoints.",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/UserResponse",
-            "description": "The requested resource. Null when errors is non-empty."
-          },
-          "errors": {
-            "type": "array",
-            "description": "Errors reported for this request. Empty on success.",
-            "items": {
-              "$ref": "#/components/schemas/ApiError"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta",
-            "description": "Request metadata. Present on paginated responses."
-          }
-        }
-      },
-      "UserResponse": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "displayName": {
-            "type": "string"
-          },
-          "timezone": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "globalRole": {
-            "type": "string"
-          },
-          "mustChangePassword": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
           }
         }
       },
@@ -1172,6 +2001,80 @@
           }
         }
       },
+      "RelationshipReasonRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "Relationship": {
+        "type": "object",
+        "default": null,
+        "description": "A typed, directional link between two entities.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "fromEntityType": {
+            "type": "string"
+          },
+          "fromEntityId": {
+            "type": "string"
+          },
+          "toEntityType": {
+            "type": "string"
+          },
+          "toEntityId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "sourceEntryId": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ContentOrderItemRef": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          }
+        }
+      },
+      "ContentReorderRequest": {
+        "type": "object",
+        "properties": {
+          "parentWorkItemId": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentOrderItemRef"
+            }
+          }
+        }
+      },
       "Project": {
         "type": "object",
         "properties": {
@@ -1207,6 +2110,44 @@
             "additionalProperties": {
               "type": "string"
             }
+          }
+        }
+      },
+      "Entry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "workItemId": {
+            "type": "string"
+          },
+          "sortIndex": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "authorUserId": {
+            "type": "string"
+          },
+          "authorDisplayName": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

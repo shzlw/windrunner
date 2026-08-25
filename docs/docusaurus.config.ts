@@ -28,7 +28,7 @@ const config: Config = {
         route: '/api',
         showNavLink: false,
         configuration: {
-          url: '/windrunner-openapi.json',
+          url: '/windrunner/windrunner-openapi.json',
         },
       } as ScalarOptions,
     ],

@@ -12,6 +12,25 @@ export default function Changelog(): ReactNode {
 
         <article style={{marginTop: '3rem', paddingBottom: '2rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)'}}>
           <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem'}}>
+            <h2 style={{margin: 0}}>1.1</h2>
+            <span style={{fontSize: '0.9rem', color: 'var(--ifm-color-emphasis-600)'}}>August 2026</span>
+          </div>
+          <ul style={{marginTop: '1rem'}}>
+            <li>
+              <strong>MCP server</strong>: Connect AI agents such as Codex, Claude Desktop, and
+              Cursor natively. Eight tools let agents search work, read full item context, record
+              findings as entries, update status, create items, and link blockers — with scoped
+              API keys, audit attribution, and notifications.
+            </li>
+            <li>
+              <strong>PostgreSQL 18 support</strong>: Compose deployments now ship with
+              PostgreSQL 18 and its updated data-directory layout.
+            </li>
+          </ul>
+        </article>
+
+        <article style={{marginTop: '3rem', paddingBottom: '2rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)'}}>
+          <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem'}}>
             <h2 style={{margin: 0}}>1.0</h2>
             <span style={{fontSize: '0.9rem', color: 'var(--ifm-color-emphasis-600)'}}>August 2026 · First stable release</span>
           </div>

@@ -18,11 +18,19 @@ public class ExternalApiKeyAuthService {
     private final ApiKeyService apiKeyService;
 
     public AuthenticatedApiKey requireScope(HttpServletRequest request, String requiredScope) {
-        AuthenticatedApiKey authenticatedApiKey = apiKeyService.authenticate(readBearerToken(request));
+        AuthenticatedApiKey authenticatedApiKey = authenticate(request);
         if (!authenticatedApiKey.scopes().contains(requiredScope)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "API key scope is not allowed");
         }
         return authenticatedApiKey;
+    }
+
+    /**
+     * Proves the request carries a valid, active API key without enforcing a
+     * specific scope; the caller applies its own per-tool authorization.
+     */
+    public AuthenticatedApiKey authenticate(HttpServletRequest request) {
+        return apiKeyService.authenticate(readBearerToken(request));
     }
 
     private String readBearerToken(HttpServletRequest request) {

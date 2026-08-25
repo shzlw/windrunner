@@ -101,6 +101,24 @@ public class WorkItemService {
         return updated;
     }
 
+    /**
+     * Status-only change; keeps every other field as-is. Used by automation
+     * surfaces (MCP) so partial writes cannot clobber other fields.
+     */
+    @Transactional
+    public WorkItem updateStatus(String projectId, String id, String status, String actorId) {
+        WorkItem current = get(projectId, id);
+        WorkItem change = new WorkItem();
+        change.setParentWorkItemId(current.getParentWorkItemId());
+        change.setSortIndex(current.getSortIndex());
+        change.setType(current.getType());
+        change.setTitle(current.getTitle());
+        change.setStatus(status);
+        change.setDueDate(current.getDueDate());
+        change.setPriority(current.getPriority());
+        return update(projectId, id, change, null, actorId);
+    }
+
     @Transactional
     public WorkItem move(String projectId, String id, WorkItemMoveRequest request, String actorId) {
         WorkItem current = require(projectId, id);

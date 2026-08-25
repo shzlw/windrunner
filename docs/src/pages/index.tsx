@@ -8,6 +8,7 @@ import {
   ListTodo,
   ListTree,
   MessageSquareText,
+  Plug,
   Server,
   TrendingUp,
 } from 'lucide-react';
@@ -76,6 +77,14 @@ const features = [
       'Use scoped API keys and the versioned API to connect existing tools and automations.',
     to: '/api',
     accent: 'accent-violet',
+  },
+  {
+    icon: Plug,
+    title: 'MCP server for agents',
+    description:
+      'Connect Codex, Claude Desktop, or Cursor natively. Let agents search work, read context, record findings, and update status.',
+    to: '/docs/reference/mcp',
+    accent: 'accent-cyan',
   },
 ];
 

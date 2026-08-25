@@ -1,6 +1,5 @@
 package com.windrunner.server.mcp;
 
-import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalApiKeyAuthService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -33,7 +32,8 @@ public class McpAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
-            var authenticatedApiKey = apiKeyAuthService.requireScope(request, ApiKeyScopes.PROJECTS_READ);
+            // Key validity only: each MCP tool enforces the scope it needs.
+            var authenticatedApiKey = apiKeyAuthService.authenticate(request);
             request.setAttribute(ACTOR_REQUEST_ATTRIBUTE, authenticatedApiKey.owner());
             filterChain.doFilter(request, response);
         } catch (ResponseStatusException exception) {

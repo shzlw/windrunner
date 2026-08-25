@@ -8,8 +8,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -42,14 +40,7 @@ public class ProjectMcpTools {
     }
 
     private AppUser authenticatedActor() {
-        if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
-            throw new ResponseStatusException(UNAUTHORIZED, "MCP API key is required");
-        }
-        Object actor = attributes.getRequest().getAttribute(McpAuthenticationFilter.ACTOR_REQUEST_ATTRIBUTE);
-        if (!(actor instanceof AppUser appUser)) {
-            throw new ResponseStatusException(UNAUTHORIZED, "MCP API key is required");
-        }
-        return appUser;
+        return McpActors.authenticatedActor();
     }
 
     public record ProjectSummary(String id, String name) {

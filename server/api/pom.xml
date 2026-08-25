@@ -9,7 +9,7 @@
 	<packaging>pom</packaging>
 
 	<properties>
-		<revision>1.0</revision>
+		<revision>1.1</revision>
 		<java.version>25</java.version>
 		<maven.compiler.release>${java.version}</maven.compiler.release>
 		<maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>

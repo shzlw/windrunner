@@ -43,6 +43,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'reference/api-keys-and-scopes',
         'reference/configuration',
+        'reference/mcp',
       ],
     },
   ],

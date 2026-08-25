@@ -60,17 +60,20 @@ class McpAuthenticationFilterTest {
     }
 
     @Test
-    void rejectsApiKeyWithoutProjectsReadScope() throws Exception {
+    void authenticatesKeysWithAnyScopesSinceToolsEnforceTheirOwnScopes() throws Exception {
         MockHttpServletRequest request = mcpRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
         AppUser owner = new AppUser();
+        owner.setId("user-1");
+        // Empty scope list: the filter only proves key validity; tools check scopes.
         when(apiKeyService.authenticate("token")).thenReturn(new AuthenticatedApiKey(null, owner, List.of()));
 
         filter.doFilter(request, response, chain);
 
-        assertThat(response.getStatus()).isEqualTo(403);
-        verify(chain, never()).doFilter(any(), any());
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute(McpAuthenticationFilter.ACTOR_REQUEST_ATTRIBUTE)).isSameAs(owner);
+        verify(chain).doFilter(request, response);
     }
 
     private MockHttpServletRequest mcpRequest() {
