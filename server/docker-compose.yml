@@ -19,7 +19,7 @@ services:
   app:
     # Pulled from Docker Hub. Building from source instead? See the
     # Installation guide's "Building from source" section.
-    image: shzlwio/windrunner:1.0
+    image: shzlwio/windrunner:1.1
     restart: unless-stopped
     depends_on:
       db:
