@@ -1,0 +1,133 @@
+---
+sidebar_position: 3
+title: CLI
+---
+
+# Windrunner CLI
+
+The Windrunner CLI provides a scriptable interface to the versioned REST API.
+It is useful for local workflows, automation, and agents that need to read or
+update project work without writing HTTP requests directly.
+
+## Install
+
+The public npm package is [`@shzlwio/windrunner-cli`](https://www.npmjs.com/package/@shzlwio/windrunner-cli).
+It requires Node.js 20 or newer.
+
+```bash title="Terminal"
+npm install -g @shzlwio/windrunner-cli
+windrunner --help
+```
+
+The npm package name is scoped, but the installed command is `windrunner`.
+
+## Configure authentication
+
+Create an API key from the Account page, then export the server URL and key in
+your shell. Do not pass the API key as a command-line argument, because command
+arguments may be stored in shell history or exposed to other local processes.
+
+```bash title="Terminal"
+export WINDRUNNER_URL=http://localhost:8066
+export WINDRUNNER_API_KEY=wr_k_...
+```
+
+`WINDRUNNER_URL` defaults to `http://localhost:8080` when it is not set. For
+the Docker Compose installation, use port `8066` as shown above.
+
+The CLI uses the same Bearer API-key authentication and project-level access
+rules as the REST API. The key must have the scope required by the command:
+
+| Command | Required scope |
+| --- | --- |
+| `projects list`, `projects get` | `projects:read` |
+| `work-items list`, `work-items get` | `work_items:read` |
+| `work-items create` | `work_items:write` |
+| `work-items update` | `work_items:read` and `work_items:write` |
+| `work-items delete` | `work_items:write` |
+| `entries list` | `entries:read` |
+| `entries create` | `entries:write` |
+| `search` | `work_items:read` |
+
+The update command reads the current work item before sending the update so
+fields that were not specified are preserved. That is why it needs both read
+and write scopes.
+
+## Commands
+
+### Projects
+
+```bash
+windrunner projects list --json
+windrunner projects get PROJECT_ID --json
+```
+
+### Work items
+
+```bash
+windrunner work-items list PROJECT_ID --status OPEN --json
+
+windrunner work-items create PROJECT_ID \
+  --title "Fix login" \
+  --type TASK \
+  --status OPEN
+
+windrunner work-items update WORK_ITEM_ID \
+  --title "Fix login and add regression coverage" \
+  --status IN_PROGRESS
+
+windrunner work-items delete WORK_ITEM_ID --yes
+```
+
+Use `--assignee USER:<id>` or `--assignee TEAM:<id>` to assign work. Repeat
+`--assignee` to provide multiple assignments:
+
+```bash
+windrunner work-items create PROJECT_ID \
+  --title "Prepare release" \
+  --assignee USER:user-1 \
+  --assignee TEAM:team-1
+```
+
+### Entries
+
+```bash
+windrunner entries list WORK_ITEM_ID --json
+windrunner entries create WORK_ITEM_ID --body "Deployment completed"
+```
+
+### Search
+
+```bash
+windrunner search PROJECT_ID "login failure" --limit 20 --json
+```
+
+Search returns matching work items, entries, and relationships from the
+project.
+
+## Global options
+
+| Option | Description |
+| --- | --- |
+| `--url <url>` | Override `WINDRUNNER_URL` |
+| `--json` | Print compact machine-readable JSON |
+| `--dry-run` | Preview a mutation without sending it |
+| `-y, --yes` | Skip destructive-operation confirmation prompts |
+
+Normal output is pretty JSON. Use `--json` when another script or agent will
+parse the result.
+
+Use `--dry-run` before creating, updating, or deleting data:
+
+```bash
+windrunner work-items create PROJECT_ID \
+  --title "Review release notes" \
+  --dry-run --json
+```
+
+Dry runs do not send mutation requests and do not require an API key. Deletes
+require confirmation in an interactive terminal; use `--yes` only when the
+delete was explicitly intended. A work-item delete also removes its
+descendants, entries, and relationships.
+
+Run `windrunner <command> --help` for command-specific options and examples.

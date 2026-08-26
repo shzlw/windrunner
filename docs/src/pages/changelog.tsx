@@ -22,10 +22,6 @@ export default function Changelog(): ReactNode {
               findings as entries, update status, create items, and link blockers — with scoped
               API keys, audit attribution, and notifications.
             </li>
-            <li>
-              <strong>PostgreSQL 18 support</strong>: Compose deployments now ship with
-              PostgreSQL 18 and its updated data-directory layout.
-            </li>
           </ul>
         </article>
 

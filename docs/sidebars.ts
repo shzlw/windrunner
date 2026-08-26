@@ -42,6 +42,7 @@ const sidebars: SidebarsConfig = {
       link: {type: 'doc', id: 'reference/api-keys-and-scopes'},
       items: [
         'reference/api-keys-and-scopes',
+        'reference/cli',
         'reference/configuration',
         'reference/mcp',
       ],
