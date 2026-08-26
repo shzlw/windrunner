@@ -21,11 +21,22 @@ export type E2EContext = {
   apiKeyId?: string;
   /** Present when known; required by tests that create owned resources. */
   userId?: string;
+  /**
+   * Session-login mode only: mutating internal-API requests must echo this
+   * in the X-CSRF-Token header (the server double-submits against the
+   * session). External Bearer calls are exempt from CSRF.
+   */
+  csrfToken?: string;
 };
 
 /** Headers for calling the external API with the key under test. */
 export function bearer(ctx: E2EContext): Record<string, string> {
   return { Authorization: `Bearer ${ctx.apiKey}` };
+}
+
+/** Headers for session-authenticated mutations against the internal API. */
+export function csrfHeaders(ctx: E2EContext): Record<string, string> {
+  return ctx.csrfToken ? { 'X-CSRF-Token': ctx.csrfToken } : {};
 }
 
 export const test = base.extend<{ authenticated: E2EContext }>({
@@ -63,6 +74,10 @@ export const test = base.extend<{ authenticated: E2EContext }>({
       const userId = meBody.data.id;
       expect(userId).toBeTruthy();
 
+      // Capture the CSRF token cookie for subsequent mutations.
+      const state = await request.storageState();
+      const csrfToken = state.cookies.find(cookie => cookie.name === 'XSRF-TOKEN')?.value;
+
       // 3. Mint a scoped API key.
       const keyResponse = await request.post('/internal-api/v1/me/api-keys', {
         data: {
@@ -76,7 +91,7 @@ export const test = base.extend<{ authenticated: E2EContext }>({
       const apiKeyId = keyBody.data.id;
       expect(apiKey).toBeTruthy();
 
-      await use({ api: request, apiKey, apiKeyId, userId });
+      await use({ api: request, apiKey, apiKeyId, userId, csrfToken });
 
       // 4. Cleanup: revoke the key. Created projects are left behind on
       //    purpose when a test fails so they can be inspected.

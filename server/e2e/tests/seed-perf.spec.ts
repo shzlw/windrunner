@@ -115,6 +115,7 @@ async function mapPool<T, R>(
 let created = {users: 0, teams: 0, projects: 0, workItems: 0, entries: 0, relationships: 0};
 
 test('Seed Windrunner with realistic multi-project data', async ({request}, testInfo) => {
+  test.setTimeout(5 * 60 * 1000);
   const startedAt = Date.now();
 
   // ---------- login ----------
@@ -127,9 +128,20 @@ test('Seed Windrunner with realistic multi-project data', async ({request}, test
   expect(loginResponse.status()).toBe(200);
   const adminId = (await (await request.get('/api/v1/auth/me')).json()).data.id;
 
+  let csrfToken: string | undefined;
+  const state = await request.storageState();
+  csrfToken = state.cookies.find(cookie => cookie.name === 'XSRF-TOKEN')?.value;
+
+  const headers = () => (csrfToken ? { 'X-CSRF-Token': csrfToken } : {});
   const post = async (url: string, data: unknown) => {
-    const response = await request.post(url, {data});
-    expect(response.status(), `POST ${url}`).toBeLessThan(500);
+    const response = await request.post(url, {data, headers: headers()});
+    expect(response.status(), `POST ${url} → ${JSON.stringify(await response.json().catch(() => null))}`)
+        .toBeLessThan(500);
+    return response;
+  };
+  const put = async (url: string, data: unknown) => {
+    const response = await request.put(url, {data, headers: headers()});
+    expect(response.status(), `PUT ${url}`).toBeLessThan(500);
     return response;
   };
 
@@ -170,7 +182,7 @@ test('Seed Windrunner with realistic multi-project data', async ({request}, test
     const members = new Set<string>();
     while (members.size < memberCount) members.add(pick(userIds));
     await mapPool([...members], CONCURRENCY,
-      userId => request.post(`/internal-api/v1/teams/${teamId}/members`, {data: {userId}}));
+      userId => post(`/internal-api/v1/teams/${teamId}/members`, {userId}));
   });
 
   // ---------- projects ----------
@@ -190,8 +202,8 @@ test('Seed Windrunner with realistic multi-project data', async ({request}, test
     const members = new Set<string>();
     while (members.size < 10) members.add(pick(userIds));
     await mapPool([...members], CONCURRENCY, userId =>
-      request.put(`/internal-api/v1/projects/${projectId}/members/${userId}`, {
-        data: {role: chance(0.8) ? 'EDITOR' : 'VIEWER'},
+      put(`/internal-api/v1/projects/${projectId}/members/${userId}`, {
+        role: chance(0.8) ? 'EDITOR' : 'VIEWER',
       }));
   });
 

@@ -10,6 +10,7 @@ import {
   MessageSquareText,
   Plug,
   Server,
+  Terminal,
   TrendingUp,
 } from 'lucide-react';
 
@@ -80,11 +81,19 @@ const features = [
   },
   {
     icon: Plug,
-    title: 'MCP server for agents',
+    title: 'MCP server for AI agents',
     description:
       'Connect Codex, Claude Desktop, or Cursor natively. Let agents search work, read context, record findings, and update status.',
     to: '/docs/reference/mcp',
     accent: 'accent-cyan',
+  },
+  {
+    icon: Terminal,
+    title: 'CLI for automation',
+    description:
+      'Install the Windrunner CLI to work with projects, work items, entries, and search from a terminal or automation.',
+    to: '/docs/reference/cli',
+    accent: 'accent-blue',
   },
 ];
 
@@ -182,7 +191,8 @@ export default function Home(): ReactNode {
                 Windrunner combines a structured project workspace with
                 project-level AI. Teams can manage work directly or use natural
                 language to share updates, find blockers, understand progress,
-                and make decisions with less back-and-forth.
+                and make decisions with less back-and-forth. Connect AI agents
+                through MCP or automate terminal workflows with the CLI.
               </p>
               <div className="home-hero-actions">
                 <Link
