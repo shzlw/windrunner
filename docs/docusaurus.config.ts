@@ -13,7 +13,7 @@ const config: Config = {
   },
 
   url: 'https://shzlw.github.io',
-  baseUrl: '/windrunner',
+  baseUrl: '/windrunner/',
 
   organizationName: 'shzlw',
   projectName: 'windrunner',
