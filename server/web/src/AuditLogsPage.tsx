@@ -19,6 +19,18 @@ import { toast } from 'sonner'
 
 import { listAuditLogs, type AuditLog } from '@/lib/api'
 
+const entityTypeLabels: Record<string, string> = {
+  AUTH: 'Authentication',
+  API_KEY: 'API key',
+  PROJECT: 'Project',
+  TEAM: 'Team',
+  TEAM_JOIN_REQUEST: 'Team join request',
+  USER: 'User',
+  WORK_ITEM: 'Work item',
+  ENTRY: 'Entry',
+  RELATIONSHIP: 'Relationship',
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
@@ -26,8 +38,26 @@ function formatDate(value: string) {
   }).format(new Date(value))
 }
 
-function formatValue(value: string | null | undefined) {
-  return value && value.trim() ? value : 'Not set'
+function entityTypeLabel(entityType: string) {
+  return entityTypeLabels[entityType] ?? entityType
+}
+
+function entityDisplayName(auditLog: AuditLog) {
+  if (auditLog.entityDisplayName?.trim()) {
+    return auditLog.entityDisplayName.trim()
+  }
+  if (!auditLog.entityId) {
+    return entityTypeLabel(auditLog.entityType)
+  }
+  return 'Unavailable record'
+}
+
+function projectDisplayName(auditLog: AuditLog) {
+  return auditLog.projectName?.trim() || (auditLog.projectId ? 'Unavailable project' : 'Not set')
+}
+
+function actorDisplayName(auditLog: AuditLog) {
+  return auditLog.actorDisplayName?.trim() || (auditLog.actorUserId ? 'Unavailable user' : 'System')
 }
 
 function formatJson(value: string | null) {
@@ -118,8 +148,11 @@ export default function AuditLogsPage() {
       auditLog.summary,
       auditLog.action,
       auditLog.entityType,
+      auditLog.entityDisplayName,
       auditLog.entityId,
+      auditLog.projectName,
       auditLog.projectId,
+      auditLog.actorDisplayName,
       auditLog.actorUserId,
       auditLog.outcome,
     ]
@@ -195,11 +228,11 @@ export default function AuditLogsPage() {
                           <Badge variant={actionVariant(auditLog.action)}>{auditLog.action}</Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{auditLog.entityType}</div>
-                          <div className="max-w-[160px] truncate font-mono text-[11px] text-muted-foreground">{formatValue(auditLog.entityId)}</div>
+                          <div className="font-medium">{entityTypeLabel(auditLog.entityType)}</div>
+                          <div className="max-w-[200px] truncate text-xs text-muted-foreground">{entityDisplayName(auditLog)}</div>
                         </TableCell>
-                        <TableCell className="max-w-[160px] truncate font-mono text-[11px] text-muted-foreground">{formatValue(auditLog.projectId)}</TableCell>
-                        <TableCell className="max-w-[160px] truncate font-mono text-[11px] text-muted-foreground">{formatValue(auditLog.actorUserId)}</TableCell>
+                        <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">{projectDisplayName(auditLog)}</TableCell>
+                        <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">{actorDisplayName(auditLog)}</TableCell>
                         <TableCell>
                           <Badge variant={auditLog.outcome === 'SUCCESS' ? 'outline' : 'destructive'}>{auditLog.outcome}</Badge>
                         </TableCell>
@@ -275,10 +308,9 @@ export default function AuditLogsPage() {
                   {[
                     ['Time', formatDate(selectedAuditLog.occurredAt)],
                     ['Action', selectedAuditLog.action],
-                    ['Entity type', selectedAuditLog.entityType],
-                    ['Entity ID', formatValue(selectedAuditLog.entityId)],
-                    ['Project ID', formatValue(selectedAuditLog.projectId)],
-                    ['Actor user ID', formatValue(selectedAuditLog.actorUserId)],
+                    ['Entity', `${entityTypeLabel(selectedAuditLog.entityType)} · ${entityDisplayName(selectedAuditLog)}`],
+                    ['Project', projectDisplayName(selectedAuditLog)],
+                    ['Actor', actorDisplayName(selectedAuditLog)],
                     ['Outcome', selectedAuditLog.outcome],
                     ['Summary', selectedAuditLog.summary],
                     ['Audit ID', selectedAuditLog.id],

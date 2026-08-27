@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.windrunner.server.api.ApiResponse;
+import com.windrunner.server.audit.AuditLogEnrichmentService;
 import com.windrunner.server.audit.domain.AuditLog;
 import com.windrunner.server.audit.persistence.AuditLogRepository;
 import com.windrunner.server.auth.AuthService;
@@ -28,6 +29,8 @@ class ProjectAuditLogControllerTest {
     @Mock
     private ProjectAccessService projectAccessService;
     @Mock
+    private AuditLogEnrichmentService auditLogEnrichmentService;
+    @Mock
     private HttpServletRequest request;
 
     @Test
@@ -35,7 +38,8 @@ class ProjectAuditLogControllerTest {
         ProjectAuditLogController controller = new ProjectAuditLogController(
                 auditLogRepository,
                 authService,
-                projectAccessService);
+                projectAccessService,
+                auditLogEnrichmentService);
         AppUser actor = new AppUser();
         actor.setId("user-1");
         AuditLog auditLog = new AuditLog();

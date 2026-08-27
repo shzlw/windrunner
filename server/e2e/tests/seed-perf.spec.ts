@@ -1,4 +1,5 @@
-import { APIRequestContext, test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import type { APIResponse } from '@playwright/test';
 
 /**
  * Performance/realism seeding: 2 projects with ~2000 work items each
@@ -8,18 +9,30 @@ import { APIRequestContext, test, expect } from '@playwright/test';
  *   SEED_PERF=1 E2E_LOGIN=... E2E_PASSWORD=... npx playwright test --project=api -g "Seed"
  *
  * Tunables: SEED_ITEMS (2000), SEED_USERS (50), SEED_TEAMS (20),
- *           SEED_PROJECTS (2), SEED_CONCURRENCY (16)
+ *           SEED_PROJECTS (2), SEED_CONCURRENCY (4), SEED_RUN_ID (timestamp)
  *
- * Deterministic: uses a seeded PRNG so every run produces the same dataset.
+ * Data choices are deterministic; each run gets a unique namespace by default
+ * so a failed run can be safely retried without colliding with old data.
  */
 
 test.skip(process.env.SEED_PERF !== '1', 'Set SEED_PERF=1 to run performance seeding');
 
-const PROJECT_COUNT = Number(process.env.SEED_PROJECTS ?? 2);
-const WORK_ITEMS_PER_PROJECT = Number(process.env.SEED_ITEMS ?? 2000);
-const USER_COUNT = Number(process.env.SEED_USERS ?? 50);
-const TEAM_COUNT = Number(process.env.SEED_TEAMS ?? 20);
-const CONCURRENCY = Number(process.env.SEED_CONCURRENCY ?? 16);
+function positiveInteger(name: string, fallback: number) {
+  const value = Number(process.env[name] ?? fallback);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return value;
+}
+
+const PROJECT_COUNT = positiveInteger('SEED_PROJECTS', 2);
+const WORK_ITEMS_PER_PROJECT = positiveInteger('SEED_ITEMS', 2000);
+const USER_COUNT = positiveInteger('SEED_USERS', 50);
+const TEAM_COUNT = positiveInteger('SEED_TEAMS', 20);
+// The API uses a Hikari pool of 10 connections by default, and audited writes
+// can briefly need a second connection. Keep the default below that limit;
+// increase it only when the server's datasource pool is configured accordingly.
+const CONCURRENCY = positiveInteger('SEED_CONCURRENCY', 4);
 
 // ---------- deterministic RNG ----------
 function mulberry32(seed: number) {
@@ -32,11 +45,11 @@ function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rng = mulberry32(42);
+let rng = mulberry32(42);
 
 const pick = <T>(items: readonly T[]): T => items[Math.floor(rng() * items.length)];
 const chance = (probability: number) => rng() < probability;
-function weighted<T extends readonly string[]>(items: T, weights: number[]): T {
+function weighted<T extends readonly string[]>(items: T, weights: readonly number[]): T[number] {
   const total = weights.reduce((sum, w) => sum + w, 0);
   let roll = rng() * total;
   for (let i = 0; i < items.length; i++) {
@@ -47,8 +60,10 @@ function weighted<T extends readonly string[]>(items: T, weights: number[]): T {
 }
 
 // ---------- realistic data pools ----------
-const TYPES = ['TASK', 'TASK', 'TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'] as const;
-const STATUSES = ['OPEN', 'OPEN', 'IN_PROGRESS', 'IN_PROGRESS', 'DONE', 'DONE', 'BLOCKED'] as const;
+const TYPES = ['TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'] as const;
+const TYPE_WEIGHTS = [7, 3, 1, 1, 1];
+const STATUSES = ['OPEN', 'IN_PROGRESS', 'DONE', 'BLOCKED'] as const;
+const STATUS_WEIGHTS = [4, 2, 2, 1];
 const PRIORITIES = ['MEDIUM', 'MEDIUM', 'HIGH', 'LOW', 'URGENT'] as const;
 const ENTRY_TYPES = ['COMMENT', 'COMMENT', 'INFORMATION', 'EVIDENCE', 'ANSWER', 'RESOLUTION'] as const;
 const RELATIONSHIP_TYPES = ['BLOCKED_BY', 'DEPENDS_ON', 'RELATED_TO'] as const;
@@ -112,11 +127,27 @@ async function mapPool<T, R>(
   return results;
 }
 
-let created = {users: 0, teams: 0, projects: 0, workItems: 0, entries: 0, relationships: 0};
+async function responseData<T>(response: APIResponse, operation: string): Promise<T> {
+  const body = await response.json() as {data?: T | null; errors?: unknown};
+  if (body.data == null) {
+    throw new Error(`${operation} returned no data: ${JSON.stringify(body.errors ?? body)}`);
+  }
+  return body.data;
+}
 
-test('Seed Windrunner with realistic multi-project data', async ({request}, testInfo) => {
-  test.setTimeout(5 * 60 * 1000);
+async function assertSuccessful(response: APIResponse, operation: string): Promise<APIResponse> {
+  if (!response.ok()) {
+    throw new Error(`${operation} failed with HTTP ${response.status()}: ${await response.text()}`);
+  }
+  return response;
+}
+
+test('Seed Windrunner with realistic multi-project data', async ({request}) => {
+  test.setTimeout(15 * 60 * 1000);
   const startedAt = Date.now();
+  rng = mulberry32(42);
+  const runId = (process.env.SEED_RUN_ID ?? Date.now().toString()).replace(/[^a-zA-Z0-9_-]/g, '') || 'run';
+  const created = {users: 0, teams: 0, projects: 0, workItems: 0, entries: 0, relationships: 0};
 
   // ---------- login ----------
   const login = process.env.E2E_LOGIN;
@@ -125,33 +156,28 @@ test('Seed Windrunner with realistic multi-project data', async ({request}, test
   const loginResponse = await request.post('/api/v1/auth/login', {
     data: {login, password},
   });
-  expect(loginResponse.status()).toBe(200);
-  const adminId = (await (await request.get('/api/v1/auth/me')).json()).data.id;
+  await assertSuccessful(loginResponse, 'POST /api/v1/auth/login');
+  const currentUser = await responseData<{globalRole?: string}>(await request.get('/api/v1/auth/me'), 'GET /api/v1/auth/me');
+  if (!['ADMIN', 'SUPERADMIN'].includes(currentUser.globalRole?.toUpperCase() ?? '')) {
+    throw new Error('Performance seeding requires an ADMIN or SUPERADMIN account');
+  }
 
   let csrfToken: string | undefined;
   const state = await request.storageState();
   csrfToken = state.cookies.find(cookie => cookie.name === 'XSRF-TOKEN')?.value;
 
-  const headers = () => (csrfToken ? { 'X-CSRF-Token': csrfToken } : {});
+  const headers = (): Record<string, string> => (csrfToken ? { 'X-CSRF-Token': csrfToken } : {});
   const post = async (url: string, data: unknown) => {
     const response = await request.post(url, {data, headers: headers()});
-    expect(response.status(), `POST ${url} → ${JSON.stringify(await response.json().catch(() => null))}`)
-        .toBeLessThan(500);
-    return response;
+    return assertSuccessful(response, `POST ${url}`);
   };
-  const put = async (url: string, data: unknown) => {
-    const response = await request.put(url, {data, headers: headers()});
-    expect(response.status(), `PUT ${url}`).toBeLessThan(500);
-    return response;
-  };
-
   // ---------- users ----------
   const FIRST = ['Ana', 'Ben', 'Chen', 'Dana', 'Elif', 'Finn', 'Gita', 'Hugo', 'Ines', 'Jonas'];
   const LAST = ['Kim', 'Reyes', 'Okafor', 'Silva', 'Novak', 'Weber', 'Tanaka', 'Costa'];
   const userBodies = Array.from({length: USER_COUNT}, (_, i) => ({
-    username: `e2e_${FIRST[i % FIRST.length].toLowerCase()}.${LAST[Math.floor(i / FIRST.length)].toLowerCase()}${i}`,
+    username: `e2e_${runId}_${FIRST[i % FIRST.length].toLowerCase()}.${LAST[Math.floor(i / FIRST.length)].toLowerCase()}${i}`,
     displayName: `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length)]} ${i}`,
-    email: `e2e_user${i}@example.com`,
+    email: `e2e_${runId}_user${i}@example.com`,
     password: `e2e-pass-${1000 + i}`,
     timezone: 'UTC',
     status: 'ACTIVE',
@@ -159,52 +185,64 @@ test('Seed Windrunner with realistic multi-project data', async ({request}, test
   }));
   const userResponses = await mapPool(userBodies, CONCURRENCY,
     body => post('/internal-api/v1/users', body));
-  const userIds = (await Promise.all(userResponses.map(r => r.json())))
-    .map(body => body.data.id)
-    .filter(Boolean);
+  const userIds = await Promise.all(userResponses.map((response, index) =>
+    responseData<{id: string}>(response, `Create seeded user ${index + 1}`).then(body => body.id)));
   created.users = userIds.length;
+  const ownerUserId = userIds[0];
 
   // ---------- teams ----------
   const teamIds: string[] = [];
   for (let i = 0; i < TEAM_COUNT; i++) {
     const response = await post('/internal-api/v1/teams', {
-      name: `e2e Team ${String.fromCharCode(65 + (i % 26))}${Math.floor(i / 26) || ''} — ${pick(FEATURES)} guild`,
-      ownerUserIds: [adminId],
-      ownerTeamIds: [],
+      name: `e2e Team ${runId} ${String.fromCharCode(65 + (i % 26))}${Math.floor(i / 26) || ''} — ${pick(FEATURES)} guild`,
+      ownerUserIds: [ownerUserId],
     });
-    teamIds.push((await response.json()).data.id);
+    teamIds.push((await responseData<{id: string}>(response, `Create seeded team ${i + 1}`)).id);
   }
   created.teams = teamIds.length;
 
   // each team gets 3–8 members
   await mapPool(teamIds, CONCURRENCY, async teamId => {
-    const memberCount = 3 + Math.floor(rng() * 6);
+    const memberCount = Math.min(3 + Math.floor(rng() * 6), Math.max(0, userIds.length - 1));
     const members = new Set<string>();
-    while (members.size < memberCount) members.add(pick(userIds));
-    await mapPool([...members], CONCURRENCY,
-      userId => post(`/internal-api/v1/teams/${teamId}/members`, {userId}));
+    while (members.size < memberCount) {
+      const userId = pick(userIds);
+      if (userId !== ownerUserId) members.add(userId);
+    }
+    for (const userId of members) {
+      await post(`/internal-api/v1/teams/${teamId}/members`, {userId});
+    }
   });
 
   // ---------- projects ----------
   const projectIds: string[] = [];
+  const projectMemberIds = new Map<string, string[]>();
   for (let i = 0; i < PROJECT_COUNT; i++) {
     const response = await post('/internal-api/v1/projects', {
-      name: `e2e ${['Atlas', 'Beacon'][i % 2]} — ${pick(FEATURES)} program`,
-      ownerUserIds: [adminId],
+      name: `e2e ${runId} ${['Atlas', 'Beacon'][i % 2]} — ${pick(FEATURES)} program`,
+      ownerUserIds: [ownerUserId],
       ownerTeamIds: [teamIds[i % TEAM_COUNT]],
     });
-    projectIds.push((await response.json()).data.id);
+    const projectId = (await responseData<{id: string}>(response, `Create seeded project ${i + 1}`)).id;
+    projectIds.push(projectId);
   }
   created.projects = projectIds.length;
 
   // link a handful of users to each project directly
   await mapPool(projectIds, CONCURRENCY, async projectId => {
-    const members = new Set<string>();
-    while (members.size < 10) members.add(pick(userIds));
-    await mapPool([...members], CONCURRENCY, userId =>
-      put(`/internal-api/v1/projects/${projectId}/members/${userId}`, {
+    const members = new Set<string>([ownerUserId]);
+    while (members.size < Math.min(10, userIds.length)) {
+      const userId = pick(userIds);
+      if (userId !== ownerUserId) members.add(userId);
+    }
+    const memberIds = [...members];
+    projectMemberIds.set(projectId, memberIds);
+    for (const userId of memberIds.slice(1)) {
+      await post(`/internal-api/v1/projects/${projectId}/members`, {
+        userId,
         role: chance(0.8) ? 'EDITOR' : 'VIEWER',
-      }));
+      });
+    }
   });
 
   // ---------- work items (hierarchy) ----------
@@ -216,7 +254,7 @@ test('Seed Windrunner with realistic multi-project data', async ({request}, test
     const createdItems: Created[] = [];
 
     // Level 0: roots (~5% of total)
-    const rootCount = Math.max(6, Math.round(WORK_ITEMS_PER_PROJECT * 0.04));
+    const rootCount = Math.min(WORK_ITEMS_PER_PROJECT, Math.max(1, Math.round(WORK_ITEMS_PER_PROJECT * 0.04)));
     const roots = await mapPool(Array.from({length: rootCount}), CONCURRENCY, async (_, i) => {
       const response = await post(base, {
         workItem: {
@@ -227,7 +265,8 @@ test('Seed Windrunner with realistic multi-project data', async ({request}, test
         },
         assignees: [],
       });
-      return (await response.json()).data.workItem as Created;
+      const data = await responseData<{workItem: Created}>(response, `Create root work item ${i + 1}`);
+      return data.workItem;
     });
     createdItems.push(...roots);
 
@@ -243,10 +282,10 @@ test('Seed Windrunner with realistic multi-project data', async ({request}, test
         );
         const children: Created[] = [];
         for (let c = 0; c < childTarget && createdItems.length + children.length < WORK_ITEMS_PER_PROJECT; c++) {
-          const type = weighted(TYPES, [7, 3, 1, 1, 1]);
-          const status = weighted(STATUSES, [4, 2, 2, 2, 1]);
+          const type = weighted(TYPES, TYPE_WEIGHTS);
+          const status = weighted(STATUSES, STATUS_WEIGHTS);
           const assignees = chance(0.35)
-            ? [{assigneeType: 'USER', assigneeId: pick(userIds)}]
+            ? [{assigneeType: 'USER', assigneeId: pick(projectMemberIds.get(projectId) ?? [])}]
             : [];
           const body = {
             workItem: {
@@ -260,9 +299,8 @@ test('Seed Windrunner with realistic multi-project data', async ({request}, test
             assignees,
           };
           const response = await post(base, body);
-          if (response.status() === 201) {
-            children.push(((await response.json()).data.workItem) as Created);
-          }
+          const data = await responseData<{workItem: Created}>(response, `Create child work item under ${parent.id}`);
+          children.push(data.workItem);
         }
         return children;
       });

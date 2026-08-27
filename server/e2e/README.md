@@ -39,16 +39,25 @@ npx playwright test --project=api -g "projects"
 
 Seeds two projects with ~2000 work items each (hierarchy, entries,
 relationships), 50 users, and 20 teams — useful for testing search,
-pagination, and UI behavior at realistic volume. Deterministic dataset;
-takes several minutes.
+pagination, and UI behavior at realistic volume. Data choices are deterministic
+and the run namespace is unique by default; it takes several minutes.
 
 ```bash
 SEED_PERF=1 E2E_LOGIN=<you> E2E_PASSWORD=<pass> \
   npx playwright test --project=api -g "Seed"
 ```
 
+Use an `ADMIN` or `SUPERADMIN` account for the seed login.
+
 Tunables: `SEED_PROJECTS` (2), `SEED_ITEMS` (2000), `SEED_USERS` (50),
-`SEED_TEAMS` (20), `SEED_CONCURRENCY` (16).
+`SEED_TEAMS` (20), `SEED_CONCURRENCY` (4), and `SEED_RUN_ID` (a unique
+timestamp by default). The run id namespaces generated users, teams, and
+projects so rerunning after a partial failure does not collide with old data.
+The default concurrency is sized for the server's default Hikari pool of 10;
+if you raise it, also raise `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` on the
+server (allowing for audited writes that may briefly use a second connection).
+For Docker Compose, set the pool size before starting the app, for example:
+`SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=32 docker compose up -d`.
 
 ## Writing new specs
 

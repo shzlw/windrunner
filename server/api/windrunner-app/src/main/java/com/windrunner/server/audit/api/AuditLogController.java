@@ -1,6 +1,7 @@
 package com.windrunner.server.audit.api;
 
 import com.windrunner.server.api.ApiResponse;
+import com.windrunner.server.audit.AuditLogEnrichmentService;
 import com.windrunner.server.audit.domain.AuditLog;
 import com.windrunner.server.audit.persistence.AuditLogRepository;
 import com.windrunner.server.auth.AuthService;
@@ -20,6 +21,7 @@ public class AuditLogController {
 
     private final AuditLogRepository auditLogRepository;
     private final AuthService authService;
+    private final AuditLogEnrichmentService auditLogEnrichmentService;
 
     @GetMapping
     public ApiResponse<List<AuditLog>> listAuditLogs(@RequestParam(name = "page", defaultValue = "0") int page,
@@ -30,6 +32,7 @@ public class AuditLogController {
         int normalizedSize = Math.max(1, Math.min(size, 100));
         long totalItems = auditLogRepository.countLogs();
         List<AuditLog> items = auditLogRepository.findPage(normalizedSize, (long) normalizedPage * normalizedSize);
+        auditLogEnrichmentService.enrich(items);
         return ApiResponse.page(
                 items,
                 normalizedPage,

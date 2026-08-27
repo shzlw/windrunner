@@ -50,4 +50,10 @@ public class AuditLog {
 
     @Transient
     private String actorDisplayName;
+
+    @Transient
+    private String entityDisplayName;
+
+    @Transient
+    private String projectName;
 }

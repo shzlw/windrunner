@@ -2,6 +2,7 @@ package com.windrunner.server.external.v1.api;
 
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
+import com.windrunner.server.audit.AuditLogEnrichmentService;
 import com.windrunner.server.audit.domain.AuditLog;
 import com.windrunner.server.audit.persistence.AuditLogRepository;
 import com.windrunner.server.external.auth.ExternalAccessService;
@@ -22,6 +23,7 @@ import java.util.List;
 public class ExternalAuditLogController {
 
     private final AuditLogRepository auditLogRepository;
+    private final AuditLogEnrichmentService auditLogEnrichmentService;
     private final ProjectAccessService projectAccessService;
     private final ExternalAccessService externalAccessService;
 
@@ -34,6 +36,7 @@ public class ExternalAuditLogController {
         int normalizedSize = Math.max(1, Math.min(size, 100));
         long totalItems = auditLogRepository.countLogs();
         List<AuditLog> items = auditLogRepository.findPage(normalizedSize, (long) normalizedPage * normalizedSize);
+        auditLogEnrichmentService.enrich(items);
         return ApiResponse.page(
                 items,
                 normalizedPage,
@@ -56,6 +59,7 @@ public class ExternalAuditLogController {
                 projectId,
                 normalizedSize,
                 (long) normalizedPage * normalizedSize);
+        auditLogEnrichmentService.enrich(items);
         return ApiResponse.page(
                 items,
                 normalizedPage,

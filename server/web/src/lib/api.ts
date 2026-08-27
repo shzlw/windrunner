@@ -225,7 +225,9 @@ export interface AuditLog {
   action: string
   entityType: string
   entityId: string | null
+  entityDisplayName?: string | null
   projectId: string | null
+  projectName?: string | null
   outcome: string
   summary: string
   beforeJson: string | null
