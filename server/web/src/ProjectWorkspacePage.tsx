@@ -1690,7 +1690,6 @@ function TreeRowContent({
   highlightedNodeId,
   selectedContextNodeIds,
   dimUnrelatedNodes,
-  isNested,
   isSaving,
   decidingProposalChangeId,
   loadedChildrenParentIds,
@@ -1739,7 +1738,6 @@ function TreeRowContent({
   highlightedNodeId: string | null
   selectedContextNodeIds: Set<string>
   dimUnrelatedNodes: boolean
-  isNested: boolean
   isSaving: boolean
   decidingProposalChangeId: string | null
   loadedChildrenParentIds: Set<string>
@@ -1790,7 +1788,7 @@ function TreeRowContent({
   const isSelected = selectedNodeId === node.id
   const isChatHighlighted = highlightedNodeId === node.id
   const isInSelectedContext = selectedContextNodeIds.has(node.id)
-  const isDimmed = dimUnrelatedNodes && !isNested && !isInSelectedContext && !isChatHighlighted
+  const isDimmed = dimUnrelatedNodes && !isInSelectedContext && !isChatHighlighted
   const isLoadingChildren = loadingChildrenNodeIds.has(node.id)
   const hasLoadedChildren = loadedChildrenParentIds.has(node.id)
   const childPageInfo = childrenPageInfoByParentId.get(node.id)
@@ -2174,7 +2172,6 @@ function TreeRowContent({
                 highlightedNodeId={highlightedNodeId}
                 selectedContextNodeIds={selectedContextNodeIds}
                 dimUnrelatedNodes={dimUnrelatedNodes}
-                isNested
                 isSaving={isSaving}
                 decidingProposalChangeId={decidingProposalChangeId}
                 loadedChildrenParentIds={loadedChildrenParentIds}
@@ -2780,9 +2777,9 @@ export default function ProjectWorkspacePage() {
     if (!selectedTreeNode) {
       return new Set<string>()
     }
-    const contextIds = findTreeNodePath(tree, selectedTreeNode.id).map((node) => node.id)
-    selectedTreeNode.children.forEach((child) => contextIds.push(child.id))
-    return new Set(contextIds)
+    const contextIds = new Set(findTreeNodePath(tree, selectedTreeNode.id).map((node) => node.id))
+    collectDescendantIds(selectedTreeNode.id, tree).forEach((nodeId) => contextIds.add(nodeId))
+    return contextIds
   }, [selectedTreeNode, tree])
   const dimUnrelatedNodes = Boolean(selectedTreeNode && !hasActiveWorkItemFilters && !focusedNode)
   const hasDraftWorkItemFilters = workItemFilterConditions.length > 0 || Boolean(workItemSearchQuery.trim())
@@ -4562,7 +4559,6 @@ export default function ProjectWorkspacePage() {
                         highlightedNodeId={chatHighlightedNodeId}
                         selectedContextNodeIds={selectedContextNodeIds}
                         dimUnrelatedNodes={dimUnrelatedNodes}
-                        isNested={false}
                         isSaving={isSaving}
                         decidingProposalChangeId={decidingProposalChangeId}
                         loadedChildrenParentIds={loadedChildrenParentIds}
