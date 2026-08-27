@@ -265,6 +265,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       displayName: form.displayName.trim() || null,
       timezone: form.timezone.trim() || 'UTC',
       status: form.status.trim() || 'ACTIVE',
+      ...(isSuperAdmin ? { globalRole: form.globalRole.trim() || 'USER' } : {}),
     }
 
     try {
@@ -274,7 +275,6 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
               method: 'POST',
               body: JSON.stringify({
                 ...payload,
-                globalRole: form.globalRole.trim() || 'USER',
                 password: form.password,
               }),
             })
@@ -412,7 +412,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                     <TableHead>Email</TableHead>
                     <TableHead>Username</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Global role</TableHead>
+                    <TableHead>Role</TableHead>
                     <TableHead>Password</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -514,7 +514,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                       ['Email', formatValue(selectedUser.email)],
                       ['Timezone', formatValue(selectedUser.timezone)],
                       ['Status', formatValue(selectedUser.status)],
-                      ['Global role', formatValue(selectedUser.globalRole)],
+                      ['Role', formatValue(selectedUser.globalRole)],
                       ['Password reset required', selectedUser.mustChangePassword ? 'Yes' : 'No'],
                       ['Created', formatDate(selectedUser.createdAt)],
                       ['Updated', formatDate(selectedUser.updatedAt)],
@@ -639,9 +639,9 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                     </Select>
                   </Field>
 
-                  {sheetMode === 'create' && isSuperAdmin ? (
+                  {isSuperAdmin ? (
                     <Field className="gap-2">
-                      <label className="block text-sm font-semibold">Global role</label>
+                      <label className="block text-sm font-semibold">Role</label>
                       <Select value={form.globalRole} onValueChange={(value) => updateField('globalRole', value ?? 'USER')}>
                         <SelectTrigger className="w-full">
                           <SelectValue />

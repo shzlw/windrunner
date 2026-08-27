@@ -137,6 +137,7 @@ public class UserAdminService {
         String normalizedUsername = normalizeUsername(updateRequest.getUsername());
         String normalizedEmail = normalizeEmail(updateRequest.getEmail());
         String normalizedTimezone = normalizeTimezone(updateRequest.getTimezone());
+        String normalizedRole = normalizeUpdatableRole(updateRequest.getGlobalRole(), user.getGlobalRole(), currentUser);
         ensureUniqueUser(normalizedUsername, normalizedEmail, id);
 
         user.setUsername(normalizedUsername);
@@ -144,6 +145,7 @@ public class UserAdminService {
         user.setDisplayName(StringUtils.hasText(updateRequest.getDisplayName()) ? updateRequest.getDisplayName().trim() : null);
         user.setTimezone(normalizedTimezone);
         user.setStatus(normalizeStatus(updateRequest.getStatus()));
+        user.setGlobalRole(normalizedRole);
         user.setUpdatedAt(DateUtils.now());
         int updated = appUserRepository.updateUserProfile(
                 user.getId(),
@@ -152,6 +154,7 @@ public class UserAdminService {
                 user.getDisplayName(),
                 user.getTimezone(),
                 user.getStatus(),
+                user.getGlobalRole(),
                 user.getUpdatedAt()
         );
         if (updated != 1) {
@@ -310,6 +313,16 @@ public class UserAdminService {
             return AppRoles.ADMIN;
         }
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot create user with role " + normalizedRole);
+    }
+
+    private String normalizeUpdatableRole(String requestedRole, String currentRole, AppUser currentUser) {
+        if (!StringUtils.hasText(requestedRole)) {
+            return currentRole;
+        }
+        if (!AppRoles.isSuperAdmin(currentUser.getGlobalRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Superadmin access is required to update global role");
+        }
+        return normalizeCreatableRole(requestedRole, currentUser);
     }
 
     private AppUser requireManageableUser(String id, AppUser currentUser) {

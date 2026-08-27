@@ -14,4 +14,6 @@ public class UpdateUserRequest {
     private String timezone;
 
     private String status;
+
+    private String globalRole;
 }

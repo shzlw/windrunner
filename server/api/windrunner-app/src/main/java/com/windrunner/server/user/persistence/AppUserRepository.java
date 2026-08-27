@@ -62,6 +62,7 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
                 display_name = :displayName,
                 timezone = :timezone,
                 status = :status,
+                global_role = :globalRole,
                 updated_at = :updatedAt
             WHERE id = :id
             """)
@@ -71,6 +72,7 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
                           @Param("displayName") String displayName,
                           @Param("timezone") String timezone,
                           @Param("status") String status,
+                          @Param("globalRole") String globalRole,
                           @Param("updatedAt") java.time.OffsetDateTime updatedAt);
 
     @Modifying

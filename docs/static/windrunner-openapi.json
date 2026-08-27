@@ -1976,6 +1976,9 @@
           },
           "status": {
             "type": "string"
+          },
+          "globalRole": {
+            "type": "string"
           }
         }
       },
