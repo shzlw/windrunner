@@ -18,6 +18,9 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/internal-api/v1/projects/{projectId}/work-items")
 public class WorkItemController {
+    private static final int MAX_SUBTREE_DEPTH = 20;
+    private static final int MAX_SUBTREE_ITEMS = 1000;
+
     private final WorkItemService service;
     private final WorkItemAiReviewService aiReviewService;
     private final AuthService auth;
@@ -26,7 +29,40 @@ public class WorkItemController {
     @GetMapping
     public ApiResponse<List<WorkItemView>> list(@PathVariable("projectId") String projectId, jakarta.servlet.http.HttpServletRequest request) {
         access.requireProjectRole(projectId, auth.requireCurrentUser(request), ProjectRoles.VIEWER);
-        return ApiResponse.success(service.list(projectId).stream().map(x -> new WorkItemView(x, service.assignees(x.getId()))).toList());
+        return ApiResponse.success(service.views(service.list(projectId)));
+    }
+
+    @GetMapping("/tree")
+    public ApiResponse<List<WorkItemView>> listTree(
+            @PathVariable("projectId") String projectId,
+            @RequestParam(name = "parentWorkItemId", required = false) String parentWorkItemId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "50") int size,
+            jakarta.servlet.http.HttpServletRequest request) {
+        access.requireProjectRole(projectId, auth.requireCurrentUser(request), ProjectRoles.VIEWER);
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        List<WorkItemView> items = service.views(service.listPage(projectId, parentWorkItemId, normalizedPage, normalizedSize));
+        long totalItems = service.countByParent(projectId, parentWorkItemId);
+        return ApiResponse.page(items, normalizedPage, normalizedSize, totalItems, (int) Math.ceil(totalItems / (double) normalizedSize));
+    }
+
+    @GetMapping("/tree/subtree")
+    public ApiResponse<WorkItemSubtreeView> listTreeSubtree(
+            @PathVariable("projectId") String projectId,
+            @RequestParam(name = "rootWorkItemId") String rootWorkItemId,
+            @RequestParam(name = "maxDepth", defaultValue = "20") int maxDepth,
+            @RequestParam(name = "maxItems", defaultValue = "1000") int maxItems,
+            jakarta.servlet.http.HttpServletRequest request) {
+        access.requireProjectRole(projectId, auth.requireCurrentUser(request), ProjectRoles.VIEWER);
+        int normalizedDepth = Math.max(1, Math.min(maxDepth, MAX_SUBTREE_DEPTH));
+        int normalizedMaxItems = Math.max(1, Math.min(maxItems, MAX_SUBTREE_ITEMS));
+        List<WorkItem> descendants = service.listSubtree(projectId, rootWorkItemId, normalizedDepth, normalizedMaxItems + 1);
+        boolean truncated = descendants.size() > normalizedMaxItems;
+        if (truncated) {
+            descendants = descendants.subList(0, normalizedMaxItems);
+        }
+        return ApiResponse.success(new WorkItemSubtreeView(service.views(descendants), truncated));
     }
 
     @GetMapping("/{id}")

@@ -7,12 +7,16 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface WorkItemAssigneeRepository extends CrudRepository<WorkItemAssignee, String> {
     @Query("SELECT id, work_item_id, assignee_type, assignee_id, created_at FROM work_item_assignee WHERE work_item_id = :workItemId ORDER BY assignee_type, assignee_id")
     List<WorkItemAssignee> findByWorkItemId(@Param("workItemId") String workItemId);
+
+    @Query("SELECT id, work_item_id, assignee_type, assignee_id, created_at FROM work_item_assignee WHERE work_item_id IN (:workItemIds) ORDER BY work_item_id, assignee_type, assignee_id")
+    List<WorkItemAssignee> findByWorkItemIds(@Param("workItemIds") Collection<String> workItemIds);
 
     @Modifying
     @Query("INSERT INTO work_item_assignee (id, work_item_id, assignee_type, assignee_id) VALUES (:id, :workItemId, :type, :assigneeId)")

@@ -252,6 +252,11 @@ export interface NodePageResponse {
   totalPages: number
 }
 
+export interface NodeSubtreeResponse {
+  items: ProjectNode[]
+  truncated: boolean
+}
+
 export interface Team {
   id: string
   name: string
@@ -812,6 +817,10 @@ function legacyNode(view: WorkItemView, all: WorkItemView[]): ProjectNode {
   return { id: item.id, projectId: item.projectId, parentNodeId: item.parentWorkItemId, sortIndex: item.sortIndex, type: item.type, title: item.title, fields, childrenCount: all.filter((candidate) => candidate.workItem.parentWorkItemId === item.id).length, createdAt: item.createdAt, updatedAt: item.updatedAt }
 }
 
+function treeNode(view: WorkItemView): ProjectNode {
+  return { ...legacyNode(view, []), childrenCount: null }
+}
+
 async function legacyNodes(projectId: string, query?: string) {
   const workspace = await getWorkspace(projectId, query)
   return workspace.workItems.map((view) => legacyNode(view, workspace.workItems))
@@ -850,8 +859,38 @@ export async function listTreeNodes(
   options?: { parentNodeId?: string | null; page?: number | null; size?: number | null },
 ): Promise<NodePageResponse> {
   const parentNodeId = options?.parentNodeId ?? null
-  const items = (await legacyNodes(projectId)).filter((node) => (node.parentNodeId ?? null) === parentNodeId)
-  return { items, page: options?.page ?? 0, size: options?.size ?? items.length, totalItems: items.length, totalPages: 1 }
+  const page = options?.page ?? 0
+  const size = options?.size ?? 50
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  if (parentNodeId) {
+    params.set('parentWorkItemId', parentNodeId)
+  }
+  const envelope = await requestEnvelope<WorkItemView[]>(`/internal-api/v1/projects/${projectId}/work-items/tree?${params.toString()}`, { method: 'GET' })
+  const items = (envelope.data ?? []).map(treeNode)
+  return {
+    items,
+    page: envelope.meta?.page ?? page,
+    size: envelope.meta?.size ?? size,
+    totalItems: envelope.meta?.totalItems ?? items.length,
+    totalPages: envelope.meta?.totalPages ?? (items.length > 0 ? 1 : 0),
+  }
+}
+
+export async function listWorkItemSubtree(
+  projectId: string,
+  rootWorkItemId: string,
+  options?: { maxDepth?: number; maxItems?: number },
+): Promise<NodeSubtreeResponse> {
+  const params = new URLSearchParams({
+    rootWorkItemId,
+    maxDepth: String(options?.maxDepth ?? 20),
+    maxItems: String(options?.maxItems ?? 1000),
+  })
+  const response = await request<{ items: WorkItemView[]; truncated: boolean }>(`/internal-api/v1/projects/${projectId}/work-items/tree/subtree?${params.toString()}`, { method: 'GET' })
+  return {
+    items: response.items.map(treeNode),
+    truncated: response.truncated,
+  }
 }
 
 export async function getNode(projectId: string, nodeId: string): Promise<ProjectNode> {

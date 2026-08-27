@@ -82,6 +82,42 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE project_id = :projectId AND (:parentId IS NULL AND parent_work_item_id IS NULL OR parent_work_item_id = :parentId) ORDER BY sort_index, id")
     List<WorkItem> findByParent(@Param("projectId") String projectId, @Param("parentId") String parentId);
 
+    @Query("SELECT " + COLUMNS + " FROM work_item WHERE project_id = :projectId AND (:parentId IS NULL AND parent_work_item_id IS NULL OR parent_work_item_id = :parentId) ORDER BY sort_index, id LIMIT :limit OFFSET :offset")
+    List<WorkItem> findPageByParent(@Param("projectId") String projectId,
+                                    @Param("parentId") String parentId,
+                                    @Param("limit") int limit,
+                                    @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM work_item WHERE project_id = :projectId AND (:parentId IS NULL AND parent_work_item_id IS NULL OR parent_work_item_id = :parentId)")
+    long countByParent(@Param("projectId") String projectId, @Param("parentId") String parentId);
+
+    @Query("""
+            WITH RECURSIVE subtree AS (
+                SELECT w.id, w.project_id, w.parent_work_item_id, w.sort_index, w.type, w.title, w.status, w.due_date, w.priority, w.created_by_user_id, w.created_at, w.updated_at,
+                       1 AS depth,
+                       ARRAY[COALESCE(w.sort_index, 0)::bigint] AS sort_path
+                FROM work_item w
+                WHERE w.project_id = :projectId
+                  AND w.parent_work_item_id = :rootWorkItemId
+                UNION ALL
+                SELECT child.id, child.project_id, child.parent_work_item_id, child.sort_index, child.type, child.title, child.status, child.due_date, child.priority, child.created_by_user_id, child.created_at, child.updated_at,
+                       subtree.depth + 1,
+                       subtree.sort_path || COALESCE(child.sort_index, 0)::bigint
+                FROM work_item child
+                JOIN subtree ON child.parent_work_item_id = subtree.id
+                WHERE child.project_id = :projectId
+                  AND subtree.depth < :maxDepth
+            )
+            SELECT id, project_id, parent_work_item_id, sort_index, type, title, status, due_date, priority, created_by_user_id, created_at, updated_at
+            FROM subtree
+            ORDER BY sort_path, id
+            LIMIT :limit
+            """)
+    List<WorkItem> findSubtree(@Param("projectId") String projectId,
+                               @Param("rootWorkItemId") String rootWorkItemId,
+                               @Param("maxDepth") int maxDepth,
+                               @Param("limit") int limit);
+
     @Modifying
     @Query("INSERT INTO work_item (id, project_id, parent_work_item_id, sort_index, type, title, status, due_date, priority, created_by_user_id, search_vec) VALUES (:id, :projectId, :parentId, :sortIndex, :type, :title, :status, :dueDate, :priority, :createdByUserId, to_tsvector('simple', :searchVec))")
     void insert(@Param("id") String id, @Param("projectId") String projectId, @Param("parentId") String parentId, @Param("sortIndex") int sortIndex, @Param("type") String type, @Param("title") String title, @Param("status") String status, @Param("dueDate") java.time.LocalDate dueDate, @Param("priority") String priority, @Param("createdByUserId") String createdByUserId, @Param("searchVec") String searchVec);

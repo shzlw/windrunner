@@ -9,6 +9,7 @@ import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.team.persistence.ProjectTeamRepository;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.work.api.WorkItemMoveRequest;
+import com.windrunner.server.work.api.WorkItemView;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.domain.WorkItemAssignee;
 import com.windrunner.server.work.persistence.EntryRepository;
@@ -43,6 +44,32 @@ public class WorkItemService {
 
     public List<WorkItem> list(String projectId) {
         return workItems.findByProjectId(projectId);
+    }
+
+    public List<WorkItem> listPage(String projectId, String parentWorkItemId, int page, int size) {
+        return workItems.findPageByParent(projectId, parentWorkItemId, size, (long) page * size);
+    }
+
+    public long countByParent(String projectId, String parentWorkItemId) {
+        return workItems.countByParent(projectId, parentWorkItemId);
+    }
+
+    public List<WorkItem> listSubtree(String projectId, String rootWorkItemId, int maxDepth, int limit) {
+        return workItems.findSubtree(projectId, rootWorkItemId, maxDepth, limit);
+    }
+
+    public List<WorkItemView> views(List<WorkItem> items) {
+        if (items.isEmpty()) {
+            return List.of();
+        }
+        Map<String, List<WorkItemAssignee>> assigneesByWorkItemId = new HashMap<>();
+        assignees.findByWorkItemIds(items.stream().map(WorkItem::getId).toList())
+                .forEach(assignee -> assigneesByWorkItemId
+                        .computeIfAbsent(assignee.getWorkItemId(), ignored -> new ArrayList<>())
+                        .add(assignee));
+        return items.stream()
+                .map(item -> new WorkItemView(item, assigneesByWorkItemId.getOrDefault(item.getId(), List.of())))
+                .toList();
     }
 
     public WorkItem get(String projectId, String id) {

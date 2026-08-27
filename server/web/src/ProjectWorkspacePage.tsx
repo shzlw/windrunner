@@ -48,9 +48,9 @@ import {
   listProjectTeams,
   listTeamMembers,
   listGraphChangeProposals,
-  listNodeEdges,
   listNodes,
   listTreeNodes,
+  listWorkItemSubtree,
   listTeams,
   loadSelectableUsers,
   type Entry,
@@ -63,7 +63,6 @@ import {
   type Project,
   type WorkItem,
   type ProjectNode,
-  type ProjectNodeEdge,
   type ProjectNodeField,
   type ProjectNodeFieldDataType,
   type ContentOrderItem,
@@ -103,13 +102,6 @@ type TreeNodeProposal = {
   targetId: string
   previousNode?: ProjectNode | null
   proposedNode?: ProjectNode | null
-}
-
-type NodeRelationBadge = {
-  key: string
-  label: string
-  title: string
-  proposed?: boolean
 }
 
 type NodeFormField = {
@@ -185,6 +177,8 @@ function relationshipTypeBadgeClass(type: string) {
 }
 
 const treePageSize = 50
+const treeSubtreeMaxDepth = 20
+const treeSubtreeMaxItems = 1000
 const treeDepthIndentPx = 18
 const workspacePanelLayoutStorageKey = 'windrunner.project-workspace.panel-layout'
 const defaultWorkspacePanelLayout = { 'project-tree': 70, 'project-inspector': 30 }
@@ -901,41 +895,6 @@ function collectExpandableTreeNodeIds(nodes: TreeNode[]) {
   return ids
 }
 
-function nodeRelationBadges(
-  nodeId: string,
-  edges: ProjectNodeEdge[],
-  proposals: GraphChangeProposal[],
-): NodeRelationBadge[] {
-  const relatedProposalChanges = proposals.flatMap((proposal) => proposal.changes)
-    .filter((change) => isOpenProposalStatus(change.status))
-    .filter((change) => {
-      if (change.entityType === 'ENTRY') return (change.entry ?? change.previousEntry)?.workItemId === nodeId
-      if (change.entityType !== 'EDGE') return false
-      const relationship = change.relationship ?? change.previousRelationship
-      return Boolean(relationship && relationship.type !== relationType && (
-        (relationship.fromEntityType === 'WORK_ITEM' && relationship.fromEntityId === nodeId)
-        || (relationship.toEntityType === 'WORK_ITEM' && relationship.toEntityId === nodeId)
-      ))
-    })
-  const proposalBadge: NodeRelationBadge[] = relatedProposalChanges.length > 0 ? [{
-    key: `detail-proposals-${nodeId}`,
-    label: `${relatedProposalChanges.length} proposed ${relatedProposalChanges.length === 1 ? 'change' : 'changes'}`,
-    title: 'AI-proposed changes are available in the detail panel',
-    proposed: true,
-  }] : []
-  const relationshipCount = edges
-    .filter((edge) => edge.relationType !== relationType && edge.relationType !== 'BLOCKED_BY')
-    .filter((edge) => edge.fromNodeId === nodeId || edge.toNodeId === nodeId)
-    .length
-  const relationshipBadge: NodeRelationBadge[] = relationshipCount > 0 ? [{
-    key: `relationships-${nodeId}`,
-    label: `${relationshipCount} ${relationshipCount === 1 ? 'relationship' : 'relationships'}`,
-    title: 'View and manage relationships in the detail panel',
-  }] : []
-
-  return [...proposalBadge, ...relationshipBadge]
-}
-
 function openWorkspaceChangesForNode(proposals: GraphChangeProposal[], nodeId: string) {
   return proposals.flatMap((proposal) => proposal.changes
     .filter((change) => isOpenProposalStatus(change.status))
@@ -1092,6 +1051,8 @@ function WorkItemEntries({
   content,
   renderChild,
   canReorder,
+  highlightConnectors,
+  showEntries,
   selectedEntryId,
   startAdding,
   defaultType,
@@ -1116,6 +1077,8 @@ function WorkItemEntries({
   content: OrderedWorkItemContent[]
   renderChild: (child: TreeNode, index: number, total: number) => ReactNode
   canReorder: boolean
+  highlightConnectors: boolean
+  showEntries: boolean
   selectedEntryId: string | null
   startAdding: boolean
   defaultType: string
@@ -1151,6 +1114,7 @@ function WorkItemEntries({
   const [skipNewEntryAiReview, setSkipNewEntryAiReview] = useState(false)
   const [skipEntryAiReviewId, setSkipEntryAiReviewId] = useState<string | null>(null)
   const [acceptingAnswerEntryId, setAcceptingAnswerEntryId] = useState<string | null>(null)
+  const visibleContent = showEntries ? content : content.filter((item) => item.entityType === 'WORK_ITEM')
 
   useEffect(() => {
     if (startAdding) {
@@ -1206,15 +1170,26 @@ function WorkItemEntries({
     }
   }
 
-  if (content.length === 0 && !isAdding && !newEntryReview) {
+  if (visibleContent.length === 0 && !isAdding && !newEntryReview) {
     return null
   }
 
   return (
     <div className="space-y-1" data-work-item-entries>
-      {content.map((item, contentIndex) => {
+      {visibleContent.map((item) => {
+        const contentIndex = content.indexOf(item)
         if (item.entityType === 'WORK_ITEM') {
-          return <div key={`work-item-${item.entityId}`} className="relative before:absolute before:-left-3 before:top-4 before:h-px before:w-3 before:bg-border">{renderChild(item.child, contentIndex, content.length)}</div>
+          return (
+            <div
+              key={`work-item-${item.entityId}`}
+              className={cn(
+                'relative before:absolute before:-left-3 before:top-4 before:h-px before:w-3',
+                highlightConnectors ? 'before:bg-primary/50' : 'before:bg-border',
+              )}
+            >
+              {renderChild(item.child, contentIndex, content.length)}
+            </div>
+          )
         }
         const entry = item.entry
         const isEditing = editingEntryId === entry.id
@@ -1222,7 +1197,7 @@ function WorkItemEntries({
         const isAcceptedAnswer = entry.id === acceptedAnswerEntryId
         return (
           <div key={entry.id} className={cn('group relative flex items-center gap-2 rounded-md border border-border/50 bg-muted/15 px-2 py-1.5 transition-colors hover:bg-muted/35', selectedEntryId === entry.id && 'border-primary/40 bg-primary/5 ring-1 ring-inset ring-primary/25')} onClick={() => onSelect(entry)}>
-            <span className="absolute top-1/2 -left-3 h-px w-3 bg-border" aria-hidden="true" />
+            <span className={cn('absolute top-1/2 -left-3 h-px w-3', highlightConnectors ? 'bg-primary/50' : 'bg-border')} aria-hidden="true" />
             <span className="grid h-7 w-7 shrink-0 place-items-center text-muted-foreground" aria-hidden="true"><MessageSquareText className="h-3.5 w-3.5" /></span>
             {isEditing ? (
               <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1713,12 +1688,14 @@ function TreeRowContent({
   expandedNodeIds,
   selectedNodeId,
   highlightedNodeId,
+  selectedContextNodeIds,
+  dimUnrelatedNodes,
+  isNested,
   isSaving,
   decidingProposalChangeId,
   loadedChildrenParentIds,
   loadingChildrenNodeIds,
   childrenPageInfoByParentId,
-  relationBadgesByNodeId,
   blockerUi,
   entriesByWorkItemId,
   contentOrderByParent,
@@ -1760,12 +1737,14 @@ function TreeRowContent({
   expandedNodeIds: Set<string>
   selectedNodeId: string | null
   highlightedNodeId: string | null
+  selectedContextNodeIds: Set<string>
+  dimUnrelatedNodes: boolean
+  isNested: boolean
   isSaving: boolean
   decidingProposalChangeId: string | null
   loadedChildrenParentIds: Set<string>
   loadingChildrenNodeIds: Set<string>
   childrenPageInfoByParentId: Map<string, NodePageInfo>
-  relationBadgesByNodeId: Map<string, NodeRelationBadge[]>
   blockerUi: BlockerUi
   entriesByWorkItemId: Map<string, Entry[]>
   contentOrderByParent: Map<string, ContentOrderItem[]>
@@ -1806,9 +1785,12 @@ function TreeRowContent({
   const [draftTitle, setDraftTitle] = useState(node.title)
   const [isSavingTitle, setIsSavingTitle] = useState(false)
   const [entryComposerRequested, setEntryComposerRequested] = useState(false)
+  const [showEntries, setShowEntries] = useState(false)
   const isExpanded = expandedNodeIds.has(node.id)
   const isSelected = selectedNodeId === node.id
   const isChatHighlighted = highlightedNodeId === node.id
+  const isInSelectedContext = selectedContextNodeIds.has(node.id)
+  const isDimmed = dimUnrelatedNodes && !isNested && !isInSelectedContext && !isChatHighlighted
   const isLoadingChildren = loadingChildrenNodeIds.has(node.id)
   const hasLoadedChildren = loadedChildrenParentIds.has(node.id)
   const childPageInfo = childrenPageInfoByParentId.get(node.id)
@@ -1824,10 +1806,8 @@ function TreeRowContent({
     ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')).map((id) => ({ id, label: userLabels.get(id) ?? 'Unknown user', type: 'user' })),
     ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')).map((id) => ({ id, label: teamLabels.get(id) ?? 'Unknown team', type: 'team' })),
   ]
-  const relationBadges = relationBadgesByNodeId.get(node.id) ?? []
-  const proposedRelationBadges = relationBadges.filter((badge) => badge.proposed)
-  const canonicalRelationBadges = relationBadges.filter((badge) => !badge.proposed)
   const blockerCount = blockerUi.relationshipsByNodeId.get(node.id)?.length ?? 0
+  const entryCount = entriesByWorkItemId.get(node.id)?.length ?? 0
   const orderedContent = orderedWorkItemContent(
     node,
     entriesByWorkItemId.get(node.id) ?? [],
@@ -1876,6 +1856,7 @@ function TreeRowContent({
           'group flex min-h-9 items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground',
           isSelected ? 'bg-primary/5 text-foreground ring-1 ring-inset ring-primary/35' : null,
           isChatHighlighted ? 'bg-primary/10 text-foreground ring-2 ring-primary/50' : null,
+          isDimmed ? 'opacity-50' : null,
           proposal ? 'border border-primary/30 bg-primary/5 text-foreground hover:bg-primary/10' : null,
         )}
         style={{ marginLeft: `${depth * treeDepthIndentPx}px` }}
@@ -1960,55 +1941,52 @@ function TreeRowContent({
             >
               {node.title}
             </span>
-            {canonicalRelationBadges.map((badge) => (
-            <Badge
-              key={badge.key}
-              variant="secondary"
-              className="hidden max-w-48 justify-start truncate font-normal md:inline-flex"
-              title={badge.title}
+            <div
+              className={cn(
+                'hidden min-w-0 items-center gap-2',
+                isSelected ? 'flex' : 'group-focus-within:flex group-hover:flex',
+              )}
             >
-              {badge.label}
-            </Badge>
-            ))}
-            {!isDefaultWorkItemStatus(status) ? (
-              <Badge variant="secondary" className="hidden shrink-0 font-normal md:inline-flex">
-                {String(status).replaceAll('_', ' ')}
-              </Badge>
-            ) : null}
-            {dueDate ? (
-              <Badge
-                variant={dueDate.isOverdue ? 'destructive' : dueDate.isDueSoon ? 'default' : 'outline'}
-                className="hidden shrink-0 font-normal md:inline-flex"
-                title={`Due ${dueDate.title}`}
-              >
-                Due {dueDate.label}
-              </Badge>
-            ) : null}
-            {priority === 'HIGH' || priority === 'URGENT' ? (
-              <Badge variant={priority === 'URGENT' ? 'destructive' : 'default'} className="hidden shrink-0 font-normal md:inline-flex">
-                {priority[0]}{priority.slice(1).toLowerCase()}
-              </Badge>
-            ) : null}
-            {assigneeIds.length > 0 ? (
-              <div className="hidden shrink-0 -space-x-1.5 md:flex" aria-label="Assignees">
-                {assigneeIds.slice(0, 3).map((assignee) => (
-                  <span
-                    key={`${assignee.type}-${assignee.id}`}
-                    className="grid size-5 place-items-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground"
-                    title={`${assignee.label} (${assignee.type})`}
-                  >
-                    {avatarInitials(assignee.label)}
-                  </span>
-                ))}
-                {assigneeIds.length > 3 ? (
-                  <span className="grid size-5 place-items-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground" title={`${assigneeIds.length - 3} more assignees`}>
-                    +{assigneeIds.length - 3}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
+              {!isDefaultWorkItemStatus(status) ? (
+                <Badge variant="secondary" className="shrink-0 font-normal">
+                  {String(status).replaceAll('_', ' ')}
+                </Badge>
+              ) : null}
+              {dueDate ? (
+                <Badge
+                  variant={dueDate.isOverdue ? 'destructive' : dueDate.isDueSoon ? 'default' : 'outline'}
+                  className="shrink-0 font-normal"
+                  title={`Due ${dueDate.title}`}
+                >
+                  Due {dueDate.label}
+                </Badge>
+              ) : null}
+              {priority === 'HIGH' || priority === 'URGENT' ? (
+                <Badge variant={priority === 'URGENT' ? 'destructive' : 'default'} className="shrink-0 font-normal">
+                  {priority[0]}{priority.slice(1).toLowerCase()}
+                </Badge>
+              ) : null}
+              {assigneeIds.length > 0 ? (
+                <div className="shrink-0 -space-x-1.5 md:flex" aria-label="Assignees">
+                  {assigneeIds.slice(0, 3).map((assignee) => (
+                    <span
+                      key={`${assignee.type}-${assignee.id}`}
+                      className="grid size-5 place-items-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground"
+                      title={`${assignee.label} (${assignee.type})`}
+                    >
+                      {avatarInitials(assignee.label)}
+                    </span>
+                  ))}
+                  {assigneeIds.length > 3 ? (
+                    <span className="grid size-5 place-items-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground" title={`${assigneeIds.length - 3} more assignees`}>
+                      +{assigneeIds.length - 3}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
-            {proposal || proposedRelationBadges.length > 0 ? (
+            </div>
+            {proposal ? (
               <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-primary">
                 <Bot className="h-3.5 w-3.5 shrink-0" />
                 <span className="shrink-0 font-medium">AI proposed</span>
@@ -2022,20 +2000,31 @@ function TreeRowContent({
                     </Badge>
                     <span className="min-w-0 truncate text-muted-foreground" title={proposal.summary}>{proposal.summary}</span>
                   </>
-                ) : proposedRelationBadges.map((badge) => (
-                  <Badge
-                    key={badge.key}
-                    variant="secondary"
-                    className="h-5 max-w-64 shrink truncate px-1.5 text-[10px] font-normal"
-                    title={badge.title}
-                  >
-                    {badge.label}
-                  </Badge>
-                ))}
+                ) : null}
               </div>
             ) : null}
           </button>
         )}
+        {entryCount > 0 && !isEditingTitle ? (
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            className={cn('h-6 shrink-0 gap-1 px-2 text-xs', showEntries ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+            onClick={() => {
+              if (!showEntries && !isExpanded) {
+                onToggle(node.id)
+              }
+              setShowEntries((current) => !current)
+            }}
+            aria-expanded={showEntries}
+            aria-label={`${showEntries ? 'Hide' : 'Show'} ${entryCount} updates for ${node.title}`}
+            title={`${showEntries ? 'Hide' : 'Show'} updates`}
+          >
+            <MessageSquareText className="h-3.5 w-3.5" />
+            Updates {entryCount}
+          </Button>
+        ) : null}
         {blockerCount > 0 && !isEditingTitle ? (
           <BlockerPopover
             nodeId={node.id}
@@ -2160,7 +2149,10 @@ function TreeRowContent({
       </div>
       {canExpand && isExpanded ? (
         <div
-          className="space-y-1 border-l-2 border-border/80 pl-3"
+          className={cn(
+            'space-y-1 border-l-2 pl-3 transition-colors',
+            isSelected ? 'border-primary/50' : 'border-border/80',
+          )}
           style={{ marginLeft: `${(depth + 1) * treeDepthIndentPx}px` }}
           data-work-item-children
         >
@@ -2180,12 +2172,14 @@ function TreeRowContent({
                 expandedNodeIds={expandedNodeIds}
                 selectedNodeId={selectedNodeId}
                 highlightedNodeId={highlightedNodeId}
+                selectedContextNodeIds={selectedContextNodeIds}
+                dimUnrelatedNodes={dimUnrelatedNodes}
+                isNested
                 isSaving={isSaving}
                 decidingProposalChangeId={decidingProposalChangeId}
                 loadedChildrenParentIds={loadedChildrenParentIds}
                 loadingChildrenNodeIds={loadingChildrenNodeIds}
                 childrenPageInfoByParentId={childrenPageInfoByParentId}
-                relationBadgesByNodeId={relationBadgesByNodeId}
                 blockerUi={blockerUi}
                 entriesByWorkItemId={entriesByWorkItemId}
                 contentOrderByParent={contentOrderByParent}
@@ -2224,6 +2218,8 @@ function TreeRowContent({
               />
             )}
             canReorder={canReorderContent && !isSaving}
+            highlightConnectors={isSelected}
+            showEntries={showEntries}
             selectedEntryId={selectedEntryId}
             startAdding={entryComposerRequested}
             defaultType={node.type.toUpperCase() === 'QUESTION' ? 'ANSWER' : 'COMMENT'}
@@ -2269,7 +2265,13 @@ function TreeRowContent({
                 )}
               />
               <DropdownMenuContent align="start" className="w-52">
-                <DropdownMenuItem onClick={() => setEntryComposerRequested(true)}>
+                <DropdownMenuItem onClick={() => {
+                  if (!isExpanded) {
+                    onToggle(node.id)
+                  }
+                  setShowEntries(true)
+                  setEntryComposerRequested(true)
+                }}>
                   <MessageSquarePlus className="h-4 w-4" /> {node.type.toUpperCase() === 'QUESTION' ? 'Write an answer' : 'Write an update'}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onAddChild(node.id, 'TASK')}>
@@ -2590,7 +2592,6 @@ export default function ProjectWorkspacePage() {
   const [nodes, setNodes] = useState<ProjectNode[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
   const [relationships, setRelationships] = useState<Relationship[]>([])
-  const [nodeEdges, setNodeEdges] = useState<ProjectNodeEdge[]>([])
   const [graphChangeProposals, setGraphChangeProposals] = useState<GraphChangeProposal[]>([])
   const [referenceUsers, setReferenceUsers] = useState<User[]>([])
   const [referenceTeams, setReferenceTeams] = useState<Team[]>([])
@@ -2748,13 +2749,6 @@ export default function ProjectWorkspacePage() {
   }, [blockerWorkItems, displayedNodes])
   const userLabels = useMemo(() => new Map(referenceUsers.map((user) => [user.id, referenceUserLabel(user)])), [referenceUsers])
   const teamLabels = useMemo(() => new Map(referenceTeams.map((team) => [team.id, referenceTeamLabel(team)])), [referenceTeams])
-  const relationBadgesByNodeId = useMemo(() => {
-    const badgesByNodeId = new Map<string, NodeRelationBadge[]>()
-    for (const node of displayedNodes) {
-      badgesByNodeId.set(node.id, nodeRelationBadges(node.id, nodeEdges, graphChangeProposals))
-    }
-    return badgesByNodeId
-  }, [displayedNodes, graphChangeProposals, nodeEdges])
   const referenceUserOptions = useMemo(() => (
     referenceUsers.map((user) => ({ id: user.id, label: referenceUserLabel(user) }))
   ), [referenceUsers])
@@ -2781,6 +2775,16 @@ export default function ProjectWorkspacePage() {
     return options.filter((option) => !assignedIds.has(option.id))
   }, [assignedTeamIds, assignedUserIds, assigneeTeamOptions, assigneeUserOptions, newAssigneeType])
   const hasActiveWorkItemFilters = appliedWorkItemFilterConditions.length > 0 || Boolean(appliedWorkItemSearchQuery)
+  const selectedTreeNode = useMemo(() => findTreeNode(tree, selectedNodeId), [selectedNodeId, tree])
+  const selectedContextNodeIds = useMemo(() => {
+    if (!selectedTreeNode) {
+      return new Set<string>()
+    }
+    const contextIds = findTreeNodePath(tree, selectedTreeNode.id).map((node) => node.id)
+    selectedTreeNode.children.forEach((child) => contextIds.push(child.id))
+    return new Set(contextIds)
+  }, [selectedTreeNode, tree])
+  const dimUnrelatedNodes = Boolean(selectedTreeNode && !hasActiveWorkItemFilters && !focusedNode)
   const hasDraftWorkItemFilters = workItemFilterConditions.length > 0 || Boolean(workItemSearchQuery.trim())
   const hasVisibleWorkItemProposals = displayedNodes.some((node) => Boolean((node as ProjectNode & { proposal?: TreeNodeProposal }).proposal))
   const areRootItemsFullyLoaded = Boolean(rootPageInfo && rootPageInfo.page + 1 >= rootPageInfo.totalPages && !isLoadingMoreRoots)
@@ -2977,13 +2981,6 @@ export default function ProjectWorkspacePage() {
         sourceEntryId: null,
       })
       setRelationships((current) => [...current, blocker])
-      setNodeEdges((current) => [...current, {
-        id: blocker.id,
-        projectId: blocker.projectId,
-        fromNodeId: blocker.fromEntityId,
-        toNodeId: blocker.toEntityId,
-        relationType: blocker.type,
-      }])
       toast.success('Blocker added.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add blocker.')
@@ -2997,7 +2994,6 @@ export default function ProjectWorkspacePage() {
     try {
       await deleteRelationship(projectId, relationshipId)
       setRelationships((current) => current.filter((relationship) => relationship.id !== relationshipId))
-      setNodeEdges((current) => current.filter((edge) => edge.id !== relationshipId))
       toast.success('Blocker removed.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to remove blocker.')
@@ -3048,13 +3044,6 @@ export default function ProjectWorkspacePage() {
         sourceEntryId: null,
       })
       setRelationships((current) => [...current, relationship])
-      setNodeEdges((current) => [...current, {
-        id: relationship.id,
-        projectId: relationship.projectId,
-        fromNodeId: relationship.fromEntityId,
-        toNodeId: relationship.toEntityId,
-        relationType: relationship.type,
-      }])
       toast.success('Relationship added.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add relationship.')
@@ -3068,7 +3057,6 @@ export default function ProjectWorkspacePage() {
     try {
       await deleteRelationship(projectId, relationshipId)
       setRelationships((current) => current.filter((relationship) => relationship.id !== relationshipId))
-      setNodeEdges((current) => current.filter((edge) => edge.id !== relationshipId))
       toast.success('Relationship removed.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to remove relationship.')
@@ -3252,12 +3240,11 @@ export default function ProjectWorkspacePage() {
       setErrorMessage(null)
 
       try {
-        const [nextProject, nextRootNodes, nextWorkspace, nextGraphChangeProposals, nextNodeEdges, nextLlmStatus, nextUsers, nextTeams, nextProjectMembers, nextProjectTeams, nextSettings] = await Promise.all([
+        const [nextProject, nextRootNodes, nextWorkspace, nextGraphChangeProposals, nextLlmStatus, nextUsers, nextTeams, nextProjectMembers, nextProjectTeams, nextSettings] = await Promise.all([
           getProject(currentProjectId),
           listTreeNodes(currentProjectId, { page: 0, size: treePageSize }),
           getWorkspace(currentProjectId),
           listGraphChangeProposals(currentProjectId),
-          listNodeEdges(currentProjectId),
           getLlmStatus().catch(() => ({ provider: 'none', available: false })),
           loadSelectableUsers().catch(() => []),
           listTeams().catch(() => []),
@@ -3317,7 +3304,6 @@ export default function ProjectWorkspacePage() {
         ]))
         setProjectTeamIds(new Set(nextProjectTeams.map((team) => team.teamId)))
         setGraphChangeProposals(nextGraphChangeProposals)
-        setNodeEdges(nextNodeEdges)
         setIsLlmAvailable(nextLlmStatus.available)
         setIsAiSuggestionsEnabled(nextSettings['ai-suggestions']?.value === true)
         setExpandedNodeIds(new Set(initialExpandedNodeIds))
@@ -3549,33 +3535,38 @@ export default function ProjectWorkspacePage() {
 
     setIsExpandingSelectedSubtree(true)
     try {
-      const queuedParentIds = [selectedNode.id]
-      const visitedParentIds = new Set<string>()
-      const loadedNodes: ProjectNode[] = []
-      const pageInfoByParentId = new Map<string, NodePageInfo>()
+      const response = await listWorkItemSubtree(projectId, selectedNode.id, {
+        maxDepth: treeSubtreeMaxDepth,
+        maxItems: treeSubtreeMaxItems,
+      })
+      const loadedParentIds = new Set<string>([
+        selectedNode.id,
+        ...response.items
+          .map((node) => node.parentNodeId)
+          .filter((parentNodeId): parentNodeId is string => Boolean(parentNodeId)),
+      ])
 
-      while (queuedParentIds.length > 0) {
-        const parentNodeId = queuedParentIds.shift()
-        if (!parentNodeId || visitedParentIds.has(parentNodeId)) {
-          continue
-        }
-        visitedParentIds.add(parentNodeId)
-
-        let page = 0
-        let response: NodePageResponse
-        do {
-          response = await listTreeNodes(projectId, { parentNodeId, page, size: treePageSize })
-          loadedNodes.push(...response.items)
-          response.items.forEach((child) => queuedParentIds.push(child.id))
-          pageInfoByParentId.set(parentNodeId, pageInfoFromResponse(response))
-          page += 1
-        } while (page < response.totalPages)
+      setNodes((current) => mergeNodesById(current, response.items))
+      setLoadedChildrenParentIds((current) => {
+        const next = new Set(current)
+        loadedParentIds.forEach((parentNodeId) => {
+          if (response.truncated) {
+            next.delete(parentNodeId)
+          } else {
+            next.add(parentNodeId)
+          }
+        })
+        return next
+      })
+      setChildrenPageInfoByParentId((current) => {
+        const next = new Map(current)
+        loadedParentIds.forEach((parentNodeId) => next.delete(parentNodeId))
+        return next
+      })
+      setExpandedNodeIds((current) => new Set([...current, ...loadedParentIds]))
+      if (response.truncated) {
+        toast.info(`Expanded the first ${treeSubtreeMaxItems.toLocaleString()} nested items. Collapse and reopen a branch to load more.`)
       }
-
-      setNodes((current) => mergeNodesById(current, loadedNodes))
-      setLoadedChildrenParentIds((current) => new Set([...current, ...visitedParentIds]))
-      setChildrenPageInfoByParentId((current) => new Map([...current, ...pageInfoByParentId]))
-      setExpandedNodeIds((current) => new Set([...current, ...visitedParentIds]))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to expand sub-items.')
     } finally {
@@ -3652,14 +3643,6 @@ export default function ProjectWorkspacePage() {
     ]))
   }
 
-  async function reloadNodeEdges() {
-    if (!projectId) {
-      return
-    }
-
-    setNodeEdges(await listNodeEdges(projectId))
-  }
-
   async function reloadWorkspaceRelationships() {
     if (!projectId) {
       return
@@ -3675,7 +3658,6 @@ export default function ProjectWorkspacePage() {
     await Promise.all([
       reloadLoadedTree(nextSelectedNodeId),
       reloadGraphChangeProposals(),
-      reloadNodeEdges(),
       reloadWorkspaceRelationships(),
     ])
   }
@@ -4578,12 +4560,14 @@ export default function ProjectWorkspacePage() {
                         expandedNodeIds={displayedExpandedNodeIds}
                         selectedNodeId={selectedNodeId}
                         highlightedNodeId={chatHighlightedNodeId}
+                        selectedContextNodeIds={selectedContextNodeIds}
+                        dimUnrelatedNodes={dimUnrelatedNodes}
+                        isNested={false}
                         isSaving={isSaving}
                         decidingProposalChangeId={decidingProposalChangeId}
                         loadedChildrenParentIds={loadedChildrenParentIds}
                         loadingChildrenNodeIds={loadingChildrenNodeIds}
                         childrenPageInfoByParentId={childrenPageInfoByParentId}
-                        relationBadgesByNodeId={relationBadgesByNodeId}
                         blockerUi={blockerUi}
                         entriesByWorkItemId={entriesByWorkItemId}
                         contentOrderByParent={contentOrderByParent}
@@ -5164,18 +5148,18 @@ export default function ProjectWorkspacePage() {
       </ResizablePanelGroup>
 
       <Dialog open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="min-w-0 sm:max-w-2xl">
           <DialogHeader className="-mx-6 -mt-6 border-b px-6 pt-6 pb-5">
             <DialogTitle className="text-xl font-semibold">Move item</DialogTitle>
             <DialogDescription>{selectedNode ? `Choose where to place ${selectedNode.title}.` : 'Choose where to place this item.'}</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-medium">Move before</label>
               <Input value={moveQuery} onChange={(event) => setMoveQuery(event.target.value)} placeholder="Find a work item or update…" />
             </div>
-            <div className="max-h-80 overflow-auto rounded-md border p-1">
+            <div className="min-w-0 w-full max-w-full max-h-80 overflow-x-hidden overflow-y-auto rounded-md border p-1">
               <button
                 type="button"
                 className={cn(
@@ -5196,7 +5180,7 @@ export default function ProjectWorkspacePage() {
                     key={contentEntityKey(item.entityType, item.entityId)}
                     type="button"
                     className={cn(
-                      'flex min-h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-muted',
+                      'flex min-h-8 min-w-0 w-full max-w-full items-center gap-2 overflow-hidden rounded-sm px-2 text-left text-sm hover:bg-muted',
                       moveTargetContentKey === contentEntityKey(item.entityType, item.entityId) ? 'bg-muted text-foreground' : 'text-muted-foreground',
                     )}
                     style={{ paddingLeft: `${item.depth * 16 + 8}px` }}
@@ -5204,7 +5188,7 @@ export default function ProjectWorkspacePage() {
                   >
                     {item.entityType === 'WORK_ITEM' ? <FileText className="h-4 w-4 shrink-0" /> : <MessageSquarePlus className="h-4 w-4 shrink-0" />}
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{item.detail}</span>
+                    <span className="max-w-24 shrink-0 truncate text-xs text-muted-foreground">{item.detail}</span>
                   </button>
                 ))
               )}
