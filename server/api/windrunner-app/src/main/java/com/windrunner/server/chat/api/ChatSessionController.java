@@ -11,6 +11,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/internal-api/v1/projects/{projectId}/chat-sessions")
@@ -29,6 +31,29 @@ public class ChatSessionController {
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
         UserContext user = authService.requireUserContext(request);
         return ApiResponse.success(chatService.getActiveSession(projectId, user.userId()));
+    }
+
+    @GetMapping("/history")
+    public ApiResponse<List<ChatSessionSummaryView>> list(
+            @PathVariable("projectId") String projectId,
+            HttpServletRequest request
+    ) {
+        AppUser actor = authService.requireCurrentUser(request);
+        projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
+        UserContext user = authService.requireUserContext(request);
+        return ApiResponse.success(chatService.listSessions(projectId, user.userId()));
+    }
+
+    @GetMapping("/{sessionId}")
+    public ApiResponse<ChatSessionView> getById(
+            @PathVariable("projectId") String projectId,
+            @PathVariable("sessionId") String sessionId,
+            HttpServletRequest request
+    ) {
+        AppUser actor = authService.requireCurrentUser(request);
+        projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
+        UserContext user = authService.requireUserContext(request);
+        return ApiResponse.success(chatService.getSession(projectId, sessionId, user.userId()));
     }
 
     @PostMapping("/new")

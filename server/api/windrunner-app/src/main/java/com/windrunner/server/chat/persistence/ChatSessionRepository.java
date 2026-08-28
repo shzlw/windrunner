@@ -7,6 +7,7 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -28,6 +29,25 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
     Optional<ChatSession> findByIdAndProjectId(@Param("id") String id,
                                                @Param("projectId") String projectId);
 
+    @Query("""
+            SELECT id, project_id, user_id, status, created_at, updated_at, archived_at
+            FROM chat_session
+            WHERE id = :id AND project_id = :projectId AND user_id = :userId
+            """)
+    Optional<ChatSession> findByIdAndProjectIdAndUserId(@Param("id") String id,
+                                                        @Param("projectId") String projectId,
+                                                        @Param("userId") String userId);
+
+    @Query("""
+            SELECT id, project_id, user_id, status, created_at, updated_at, archived_at
+            FROM chat_session
+            WHERE project_id = :projectId AND user_id = :userId
+            ORDER BY CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END, updated_at DESC, id DESC
+            LIMIT 100
+            """)
+    List<ChatSession> findAllByProjectIdAndUserIdOrdered(@Param("projectId") String projectId,
+                                                         @Param("userId") String userId);
+
     @Modifying
     @Query("""
             INSERT INTO chat_session (id, project_id, user_id, status)
@@ -36,6 +56,14 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
     void insert(@Param("id") String id,
                 @Param("projectId") String projectId,
                 @Param("userId") String userId);
+
+    @Modifying
+    @Query("""
+            UPDATE chat_session
+            SET updated_at = NOW()
+            WHERE id = :id
+            """)
+    void touch(@Param("id") String id);
 
     @Modifying
     @Query("""

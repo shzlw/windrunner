@@ -12,6 +12,9 @@ import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.tools.ToolRegistry;
+import com.windrunner.server.tools.work.FetchEntriesTool;
+import com.windrunner.server.tools.work.FetchRelationshipsTool;
+import com.windrunner.server.tools.work.FetchWorkItemsTool;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.utils.FileUtils;
 import com.windrunner.server.work.EntryService;
@@ -48,6 +51,7 @@ public class ChatMessageController {
     private static final int MAX_MESSAGES = 50;
     private static final int MAX_MESSAGE_LENGTH = 20_000;
     private static final int MAX_TOTAL_LENGTH = 100_000;
+    private static final int MAX_CONTEXT_PROJECTS = 10;
     private static final Set<String> ALLOWED_ROLES = Set.of("user", "assistant");
     private static final String PROJECT_CHAT_INSTRUCTIONS_PROMPT = "project-chat-instructions.md";
 
@@ -81,17 +85,22 @@ public class ChatMessageController {
         UserContext user = authService.requireUserContext(httpRequest);
         ChatSession session = chatService.getOrCreateActiveSession(projectId, user.userId());
         ChatMessage sourceMessage = chatService.addMessage(session.getId(), "user", messages.getLast().content());
-        String context = selectedWorkItemContext(projectId, request.context());
+        List<String> contextProjectIds = normalizeProjectIds(projectId, request.projectIds());
+        List<Project> contextProjects = requireContextProjects(contextProjectIds, actor);
+        boolean hasExplicitProjectContext = request.projectIds() != null && !request.projectIds().isEmpty();
+        String context = hasExplicitProjectContext
+                ? selectedProjectContext(contextProjects)
+                : selectedWorkItemContext(projectId, request.context());
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MILLIS);
 
         Thread.startVirtualThread(() -> {
             long startNanos = System.nanoTime();
             try {
-                List<LlmTool<?>> availableTools = new ArrayList<>(toolRegistry.llmTools());
+                List<LlmTool<?>> availableTools = new ArrayList<>(projectScopedTools(contextProjectIds));
                 availableTools.add(workspaceProposalTool(projectId, session, sourceMessage));
                 LlmResult<String> llmResult = llmService.runChatWithTools(
                         messages,
-                        instructions(project, session, sourceMessage, context),
+                        instructions(project, session, sourceMessage, context, contextProjectIds),
                         availableTools
                 );
                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
@@ -148,25 +157,115 @@ public class ChatMessageController {
         return List.copyOf(request.messages());
     }
 
+    private List<String> normalizeProjectIds(String primaryProjectId, List<String> requestedProjectIds) {
+        LinkedHashSet<String> projectIds = new LinkedHashSet<>();
+        projectIds.add(primaryProjectId);
+        if (requestedProjectIds != null) {
+            requestedProjectIds.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(id -> !id.isBlank())
+                    .forEach(projectIds::add);
+        }
+        if (projectIds.size() > MAX_CONTEXT_PROJECTS) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A maximum of " + MAX_CONTEXT_PROJECTS + " projects can be used as context");
+        }
+        return List.copyOf(projectIds);
+    }
+
+    private List<Project> requireContextProjects(List<String> projectIds, AppUser actor) {
+        return projectIds.stream()
+                .map(projectId -> {
+                    projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
+                    return projects.findById(projectId)
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
+                })
+                .toList();
+    }
+
+    private List<LlmTool<?>> projectScopedTools(List<String> allowedProjectIds) {
+        return toolRegistry.llmTools().stream()
+                .map(tool -> switch (tool.name()) {
+                    case "fetch_work_items", "fetch_entries", "fetch_relationships" -> scopedProjectTool(tool, allowedProjectIds);
+                    default -> tool;
+                })
+                .toList();
+    }
+
+    private <T> LlmTool<T> scopedProjectTool(LlmTool<T> tool, List<String> allowedProjectIds) {
+        return new LlmTool<>(tool.name(), tool.description(), tool.parametersType(), arguments -> {
+            String requestedProjectId = projectIdFromToolArguments(arguments);
+            if (!allowedProjectIds.contains(requestedProjectId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "The requested project is not in the selected context");
+            }
+            return tool.handler().execute(arguments);
+        });
+    }
+
+    private String projectIdFromToolArguments(Object arguments) {
+        if (arguments instanceof FetchWorkItemsTool.Parameters parameters) {
+            return parameters.projectId();
+        }
+        if (arguments instanceof FetchEntriesTool.Parameters parameters) {
+            return parameters.projectId();
+        }
+        if (arguments instanceof FetchRelationshipsTool.Parameters parameters) {
+            return parameters.projectId();
+        }
+        return null;
+    }
+
+    private String selectedProjectContext(List<Project> selectedProjects) {
+        StringBuilder scope = new StringBuilder("Selected project context (each project is a separate source; includes current WorkItems and updates):\n");
+        for (Project selectedProject : selectedProjects) {
+            List<WorkItem> allWorkItems = workItems.list(selectedProject.getId());
+            List<Entry> allEntries = entries.list(selectedProject.getId());
+            Map<String, List<WorkItemAssignee>> assigneesByWorkItemId = assigneesByWorkItemId(allWorkItems);
+            scope.append("\nProject: ").append(selectedProject.getName())
+                    .append(" [id=").append(selectedProject.getId()).append("]\n");
+            List<WorkItem> rootWorkItems = allWorkItems.stream()
+                    .filter(item -> item.getParentWorkItemId() == null)
+                    .sorted(Comparator.<WorkItem>comparingInt(item -> item.getSortIndex() == null ? Integer.MAX_VALUE : item.getSortIndex())
+                            .thenComparing(WorkItem::getId))
+                    .toList();
+            if (rootWorkItems.isEmpty()) {
+                scope.append("  No WorkItems.\n");
+            } else {
+                rootWorkItems.forEach(item -> appendWorkItemScope(
+                        item, allWorkItems, allEntries, assigneesByWorkItemId, 0, scope));
+            }
+        }
+        return scope.toString().trim();
+    }
+
     private String selectedWorkItemContext(String projectId, ProjectChatContext context) {
         if (context == null || context.selectedNodeId() == null || context.selectedNodeId().isBlank()) {
             return "No WorkItem is selected. Creation requests may start at project level. For a read or update request that depends on one specific existing WorkItem, find an unambiguous match with the read tools or ask the user to select it.";
         }
         WorkItem item = workItems.get(projectId, context.selectedNodeId().trim());
         StringBuilder scope = new StringBuilder("Selected WorkItem scope (includes every nested WorkItem and update):\n");
-        appendWorkItemScope(item, workItems.list(projectId), entries.list(projectId), 0, scope);
+        List<WorkItem> allWorkItems = workItems.list(projectId);
+        appendWorkItemScope(item, allWorkItems, entries.list(projectId), assigneesByWorkItemId(allWorkItems), 0, scope);
         return scope.toString().trim();
+    }
+
+    private Map<String, List<WorkItemAssignee>> assigneesByWorkItemId(List<WorkItem> allWorkItems) {
+        Map<String, List<WorkItemAssignee>> assigneesByWorkItemId = new HashMap<>();
+        workItems.views(allWorkItems).forEach(view -> assigneesByWorkItemId.put(view.workItem().getId(), view.assignees()));
+        return assigneesByWorkItemId;
     }
 
     private void appendWorkItemScope(
             WorkItem item,
             List<WorkItem> allWorkItems,
             List<Entry> allEntries,
+            Map<String, List<WorkItemAssignee>> assigneesByWorkItemId,
             int depth,
             StringBuilder scope
     ) {
         String indent = "  ".repeat(depth);
-        List<WorkItemAssignee> assignees = workItems.assignees(item.getId());
+        List<WorkItemAssignee> assignees = assigneesByWorkItemId.getOrDefault(item.getId(), List.of());
         scope.append(indent).append("- WorkItem: ").append(item.getTitle())
                 .append(" [id=").append(item.getId())
                 .append(", type=").append(item.getType())
@@ -189,7 +288,7 @@ public class ChatMessageController {
                     if (next.entry() != null) {
                         scope.append(indent).append("  - Update: ").append(entrySummary(next.entry())).append('\n');
                     } else {
-                        appendWorkItemScope(next.workItem(), allWorkItems, allEntries, depth + 1, scope);
+                        appendWorkItemScope(next.workItem(), allWorkItems, allEntries, assigneesByWorkItemId, depth + 1, scope);
                     }
                 });
     }
@@ -198,10 +297,11 @@ public class ChatMessageController {
         return "[type=" + entry.getType() + ", updated=" + Objects.toString(entry.getUpdatedAt(), "Unknown") + "] " + entry.getBody();
     }
 
-    private String instructions(Project project, ChatSession session, ChatMessage sourceMessage, String selectedContext) {
+    private String instructions(Project project, ChatSession session, ChatMessage sourceMessage, String selectedContext, List<String> contextProjectIds) {
         return FileUtils.loadSystemPrompt(PROJECT_CHAT_INSTRUCTIONS_PROMPT)
                 .replace("{{projectName}}", Objects.toString(project.getName(), ""))
                 .replace("{{projectId}}", Objects.toString(project.getId(), ""))
+                .replace("{{projectIds}}", String.join(", ", contextProjectIds))
                 .replace("{{chatSessionId}}", Objects.toString(session.getId(), ""))
                 .replace("{{sourceMessageId}}", Objects.toString(sourceMessage.getId(), ""))
                 .replace("{{selectedContext}}", selectedContext);
@@ -227,7 +327,7 @@ public class ChatMessageController {
                 : exception.getMessage();
     }
 
-    public record ProjectChatRequest(List<LlmMessage> messages, ProjectChatContext context) {
+    public record ProjectChatRequest(List<LlmMessage> messages, ProjectChatContext context, List<String> projectIds) {
     }
 
     public record ProjectChatContext(String selectedNodeId, String selectedProposalId,

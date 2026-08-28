@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 import {
   getActiveChatSession,
+  getChatSession,
   startNewChatSession,
   streamProjectChat,
   type ChatSession,
@@ -35,6 +36,7 @@ export type ChatWorkItemReference = {
   type: string
   status: string
   dueDate?: string | null
+  projectId?: string
 }
 
 const workItemReferencePattern = /\[\[workitem:([A-Za-z0-9_-]+)\]\]/g
@@ -117,8 +119,13 @@ function renderAssistantContent(
 
 export default function ProjectChatPanel({
   projectId = '',
+  projectIds,
+  sessionId,
+  readOnly = false,
   selectedContext,
   onClearSelectedContext,
+  onSessionStarted,
+  onSessionActivity,
   onGraphChangeProposalSaved,
   workItemReferences = new Map(),
   onWorkItemReferenceClick,
@@ -127,8 +134,13 @@ export default function ProjectChatPanel({
   onClose,
 }: {
   projectId?: string
+  projectIds?: string[]
+  sessionId?: string
+  readOnly?: boolean
   selectedContext?: SelectedChatContext | null
   onClearSelectedContext?: () => void
+  onSessionStarted?: (session: ChatSession) => void
+  onSessionActivity?: () => void | Promise<void>
   onGraphChangeProposalSaved?: () => void | Promise<void>
   workItemReferences?: Map<string, ChatWorkItemReference>
   onWorkItemReferenceClick?: (workItemId: string) => void | Promise<void>
@@ -138,6 +150,8 @@ export default function ProjectChatPanel({
 }) {
   const routeProjectId = useParams().projectId
   projectId = projectId || routeProjectId || ''
+  const chatProjectIds = projectIds?.length ? projectIds : projectId ? [projectId] : []
+  const chatProjectId = chatProjectIds[0] ?? ''
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState('')
   const [isLoadingSession, setIsLoadingSession] = useState(true)
@@ -163,7 +177,9 @@ export default function ProjectChatPanel({
     async function loadSession() {
       setIsLoadingSession(true)
       try {
-        const session = await getActiveChatSession(projectId)
+        const session = sessionId
+          ? await getChatSession(chatProjectId, sessionId)
+          : await getActiveChatSession(chatProjectId)
         if (isMounted) {
           applySession(session)
         }
@@ -183,7 +199,7 @@ export default function ProjectChatPanel({
     return () => {
       isMounted = false
     }
-  }, [projectId])
+  }, [chatProjectId, sessionId])
 
   function applySession(session: ChatSession) {
     setMessages(session.messages.map((message) => ({
@@ -196,7 +212,7 @@ export default function ProjectChatPanel({
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = draft.trim()
-    if (!content || isStreaming || isLoadingSession) {
+    if (!content || isStreaming || isLoadingSession || readOnly) {
       return
     }
 
@@ -217,7 +233,7 @@ export default function ProjectChatPanel({
 
     try {
       await streamProjectChat(
-        projectId,
+        chatProjectId,
         requestMessages,
         selectedContext?.context,
         ({ event: eventName, data }) => {
@@ -242,10 +258,12 @@ export default function ProjectChatPanel({
               }
               return message
             }))
+            void onSessionActivity?.()
             void onGraphChangeProposalSaved?.()
           }
         },
         controller.signal,
+        projectIds,
       )
 
       if (streamError) {
@@ -297,9 +315,10 @@ export default function ProjectChatPanel({
 
     setIsStartingSession(true)
     try {
-      const session = await startNewChatSession(projectId)
+      const session = await startNewChatSession(chatProjectId)
       applySession(session)
       setDraft('')
+      onSessionStarted?.(session)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to start a new chat session.')
     } finally {
@@ -328,7 +347,7 @@ export default function ProjectChatPanel({
               variant="ghost"
               onClick={() => void handleStartNewSession()}
               disabled={isLoadingSession || isStreaming || isStartingSession}
-              aria-label="Start new AI edit"
+              aria-label="Start new chat"
             >
               {isStartingSession ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             </Button>
@@ -388,6 +407,11 @@ export default function ProjectChatPanel({
         </div>
 
         <form className="shrink-0 border-t px-3 py-3" onSubmit={handleSend}>
+          {readOnly ? (
+            <div className="mb-2.5 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              This session is read-only. Start a new chat to continue.
+            </div>
+          ) : null}
           {selectedContext ? (
             <div className="mb-2.5 flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-xs text-muted-foreground">
               <span className="shrink-0 font-medium text-foreground">Context</span>
@@ -411,7 +435,7 @@ export default function ProjectChatPanel({
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleTextareaKeyDown}
-              disabled={isLoadingSession || isStreaming}
+              disabled={isLoadingSession || isStreaming || readOnly}
               className="max-h-32 min-h-16 resize-none"
             />
             {isStreaming ? (
@@ -419,7 +443,7 @@ export default function ProjectChatPanel({
                 <Square className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="submit" size="icon" disabled={isLoadingSession || !draft.trim()} aria-label="Send message">
+              <Button type="submit" size="icon" disabled={isLoadingSession || readOnly || !draft.trim()} aria-label="Send message">
                 <SendHorizontal className="h-4 w-4" />
               </Button>
             )}

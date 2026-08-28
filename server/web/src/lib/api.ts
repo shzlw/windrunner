@@ -343,6 +343,15 @@ export interface ChatSession {
   messages: ChatSessionMessage[]
 }
 
+export interface ChatSessionSummary {
+  id: string
+  projectId: string
+  status: string
+  createdAt?: string
+  updatedAt?: string
+  title: string
+}
+
 export interface LlmStatus {
   provider: string
   available: boolean
@@ -744,12 +753,17 @@ export async function streamProjectChat(
   context: ProjectChatContext | null | undefined,
   onEvent: (event: { event: string; data: ProjectChatStreamData }) => void,
   signal?: AbortSignal,
+  projectIds?: string[],
 ) {
+  const body: { messages: ProjectChatMessage[]; context: ProjectChatContext | null | undefined; projectIds?: string[] } = { messages, context }
+  if (projectIds?.length) {
+    body.projectIds = projectIds
+  }
   return streamRequest<ProjectChatStreamData>(
     `/internal-api/v1/projects/${projectId}/chat-messages/stream`,
     {
       method: 'POST',
-      body: JSON.stringify({ messages, context }),
+      body: JSON.stringify(body),
       signal,
     },
     onEvent,
@@ -758,6 +772,14 @@ export async function streamProjectChat(
 
 export async function getActiveChatSession(projectId: string): Promise<ChatSession> {
   return request<ChatSession>(`/internal-api/v1/projects/${projectId}/chat-sessions`, { method: 'GET' })
+}
+
+export async function listChatSessions(projectId: string): Promise<ChatSessionSummary[]> {
+  return request<ChatSessionSummary[]>(`/internal-api/v1/projects/${projectId}/chat-sessions/history`, { method: 'GET' })
+}
+
+export async function getChatSession(projectId: string, sessionId: string): Promise<ChatSession> {
+  return request<ChatSession>(`/internal-api/v1/projects/${projectId}/chat-sessions/${sessionId}`, { method: 'GET' })
 }
 
 export async function startNewChatSession(projectId: string): Promise<ChatSession> {

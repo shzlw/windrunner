@@ -22,6 +22,14 @@ public interface ChatMessageRepository extends CrudRepository<ChatMessage, Strin
     List<ChatMessage> findBySessionIdOrdered(@Param("chatSessionId") String chatSessionId);
 
     @Query("""
+            SELECT DISTINCT ON (chat_session_id) id, chat_session_id, role, content, created_at
+            FROM chat_message
+            WHERE chat_session_id IN (:chatSessionIds) AND role = 'user'
+            ORDER BY chat_session_id, created_at ASC, id ASC
+            """)
+    List<ChatMessage> findFirstUserMessages(@Param("chatSessionIds") List<String> chatSessionIds);
+
+    @Query("""
             SELECT id, chat_session_id, role, content, created_at
             FROM chat_message
             WHERE id = :id AND chat_session_id = :chatSessionId

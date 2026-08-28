@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, KeyRound, ListTodo, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, KeyRound, ListTodo, TrendingUp, UserCircle, Users, UsersRound, WandSparkles, Wind } from 'lucide-react'
 
 import {
   Sidebar,
@@ -38,9 +38,11 @@ import TeamsPage from './TeamsPage'
 import UsersPage from './UsersPage'
 import SubscriptionsPage from './SubscriptionsPage'
 import AssignedPage from './AssignedPage'
+import AskPage from './AskPage'
 import NotificationCenter, { NotificationProvider } from './components/NotificationCenter'
 
 const baseMenuItems = [
+  { label: 'Ask', path: '/app/ask', icon: WandSparkles },
   { label: 'Projects', path: '/app/projects', icon: FolderOpen },
   { label: 'Assigned', path: '/app/assigned', icon: ListTodo },
   { label: 'Subscriptions', path: '/app/subscriptions', icon: Bookmark },
@@ -78,14 +80,13 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     <TooltipProvider>
       <SidebarProvider className="h-svh min-h-0 overflow-hidden">
         <Sidebar collapsible="icon">
-          <SidebarHeader>
-            <div className="flex h-12 items-center justify-between group-data-[collapsible=icon]:justify-center">
+          <SidebarHeader className="pb-0">
+            <div className="flex h-10 items-center justify-between group-data-[collapsible=icon]:justify-center">
               <NavLink
                 to="/app/projects"
                 className="flex h-8 items-center gap-2 overflow-hidden rounded-md p-2 group-data-[collapsible=icon]:hidden"
               >
-                <Wind className="size-4 shrink-0 text-sky-600" strokeWidth={2.6} />
-                <div className="min-w-0 flex-1 text-left text-sm leading-tight">
+                <div className="min-w-0 flex-1 text-left text-lg leading-tight">
                   <span className="truncate font-semibold">Windrunner</span>
                 </div>
               </NavLink>
@@ -476,6 +477,7 @@ function App() {
         element={<ProtectedApp currentUser={currentUser} />}
       >
         <Route index element={<Navigate to="projects" replace />} />
+        <Route path="ask" element={<AskPage />} />
         <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
         <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
         <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />

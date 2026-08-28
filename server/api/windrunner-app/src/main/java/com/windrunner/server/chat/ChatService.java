@@ -1,6 +1,7 @@
 package com.windrunner.server.chat;
 
 import com.windrunner.server.chat.api.ChatSessionView;
+import com.windrunner.server.chat.api.ChatSessionSummaryView;
 import com.windrunner.server.chat.domain.ChatMessage;
 import com.windrunner.server.chat.domain.ChatSession;
 import com.windrunner.server.chat.persistence.ChatMessageRepository;
@@ -14,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -37,6 +41,26 @@ public class ChatService {
         return toView(getOrCreateActiveSession(projectId, userId));
     }
 
+    public ChatSessionView getSession(String projectId, String sessionId, String userId) {
+        ChatSession session = sessionRepository.findByIdAndProjectIdAndUserId(sessionId, projectId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session not found"));
+        return toView(session);
+    }
+
+    @Transactional
+    public List<ChatSessionSummaryView> listSessions(String projectId, String userId) {
+        getOrCreateActiveSession(projectId, userId);
+        List<ChatSession> sessions = sessionRepository.findAllByProjectIdAndUserIdOrdered(projectId, userId);
+        List<String> sessionIds = sessions.stream().map(ChatSession::getId).toList();
+        Map<String, ChatMessage> firstUserMessages = sessionIds.isEmpty()
+                ? Map.of()
+                : messageRepository.findFirstUserMessages(sessionIds).stream()
+                .collect(Collectors.toMap(ChatMessage::getChatSessionId, Function.identity()));
+        return sessions.stream()
+                .map(session -> toSummary(session, firstUserMessages.get(session.getId())))
+                .toList();
+    }
+
     @Transactional
     public ChatSessionView startNewSession(String projectId, String userId) {
         sessionRepository.archiveActive(projectId, userId);
@@ -57,8 +81,26 @@ public class ChatService {
         }
         String id = idGenerator.generate(EntityIdType.CHAT_MESSAGE);
         messageRepository.insert(id, chatSessionId, role, content);
+        sessionRepository.touch(chatSessionId);
         return messageRepository.findByIdAndSessionId(id, chatSessionId)
                 .orElseThrow(() -> new IllegalStateException("Created chat message could not be loaded"));
+    }
+
+    private ChatSessionSummaryView toSummary(ChatSession session, ChatMessage firstUserMessage) {
+        String title = firstUserMessage == null || firstUserMessage.getContent() == null
+                ? "New conversation"
+                : firstUserMessage.getContent().replaceAll("\\s+", " ").trim();
+        if (title.length() > 120) {
+            title = title.substring(0, 117) + "...";
+        }
+        return new ChatSessionSummaryView(
+                session.getId(),
+                session.getProjectId(),
+                session.getStatus(),
+                session.getCreatedAt(),
+                session.getUpdatedAt(),
+                title.isBlank() ? "New conversation" : title
+        );
     }
 
     private ChatSessionView toView(ChatSession session) {
