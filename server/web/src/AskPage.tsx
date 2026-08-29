@@ -12,9 +12,12 @@ import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } 
 import ProjectChatPanel, { type ChatWorkItemReference } from '@/ProjectChatPanel'
 import { getLlmStatus, listNodes, listProjects, type Project, type ProjectNode } from '@/lib/api'
 import type { AskPageOutletContext } from './App'
-import AdaptiveWorkspaceShell from './AdaptiveWorkspaceShell'
 
 const maxSelectedProjects = 10
+
+type AskPageProps = {
+  projectId?: string
+}
 
 function projectTitle(project: Project) {
   return project.title?.trim() || project.name?.trim() || 'Untitled project'
@@ -35,7 +38,7 @@ function referencesForNodes(nodes: ProjectNode[]) {
   } satisfies ChatWorkItemReference]))
 }
 
-export default function AskPage() {
+export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const {
@@ -71,12 +74,13 @@ export default function AskPage() {
     return projects.filter((project) => projectTitle(project).toLowerCase().includes(query))
   }, [projectQuery, projects])
   const primaryProjectId = selectedProjectIds[0] ?? ''
-  const activeChatProjectId = chatProjectId || primaryProjectId
+  const activeChatProjectId = routeProjectId || chatProjectId || primaryProjectId
+  const requestedSessionId = searchParams.get('session')
   const initialPrompt = searchParams.get('prompt') ?? ''
 
   const selectedSession = useMemo(
-    () => chatSessions.find((session) => session.id === selectedSessionId && session.projectId === activeChatProjectId),
-    [activeChatProjectId, chatSessions, selectedSessionId],
+    () => chatSessions.find((session) => session.id === (requestedSessionId ?? selectedSessionId) && session.projectId === activeChatProjectId),
+    [activeChatProjectId, chatSessions, requestedSessionId, selectedSessionId],
   )
   useEffect(() => {
     let isMounted = true
@@ -122,13 +126,19 @@ export default function AskPage() {
         }
         setProjects(nextProjects)
         setIsLlmAvailable(llmStatus.available)
-        setChatProjectId(nextProjects[0]?.id ?? '')
-        setSelectedProjectIds((current) => {
-          if (newChatRequestKey > 0) {
-            return []
-          }
-          const stillAvailable = current.filter((projectId) => nextProjects.some((project) => project.id === projectId))
-          return stillAvailable.length > 0 ? stillAvailable : nextProjects[0] ? [nextProjects[0].id] : []
+          const defaultProjectId = routeProjectId && nextProjects.some((project) => project.id === routeProjectId)
+            ? routeProjectId
+            : nextProjects[0]?.id ?? ''
+          setChatProjectId(defaultProjectId)
+          setSelectedProjectIds((current) => {
+            if (newChatRequestKey > 0) {
+              return []
+            }
+            if (defaultProjectId) {
+              return [defaultProjectId]
+            }
+            const stillAvailable = current.filter((projectId) => nextProjects.some((project) => project.id === projectId))
+            return stillAvailable.length > 0 ? stillAvailable : nextProjects[0] ? [nextProjects[0].id] : []
         })
       } catch (error) {
         if (isMounted) {
@@ -145,7 +155,7 @@ export default function AskPage() {
     return () => {
       isMounted = false
     }
-  }, [newChatRequestKey])
+  }, [newChatRequestKey, routeProjectId])
 
   useEffect(() => {
     if (selectedProjectIds.length === 0) {
@@ -314,7 +324,15 @@ export default function AskPage() {
       workItemReferences={visibleReferences}
       onWorkItemReferenceClick={(workItemId) => {
         const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
-        navigate(`/app/projects/${projectId}?workItemId=${encodeURIComponent(workItemId)}`)
+        const nextParams = new URLSearchParams({
+          assistant: '1',
+          workItemId,
+        })
+        const sessionId = selectedSession?.id ?? requestedSessionId
+        if (sessionId) {
+          nextParams.set('session', sessionId)
+        }
+        navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
       }}
       flush
       className="h-full min-h-0"
@@ -333,7 +351,7 @@ export default function AskPage() {
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <AdaptiveWorkspaceShell chat={chatContent} className="border-b" />
+          chatContent
         )}
       </div>
     </div>

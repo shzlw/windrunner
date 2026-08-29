@@ -41,7 +41,7 @@ import TeamsPage from './TeamsPage'
 import UsersPage from './UsersPage'
 import SubscriptionsPage from './SubscriptionsPage'
 import MyWorkPage from './MyWorkPage'
-import AskPage from './AskPage'
+import AppView from './AppView'
 import HomePage from './HomePage'
 import NotificationCenter, { NotificationProvider } from './components/NotificationCenter'
 
@@ -416,14 +416,16 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     }
   }, [askProjectId])
 
-  async function handleStartNewSession() {
-    if (!askProjectId || isStartingSession || isChatStreaming) return
+  async function handleStartNewSession(): Promise<string | null> {
+    if (!askProjectId || isStartingSession || isChatStreaming) return null
     setIsStartingSession(true)
     try {
       const session = await startNewChatSession(askProjectId)
       await refreshChatSessions(askProjectId, session.id)
+      return session.id
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to start a new chat session.')
+      return null
     } finally {
       setIsStartingSession(false)
     }
@@ -435,8 +437,8 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
       navigate('/app/ask-ai')
       return
     }
-    await handleStartNewSession()
-    navigate('/app/ask-ai')
+    const sessionId = await handleStartNewSession()
+    navigate(sessionId ? `/app/ask-ai?session=${encodeURIComponent(sessionId)}` : '/app/ask-ai')
   }
 
   const askPageContext: AskPageOutletContext = {
@@ -515,7 +517,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                 isLoading={Boolean(askProjectId) && sessionsProjectId !== askProjectId}
                 onSelectSession={(sessionId) => {
                   setSelectedAskSessionId(sessionId)
-                  navigate('/app/ask-ai')
+                  navigate(`/app/ask-ai?session=${encodeURIComponent(sessionId)}`)
                 }}
                 onRenameSession={renameChatSession}
                 onDeleteSession={deleteChatSession}
@@ -907,39 +909,41 @@ function App() {
         path="/app"
         element={<ProtectedApp currentUser={currentUser} />}
       >
-        <Route index element={<Navigate to="home" replace />} />
-        <Route path="home" element={<HomePage displayName={currentUser?.displayName} />} />
-        <Route path="ask-ai" element={<AskPage />} />
-        <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
-        <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
-        <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />
-        <Route path="ai-efficiency" element={<AIEfficiencyPage />} />
-        <Route path="subscriptions" element={<SubscriptionsPage />} />
-        <Route path="my-work" element={<MyWorkPage />} />
-        <Route
-          path="teams"
-          element={<TeamsPage currentUser={currentUser} />}
-        />
-        <Route
-          path="teams/:teamId"
-          element={<TeamDetailsPage currentUser={currentUser} />}
-        />
-        <Route
-          path="account"
-          element={<MyAccountPage currentUser={currentUser} onUserChange={setCurrentUser} />}
-        />
-        <Route
-          path="users"
-          element={<UsersPage currentUser={currentUser} />}
-        />
-        <Route
-          path="audit-logs"
-          element={
-            <AdminOnlyRoute currentUser={currentUser}>
-              <AuditLogsPage />
-            </AdminOnlyRoute>
-          }
-        />
+        <Route element={<AppView />}>
+          <Route index element={<Navigate to="home" replace />} />
+          <Route path="home" element={<HomePage displayName={currentUser?.displayName} />} />
+          <Route path="ask-ai" element={null} />
+          <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
+          <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
+          <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />
+          <Route path="ai-efficiency" element={<AIEfficiencyPage />} />
+          <Route path="subscriptions" element={<SubscriptionsPage />} />
+          <Route path="my-work" element={<MyWorkPage />} />
+          <Route
+            path="teams"
+            element={<TeamsPage currentUser={currentUser} />}
+          />
+          <Route
+            path="teams/:teamId"
+            element={<TeamDetailsPage currentUser={currentUser} />}
+          />
+          <Route
+            path="account"
+            element={<MyAccountPage currentUser={currentUser} onUserChange={setCurrentUser} />}
+          />
+          <Route
+            path="users"
+            element={<UsersPage currentUser={currentUser} />}
+          />
+          <Route
+            path="audit-logs"
+            element={
+              <AdminOnlyRoute currentUser={currentUser}>
+                <AuditLogsPage />
+              </AdminOnlyRoute>
+            }
+          />
+        </Route>
       </Route>
       <Route path="/workspace/*" element={<LegacyWorkspaceRedirect />} />
       <Route path="*" element={<Navigate to="/app" replace />} />
