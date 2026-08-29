@@ -66,4 +66,21 @@ public class ChatSessionController {
         UserContext user = authService.requireUserContext(request);
         return ApiResponse.success(chatService.startNewSession(projectId, user.userId()));
     }
+
+    @PatchMapping("/{sessionId}/title")
+    public ApiResponse<Void> rename(
+            @PathVariable("projectId") String projectId,
+            @PathVariable("sessionId") String sessionId,
+            @RequestBody RenameChatSessionRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        AppUser actor = authService.requireCurrentUser(servletRequest);
+        projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
+        UserContext user = authService.requireUserContext(servletRequest);
+        chatService.renameSession(projectId, sessionId, user.userId(), request == null ? null : request.title());
+        return ApiResponse.success();
+    }
+
+    public record RenameChatSessionRequest(String title) {
+    }
 }

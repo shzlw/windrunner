@@ -72,6 +72,20 @@ public class ChatService {
     }
 
     @Transactional
+    public void renameSession(String projectId, String sessionId, String userId, String requestedTitle) {
+        if (requestedTitle == null || requestedTitle.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat session title is required");
+        }
+        String title = requestedTitle.replaceAll("\\s+", " ").trim();
+        if (title.length() > 120) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat session title must be 120 characters or fewer");
+        }
+        if (sessionRepository.updateTitle(sessionId, projectId, userId, title) == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session not found");
+        }
+    }
+
+    @Transactional
     public ChatMessage addMessage(String chatSessionId, String role, String content) {
         if (chatSessionId == null || chatSessionId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat session id is required");
@@ -87,9 +101,13 @@ public class ChatService {
     }
 
     private ChatSessionSummaryView toSummary(ChatSession session, ChatMessage firstUserMessage) {
-        String title = firstUserMessage == null || firstUserMessage.getContent() == null
-                ? "New conversation"
-                : firstUserMessage.getContent().replaceAll("\\s+", " ").trim();
+        String title = session.getTitle();
+        if (title == null || title.isBlank()) {
+            title = firstUserMessage == null || firstUserMessage.getContent() == null
+                    ? "New conversation"
+                    : firstUserMessage.getContent().replaceAll("\\s+", " ").trim();
+        }
+        title = title.replaceAll("\\s+", " ").trim();
         if (title.length() > 120) {
             title = title.substring(0, 117) + "...";
         }

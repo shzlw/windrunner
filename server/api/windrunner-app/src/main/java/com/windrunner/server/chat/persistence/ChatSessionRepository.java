@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface ChatSessionRepository extends CrudRepository<ChatSession, String> {
 
     @Query("""
-            SELECT id, project_id, user_id, status, created_at, updated_at, archived_at
+            SELECT id, project_id, user_id, title, status, created_at, updated_at, archived_at
             FROM chat_session
             WHERE project_id = :projectId AND user_id = :userId AND status = 'ACTIVE'
             """)
@@ -22,7 +22,7 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
                                      @Param("userId") String userId);
 
     @Query("""
-            SELECT id, project_id, user_id, status, created_at, updated_at, archived_at
+            SELECT id, project_id, user_id, title, status, created_at, updated_at, archived_at
             FROM chat_session
             WHERE id = :id AND project_id = :projectId
             """)
@@ -30,7 +30,7 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
                                                @Param("projectId") String projectId);
 
     @Query("""
-            SELECT id, project_id, user_id, status, created_at, updated_at, archived_at
+            SELECT id, project_id, user_id, title, status, created_at, updated_at, archived_at
             FROM chat_session
             WHERE id = :id AND project_id = :projectId AND user_id = :userId
             """)
@@ -39,7 +39,7 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
                                                         @Param("userId") String userId);
 
     @Query("""
-            SELECT id, project_id, user_id, status, created_at, updated_at, archived_at
+            SELECT id, project_id, user_id, title, status, created_at, updated_at, archived_at
             FROM chat_session
             WHERE project_id = :projectId AND user_id = :userId
             ORDER BY CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END, updated_at DESC, id DESC
@@ -72,4 +72,15 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
             WHERE project_id = :projectId AND user_id = :userId AND status = 'ACTIVE'
             """)
     int archiveActive(@Param("projectId") String projectId, @Param("userId") String userId);
+
+    @Modifying
+    @Query("""
+            UPDATE chat_session
+            SET title = :title
+            WHERE id = :id AND project_id = :projectId AND user_id = :userId
+            """)
+    int updateTitle(@Param("id") String id,
+                    @Param("projectId") String projectId,
+                    @Param("userId") String userId,
+                    @Param("title") String title);
 }

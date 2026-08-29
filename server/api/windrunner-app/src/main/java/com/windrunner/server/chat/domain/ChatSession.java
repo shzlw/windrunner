@@ -17,6 +17,7 @@ public class ChatSession {
     private String projectId;
     @Column("user_id")
     private String userId;
+    private String title;
     private String status;
     @Column("created_at")
     private OffsetDateTime createdAt;

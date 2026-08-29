@@ -126,11 +126,13 @@ export default function ProjectChatPanel({
   onClearSelectedContext,
   onSessionStarted,
   onSessionActivity,
+  onStreamingChange,
   onGraphChangeProposalSaved,
   workItemReferences = new Map(),
   onWorkItemReferenceClick,
   className,
   flush = false,
+  showHeader = true,
   onClose,
 }: {
   projectId?: string
@@ -141,11 +143,13 @@ export default function ProjectChatPanel({
   onClearSelectedContext?: () => void
   onSessionStarted?: (session: ChatSession) => void
   onSessionActivity?: () => void | Promise<void>
+  onStreamingChange?: (isStreaming: boolean) => void
   onGraphChangeProposalSaved?: () => void | Promise<void>
   workItemReferences?: Map<string, ChatWorkItemReference>
   onWorkItemReferenceClick?: (workItemId: string) => void | Promise<void>
   className?: string
   flush?: boolean
+  showHeader?: boolean
   onClose?: () => void
 }) {
   const routeProjectId = useParams().projectId
@@ -230,6 +234,7 @@ export default function ProjectChatPanel({
     setDraft('')
     setMessages((current) => [...current, userMessage, assistantMessage])
     setIsStreaming(true)
+    onStreamingChange?.(true)
 
     try {
       await streamProjectChat(
@@ -294,6 +299,7 @@ export default function ProjectChatPanel({
         abortControllerRef.current = null
       }
       setIsStreaming(false)
+      onStreamingChange?.(false)
     }
   }
 
@@ -306,6 +312,55 @@ export default function ProjectChatPanel({
 
   function stopStreaming() {
     abortControllerRef.current?.abort()
+  }
+
+  function renderComposer() {
+    return (
+      <form className="w-full" onSubmit={handleSend}>
+        {readOnly ? (
+          <div className="mb-2.5 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            This session is read-only. Start a new chat to continue.
+          </div>
+        ) : null}
+        {selectedContext ? (
+          <div className="mb-2.5 flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-xs text-muted-foreground">
+            <span className="shrink-0 font-medium text-foreground">Context</span>
+            <span className="min-w-0 truncate">{selectedContext.label}</span>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              className="-mr-1 ml-auto"
+              onClick={onClearSelectedContext}
+              aria-label="Clear selected context"
+              title="Clear selected context"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        ) : null}
+        <div className="flex items-end gap-2">
+          <Textarea
+            rows={2}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleTextareaKeyDown}
+            placeholder="Ask anything..."
+            disabled={isLoadingSession || isStreaming || readOnly}
+            className="max-h-32 min-h-16 resize-none"
+          />
+          {isStreaming ? (
+            <Button type="button" size="icon" variant="outline" onClick={stopStreaming} aria-label="Stop response">
+              <Square className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button type="submit" size="icon" disabled={isLoadingSession || readOnly || !draft.trim()} aria-label="Send message">
+              <SendHorizontal className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </form>
+    )
   }
 
   async function handleStartNewSession() {
@@ -334,37 +389,39 @@ export default function ProjectChatPanel({
         className,
       )}
     >
-      <div className="flex h-10 shrink-0 items-center border-b px-3">
-        <div className="flex w-full items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <Bot className="h-4 w-4 shrink-0 text-primary" />
-            <h2 className="truncate text-sm font-semibold leading-none tracking-normal">Chat with AI</h2>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              onClick={() => void handleStartNewSession()}
-              disabled={isLoadingSession || isStreaming || isStartingSession}
-              aria-label="Start new chat"
-            >
-              {isStartingSession ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            </Button>
-            {onClose ? (
+      {showHeader ? (
+        <div className="flex h-10 shrink-0 items-center border-b px-3">
+          <div className="flex w-full items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Bot className="h-4 w-4 shrink-0 text-primary" />
+              <h2 className="truncate text-sm font-semibold leading-none tracking-normal">Chat with AI</h2>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
               <Button
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                onClick={onClose}
-                aria-label="Close AI chat"
+                onClick={() => void handleStartNewSession()}
+                disabled={isLoadingSession || isStreaming || isStartingSession}
+                aria-label="Start new chat"
               >
-                <X className="h-4 w-4" />
+                {isStartingSession ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               </Button>
-            ) : null}
+              {onClose ? (
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={onClose}
+                  aria-label="Close AI chat"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col p-0">
         <div ref={viewportRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
@@ -373,8 +430,11 @@ export default function ProjectChatPanel({
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex h-full min-h-56 items-center justify-center text-sm text-muted-foreground">
-              No messages yet
+            <div className="flex h-full min-h-56 flex-col items-center justify-center gap-5 p-6">
+              <h2 className="text-center text-xl font-semibold tracking-tight">How can I help you today?</h2>
+              <div className="w-full max-w-2xl">
+                {renderComposer()}
+              </div>
             </div>
           ) : (
             messages.map((message) => (
@@ -406,49 +466,7 @@ export default function ProjectChatPanel({
           )}
         </div>
 
-        <form className="shrink-0 border-t px-3 py-3" onSubmit={handleSend}>
-          {readOnly ? (
-            <div className="mb-2.5 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-              This session is read-only. Start a new chat to continue.
-            </div>
-          ) : null}
-          {selectedContext ? (
-            <div className="mb-2.5 flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-xs text-muted-foreground">
-              <span className="shrink-0 font-medium text-foreground">Context</span>
-              <span className="min-w-0 truncate">{selectedContext.label}</span>
-              <Button
-                type="button"
-                size="icon-xs"
-                variant="ghost"
-                className="-mr-1 ml-auto"
-                onClick={onClearSelectedContext}
-                aria-label="Clear selected context"
-                title="Clear selected context"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          ) : null}
-          <div className="flex items-end gap-2">
-            <Textarea
-              rows={2}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={handleTextareaKeyDown}
-              disabled={isLoadingSession || isStreaming || readOnly}
-              className="max-h-32 min-h-16 resize-none"
-            />
-            {isStreaming ? (
-              <Button type="button" size="icon" variant="outline" onClick={stopStreaming} aria-label="Stop response">
-                <Square className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button type="submit" size="icon" disabled={isLoadingSession || readOnly || !draft.trim()} aria-label="Send message">
-                <SendHorizontal className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </form>
+        {messages.length > 0 ? <div className="shrink-0 border-t px-3 py-3">{renderComposer()}</div> : null}
       </div>
     </div>
   )

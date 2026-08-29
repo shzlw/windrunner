@@ -786,6 +786,13 @@ export async function startNewChatSession(projectId: string): Promise<ChatSessio
   return request<ChatSession>(`/internal-api/v1/projects/${projectId}/chat-sessions/new`, { method: 'POST' })
 }
 
+export async function renameChatSession(projectId: string, sessionId: string, title: string): Promise<void> {
+  await request<void>(`/internal-api/v1/projects/${projectId}/chat-sessions/${sessionId}/title`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  })
+}
+
 export async function createProject(project: CreateProjectRequest): Promise<Project> {
   const created = await request<{
     id: string

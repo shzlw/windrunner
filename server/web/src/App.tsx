@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, KeyRound, ListTodo, TrendingUp, UserCircle, Users, UsersRound, WandSparkles, Wind } from 'lucide-react'
+import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Search, TrendingUp, UserCircle, Users, UsersRound, WandSparkles, Wind } from 'lucide-react'
 
 import {
   Sidebar,
@@ -23,8 +23,11 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { Toaster } from '@/components/ui/sonner'
-import { fetchCurrentUser, login, type AuthUser, updatePassword } from '@/lib/api'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { fetchCurrentUser, listChatSessions, login, renameChatSession as renameChatSessionRequest, startNewChatSession, type AuthUser, type ChatSessionSummary, updatePassword } from '@/lib/api'
+import { toast } from 'sonner'
 
 import './App.css'
 import AuditLogsPage from './AuditLogsPage'
@@ -42,7 +45,6 @@ import AskPage from './AskPage'
 import NotificationCenter, { NotificationProvider } from './components/NotificationCenter'
 
 const baseMenuItems = [
-  { label: 'Ask', path: '/app/ask', icon: WandSparkles },
   { label: 'Projects', path: '/app/projects', icon: FolderOpen },
   { label: 'Assigned', path: '/app/assigned', icon: ListTodo },
   { label: 'Subscriptions', path: '/app/subscriptions', icon: Bookmark },
@@ -51,6 +53,17 @@ const baseMenuItems = [
 ]
 
 const aiEfficiencyMenuItem = { label: 'AI Efficiency', path: '/app/ai-efficiency', icon: TrendingUp }
+const sessionPageSize = 10
+
+export type AskPageOutletContext = {
+  askProjectId: string
+  chatSessions: ChatSessionSummary[]
+  selectedSessionId: string | null
+  isLoadingSessions: boolean
+  refreshChatSessions: (projectId: string, preferredSessionId?: string) => Promise<void>
+  setAskProjectId: (projectId: string) => void
+  onStreamingChange: (isStreaming: boolean) => void
+}
 
 
 function isAdminLike(user: AuthUser | null) {
@@ -65,8 +78,240 @@ function authRedirectPath(user: AuthUser | null) {
   return user.mustChangePassword ? '/change-password' : '/app/projects'
 }
 
+function formatRelativeAge(timestamp?: string) {
+  if (!timestamp) {
+    return 'now'
+  }
+  const createdAt = new Date(timestamp).getTime()
+  if (!Number.isFinite(createdAt)) {
+    return 'now'
+  }
+  const elapsedMilliseconds = Math.max(0, Date.now() - createdAt)
+  const minutes = Math.floor(elapsedMilliseconds / 60000)
+  if (minutes < 1) {
+    return 'now'
+  }
+  if (minutes < 60) {
+    return `${minutes}m`
+  }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) {
+    return `${hours}h`
+  }
+  const days = Math.floor(hours / 24)
+  if (days < 30) {
+    return `${days}d`
+  }
+  const months = Math.floor(days / 30)
+  if (months < 12) {
+    return `${months}mo`
+  }
+  return `${Math.floor(months / 12)}y`
+}
+
+function AskSessionsSidebar({
+  projectId,
+  sessions,
+  selectedSessionId,
+  isLoading,
+  isStartingSession,
+  isChatStreaming,
+  onSelectSession,
+  onStartNewSession,
+  onRenameSession,
+}: {
+  projectId: string
+  sessions: ChatSessionSummary[]
+  selectedSessionId: string | null
+  isLoading: boolean
+  isStartingSession: boolean
+  isChatStreaming: boolean
+  onSelectSession: (sessionId: string) => void
+  onStartNewSession: () => void
+  onRenameSession: (sessionId: string, title: string) => Promise<void>
+}) {
+  const [query, setQuery] = useState('')
+  const [page, setPage] = useState(0)
+  const [renameSessionId, setRenameSessionId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [isRenaming, setIsRenaming] = useState(false)
+  const visibleSessions = useMemo(
+    () => sessions.filter((session) => session.projectId === projectId),
+    [projectId, sessions],
+  )
+  const filteredSessions = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    if (!normalizedQuery) {
+      return visibleSessions
+    }
+    return visibleSessions.filter((session) => session.title.toLowerCase().includes(normalizedQuery))
+  }, [query, visibleSessions])
+  const totalPages = Math.max(1, Math.ceil(filteredSessions.length / sessionPageSize))
+  const currentPage = Math.min(page, totalPages - 1)
+  const loadedSessions = filteredSessions.slice(0, (currentPage + 1) * sessionPageSize)
+
+  async function handleRename(event: FormEvent<HTMLFormElement>, sessionId: string) {
+    event.preventDefault()
+    const title = renameValue.trim()
+    if (!title || isRenaming) {
+      return
+    }
+
+    setIsRenaming(true)
+    try {
+      await onRenameSession(sessionId, title)
+      setRenameSessionId(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to rename chat session.')
+    } finally {
+      setIsRenaming(false)
+    }
+  }
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden">
+      <div className="flex shrink-0 items-center gap-2 border-b p-2 group-data-[collapsible=icon]:hidden">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setPage(0)
+            }}
+            placeholder="Search"
+            className="h-8 bg-white pl-8 text-sm"
+            aria-label="Search sessions"
+          />
+        </div>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="outline"
+          onClick={onStartNewSession}
+          disabled={!projectId || isLoading || isStartingSession || isChatStreaming}
+          aria-label="Start new session"
+          title="New session"
+        >
+          {isStartingSession ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        {!projectId ? (
+          <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">Select a project to see sessions</div>
+        ) : isLoading ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+        ) : visibleSessions.length === 0 ? (
+          <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">No chat sessions yet</div>
+        ) : filteredSessions.length === 0 ? (
+          <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">No matching sessions</div>
+        ) : (
+          <div className="space-y-1">
+            {loadedSessions.map((session) => {
+              const isSelected = session.id === selectedSessionId
+              return (
+                <div
+                  key={session.id}
+                  className={[
+                    'group flex w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2',
+                    isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : '',
+                  ].join(' ')}
+                >
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={() => onSelectSession(session.id)}
+                    aria-current={isSelected ? 'page' : undefined}
+                    title={session.title}
+                  >
+                    <MessageSquareText className={isSelected ? 'h-4 w-4 shrink-0 text-primary' : 'h-4 w-4 shrink-0 text-muted-foreground'} />
+                    <span className="min-w-0 flex-1 truncate text-sm group-data-[collapsible=icon]:hidden">{session.title}</span>
+                  </button>
+                  <span className="shrink-0 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{formatRelativeAge(session.createdAt)}</span>
+                  <Popover
+                    open={renameSessionId === session.id}
+                    onOpenChange={(open) => {
+                      if (open) {
+                        setRenameSessionId(session.id)
+                        setRenameValue(session.title)
+                      } else if (renameSessionId === session.id) {
+                        setRenameSessionId(null)
+                      }
+                    }}
+                  >
+                    <PopoverTrigger
+                      render={(
+                        <Button
+                          type="button"
+                          size="icon-xs"
+                          variant="ghost"
+                          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100 group-data-[collapsible=icon]:hidden"
+                          aria-label={`More actions for ${session.title}`}
+                          title="More actions"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      )}
+                    />
+                    <PopoverContent side="right" align="start" className="w-64 gap-3 p-3">
+                      <PopoverHeader>
+                        <PopoverTitle>Rename session</PopoverTitle>
+                      </PopoverHeader>
+                      <form className="space-y-3" onSubmit={(event) => void handleRename(event, session.id)}>
+                        <Input
+                          value={renameSessionId === session.id ? renameValue : session.title}
+                          onChange={(event) => setRenameValue(event.target.value)}
+                          maxLength={120}
+                          autoFocus
+                          aria-label="Session name"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button type="button" size="sm" variant="ghost" onClick={() => setRenameSessionId(null)} disabled={isRenaming}>Cancel</Button>
+                          <Button type="submit" size="sm" disabled={isRenaming || !renameValue.trim()}>
+                            {isRenaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                            Save
+                          </Button>
+                        </div>
+                      </form>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {loadedSessions.length < filteredSessions.length ? (
+        <div className="shrink-0 border-t px-2 py-2 group-data-[collapsible=icon]:hidden">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))}
+          >
+            Load more
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const isAskMode = location.pathname === '/app/ask' || location.pathname.startsWith('/app/ask/')
+  const [askProjectId, setAskProjectId] = useState('')
+  const [askSessions, setAskSessions] = useState<ChatSessionSummary[]>([])
+  const [selectedAskSessionId, setSelectedAskSessionId] = useState<string | null>(null)
+  const [sessionsProjectId, setSessionsProjectId] = useState<string | null>(null)
+  const [isStartingSession, setIsStartingSession] = useState(false)
+  const [isChatStreaming, setIsChatStreaming] = useState(false)
   const menuItems = isAdminLike(currentUser)
     ? [
         ...baseMenuItems,
@@ -75,6 +320,72 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
       ]
     : [...baseMenuItems, aiEfficiencyMenuItem]
   const accountLabel = `@${currentUser?.displayName || currentUser?.username || 'account'}`
+  const refreshChatSessions = useCallback(async (projectId: string, preferredSessionId?: string) => {
+    const nextSessions = await listChatSessions(projectId)
+    setAskSessions(nextSessions)
+    setSessionsProjectId(projectId)
+    setSelectedAskSessionId((current) => {
+      if (preferredSessionId && nextSessions.some((session) => session.id === preferredSessionId)) {
+        return preferredSessionId
+      }
+      if (current && nextSessions.some((session) => session.id === current)) {
+        return current
+      }
+      return nextSessions.find((session) => session.status === 'ACTIVE')?.id ?? nextSessions[0]?.id ?? null
+    })
+  }, [])
+
+  const renameChatSession = useCallback(async (sessionId: string, title: string) => {
+    await renameChatSessionRequest(askProjectId, sessionId, title)
+    await refreshChatSessions(askProjectId)
+  }, [askProjectId, refreshChatSessions])
+
+  useEffect(() => {
+    if (!askProjectId) {
+      return
+    }
+    let isMounted = true
+    listChatSessions(askProjectId)
+      .then((nextSessions) => {
+        if (!isMounted) return
+        setAskSessions(nextSessions)
+        setSessionsProjectId(askProjectId)
+        setSelectedAskSessionId(nextSessions.find((session) => session.status === 'ACTIVE')?.id ?? nextSessions[0]?.id ?? null)
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setSessionsProjectId(askProjectId)
+          toast.error(error instanceof Error ? error.message : 'Failed to load chat sessions.')
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [askProjectId])
+
+  async function handleStartNewSession() {
+    if (!askProjectId || isStartingSession || isChatStreaming) return
+    setIsStartingSession(true)
+    try {
+      const session = await startNewChatSession(askProjectId)
+      await refreshChatSessions(askProjectId, session.id)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to start a new chat session.')
+    } finally {
+      setIsStartingSession(false)
+    }
+  }
+
+  const askPageContext: AskPageOutletContext = {
+    askProjectId,
+    chatSessions: askSessions,
+    selectedSessionId: selectedAskSessionId,
+    isLoadingSessions: Boolean(askProjectId) && sessionsProjectId !== askProjectId,
+    refreshChatSessions,
+    setAskProjectId,
+    onStreamingChange: setIsChatStreaming,
+  }
 
   return (
     <TooltipProvider>
@@ -94,10 +405,45 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
             </div>
           </SidebarHeader>
 
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
+          <SidebarContent className={isAskMode ? 'overflow-hidden' : undefined}>
+            <SidebarGroup className="pb-0">
+              <Tabs
+                orientation="horizontal"
+                value={isAskMode ? 'ask-ai' : 'workspace'}
+                onValueChange={(value) => navigate(value === 'ask-ai' ? '/app/ask' : '/app/projects')}
+                className="w-full"
+              >
+                <TabsList className="grid h-9 w-full grid-cols-2">
+                  <TabsTrigger value="workspace" className="min-w-0 px-1.5 text-xs group-data-[collapsible=icon]:px-1">
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    <span className="group-data-[collapsible=icon]:hidden">Workspace</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="ask-ai" className="min-w-0 px-1.5 text-xs group-data-[collapsible=icon]:px-1">
+                    <WandSparkles className="h-3.5 w-3.5" />
+                    <span className="group-data-[collapsible=icon]:hidden">Ask AI</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </SidebarGroup>
+            <SidebarSeparator className="mx-0" />
+
+            {isAskMode ? (
+              <AskSessionsSidebar
+                key={askProjectId || 'no-project'}
+                projectId={askProjectId}
+                sessions={askSessions}
+                selectedSessionId={selectedAskSessionId}
+                isLoading={Boolean(askProjectId) && sessionsProjectId !== askProjectId}
+                isStartingSession={isStartingSession}
+                isChatStreaming={isChatStreaming}
+                onSelectSession={setSelectedAskSessionId}
+                onStartNewSession={() => void handleStartNewSession()}
+                onRenameSession={renameChatSession}
+              />
+            ) : (
+              <SidebarGroup>
+                <SidebarGroupContent>
+                  <SidebarMenu>
                   {menuItems.map((item) => (
                     <SidebarMenuItem key={item.path}>
                       <SidebarMenuButton
@@ -110,30 +456,33 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
           </SidebarContent>
 
-          <SidebarFooter>
-            <SidebarSeparator />
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <NotificationCenter inSidebar />
-              </SidebarMenuItem>
-            </SidebarMenu>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  render={<NavLink to="/app/account" />}
-                  isActive={location.pathname === '/app/account'}
-                  tooltip={accountLabel}
-                >
-                  <UserCircle />
-                  <span>{accountLabel}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
+          <SidebarFooter className="gap-0 p-0">
+            <SidebarSeparator className="mx-0" />
+            <div className="flex flex-col gap-2 p-2">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <NotificationCenter inSidebar />
+                </SidebarMenuItem>
+              </SidebarMenu>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/app/account" />}
+                    isActive={location.pathname === '/app/account'}
+                    tooltip={accountLabel}
+                  >
+                    <UserCircle />
+                    <span>{accountLabel}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </div>
           </SidebarFooter>
 
           <SidebarRail />
@@ -144,7 +493,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
             <SidebarTrigger className="-ml-1" />
           </header>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <Outlet />
+            <Outlet context={askPageContext} />
           </div>
         </SidebarInset>
       </SidebarProvider>
