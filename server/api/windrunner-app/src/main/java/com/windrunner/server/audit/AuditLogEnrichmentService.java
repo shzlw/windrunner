@@ -50,8 +50,8 @@ public class AuditLogEnrichmentService {
                 apiKeyRepository::findAllById, ApiKey::getId, ApiKey::getName);
 
         auditLogs.forEach(auditLog -> {
-            auditLog.setActorDisplayName(userNames.get(auditLog.getActorUserId()));
-            auditLog.setProjectName(projectNames.get(auditLog.getProjectId()));
+            auditLog.setActorDisplayName(nameFor(userNames, auditLog.getActorUserId()));
+            auditLog.setProjectName(nameFor(projectNames, auditLog.getProjectId()));
             auditLog.setEntityDisplayName(entityName(
                     auditLog,
                     userNames,
@@ -134,14 +134,18 @@ public class AuditLogEnrichmentService {
             return "Team join request";
         }
         return switch (auditLog.getEntityType()) {
-            case AuditEntityTypes.USER -> userNames.get(id);
-            case AuditEntityTypes.PROJECT -> projectNames.get(id);
-            case AuditEntityTypes.TEAM -> teamNames.get(id);
-            case AuditEntityTypes.WORK_ITEM -> workItemNames.get(id);
-            case AuditEntityTypes.ENTRY -> entryNames.get(id);
-            case AuditEntityTypes.API_KEY -> apiKeyNames.get(id);
+            case AuditEntityTypes.USER -> nameFor(userNames, id);
+            case AuditEntityTypes.PROJECT -> nameFor(projectNames, id);
+            case AuditEntityTypes.TEAM -> nameFor(teamNames, id);
+            case AuditEntityTypes.WORK_ITEM -> nameFor(workItemNames, id);
+            case AuditEntityTypes.ENTRY -> nameFor(entryNames, id);
+            case AuditEntityTypes.API_KEY -> nameFor(apiKeyNames, id);
             default -> null;
         };
+    }
+
+    private String nameFor(Map<String, String> names, String id) {
+        return hasText(id) ? names.get(id) : null;
     }
 
     private String entryName(Entry entry) {
