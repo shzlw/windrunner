@@ -51,6 +51,14 @@ public class ChatService {
         return toView(session);
     }
 
+    public ChatSession getSessionForChat(String projectId, String sessionId, String userId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return getOrCreateActiveSession(projectId, userId);
+        }
+        return sessionRepository.findByIdAndProjectIdAndUserId(sessionId, projectId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session not found"));
+    }
+
     @Transactional
     public List<ChatSessionSummaryView> listSessions(String projectId, String userId) {
         getOrCreateActiveSession(projectId, userId);

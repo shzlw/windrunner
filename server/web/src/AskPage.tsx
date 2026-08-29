@@ -315,7 +315,6 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       projectIds={selectedProjectIds}
       sessionId={selectedSession?.id}
       initialDraft={initialPrompt}
-      readOnly={Boolean(selectedSession && selectedSession.status !== 'ACTIVE')}
       onSessionActivity={() => refreshChatSessions(activeChatProjectId).catch(showSessionError)}
       onStreamingChange={onStreamingChange}
       showHeader={false}

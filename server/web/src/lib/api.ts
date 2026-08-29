@@ -749,13 +749,17 @@ export async function getLlmUsage(projectId?: string, days?: number): Promise<Ll
 
 export async function streamProjectChat(
   projectId: string,
+  sessionId: string | undefined,
   messages: ProjectChatMessage[],
   context: ProjectChatContext | null | undefined,
   onEvent: (event: { event: string; data: ProjectChatStreamData }) => void,
   signal?: AbortSignal,
   projectIds?: string[],
 ) {
-  const body: { messages: ProjectChatMessage[]; context: ProjectChatContext | null | undefined; projectIds?: string[] } = { messages, context }
+  const body: { messages: ProjectChatMessage[]; context: ProjectChatContext | null | undefined; projectIds?: string[]; sessionId?: string } = { messages, context }
+  if (sessionId) {
+    body.sessionId = sessionId
+  }
   if (projectIds?.length) {
     body.projectIds = projectIds
   }

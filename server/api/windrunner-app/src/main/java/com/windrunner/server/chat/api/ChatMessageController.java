@@ -83,7 +83,7 @@ public class ChatMessageController {
 
         List<LlmMessage> messages = validateMessages(request);
         UserContext user = authService.requireUserContext(httpRequest);
-        ChatSession session = chatService.getOrCreateActiveSession(projectId, user.userId());
+        ChatSession session = chatService.getSessionForChat(projectId, request == null ? null : request.sessionId(), user.userId());
         ChatMessage sourceMessage = chatService.addMessage(session.getId(), "user", messages.getLast().content());
         List<String> contextProjectIds = normalizeProjectIds(projectId, request.projectIds());
         List<Project> contextProjects = requireContextProjects(contextProjectIds, actor);
@@ -327,7 +327,7 @@ public class ChatMessageController {
                 : exception.getMessage();
     }
 
-    public record ProjectChatRequest(List<LlmMessage> messages, ProjectChatContext context, List<String> projectIds) {
+    public record ProjectChatRequest(List<LlmMessage> messages, ProjectChatContext context, List<String> projectIds, String sessionId) {
     }
 
     public record ProjectChatContext(String selectedNodeId, String selectedProposalId,

@@ -121,7 +121,6 @@ export default function ProjectChatPanel({
   projectId = '',
   projectIds,
   sessionId,
-  readOnly = false,
   selectedContext,
   onClearSelectedContext,
   onSessionStarted,
@@ -141,7 +140,6 @@ export default function ProjectChatPanel({
   projectId?: string
   projectIds?: string[]
   sessionId?: string
-  readOnly?: boolean
   selectedContext?: SelectedChatContext | null
   onClearSelectedContext?: () => void
   onSessionStarted?: (session: ChatSession) => void
@@ -227,7 +225,7 @@ export default function ProjectChatPanel({
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = draft.trim()
-    if (!content || !chatProjectId || isStreaming || isLoadingSession || readOnly) {
+    if (!content || !chatProjectId || isStreaming || isLoadingSession) {
       return
     }
 
@@ -250,6 +248,7 @@ export default function ProjectChatPanel({
     try {
       await streamProjectChat(
         chatProjectId,
+        sessionId,
         requestMessages,
         selectedContext?.context,
         ({ event: eventName, data }) => {
@@ -328,11 +327,6 @@ export default function ProjectChatPanel({
   function renderComposer() {
     return (
       <form className="w-full" onSubmit={handleSend}>
-        {readOnly ? (
-          <div className="mb-2.5 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            This session is read-only. Start a new chat to continue.
-          </div>
-        ) : null}
         {selectedContext ? (
           <div className="mb-2.5 flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-xs text-muted-foreground">
             <span className="min-w-0 truncate">{selectedContext.label}</span>
@@ -357,7 +351,7 @@ export default function ProjectChatPanel({
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleTextareaKeyDown}
             placeholder="Ask anything..."
-            disabled={!chatProjectId || isLoadingSession || isStreaming || readOnly}
+            disabled={!chatProjectId || isLoadingSession || isStreaming}
             className="max-h-32 min-h-16 resize-none border-0 px-2.5 py-2 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
           <div className="flex justify-end pt-2">
@@ -366,7 +360,7 @@ export default function ProjectChatPanel({
                 <Square className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="submit" size="icon" disabled={!chatProjectId || isLoadingSession || readOnly || !draft.trim()} aria-label="Send message">
+              <Button type="submit" size="icon" disabled={!chatProjectId || isLoadingSession || !draft.trim()} aria-label="Send message">
                 <ArrowUp className="h-4 w-4" />
               </Button>
             )}
