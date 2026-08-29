@@ -16,7 +16,7 @@ const en = {
   language: {
     label: 'Language',
     preferencesTitle: 'Language preferences',
-    description: 'Choose the language used by the Windrunner interface.',
+    description: 'Select interface language.',
   },
 } as const
 

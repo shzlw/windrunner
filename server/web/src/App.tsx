@@ -200,9 +200,11 @@ function AskSessionsSidebar({
                   >
                     <MessageSquareText className={isSelected ? 'text-primary' : 'text-muted-foreground'} />
                     <span className="min-w-0 flex-1 truncate text-sm group-data-[collapsible=icon]:hidden">{session.title}</span>
+                    <span className={['shrink-0 text-xs leading-none text-muted-foreground transition-opacity group-hover/session-row:opacity-0 group-data-[collapsible=icon]:hidden', openActionSessionId === session.id ? 'opacity-0' : ''].join(' ')}>
+                      {formatRelativeAge(session.createdAt)}
+                    </span>
                   </SidebarMenuButton>
-                  <div className="absolute top-1.5 right-1 h-5 w-8 shrink-0 group-data-[collapsible=icon]:hidden">
-                    <span className={['pointer-events-none block text-right text-xs text-muted-foreground transition-opacity group-hover/session-row:opacity-0', openActionSessionId === session.id ? 'opacity-0' : ''].join(' ')}>{formatRelativeAge(session.createdAt)}</span>
+                  <div className="absolute inset-y-0 right-1 flex w-8 items-center group-data-[collapsible=icon]:hidden">
                     <Popover
                       open={openActionSessionId === session.id}
                       onOpenChange={(open) => {
@@ -221,7 +223,7 @@ function AskSessionsSidebar({
                             type="button"
                             size="icon-xs"
                             variant="ghost"
-                            className="absolute inset-0 !h-auto !w-auto p-0 opacity-0 transition-opacity group-hover/session-row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+                            className="h-7 w-8 p-0 opacity-0 transition-opacity group-hover/session-row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
                             aria-label={`More actions for ${session.title}`}
                             title="More actions"
                           >
