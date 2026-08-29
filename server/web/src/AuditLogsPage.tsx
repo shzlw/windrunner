@@ -182,6 +182,7 @@ export default function AuditLogsPage() {
             className="pl-10"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search"
           />
         </div>
 

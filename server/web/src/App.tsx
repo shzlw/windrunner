@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Search, TrendingUp, UserCircle, Users, UsersRound, WandSparkles, Wind } from 'lucide-react'
+import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Search, TrendingUp, UserCircle, Users, UsersRound, WandSparkles, Wind } from 'lucide-react'
 
 import {
   Sidebar,
@@ -40,13 +40,13 @@ import TeamDetailsPage from './TeamDetailsPage'
 import TeamsPage from './TeamsPage'
 import UsersPage from './UsersPage'
 import SubscriptionsPage from './SubscriptionsPage'
-import AssignedPage from './AssignedPage'
+import MyWorkPage from './MyWorkPage'
 import AskPage from './AskPage'
 import NotificationCenter, { NotificationProvider } from './components/NotificationCenter'
 
 const baseMenuItems = [
   { label: 'Projects', path: '/app/projects', icon: FolderOpen },
-  { label: 'Assigned', path: '/app/assigned', icon: ListTodo },
+  { label: 'My Work', path: '/app/my-work', icon: ListTodo },
   { label: 'Subscriptions', path: '/app/subscriptions', icon: Bookmark },
   { label: 'Teams', path: '/app/teams', icon: UsersRound },
   { label: 'Users', path: '/app/users', icon: Users },
@@ -216,7 +216,7 @@ function AskSessionsSidebar({
                 <div
                   key={session.id}
                   className={[
-                    'group flex w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    'group/session-row flex w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                     'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2',
                     isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : '',
                   ].join(' ')}
@@ -231,54 +231,56 @@ function AskSessionsSidebar({
                     <MessageSquareText className={isSelected ? 'h-4 w-4 shrink-0 text-primary' : 'h-4 w-4 shrink-0 text-muted-foreground'} />
                     <span className="min-w-0 flex-1 truncate text-sm group-data-[collapsible=icon]:hidden">{session.title}</span>
                   </button>
-                  <span className="shrink-0 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">{formatRelativeAge(session.createdAt)}</span>
-                  <Popover
-                    open={renameSessionId === session.id}
-                    onOpenChange={(open) => {
-                      if (open) {
-                        setRenameSessionId(session.id)
-                        setRenameValue(session.title)
-                      } else if (renameSessionId === session.id) {
-                        setRenameSessionId(null)
-                      }
-                    }}
-                  >
-                    <PopoverTrigger
-                      render={(
-                        <Button
-                          type="button"
-                          size="icon-xs"
-                          variant="ghost"
-                          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100 group-data-[collapsible=icon]:hidden"
-                          aria-label={`More actions for ${session.title}`}
-                          title="More actions"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      )}
-                    />
-                    <PopoverContent side="right" align="start" className="w-64 gap-3 p-3">
-                      <PopoverHeader>
-                        <PopoverTitle>Rename session</PopoverTitle>
-                      </PopoverHeader>
-                      <form className="space-y-3" onSubmit={(event) => void handleRename(event, session.id)}>
-                        <Input
-                          value={renameSessionId === session.id ? renameValue : session.title}
-                          onChange={(event) => setRenameValue(event.target.value)}
-                          maxLength={120}
-                          autoFocus
-                          aria-label="Session name"
-                        />
-                        <div className="flex justify-end gap-2">
-                          <Button type="button" size="sm" variant="ghost" onClick={() => setRenameSessionId(null)} disabled={isRenaming}>Cancel</Button>
-                          <Button type="submit" size="sm" disabled={isRenaming || !renameValue.trim()}>
-                            {isRenaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
-                            Save
+                  <div className="relative h-5 w-8 shrink-0 group-data-[collapsible=icon]:hidden">
+                    <span className={['block text-right text-xs text-muted-foreground transition-opacity group-hover/session-row:opacity-0', renameSessionId === session.id ? 'opacity-0' : ''].join(' ')}>{formatRelativeAge(session.createdAt)}</span>
+                    <Popover
+                      open={renameSessionId === session.id}
+                      onOpenChange={(open) => {
+                        if (open) {
+                          setRenameSessionId(session.id)
+                          setRenameValue(session.title)
+                        } else if (renameSessionId === session.id) {
+                          setRenameSessionId(null)
+                        }
+                      }}
+                    >
+                      <PopoverTrigger
+                        render={(
+                          <Button
+                            type="button"
+                            size="icon-xs"
+                            variant="ghost"
+                            className="absolute inset-0 !h-auto !w-auto p-0 opacity-0 transition-opacity group-hover/session-row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+                            aria-label={`More actions for ${session.title}`}
+                            title="More actions"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
                           </Button>
-                        </div>
-                      </form>
-                    </PopoverContent>
-                  </Popover>
+                        )}
+                      />
+                      <PopoverContent side="right" align="start" className="w-64 gap-3 p-3">
+                        <PopoverHeader>
+                          <PopoverTitle>Rename session</PopoverTitle>
+                        </PopoverHeader>
+                        <form className="space-y-3" onSubmit={(event) => void handleRename(event, session.id)}>
+                          <Input
+                            value={renameSessionId === session.id ? renameValue : session.title}
+                            onChange={(event) => setRenameValue(event.target.value)}
+                            maxLength={120}
+                            autoFocus
+                            aria-label="Session name"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button type="button" size="sm" variant="ghost" onClick={() => setRenameSessionId(null)} disabled={isRenaming}>Cancel</Button>
+                            <Button type="submit" size="sm" disabled={isRenaming || !renameValue.trim()}>
+                              {isRenaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                              Save
+                            </Button>
+                          </div>
+                        </form>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               )
             })}
@@ -305,7 +307,7 @@ function AskSessionsSidebar({
 function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const isAskMode = location.pathname === '/app/ask' || location.pathname.startsWith('/app/ask/')
+  const isAskMode = location.pathname === '/app/ask-ai' || location.pathname.startsWith('/app/ask-ai/')
   const [askProjectId, setAskProjectId] = useState('')
   const [askSessions, setAskSessions] = useState<ChatSessionSummary[]>([])
   const [selectedAskSessionId, setSelectedAskSessionId] = useState<string | null>(null)
@@ -410,13 +412,13 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
               <Tabs
                 orientation="horizontal"
                 value={isAskMode ? 'ask-ai' : 'workspace'}
-                onValueChange={(value) => navigate(value === 'ask-ai' ? '/app/ask' : '/app/projects')}
+                onValueChange={(value) => navigate(value === 'ask-ai' ? '/app/ask-ai' : '/app/projects')}
                 className="w-full"
               >
                 <TabsList className="grid h-9 w-full grid-cols-2">
                   <TabsTrigger value="workspace" className="min-w-0 px-1.5 text-xs group-data-[collapsible=icon]:px-1">
-                    <FolderOpen className="h-3.5 w-3.5" />
-                    <span className="group-data-[collapsible=icon]:hidden">Workspace</span>
+                    <Home className="h-3.5 w-3.5" />
+                    <span className="group-data-[collapsible=icon]:hidden">Home</span>
                   </TabsTrigger>
                   <TabsTrigger value="ask-ai" className="min-w-0 px-1.5 text-xs group-data-[collapsible=icon]:px-1">
                     <WandSparkles className="h-3.5 w-3.5" />
@@ -826,13 +828,13 @@ function App() {
         element={<ProtectedApp currentUser={currentUser} />}
       >
         <Route index element={<Navigate to="projects" replace />} />
-        <Route path="ask" element={<AskPage />} />
+        <Route path="ask-ai" element={<AskPage />} />
         <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
         <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
         <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />
         <Route path="ai-efficiency" element={<AIEfficiencyPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
-        <Route path="assigned" element={<AssignedPage />} />
+        <Route path="my-work" element={<MyWorkPage />} />
         <Route
           path="teams"
           element={<TeamsPage currentUser={currentUser} />}

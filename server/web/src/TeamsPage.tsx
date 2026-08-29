@@ -159,7 +159,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
         <div className="flex flex-col gap-2 sm:flex-row lg:items-center">
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-10" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <Input className="pl-10" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search" />
           </div>
           {isAdminLike ? (
             <Button className="gap-2" onClick={openCreateSheet}>

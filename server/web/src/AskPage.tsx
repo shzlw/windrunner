@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router'
-import { AlertTriangle, Loader2, Plus, Search, WandSparkles, X } from 'lucide-react'
+import { AlertTriangle, Loader2, Plus, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -52,6 +52,7 @@ export default function AskPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingReferences, setIsLoadingReferences] = useState(false)
   const [isLlmAvailable, setIsLlmAvailable] = useState(false)
+  const [chatProjectId, setChatProjectId] = useState('')
 
   const selectedProjects = useMemo(
     () => selectedProjectIds
@@ -67,22 +68,23 @@ export default function AskPage() {
     return projects.filter((project) => projectTitle(project).toLowerCase().includes(query))
   }, [projectQuery, projects])
   const primaryProjectId = selectedProjectIds[0] ?? ''
+  const activeChatProjectId = chatProjectId || primaryProjectId
 
   const selectedSession = useMemo(
-    () => chatSessions.find((session) => session.id === selectedSessionId && session.projectId === primaryProjectId),
-    [chatSessions, primaryProjectId, selectedSessionId],
+    () => chatSessions.find((session) => session.id === selectedSessionId && session.projectId === activeChatProjectId),
+    [activeChatProjectId, chatSessions, selectedSessionId],
   )
   useEffect(() => {
     let isMounted = true
     queueMicrotask(() => {
       if (isMounted) {
-        setAskProjectId(primaryProjectId)
+        setAskProjectId(activeChatProjectId)
       }
     })
     return () => {
       isMounted = false
     }
-  }, [primaryProjectId, setAskProjectId])
+  }, [activeChatProjectId, setAskProjectId])
 
   useEffect(() => {
     let isMounted = true
@@ -99,6 +101,7 @@ export default function AskPage() {
         }
         setProjects(nextProjects)
         setIsLlmAvailable(llmStatus.available)
+        setChatProjectId(nextProjects[0]?.id ?? '')
         setSelectedProjectIds((current) => {
           const stillAvailable = current.filter((projectId) => nextProjects.some((project) => project.id === projectId))
           return stillAvailable.length > 0 ? stillAvailable : nextProjects[0] ? [nextProjects[0].id] : []
@@ -172,18 +175,91 @@ export default function AskPage() {
 
   const visibleReferences = useMemo(() => {
     if (selectedProjectIds.length === 0) {
-      return new Map<string, ChatWorkItemReference>()
+      return references
     }
     return new Map(
       [...references].filter(([, reference]) => !reference.projectId || selectedProjectIds.includes(reference.projectId)),
     )
   }, [references, selectedProjectIds])
-  const sessionsLoading = isLoadingSessions || askProjectId !== primaryProjectId
+  const sessionsLoading = isLoadingSessions || askProjectId !== activeChatProjectId
   const referencesLoading = selectedProjectIds.length > 0 && isLoadingReferences
 
   function showSessionError(error: unknown) {
     toast.error(error instanceof Error ? error.message : 'Failed to refresh chat sessions.')
   }
+
+  const projectContext = (
+    <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs">
+      {projects.length > 0 ? (
+        <Popover onOpenChange={(open) => { if (!open) setProjectQuery('') }}>
+          <PopoverTrigger
+            render={(
+              <Button type="button" size="icon-xs" variant="ghost" className="text-muted-foreground" aria-label="Add project context" title="Add project context">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          />
+          <PopoverContent align="start" className="w-[22rem] gap-0 p-0">
+            <PopoverHeader className="border-b px-4 py-3">
+              <PopoverTitle>Add project context</PopoverTitle>
+            </PopoverHeader>
+            <div className="border-b p-3">
+              <div className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={projectQuery}
+                  onChange={(event) => setProjectQuery(event.target.value)}
+                  placeholder="Search projects…"
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="max-h-72 overflow-y-auto p-2">
+              {filteredProjects.length === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">No matching projects</div>
+              ) : filteredProjects.map((project) => {
+                const isSelected = selectedProjectIds.includes(project.id)
+                return (
+                  <div key={project.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleProject(project.id)}
+                      aria-label={`Use ${projectTitle(project)} as context`}
+                    />
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 truncate text-left text-sm"
+                      onClick={() => toggleProject(project.id)}
+                    >
+                      {projectTitle(project)}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
+              <span>{selectedProjects.length} selected</span>
+              <Button type="button" size="xs" variant="ghost" onClick={clearProjects} disabled={selectedProjects.length === 0}>Clear all</Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      ) : null}
+      {selectedProjects.map((project) => (
+        <Badge key={project.id} variant="outline" className="h-7 max-w-full gap-2 px-2.5 pr-1 text-xs font-normal">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" aria-hidden="true" />
+          <span className="shrink-0 text-muted-foreground">Project:</span>
+          <span className="max-w-56 truncate">{projectTitle(project)}</span>
+          <button type="button" className="rounded-sm p-1 hover:bg-muted" onClick={() => removeProject(project.id)} aria-label={`Remove ${projectTitle(project)} from context`}>
+            <X className="h-3 w-3" />
+          </button>
+        </Badge>
+      ))}
+      {selectedProjects.length === 0 ? <span className="text-muted-foreground">Add context</span> : null}
+      {selectedProjects.length > 0 ? <Button type="button" size="xs" variant="ghost" className="text-muted-foreground" onClick={clearProjects}>Clear all</Button> : null}
+      {referencesLoading ? <span className="text-muted-foreground">Loading context…</span> : null}
+    </div>
+  )
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -199,99 +275,10 @@ export default function AskPage() {
         ) : (
           <div className="min-h-0 min-w-0 flex-1 overflow-hidden border-b bg-background">
             <section className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-                <div className="flex shrink-0 flex-col gap-3 border-b p-3 md:p-4">
-                  <div className="flex items-center gap-2">
-                    {projects.length > 0 ? (
-                      <Popover onOpenChange={(open) => { if (!open) setProjectQuery('') }}>
-                        <PopoverTrigger
-                          render={(
-                            <Button type="button" variant="outline" className="w-full justify-start gap-2 sm:w-auto">
-                              <Plus className="h-4 w-4" />
-                              Add project
-                              <span className="text-muted-foreground">({selectedProjects.length})</span>
-                            </Button>
-                          )}
-                        />
-                        <PopoverContent align="end" className="w-[22rem] gap-0 p-0">
-                          <PopoverHeader className="border-b px-4 py-3">
-                            <PopoverTitle>Add project</PopoverTitle>
-                          </PopoverHeader>
-                          <div className="border-b p-3">
-                            <div className="relative">
-                              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                              <Input
-                                value={projectQuery}
-                                onChange={(event) => setProjectQuery(event.target.value)}
-                                placeholder="Search projects…"
-                                className="pl-9"
-                                autoFocus
-                              />
-                            </div>
-                          </div>
-                          <div className="max-h-72 overflow-y-auto p-2">
-                            {filteredProjects.length === 0 ? (
-                              <div className="py-6 text-center text-sm text-muted-foreground">No matching projects</div>
-                            ) : filteredProjects.map((project) => {
-                              const isSelected = selectedProjectIds.includes(project.id)
-                              return (
-                                <div key={project.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={() => toggleProject(project.id)}
-                                    aria-label={`Use ${projectTitle(project)} as context`}
-                                  />
-                                  <button
-                                    type="button"
-                                    className="min-w-0 flex-1 truncate text-left text-sm"
-                                    onClick={() => toggleProject(project.id)}
-                                  >
-                                    {projectTitle(project)}
-                                  </button>
-                                </div>
-                              )
-                            })}
-                          </div>
-                          <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
-                            <span>{selectedProjects.length} selected</span>
-                            <Button type="button" size="xs" variant="ghost" onClick={clearProjects} disabled={selectedProjects.length === 0}>Clear all</Button>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    ) : null}
-                    {referencesLoading ? <span className="text-xs text-muted-foreground">Loading context…</span> : null}
-                  </div>
-
-                  {selectedProjects.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {selectedProjects.map((project) => (
-                        <Badge key={project.id} variant="outline" className="h-8 max-w-full gap-2 px-3 pr-1.5 text-sm font-normal">
-                          <span className="max-w-56 truncate">{projectTitle(project)}</span>
-                          <button type="button" className="rounded-sm p-1 hover:bg-muted" onClick={() => removeProject(project.id)} aria-label={`Remove ${projectTitle(project)} from context`}>
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </Badge>
-                      ))}
-                      <Button type="button" size="xs" variant="ghost" className="text-muted-foreground" onClick={clearProjects}>Clear all</Button>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Add at least one project to give the AI context.</p>
-                  )}
-                </div>
-
                 <div className="min-h-0 flex-1 overflow-hidden">
                   {sessionsLoading ? (
                     <div className="flex h-full min-h-0 items-center justify-center bg-background text-muted-foreground">
                       <Loader2 className="h-5 w-5 animate-spin" />
-                    </div>
-                  ) : !primaryProjectId ? (
-                    <div className="flex h-full min-h-0 items-center justify-center bg-background p-6">
-                      <Empty className="border-0">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon"><WandSparkles /></EmptyMedia>
-                          <EmptyTitle>Select project context</EmptyTitle>
-                          <EmptyDescription>Choose one or more projects above to start asking Windrunner for help.</EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
                     </div>
                   ) : !isLlmAvailable ? (
                     <div className="flex h-full min-h-0 items-center justify-center bg-background p-6">
@@ -305,16 +292,18 @@ export default function AskPage() {
                     </div>
                   ) : (
                     <ProjectChatPanel
-                      projectId={primaryProjectId}
+                      projectId={activeChatProjectId}
                       projectIds={selectedProjectIds}
                       sessionId={selectedSession?.id}
                       readOnly={Boolean(selectedSession && selectedSession.status !== 'ACTIVE')}
-                      onSessionActivity={() => refreshChatSessions(primaryProjectId).catch(showSessionError)}
+                      onSessionActivity={() => refreshChatSessions(activeChatProjectId).catch(showSessionError)}
                       onStreamingChange={onStreamingChange}
                       showHeader={false}
+                      allowEmptyProject
+                      composerFooter={projectContext}
                       workItemReferences={visibleReferences}
                       onWorkItemReferenceClick={(workItemId) => {
-                        const projectId = visibleReferences.get(workItemId)?.projectId ?? primaryProjectId
+                        const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
                         navigate(`/app/projects/${projectId}?workItemId=${encodeURIComponent(workItemId)}`)
                       }}
                       flush

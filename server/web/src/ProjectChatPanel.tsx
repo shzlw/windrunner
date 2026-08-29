@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { useParams } from 'react-router'
-import { AlertTriangle, Bot, FileText, Loader2, Plus, SendHorizontal, Square, User, X } from 'lucide-react'
+import { AlertTriangle, ArrowUp, Bot, FileText, Loader2, Plus, Square, User, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
@@ -133,6 +133,8 @@ export default function ProjectChatPanel({
   className,
   flush = false,
   showHeader = true,
+  allowEmptyProject = false,
+  composerFooter,
   onClose,
 }: {
   projectId?: string
@@ -150,6 +152,8 @@ export default function ProjectChatPanel({
   className?: string
   flush?: boolean
   showHeader?: boolean
+  allowEmptyProject?: boolean
+  composerFooter?: ReactNode
   onClose?: () => void
 }) {
   const routeProjectId = useParams().projectId
@@ -179,6 +183,11 @@ export default function ProjectChatPanel({
     let isMounted = true
 
     async function loadSession() {
+      if (!chatProjectId && allowEmptyProject) {
+        setMessages([])
+        setIsLoadingSession(false)
+        return
+      }
       setIsLoadingSession(true)
       try {
         const session = sessionId
@@ -203,7 +212,7 @@ export default function ProjectChatPanel({
     return () => {
       isMounted = false
     }
-  }, [chatProjectId, sessionId])
+  }, [allowEmptyProject, chatProjectId, sessionId])
 
   function applySession(session: ChatSession) {
     setMessages(session.messages.map((message) => ({
@@ -216,7 +225,7 @@ export default function ProjectChatPanel({
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = draft.trim()
-    if (!content || isStreaming || isLoadingSession || readOnly) {
+    if (!content || !chatProjectId || isStreaming || isLoadingSession || readOnly) {
       return
     }
 
@@ -324,7 +333,6 @@ export default function ProjectChatPanel({
         ) : null}
         {selectedContext ? (
           <div className="mb-2.5 flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-xs text-muted-foreground">
-            <span className="shrink-0 font-medium text-foreground">Context</span>
             <span className="min-w-0 truncate">{selectedContext.label}</span>
             <Button
               type="button"
@@ -339,32 +347,36 @@ export default function ProjectChatPanel({
             </Button>
           </div>
         ) : null}
-        <div className="flex items-end gap-2">
+        {messages.length > 0 && composerFooter ? <div className="mb-2.5">{composerFooter}</div> : null}
+        <div className="rounded-md border bg-background p-2">
           <Textarea
             rows={2}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleTextareaKeyDown}
             placeholder="Ask anything..."
-            disabled={isLoadingSession || isStreaming || readOnly}
-            className="max-h-32 min-h-16 resize-none"
+            disabled={!chatProjectId || isLoadingSession || isStreaming || readOnly}
+            className="max-h-32 min-h-16 resize-none border-0 px-2.5 py-2 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
-          {isStreaming ? (
-            <Button type="button" size="icon" variant="outline" onClick={stopStreaming} aria-label="Stop response">
-              <Square className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button type="submit" size="icon" disabled={isLoadingSession || readOnly || !draft.trim()} aria-label="Send message">
-              <SendHorizontal className="h-4 w-4" />
-            </Button>
-          )}
+          <div className="flex justify-end pt-2">
+            {isStreaming ? (
+              <Button type="button" size="icon" variant="outline" onClick={stopStreaming} aria-label="Stop response">
+                <Square className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button type="submit" size="icon" disabled={!chatProjectId || isLoadingSession || readOnly || !draft.trim()} aria-label="Send message">
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
+        {messages.length === 0 && composerFooter ? <div className="mt-2.5">{composerFooter}</div> : null}
       </form>
     )
   }
 
   async function handleStartNewSession() {
-    if (isStreaming || isStartingSession) {
+    if (!chatProjectId || isStreaming || isStartingSession) {
       return
     }
 

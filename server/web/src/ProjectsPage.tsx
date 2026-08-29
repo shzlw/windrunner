@@ -483,6 +483,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
               className="pl-10"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search"
             />
           </div>
           <Button className="gap-2" onClick={openCreateSheet}>

@@ -106,7 +106,7 @@ function SummaryStat({ label, value, tone }: { label: string; value: number; ton
   return <span className="rounded-md border bg-muted/30 px-2.5 py-1.5 text-sm font-medium text-foreground"><span className={toneClass}>{label}</span> <span className="font-semibold">{value}</span></span>
 }
 
-export default function AssignedPage() {
+export default function MyWorkPage() {
   const [items, setItems] = useState<AssignedWorkItem[]>([])
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -176,7 +176,7 @@ export default function AssignedPage() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6"><h1 className="text-xl font-semibold leading-none tracking-normal">Assigned</h1></div>
+      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6"><h1 className="text-xl font-semibold leading-none tracking-normal">My Work</h1></div>
       <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -187,7 +187,7 @@ export default function AssignedPage() {
               <SummaryStat label="High priority" value={highPriorityCount} tone="amber" />
             </div>
           </div>
-          <div className="flex rounded-md border bg-muted/50 p-1" role="tablist" aria-label="Assigned view">
+          <div className="flex rounded-md border bg-muted/50 p-1" role="tablist" aria-label="My Work view">
             {([['list', List, 'List'], ['grouped', Layers3, 'Grouped'], ['board', Columns3, 'Board']] as const).map(([viewId, Icon, label]) => (
               <Button key={viewId} type="button" variant={view === viewId ? 'secondary' : 'ghost'} size="sm" role="tab" aria-selected={view === viewId} onClick={() => setView(viewId)} className="gap-1.5"><Icon className="h-4 w-4" />{label}</Button>
             ))}
@@ -195,7 +195,7 @@ export default function AssignedPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 bg-background py-1">
-          <div className="relative w-full flex-none sm:w-64"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search work items" className="pl-8" /></div>
+          <div className="relative w-full flex-none sm:w-64"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} aria-label="Search work items" placeholder="Search" className="pl-8" /></div>
           <NativeSelect value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} aria-label="Filter by project" className="w-40"><NativeSelectOption value="ALL">All projects</NativeSelectOption>{projectOptions.map((project) => <NativeSelectOption key={project} value={project}>{project}</NativeSelectOption>)}</NativeSelect>
           <NativeSelect value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by status" className="w-40"><NativeSelectOption value="ALL">All statuses</NativeSelectOption>{statusOptions.map((status) => <NativeSelectOption key={status} value={status}>{displayStatus(status)}</NativeSelectOption>)}</NativeSelect>
           <NativeSelect value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} aria-label="Filter by priority" className="w-36"><NativeSelectOption value="ALL">All priorities</NativeSelectOption>{priorityOptions.map((priority) => <NativeSelectOption key={priority} value={priority}>{priority}</NativeSelectOption>)}</NativeSelect>
