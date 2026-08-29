@@ -315,18 +315,18 @@ export interface TeamJoinRequest {
   decidedByUserId?: string | null
 }
 
-export interface ProjectChatMessage {
+export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
 
-export interface ProjectChatContext {
+export interface ChatContext {
   selectedNodeId?: string | null
   selectedProposalId?: string | null
   selectedProposalChangeId?: string | null
 }
 
-export interface ProjectChatStreamData {
+export interface ChatStreamData {
   text?: string
   title?: string
   message?: string
@@ -335,7 +335,7 @@ export interface ProjectChatStreamData {
   assistantMessageId?: string
 }
 
-export interface ChatSessionMessage extends ProjectChatMessage {
+export interface ChatSessionMessage extends ChatMessage {
   id: string
   chatSessionId: string
   createdAt?: string
@@ -772,19 +772,19 @@ export async function getLlmUsage(projectId?: string, days?: number): Promise<Ll
 
 export async function streamChatSession(
   sessionId: string,
-  messages: ProjectChatMessage[],
-  context: ProjectChatContext | null | undefined,
-  onEvent: (event: { event: string; data: ProjectChatStreamData }) => void,
+  messages: ChatMessage[],
+  context: ChatContext | null | undefined,
+  onEvent: (event: { event: string; data: ChatStreamData }) => void,
   signal?: AbortSignal,
   projectIds?: string[],
   targetProjectId?: string,
 ) {
-  const body: { messages: ProjectChatMessage[]; context: ProjectChatContext | null | undefined; projectIds?: string[]; targetProjectId?: string } = { messages, context }
+  const body: { messages: ChatMessage[]; context: ChatContext | null | undefined; projectIds?: string[]; targetProjectId?: string } = { messages, context }
   if (projectIds?.length) {
     body.projectIds = projectIds
   }
   if (targetProjectId) body.targetProjectId = targetProjectId
-  return streamRequest<ProjectChatStreamData>(
+  return streamRequest<ChatStreamData>(
     `/internal-api/v1/chat-sessions/${sessionId}/messages/stream`,
     {
       method: 'POST',

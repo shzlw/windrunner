@@ -85,7 +85,7 @@ public class ChatMessageController {
             if (!contextProjectIds.contains(targetProjectId)) contextProjectIds = appendProject(contextProjectIds, targetProjectId);
         }
         List<Project> contextProjects = requireContextProjects(contextProjectIds, actor);
-        ProjectChatContext requestedContext = request == null ? null : request.context();
+        ChatContext requestedContext = request == null ? null : request.context();
         boolean hasSelectedWorkItem = requestedContext != null
                 && requestedContext.selectedNodeId() != null
                 && !requestedContext.selectedNodeId().isBlank();
@@ -232,7 +232,7 @@ public class ChatMessageController {
         return scope.toString().trim();
     }
 
-    private String selectedWorkItemContext(String projectId, ProjectChatContext context) {
+    private String selectedWorkItemContext(String projectId, ChatContext context) {
         if (projectId == null || projectId.isBlank() || context == null || context.selectedNodeId() == null || context.selectedNodeId().isBlank()) return "No specific artifact is selected. Use the available read tools to find relevant workspace records, and ask a concise clarification when the request is ambiguous.";
         WorkItem item = workItems.get(projectId, context.selectedNodeId().trim());
         StringBuilder scope = new StringBuilder("Selected WorkItem scope (includes every nested WorkItem and update):\n");
@@ -257,7 +257,7 @@ public class ChatMessageController {
     private String entrySummary(Entry entry) { return "[type=" + entry.getType() + ", updated=" + Objects.toString(entry.getUpdatedAt(), "Unknown") + "] " + entry.getBody(); }
 
     private String instructions(Project targetProject, ChatSession session, ChatMessage sourceMessage, String selectedContext, List<String> contextProjectIds) {
-        return FileUtils.loadSystemPrompt("project-chat-instructions.md")
+        return FileUtils.loadSystemPrompt("chat-instructions.md")
                 .replace("{{projectName}}", targetProject == null ? "the selected workspace context" : Objects.toString(targetProject.getName(), "the selected workspace context"))
                 .replace("{{projectId}}", targetProject == null ? "" : Objects.toString(targetProject.getId(), ""))
                 .replace("{{projectIds}}", String.join(", ", contextProjectIds))
@@ -297,8 +297,8 @@ public class ChatMessageController {
         return title.length() > 120 ? title.substring(0, 117) + "..." : title;
     }
 
-    public record ChatRequest(List<LlmMessage> messages, ProjectChatContext context, List<String> projectIds, String targetProjectId) { }
-    public record ProjectChatContext(String selectedNodeId, String selectedProposalId, String selectedProposalChangeId) { }
+    public record ChatRequest(List<LlmMessage> messages, ChatContext context, List<String> projectIds, String targetProjectId) { }
+    public record ChatContext(String selectedNodeId, String selectedProposalId, String selectedProposalChangeId) { }
     public record ChatDelta(String text) { }
     public record ChatStarted(String title) { }
     public record ChatDone(String chatSessionId, String sourceMessageId, String assistantMessageId) { }

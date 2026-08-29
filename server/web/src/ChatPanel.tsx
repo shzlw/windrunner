@@ -18,19 +18,19 @@ import {
   getChatSession,
   startNewChatSession,
   streamChatSession,
+  type ChatContext,
+  type ChatMessage as ApiChatMessage,
   type ChatSession,
-  type ProjectChatContext,
-  type ProjectChatMessage,
 } from '@/lib/api'
 
-type ChatMessage = ProjectChatMessage & {
+type ChatMessageState = ApiChatMessage & {
   id: string
   status?: 'error'
 }
 
 type SelectedChatContext = {
   label: string
-  context: ProjectChatContext
+  context: ChatContext
 }
 
 export type ChatWorkItemReference = {
@@ -231,7 +231,7 @@ export default function ChatPanel({
   projectId = projectId || routeProjectId || ''
   const chatProjectIds = projectIds?.length ? projectIds : projectId ? [projectId] : []
   const chatProjectId = chatProjectIds[0] ?? ''
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messages, setMessages] = useState<ChatMessageState[]>([])
   const [draft, setDraft] = useState(initialDraft ?? '')
   const [isLoadingSession, setIsLoadingSession] = useState(true)
   const [isStartingSession, setIsStartingSession] = useState(false)
@@ -342,8 +342,8 @@ export default function ChatPanel({
     }
     const requestSessionId = activeSessionId
 
-    const userMessage: ChatMessage = { id: createMessageId(), role: 'user', content }
-    const assistantMessage: ChatMessage = { id: createMessageId(), role: 'assistant', content: '' }
+    const userMessage: ChatMessageState = { id: createMessageId(), role: 'user', content }
+    const assistantMessage: ChatMessageState = { id: createMessageId(), role: 'assistant', content: '' }
     const requestMessages = [...messages, userMessage].map(({ role, content: messageContent }) => ({
       role,
       content: messageContent,
