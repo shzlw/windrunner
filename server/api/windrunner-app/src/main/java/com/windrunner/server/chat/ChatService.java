@@ -156,6 +156,9 @@ public class ChatService {
         if (content == null || content.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat message content is required");
         String id = idGenerator.generate(EntityIdType.CHAT_MESSAGE);
         messageRepository.insert(id, chatSessionId, role, content);
+        if ("user".equalsIgnoreCase(role)) {
+            sessionRepository.setTitleFromFirstMessage(chatSessionId, id, titleFromFirstMessage(content));
+        }
         sessionRepository.touch(chatSessionId);
         return messageRepository.findByIdAndSessionId(id, chatSessionId).orElseThrow(() -> new IllegalStateException("Created chat message could not be loaded"));
     }
@@ -217,6 +220,12 @@ public class ChatService {
         title = title.replaceAll("\\s+", " ").trim();
         if (title.length() > MAX_TITLE_LENGTH) title = title.substring(0, 117) + "...";
         return new ChatSessionSummaryView(session.getId(), session.getStatus(), session.getCreatedAt(), session.getUpdatedAt(), title.isBlank() ? "New conversation" : title);
+    }
+
+    private String titleFromFirstMessage(String content) {
+        String title = content.replaceAll("\\s+", " ").trim();
+        if (title.length() > MAX_TITLE_LENGTH) return title.substring(0, 117) + "...";
+        return title;
     }
 
     private ChatSessionView toView(ChatSession session, AppUser actor) {

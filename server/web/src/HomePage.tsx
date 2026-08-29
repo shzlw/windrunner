@@ -67,7 +67,7 @@ export default function HomePage({ displayName }: HomePageProps) {
         </section>
 
         <form className="mx-auto w-full max-w-3xl" onSubmit={submitCommand}>
-          <div className="rounded-md border bg-background p-2">
+          <div className="rounded-md border bg-background p-2 transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20">
             <Textarea
               ref={commandInputRef}
               value={command}

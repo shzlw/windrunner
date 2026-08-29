@@ -63,6 +63,25 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
     @Modifying
     @Query("""
             UPDATE chat_session
+            SET title = :title,
+                updated_at = NOW()
+            WHERE id = :sessionId
+              AND (title IS NULL OR BTRIM(title) = '')
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM chat_message
+                  WHERE chat_session_id = :sessionId
+                    AND role = 'user'
+                    AND id <> :messageId
+              )
+            """)
+    int setTitleFromFirstMessage(@Param("sessionId") String sessionId,
+                                 @Param("messageId") String messageId,
+                                 @Param("title") String title);
+
+    @Modifying
+    @Query("""
+            UPDATE chat_session
             SET title = :title
             WHERE id = :id AND user_id = :userId
             """)

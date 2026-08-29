@@ -288,6 +288,9 @@ export default function ProjectChatPanel({
         requestMessages,
         selectedContext?.context,
         ({ event: eventName, data }) => {
+          if (eventName === 'started') {
+            void onSessionActivity?.()
+          }
           if (eventName === 'delta' && data.text) {
             setMessages((current) => current.map((message) => (
               message.id === assistantMessage.id
@@ -309,7 +312,6 @@ export default function ProjectChatPanel({
               }
               return message
             }))
-            void onSessionActivity?.()
             void onGraphChangeProposalSaved?.()
           }
         },
@@ -347,6 +349,7 @@ export default function ProjectChatPanel({
       }
       setIsStreaming(false)
       onStreamingChange?.(false)
+      void onSessionActivity?.()
     }
   }
 
@@ -381,7 +384,7 @@ export default function ProjectChatPanel({
           </div>
         ) : null}
         {messages.length > 0 && composerFooter ? <div className="mb-2.5">{composerFooter}</div> : null}
-        <div className="rounded-md border bg-background p-2">
+        <div className="rounded-md border bg-background p-2 transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20">
           <Textarea
             rows={2}
             value={draft}

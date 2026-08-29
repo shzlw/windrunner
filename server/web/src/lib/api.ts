@@ -322,6 +322,7 @@ export interface ProjectChatContext {
 
 export interface ProjectChatStreamData {
   text?: string
+  title?: string
   message?: string
   chatSessionId?: string
   sourceMessageId?: string

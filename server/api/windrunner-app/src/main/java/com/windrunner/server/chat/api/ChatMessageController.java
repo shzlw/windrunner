@@ -104,6 +104,7 @@ public class ChatMessageController {
         Thread.startVirtualThread(() -> {
             long startNanos = System.nanoTime();
             try {
+                send(emitter, "started", new ChatStarted(titleFromMessage(sourceMessage.getContent())));
                 List<LlmTool<?>> availableTools = new ArrayList<>(projectScopedTools(allowedProjectIds));
                 if (targetProject != null) availableTools.add(workspaceProposalTool(targetProject.getId(), session, sourceMessage));
                 LlmResult<String> llmResult = llmService.runChatWithTools(
@@ -267,10 +268,15 @@ public class ChatMessageController {
     private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
     private void send(SseEmitter emitter, String eventName, Object data) throws IOException { emitter.send(SseEmitter.event().name(eventName).data(data)); }
     private String userFacingMessage(Exception exception) { return exception.getMessage() == null || exception.getMessage().isBlank() ? "The chat response could not be completed" : exception.getMessage(); }
+    private String titleFromMessage(String content) {
+        String title = content.replaceAll("\\s+", " ").trim();
+        return title.length() > 120 ? title.substring(0, 117) + "..." : title;
+    }
 
     public record ChatRequest(List<LlmMessage> messages, ProjectChatContext context, List<String> projectIds, String targetProjectId) { }
     public record ProjectChatContext(String selectedNodeId, String selectedProposalId, String selectedProposalChangeId) { }
     public record ChatDelta(String text) { }
+    public record ChatStarted(String title) { }
     public record ChatDone(String chatSessionId, String sourceMessageId, String assistantMessageId) { }
     public record ChatError(String message) { }
 }

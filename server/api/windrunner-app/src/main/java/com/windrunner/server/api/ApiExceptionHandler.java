@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -30,6 +31,7 @@ public class ApiExceptionHandler {
 
         return ResponseEntity
                 .status(responseStatus)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.error(
                         ApiError.of(errorCode(responseStatus), message),
                         ApiMeta.request(requestId(request))
@@ -41,6 +43,7 @@ public class ApiExceptionHandler {
                                                                             HttpServletRequest request) {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.error(
                         ApiError.of("NOT_FOUND", "Resource not found."),
                         ApiMeta.request(requestId(request))
@@ -58,6 +61,7 @@ public class ApiExceptionHandler {
                 request.getMethod(), request.getRequestURI(), requestId(request), exception);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.error(
                         ApiError.of("INTERNAL_SERVER_ERROR", "An unexpected server error occurred."),
                         ApiMeta.request(requestId(request))
