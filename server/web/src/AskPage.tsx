@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useOutletContext, useSearchParams } from 'react-router'
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router'
 import { AlertTriangle, Loader2, Plus, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -39,6 +39,7 @@ function referencesForNodes(nodes: ProjectNode[]) {
 }
 
 export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}) {
+  const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const {
@@ -77,6 +78,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
   const activeChatProjectId = routeProjectId || chatProjectId || primaryProjectId
   const requestedSessionId = searchParams.get('session')
   const initialPrompt = searchParams.get('prompt') ?? ''
+  const autoSubmitInitialDraft = searchParams.get('autoSend') === '1'
 
   const selectedSession = useMemo(
     () => chatSessions.find((session) => session.id === (requestedSessionId ?? selectedSessionId) && session.projectId === activeChatProjectId),
@@ -315,6 +317,14 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       projectIds={selectedProjectIds}
       sessionId={selectedSession?.id}
       initialDraft={initialPrompt}
+      autoSubmitInitialDraft={autoSubmitInitialDraft}
+      onInitialDraftSubmitted={() => {
+        const nextParams = new URLSearchParams(searchParams)
+        nextParams.delete('prompt')
+        nextParams.delete('autoSend')
+        const query = nextParams.toString()
+        navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, { replace: true })
+      }}
       onSessionActivity={() => refreshChatSessions(activeChatProjectId).catch(showSessionError)}
       onStreamingChange={onStreamingChange}
       showHeader={false}

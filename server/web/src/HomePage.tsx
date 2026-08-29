@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
-import { ArrowUp, CheckCircle2, FolderOpen, ListTodo, Search, UsersRound } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router'
+import type { FormEvent, KeyboardEvent } from 'react'
+import { ArrowUp, FolderOpen, ListTodo, UsersRound } from 'lucide-react'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import type { AskPageOutletContext } from './App'
 
 type HomePageProps = {
   displayName?: string | null
@@ -20,8 +20,10 @@ const quickActions = [
 export default function HomePage({ displayName }: HomePageProps) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { onSubmitHomeCommand } = useOutletContext<AskPageOutletContext>()
   const [command, setCommand] = useState('')
-  const commandInputRef = useRef<HTMLInputElement>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const commandInputRef = useRef<HTMLTextAreaElement>(null)
   const greetingName = displayName?.trim() || 'there'
   const shouldFocusCommand = searchParams.get('focus') === 'search'
 
@@ -31,42 +33,57 @@ export default function HomePage({ displayName }: HomePageProps) {
     }
   }, [shouldFocusCommand])
 
-  function submitCommand(event: FormEvent<HTMLFormElement>) {
+  async function submitCommand(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const prompt = command.trim()
     if (!prompt) {
       commandInputRef.current?.focus()
       return
     }
-    navigate(`/app/ask-ai?prompt=${encodeURIComponent(prompt)}`)
+    if (isSubmitting) {
+      return
+    }
+    setIsSubmitting(true)
+    try {
+      await onSubmitHomeCommand(prompt)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  function handleCommandKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      event.currentTarget.form?.requestSubmit()
+    }
   }
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto bg-background">
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-10 px-6 py-10 md:px-10 md:py-14">
         <section className="mx-auto w-full max-w-3xl space-y-2 text-center">
-          <Badge variant="outline" className="gap-1.5 font-normal text-muted-foreground">
-            <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-            AI workspace
-          </Badge>
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Good morning, {greetingName}</h1>
           <p className="text-muted-foreground">What would you like to accomplish?</p>
         </section>
 
         <form className="mx-auto w-full max-w-3xl" onSubmit={submitCommand}>
-          <div className="flex items-center gap-2 rounded-xl border bg-background p-2 shadow-sm focus-within:ring-2 focus-within:ring-ring/30">
-            <Search className="ml-3 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <Input
+          <div className="rounded-md border bg-background p-2">
+            <Textarea
               ref={commandInputRef}
               value={command}
               onChange={(event) => setCommand(event.target.value)}
-              placeholder="Ask, find, or create anything…"
-              aria-label="Ask, find, or create anything"
-              className="h-12 border-0 px-2 text-base shadow-none focus-visible:ring-0"
+              rows={2}
+              onKeyDown={handleCommandKeyDown}
+              placeholder="Ask anything..."
+              aria-label="Ask anything"
+              disabled={isSubmitting}
+              className="max-h-32 min-h-16 resize-none border-0 px-2.5 py-2 shadow-none focus-visible:border-0 focus-visible:ring-0"
             />
-            <Button type="submit" size="icon" aria-label="Submit command" disabled={!command.trim()}>
-              <ArrowUp className="h-4 w-4" />
-            </Button>
+            <div className="flex justify-end pt-2">
+              <Button type="submit" size="icon" aria-label="Submit command" disabled={!command.trim() || isSubmitting}>
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </form>
 

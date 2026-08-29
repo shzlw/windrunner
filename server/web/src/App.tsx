@@ -64,6 +64,7 @@ export type AskPageOutletContext = {
   isLoadingSessions: boolean
   refreshChatSessions: (projectId: string, preferredSessionId?: string) => Promise<void>
   setAskProjectId: (projectId: string) => void
+  onSubmitHomeCommand: (prompt: string) => Promise<void>
   onStreamingChange: (isStreaming: boolean) => void
 }
 
@@ -180,7 +181,7 @@ function AskSessionsSidebar({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto p-2 group-data-[collapsible=icon]:no-scrollbar">
+      <div className="min-h-0 flex-1 overflow-y-auto px-0 py-2 group-data-[collapsible=icon]:no-scrollbar">
         {!projectId ? (
           <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">Start a chat to see conversations</div>
         ) : isLoading ? (
@@ -190,30 +191,24 @@ function AskSessionsSidebar({
         ) : visibleSessions.length === 0 ? (
           <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">No recent conversations yet</div>
         ) : (
-          <div className="space-y-1">
+          <SidebarMenu>
             {loadedSessions.map((session) => {
               const isSelected = session.id === selectedSessionId
               return (
-                <div
+                <SidebarMenuItem
                   key={session.id}
-                  className={[
-                    'group/session-row flex w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                    'group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0',
-                    isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : '',
-                  ].join(' ')}
+                  className="group/session-row"
                 >
-                  <button
-                    type="button"
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2"
-                    onClick={() => onSelectSession(session.id)}
-                    aria-current={isSelected ? 'page' : undefined}
-                    title={session.title}
+                  <SidebarMenuButton
+                    render={<button type="button" onClick={() => onSelectSession(session.id)} />}
+                    isActive={isSelected}
+                    tooltip={session.title}
                   >
-                    <MessageSquareText className={isSelected ? 'h-4 w-4 shrink-0 text-primary' : 'h-4 w-4 shrink-0 text-muted-foreground'} />
+                    <MessageSquareText className={isSelected ? 'text-primary' : 'text-muted-foreground'} />
                     <span className="min-w-0 flex-1 truncate text-sm group-data-[collapsible=icon]:hidden">{session.title}</span>
-                  </button>
-                  <div className="relative h-5 w-8 shrink-0 group-data-[collapsible=icon]:hidden">
-                    <span className={['block text-right text-xs text-muted-foreground transition-opacity group-hover/session-row:opacity-0', openActionSessionId === session.id ? 'opacity-0' : ''].join(' ')}>{formatRelativeAge(session.createdAt)}</span>
+                  </SidebarMenuButton>
+                  <div className="absolute top-1.5 right-1 h-5 w-8 shrink-0 group-data-[collapsible=icon]:hidden">
+                    <span className={['pointer-events-none block text-right text-xs text-muted-foreground transition-opacity group-hover/session-row:opacity-0', openActionSessionId === session.id ? 'opacity-0' : ''].join(' ')}>{formatRelativeAge(session.createdAt)}</span>
                     <Popover
                       open={openActionSessionId === session.id}
                       onOpenChange={(open) => {
@@ -305,10 +300,10 @@ function AskSessionsSidebar({
                       </PopoverContent>
                     </Popover>
                   </div>
-                </div>
+                </SidebarMenuItem>
               )
             })}
-          </div>
+          </SidebarMenu>
         )}
       </div>
 
@@ -416,12 +411,12 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     }
   }, [askProjectId])
 
-  async function handleStartNewSession(): Promise<string | null> {
-    if (!askProjectId || isStartingSession || isChatStreaming) return null
+  async function handleStartNewSession(projectId = askProjectId): Promise<string | null> {
+    if (!projectId || isStartingSession || isChatStreaming) return null
     setIsStartingSession(true)
     try {
-      const session = await startNewChatSession(askProjectId)
-      await refreshChatSessions(askProjectId, session.id)
+      const session = await startNewChatSession(projectId)
+      await refreshChatSessions(projectId, session.id)
       return session.id
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to start a new chat session.')
@@ -439,6 +434,33 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     }
     const sessionId = await handleStartNewSession()
     navigate(sessionId ? `/app/ask-ai?session=${encodeURIComponent(sessionId)}` : '/app/ask-ai')
+  }
+
+  async function handleHomeCommand(prompt: string) {
+    setNewChatRequestKey((current) => current + 1)
+    let projectId = askProjectId
+    if (!projectId) {
+      try {
+        const projects = await listProjects()
+        projectId = projects[0]?.id ?? ''
+        if (projectId) {
+          setAskProjectId(projectId)
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to load projects.')
+      }
+    }
+    if (!projectId) {
+      toast.error('Create a project before starting a chat.')
+      return
+    }
+    const sessionId = await handleStartNewSession(projectId)
+    if (!sessionId) {
+      return
+    }
+    const params = new URLSearchParams({ prompt, autoSend: '1' })
+    params.set('session', sessionId)
+    navigate(`/app/ask-ai?${params.toString()}`)
   }
 
   function handleSelectSession(sessionId: string) {
@@ -465,6 +487,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     isLoadingSessions: Boolean(askProjectId) && sessionsProjectId !== askProjectId,
     refreshChatSessions,
     setAskProjectId,
+    onSubmitHomeCommand: handleHomeCommand,
     onStreamingChange: setIsChatStreaming,
   }
 
@@ -541,7 +564,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
             <SidebarGroup className="shrink-0 pt-2">
               <SidebarGroupLabel className="h-6 px-2">Workspace</SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu>
+                <SidebarMenu className="pt-2">
                   {menuItems.map((item) => (
                     <SidebarMenuItem key={item.path}>
                       <SidebarMenuButton

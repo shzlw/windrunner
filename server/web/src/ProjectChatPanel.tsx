@@ -124,6 +124,7 @@ export default function ProjectChatPanel({
   selectedContext,
   onClearSelectedContext,
   onSessionStarted,
+  onInitialDraftSubmitted,
   onSessionActivity,
   onStreamingChange,
   onGraphChangeProposalSaved,
@@ -134,6 +135,7 @@ export default function ProjectChatPanel({
   showHeader = true,
   allowEmptyProject = false,
   initialDraft,
+  autoSubmitInitialDraft = false,
   composerFooter,
   onClose,
 }: {
@@ -143,6 +145,7 @@ export default function ProjectChatPanel({
   selectedContext?: SelectedChatContext | null
   onClearSelectedContext?: () => void
   onSessionStarted?: (session: ChatSession) => void
+  onInitialDraftSubmitted?: () => void
   onSessionActivity?: () => void | Promise<void>
   onStreamingChange?: (isStreaming: boolean) => void
   onGraphChangeProposalSaved?: () => void | Promise<void>
@@ -153,6 +156,7 @@ export default function ProjectChatPanel({
   showHeader?: boolean
   allowEmptyProject?: boolean
   initialDraft?: string
+  autoSubmitInitialDraft?: boolean
   composerFooter?: ReactNode
   onClose?: () => void
 }) {
@@ -166,7 +170,9 @@ export default function ProjectChatPanel({
   const [isStartingSession, setIsStartingSession] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const viewportRef = useRef<HTMLDivElement>(null)
+  const composerFormRef = useRef<HTMLFormElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const hasAutoSubmittedInitialDraftRef = useRef(false)
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -178,6 +184,24 @@ export default function ProjectChatPanel({
   useEffect(() => {
     return () => abortControllerRef.current?.abort()
   }, [])
+
+  useEffect(() => {
+    if (
+      !autoSubmitInitialDraft
+      || !initialDraft?.trim()
+      || hasAutoSubmittedInitialDraftRef.current
+      || !chatProjectId
+      || isLoadingSession
+      || isStreaming
+    ) {
+      return
+    }
+
+    hasAutoSubmittedInitialDraftRef.current = true
+    onInitialDraftSubmitted?.()
+    const timeoutId = window.setTimeout(() => composerFormRef.current?.requestSubmit(), 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [autoSubmitInitialDraft, chatProjectId, initialDraft, isLoadingSession, isStreaming, onInitialDraftSubmitted])
 
   useEffect(() => {
     let isMounted = true
@@ -330,7 +354,7 @@ export default function ProjectChatPanel({
 
   function renderComposer() {
     return (
-      <form className="w-full" onSubmit={handleSend}>
+      <form ref={composerFormRef} className="w-full" onSubmit={handleSend}>
         {selectedContext ? (
           <div className="mb-2.5 flex h-9 items-center gap-2 rounded-md border bg-muted/30 px-3 text-xs text-muted-foreground">
             <span className="min-w-0 truncate">{selectedContext.label}</span>
@@ -356,9 +380,9 @@ export default function ProjectChatPanel({
             onKeyDown={handleTextareaKeyDown}
             placeholder="Ask anything..."
             disabled={!chatProjectId || isLoadingSession || isStreaming}
-            className="max-h-32 min-h-16 resize-none border-0 px-2.5 py-2 shadow-none focus-visible:border-0 focus-visible:ring-0"
+            className="max-h-32 min-h-16 resize-none border-0 px-1 py-1 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end pt-1">
             {isStreaming ? (
               <Button type="button" size="icon" variant="outline" onClick={stopStreaming} aria-label="Stop response">
                 <Square className="h-4 w-4" />

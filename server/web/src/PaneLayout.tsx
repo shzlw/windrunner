@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { Bot, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Bot, ChevronLeft } from 'lucide-react'
 import { usePanelRef } from 'react-resizable-panels'
 
 import { Button } from '@/components/ui/button'
@@ -19,9 +19,9 @@ type PaneLayoutProps = {
 
 const paneLayoutStorageKey = 'windrunner:conversation-artifact-layout'
 
-function loadDefaultLayout() {
+function loadDefaultLayout(storageKey: string) {
   try {
-    const saved = window.localStorage.getItem(paneLayoutStorageKey)
+    const saved = window.localStorage.getItem(storageKey)
     if (saved) {
       const parsed = JSON.parse(saved) as Record<string, number>
       if (Number.isFinite(parsed['conversation-pane']) && Number.isFinite(parsed['artifact-pane'])) {
@@ -34,18 +34,18 @@ function loadDefaultLayout() {
   return { 'conversation-pane': 35, 'artifact-pane': 65 }
 }
 
-function AssistantLauncher({ onClick }: { onClick: () => void }) {
+function AssistantLauncher({ onClick, label = 'Open Ask AI' }: { onClick: () => void; label?: string }) {
   return (
     <Button
       type="button"
-      size="icon"
+      size="icon-lg"
       variant="outline"
-      className="absolute right-4 bottom-4 z-20 rounded-full bg-background shadow-md"
+      className="absolute right-4 bottom-4 z-20 h-12 w-12 rounded-full bg-background shadow-md"
       onClick={onClick}
-      aria-label="Open Ask AI"
-      title="Open Ask AI"
+      aria-label={label}
+      title={label}
     >
-      <Bot className="h-4 w-4" />
+      <Bot className="h-5 w-5" />
     </Button>
   )
 }
@@ -57,7 +57,8 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
   const chatPanelRef = usePanelRef()
   const [mobilePane, setMobilePane] = useState<'chat' | 'artifact'>('chat')
   const [isChatCollapsed, setIsChatCollapsed] = useState(false)
-  const [defaultLayout] = useState(loadDefaultLayout)
+  const layoutStorageKey = `${paneLayoutStorageKey}:${location.pathname}`
+  const defaultLayout = useMemo(() => loadDefaultLayout(layoutStorageKey), [layoutStorageKey])
   const rootClassName = ['flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background', className ?? ''].join(' ')
 
   function openAssistant() {
@@ -145,6 +146,7 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
     <div className={rootClassName} data-layout="chat-artifact">
       <ResizablePanelGroup
         id="conversation-artifact-layout"
+        key={layoutStorageKey}
         orientation="horizontal"
         defaultLayout={defaultLayout}
         onLayoutChanged={(layout, meta) => {
@@ -152,7 +154,7 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
             return
           }
           try {
-            window.localStorage.setItem(paneLayoutStorageKey, JSON.stringify(layout))
+            window.localStorage.setItem(layoutStorageKey, JSON.stringify(layout))
           } catch {
             // Layout persistence is optional when browser storage is unavailable.
           }
@@ -162,8 +164,7 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
         <ResizablePanel
           id="conversation-pane"
           defaultSize="35%"
-          minSize={360}
-          maxSize={440}
+          minSize={280}
           collapsible
           collapsedSize={0}
           panelRef={chatPanelRef}
@@ -188,19 +189,7 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
         <ResizablePanel id="artifact-pane" defaultSize="65%" minSize={320}>
           <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
             {artifact}
-            {isChatCollapsed ? (
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                className="absolute right-4 bottom-4 z-20 rounded-full bg-background shadow-md"
-                onClick={toggleChatPanel}
-                aria-label="Expand conversation"
-                title="Expand conversation"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            ) : null}
+            {isChatCollapsed ? <AssistantLauncher onClick={toggleChatPanel} label="Expand Ask AI" /> : null}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
