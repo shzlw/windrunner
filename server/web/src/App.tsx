@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Search, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -513,15 +513,6 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                     >
                       <Plus />
                       <span>{t('navigation.newChat')}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      render={<button type="button" onClick={() => navigate('/app/home?focus=search')} />}
-                      tooltip={t('navigation.search')}
-                    >
-                      <Search />
-                      <span>{t('navigation.search')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
