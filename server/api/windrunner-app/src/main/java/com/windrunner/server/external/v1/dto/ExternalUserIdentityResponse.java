@@ -8,7 +8,7 @@ public record ExternalUserIdentityResponse(
         String id,
         String username,
         String displayName,
-        String jobTitle,
+        String title,
         String bio
 ) {
 
@@ -17,7 +17,7 @@ public record ExternalUserIdentityResponse(
                 user.getId(),
                 user.getUsername(),
                 user.getDisplayName(),
-                user.getJobTitle(),
+                user.getTitle(),
                 user.getBio());
     }
 }

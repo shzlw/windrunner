@@ -21,8 +21,7 @@ public class AppUser {
     @Column("display_name")
     private String displayName;
 
-    @Column("job_title")
-    private String jobTitle;
+    private String title;
 
     private String bio;
 

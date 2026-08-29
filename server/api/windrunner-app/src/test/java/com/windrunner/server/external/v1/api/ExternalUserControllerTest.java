@@ -37,7 +37,7 @@ class ExternalUserControllerTest {
         user.setId("user-1");
         user.setUsername("jane");
         user.setDisplayName("Jane Doe");
-        user.setJobTitle("Product manager");
+        user.setTitle("Product manager");
         user.setBio("Helps teams prioritize customer problems.");
         user.setEmail("jane@example.com");
         user.setStatus(UserStatuses.ACTIVE);

@@ -79,6 +79,23 @@ const OBJECTS = [
   'pipeline', 'component', 'query', 'integration',
 ];
 const VERBS = ['Implement', 'Refactor', 'Investigate', 'Fix', 'Document', 'Ship', 'Harden'];
+const TITLES = [
+  'Product manager', 'Engineering manager', 'Backend engineer', 'Frontend engineer',
+  'QA engineer', 'UX designer', 'Data analyst', 'Security engineer',
+];
+const USER_BIOS = [
+  'Helps teams turn customer problems into practical improvements.',
+  'Builds reliable systems and keeps delivery moving through clear technical decisions.',
+  'Focuses on making complex workflows simple for the people who use them.',
+  'Partners with teams to improve quality, observability, and operational readiness.',
+];
+const TEAM_RESPONSIBILITIES = [
+  'Owns platform reliability and shared engineering services.',
+  'Builds customer-facing workflows and improves the product experience.',
+  'Maintains data quality, reporting, and operational insights.',
+  'Supports secure delivery, access control, and compliance readiness.',
+  'Coordinates planning, prioritization, and cross-team delivery.',
+];
 
 function workItemTitle() {
   if (chance(0.15)) {
@@ -178,6 +195,8 @@ test('Seed Windrunner with realistic multi-project data', async ({request}) => {
     username: `e2e_${runId}_${FIRST[i % FIRST.length].toLowerCase()}.${LAST[Math.floor(i / FIRST.length)].toLowerCase()}${i}`,
     displayName: `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length)]} ${i}`,
     email: `e2e_${runId}_user${i}@example.com`,
+    title: TITLES[i % TITLES.length],
+    bio: USER_BIOS[i % USER_BIOS.length],
     password: `e2e-pass-${1000 + i}`,
     timezone: 'UTC',
     status: 'ACTIVE',
@@ -195,6 +214,7 @@ test('Seed Windrunner with realistic multi-project data', async ({request}) => {
   for (let i = 0; i < TEAM_COUNT; i++) {
     const response = await post('/internal-api/v1/teams', {
       name: `e2e Team ${runId} ${String.fromCharCode(65 + (i % 26))}${Math.floor(i / 26) || ''} — ${pick(FEATURES)} guild`,
+      description: TEAM_RESPONSIBILITIES[i % TEAM_RESPONSIBILITIES.length],
       ownerUserIds: [ownerUserId],
     });
     teamIds.push((await responseData<{id: string}>(response, `Create seeded team ${i + 1}`)).id);

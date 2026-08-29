@@ -3,7 +3,7 @@ export type AuthUser = {
   username: string
   email: string | null
   displayName: string | null
-  jobTitle: string | null
+  title: string | null
   bio: string | null
   timezone: string | null
   status: string | null
@@ -202,7 +202,7 @@ export interface User {
   username: string
   email: string | null
   displayName: string | null
-  jobTitle: string | null
+  title: string | null
   bio: string | null
   timezone: string | null
   status: string | null

@@ -10,7 +10,7 @@ public record UserResponse(
         String username,
         String email,
         String displayName,
-        String jobTitle,
+        String title,
         String bio,
         String timezone,
         String status,

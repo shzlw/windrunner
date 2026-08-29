@@ -145,7 +145,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
               return [defaultProjectId]
             }
             const stillAvailable = current.filter((projectId) => nextProjects.some((project) => project.id === projectId))
-            return stillAvailable.length > 0 ? stillAvailable : nextProjects[0] ? [nextProjects[0].id] : []
+            return stillAvailable
         })
       } catch (error) {
         if (isMounted) {
@@ -227,15 +227,31 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     }
   }
 
-  function clearProjects() {
-    setSelectedProjectIds([])
-    if (selectedSession) {
-      const projectContexts = sessionContexts.filter((context) => context.entityType === 'PROJECT')
-      projectContexts.forEach((context) => {
-        void deleteChatSessionContext(selectedSession.id, context.id).catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to clear context.'))
-      })
-      setSessionContexts((current) => current.filter((context) => context.entityType !== 'PROJECT'))
+  function removeContext(context: ChatSessionContext) {
+    if (!selectedSession) {
+      return
     }
+    void deleteChatSessionContext(selectedSession.id, context.id)
+      .then(() => {
+        setSessionContexts((current) => current.filter((item) => item.id !== context.id))
+        if (context.entityType === 'PROJECT') {
+          setSelectedProjectIds((current) => current.filter((projectId) => projectId !== context.entityId))
+        }
+      })
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to remove context.'))
+  }
+
+  function clearContexts() {
+    if (!selectedSession) {
+      setSelectedProjectIds([])
+      return
+    }
+    const contexts = [...sessionContexts]
+    contexts.forEach((context) => {
+      void deleteChatSessionContext(selectedSession.id, context.id).catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to clear context.'))
+    })
+    setSelectedProjectIds([])
+    setSessionContexts([])
   }
 
   const visibleReferences = useMemo(() => {
@@ -248,6 +264,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
   }, [references, selectedProjectIds])
   const sessionsLoading = isLoadingSessions
   const referencesLoading = selectedProjectIds.length > 0 && isLoadingReferences
+  const hasContext = selectedProjects.length > 0 || sessionContexts.length > 0
 
   function showSessionError(error: unknown) {
     toast.error(error instanceof Error ? error.message : 'Failed to refresh chat sessions.')
@@ -305,7 +322,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
             </div>
             <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
               <span>{selectedProjects.length} selected</span>
-              <Button type="button" size="xs" variant="ghost" onClick={clearProjects} disabled={selectedProjects.length === 0}>Clear all</Button>
+              <Button type="button" size="xs" variant="ghost" onClick={clearContexts} disabled={!hasContext}>Clear all</Button>
             </div>
           </PopoverContent>
         </Popover>
@@ -320,8 +337,18 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
           </button>
         </Badge>
       ))}
-      {selectedProjects.length === 0 ? <span className="text-muted-foreground">Add context</span> : null}
-      {selectedProjects.length > 0 ? <Button type="button" size="xs" variant="ghost" className="text-muted-foreground" onClick={clearProjects}>Clear all</Button> : null}
+      {sessionContexts.filter((context) => context.entityType !== 'PROJECT').map((context) => (
+        <Badge key={context.id} variant="outline" className="h-7 max-w-full gap-2 px-2.5 pr-1 text-xs font-normal">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" aria-hidden="true" />
+          <span className="shrink-0 text-muted-foreground">{context.entityType.replace('_', ' ').toLowerCase()}:</span>
+          <span className="max-w-56 truncate">{context.label}</span>
+          <button type="button" className="rounded-sm p-1 hover:bg-muted" onClick={() => removeContext(context)} aria-label={`Remove ${context.label} from context`}>
+            <X className="h-3 w-3" />
+          </button>
+        </Badge>
+      ))}
+      {!hasContext ? <span className="text-muted-foreground">Add context</span> : null}
+      {hasContext ? <Button type="button" size="xs" variant="ghost" className="text-muted-foreground" onClick={clearContexts}>Clear all</Button> : null}
       {referencesLoading ? <span className="text-muted-foreground">Loading context…</span> : null}
     </div>
   )
@@ -361,6 +388,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       allowEmptyProject
       composerFooter={projectContext}
       workItemReferences={visibleReferences}
+      teamReferences={new Map(sessionContexts.filter((context) => context.entityType === 'TEAM').map((context) => [context.entityId, context.label]))}
       onWorkItemReferenceClick={(workItemId) => {
         const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
         const nextParams = new URLSearchParams({
@@ -372,6 +400,11 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
           nextParams.set('chatSessionId', sessionId)
         }
         navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
+      }}
+      onTeamReferenceClick={(teamId) => {
+        const nextParams = new URLSearchParams({ chatPanel: 'open', chatSessionId: selectedSession?.id ?? requestedSessionId ?? '' })
+        if (!nextParams.get('chatSessionId')) nextParams.delete('chatSessionId')
+        navigate(`/app/teams/${teamId}?${nextParams.toString()}`)
       }}
       flush
       className="h-full min-h-0"

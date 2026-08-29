@@ -11,7 +11,7 @@ public class CreateUserRequest {
 
     private String displayName;
 
-    private String jobTitle;
+    private String title;
 
     private String bio;
 

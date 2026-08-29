@@ -280,7 +280,7 @@ public class AuthService {
                 user.getUsername(),
                 user.getEmail(),
                 user.getDisplayName(),
-                user.getJobTitle(),
+                user.getTitle(),
                 user.getBio(),
                 user.getTimezone(),
                 user.getPasswordHash(),
@@ -320,7 +320,7 @@ public class AuthService {
         snapshot.put("username", user.getUsername());
         snapshot.put("email", user.getEmail());
         snapshot.put("displayName", user.getDisplayName());
-        snapshot.put("jobTitle", user.getJobTitle());
+        snapshot.put("title", user.getTitle());
         snapshot.put("bio", user.getBio());
         snapshot.put("timezone", user.getTimezone());
         snapshot.put("status", user.getStatus());
@@ -445,7 +445,7 @@ public class AuthService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
-                .jobTitle(user.getJobTitle())
+                .title(user.getTitle())
                 .bio(user.getBio())
                 .timezone(user.getTimezone())
                 .status(user.getStatus())

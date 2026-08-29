@@ -5,7 +5,7 @@ ALTER TABLE team
     ADD COLUMN description TEXT;
 
 ALTER TABLE app_user
-    ADD COLUMN job_title TEXT,
+    ADD COLUMN title TEXT,
     ADD COLUMN bio TEXT;
 
 DROP INDEX IF EXISTS chat_session_active_user_project_idx;

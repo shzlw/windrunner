@@ -46,7 +46,7 @@ type User = {
   username: string
   email: string | null
   displayName: string | null
-  jobTitle: string | null
+  title: string | null
   bio: string | null
   timezone: string | null
   status: string | null
@@ -60,7 +60,7 @@ type UserFormState = {
   username: string
   email: string
   displayName: string
-  jobTitle: string
+  title: string
   bio: string
   timezone: string
   status: string
@@ -79,7 +79,7 @@ const emptyForm: UserFormState = {
   username: '',
   email: '',
   displayName: '',
-  jobTitle: '',
+  title: '',
   bio: '',
   timezone: defaultTimezone,
   status: 'ACTIVE',
@@ -92,7 +92,7 @@ function toFormState(user: User): UserFormState {
     username: user.username ?? '',
     email: user.email ?? '',
     displayName: user.displayName ?? '',
-    jobTitle: user.jobTitle ?? '',
+    title: user.title ?? '',
     bio: user.bio ?? '',
     timezone: user.timezone ?? defaultTimezone,
     status: user.status ?? 'ACTIVE',
@@ -272,7 +272,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       username: form.username.trim(),
       email: form.email.trim() || null,
       displayName: form.displayName.trim() || null,
-      jobTitle: form.jobTitle.trim() || null,
+      title: form.title.trim() || null,
       bio: form.bio.trim() || null,
       timezone: form.timezone.trim() || 'UTC',
       status: form.status.trim() || 'ACTIVE',
@@ -371,7 +371,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       return true
     }
 
-    return [user.username, user.displayName, user.jobTitle, user.bio, user.email, user.timezone, user.status, user.globalRole]
+    return [user.username, user.displayName, user.title, user.bio, user.email, user.timezone, user.status, user.globalRole]
       .filter((value): value is string => Boolean(value))
       .some((value) => value.toLowerCase().includes(normalizedQuery))
   })
@@ -421,7 +421,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Job title</TableHead>
+                    <TableHead>Title</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Username</TableHead>
                     <TableHead>Status</TableHead>
@@ -440,7 +440,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                         onClick={() => void selectUser(user.id)}
                       >
                         <TableCell className="font-medium">{user.displayName?.trim() || user.username}</TableCell>
-                        <TableCell className="max-w-[220px] truncate text-muted-foreground">{formatValue(user.jobTitle)}</TableCell>
+                        <TableCell className="max-w-[220px] truncate text-muted-foreground">{formatValue(user.title)}</TableCell>
                         <TableCell className="max-w-[280px] truncate text-muted-foreground">{formatValue(user.email)}</TableCell>
                         <TableCell className="font-mono text-[11px] text-muted-foreground">@{user.username}</TableCell>
                         <TableCell>
@@ -524,7 +524,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   <dl className="space-y-4">
                     {[
                       ['Display name', formatValue(selectedUser.displayName)],
-                      ['Job title', formatValue(selectedUser.jobTitle)],
+                      ['Title', formatValue(selectedUser.title)],
                       ['Bio', formatValue(selectedUser.bio)],
                       ['Username', selectedUser.username],
                       ['Email', formatValue(selectedUser.email)],
@@ -632,11 +632,11 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   </Field>
 
                   <Field className="gap-2">
-                    <label className="block text-sm font-semibold" htmlFor="user-job-title">Job title</label>
+                    <label className="block text-sm font-semibold" htmlFor="user-title">Title</label>
                     <Input
-                      id="user-job-title"
-                      value={form.jobTitle}
-                      onChange={(event) => updateField('jobTitle', event.target.value)}
+                      id="user-title"
+                      value={form.title}
+                      onChange={(event) => updateField('title', event.target.value)}
                       placeholder="e.g. Product manager"
                     />
                   </Field>

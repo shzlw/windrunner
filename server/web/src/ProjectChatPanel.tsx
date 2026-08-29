@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { useParams } from 'react-router'
-import { AlertTriangle, ArrowUp, Bot, FileText, Loader2, Plus, Square, User, X } from 'lucide-react'
+import { AlertTriangle, ArrowUp, Bot, FileText, Loader2, Plus, Square, User, UsersRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
@@ -38,7 +38,7 @@ export type ChatWorkItemReference = {
   projectId?: string
 }
 
-const workItemReferencePattern = /\[\[workitem:([A-Za-z0-9_-]+)\]\]/g
+const artifactReferencePattern = /\[\[(workitem|team):([A-Za-z0-9_-]+)\]\]/g
 
 function createMessageId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -51,14 +51,16 @@ function workItemStatusLabel(status: string) {
   return status.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase())
 }
 
-// A partially-streamed marker (e.g. "[[workitem:witm_ab" without its "]]")
+// A partially-streamed artifact marker (e.g. "[[team:team_ab" without its "]]")
 // would flash as raw text before completing, so it is hidden until closed.
-const incompleteTrailingMarkerPattern = /\[\[workitem:[^\]\s]*$/
+const incompleteTrailingMarkerPattern = /\[\[(?:workitem|team):[^\]\s]*$/
 
 function renderAssistantContent(
   content: string,
   references: Map<string, ChatWorkItemReference>,
-  onReferenceClick?: (workItemId: string) => void,
+  teamReferences: Map<string, string>,
+  onWorkItemReferenceClick?: (workItemId: string) => void,
+  onTeamReferenceClick?: (teamId: string) => void,
 ) {
   const rendered: ReactNode[] = []
   content = content.replace(incompleteTrailingMarkerPattern, '')
@@ -66,19 +68,22 @@ function renderAssistantContent(
   let match: RegExpExecArray | null
   let referenceIndex = 0
 
-  workItemReferencePattern.lastIndex = 0
-  while ((match = workItemReferencePattern.exec(content)) !== null) {
+  artifactReferencePattern.lastIndex = 0
+  while ((match = artifactReferencePattern.exec(content)) !== null) {
     if (match.index > lastIndex) {
       rendered.push(<span key={`text-${match.index}`} className="whitespace-pre-wrap">{content.slice(lastIndex, match.index)}</span>)
     }
 
-    const workItemId = match[1]
-    const reference = references.get(workItemId)
+    const referenceType = match[1]
+    const referenceId = match[2]
+    const reference = referenceType === 'workitem' ? references.get(referenceId) : undefined
+    const teamName = referenceType === 'team' ? teamReferences.get(referenceId) : undefined
     // Unresolved IDs stay visible (truncated) so hallucinated or missing
     // references are diagnosable instead of blending in.
     const label = reference?.title
-      ?? (workItemId.length > 18 ? `${workItemId.slice(0, 15)}\u2026` : workItemId)
-    const isClickable = Boolean(onReferenceClick)
+      ?? teamName
+      ?? (referenceId.length > 18 ? `${referenceId.slice(0, 15)}\u2026` : referenceId)
+    const isClickable = referenceType === 'team' ? Boolean(onTeamReferenceClick) : Boolean(onWorkItemReferenceClick)
     const referenceButton = (
       <button
         type="button"
@@ -88,11 +93,11 @@ function renderAssistantContent(
             ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/15'
             : 'border-border bg-muted text-muted-foreground',
         )}
-        onClick={() => onReferenceClick?.(workItemId)}
+        onClick={() => referenceType === 'team' ? onTeamReferenceClick?.(referenceId) : onWorkItemReferenceClick?.(referenceId)}
         disabled={!isClickable}
-        aria-label={`Select work item ${label}`}
+        aria-label={`Open ${referenceType === 'team' ? 'team' : 'work item'} ${label}`}
       >
-        <FileText className="h-3 w-3 shrink-0" />
+        {referenceType === 'team' ? <UsersRound className="h-3 w-3 shrink-0" /> : <FileText className="h-3 w-3 shrink-0" />}
         <span className="truncate">{label}</span>
       </button>
     )
@@ -101,7 +106,7 @@ function renderAssistantContent(
       <Tooltip key={`reference-${referenceIndex}`}>
         <TooltipTrigger render={referenceButton} />
         <TooltipContent>
-          <span>{reference ? `${workItemStatusLabel(reference.status)} · ${reference.type}` : 'Unresolved reference'}</span>
+          <span>{referenceType === 'team' ? 'Team' : reference ? `${workItemStatusLabel(reference.status)} · ${reference.type}` : 'Unresolved reference'}</span>
         </TooltipContent>
       </Tooltip>,
     )
@@ -130,6 +135,8 @@ export default function ProjectChatPanel({
   onGraphChangeProposalSaved,
   workItemReferences = new Map(),
   onWorkItemReferenceClick,
+  teamReferences = new Map(),
+  onTeamReferenceClick,
   className,
   flush = false,
   showHeader = true,
@@ -151,6 +158,8 @@ export default function ProjectChatPanel({
   onGraphChangeProposalSaved?: () => void | Promise<void>
   workItemReferences?: Map<string, ChatWorkItemReference>
   onWorkItemReferenceClick?: (workItemId: string) => void | Promise<void>
+  teamReferences?: Map<string, string>
+  onTeamReferenceClick?: (teamId: string) => void | Promise<void>
   className?: string
   flush?: boolean
   showHeader?: boolean
@@ -504,7 +513,7 @@ export default function ProjectChatPanel({
                         </span>
                       ) : (
                         message.content
-                          ? renderAssistantContent(message.content, workItemReferences, onWorkItemReferenceClick)
+                          ? renderAssistantContent(message.content, workItemReferences, teamReferences, onWorkItemReferenceClick, onTeamReferenceClick)
                           : <Loader2 className="h-4 w-4 animate-spin" />
                       )}
                     </BubbleContent>
