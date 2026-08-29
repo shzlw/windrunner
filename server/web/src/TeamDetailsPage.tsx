@@ -11,6 +11,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empt
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import {
   addTeamProject,
   decideTeamJoinRequest,
@@ -64,6 +65,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
   const [joinRequests, setJoinRequests] = useState<TeamJoinRequest[]>([])
   const [projectLinks, setProjectLinks] = useState<ProjectTeam[]>([])
   const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
   const [memberUserId, setMemberUserId] = useState('')
   const [memberRole, setMemberRole] = useState<TeamMember['role']>('TEAM_MEMBER')
   const [projectId, setProjectId] = useState('')
@@ -126,6 +128,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
 
       setTeam(nextTeam)
       setEditName(nextTeam.name)
+      setEditDescription(nextTeam.description ?? '')
       setUsers(nextUsers)
       setProjects(nextProjects)
       setMembers(nextMembers)
@@ -181,9 +184,10 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
     setIsUpdating(true)
 
     try {
-      const updated = await updateTeam(team.id, { name })
+      const updated = await updateTeam(team.id, { name, description: editDescription.trim() || null })
       setTeam(updated)
       setEditName(updated.name)
+      setEditDescription(updated.description ?? '')
       toast.success('Team updated.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update team.')
@@ -386,9 +390,19 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                   <label className="text-sm font-medium">Name</label>
                   <Input value={editName} onChange={(event) => setEditName(event.target.value)} disabled={!isAdminLike} />
                 </div>
+                <div className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-start">
+                  <label className="pt-2 text-sm font-medium">Description</label>
+                  <Textarea
+                    value={editDescription}
+                    onChange={(event) => setEditDescription(event.target.value)}
+                    disabled={!isAdminLike}
+                    placeholder="What is this team responsible for?"
+                    rows={4}
+                  />
+                </div>
                 {isAdminLike ? (
                   <div className="flex justify-end">
-                    <Button type="submit" className="gap-2" disabled={isUpdating || editName.trim() === team.name}>
+                    <Button type="submit" className="gap-2" disabled={isUpdating || (editName.trim() === team.name && (editDescription.trim() || '') === (team.description?.trim() || ''))}>
                       {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       Save
                     </Button>

@@ -2,6 +2,7 @@ package com.windrunner.server.team;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -88,7 +89,7 @@ class TeamServiceTest {
                 new CreateTeamRequest("Platform", List.of("owner-1", "owner-2")), actor());
 
         ArgumentCaptor<String> teamId = ArgumentCaptor.forClass(String.class);
-        verify(teamRepository).insert(teamId.capture(), anyString());
+        verify(teamRepository).insert(teamId.capture(), anyString(), any());
         assertThat(createdTeam.getId()).isEqualTo(teamId.getValue());
         assertThat(createdTeam.getId()).startsWith("team_");
         verify(teamMemberRepository).insert(teamId.getValue(), "owner-1", TeamRoles.TEAM_OWNER);

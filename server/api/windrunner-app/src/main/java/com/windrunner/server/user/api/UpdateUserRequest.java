@@ -11,6 +11,10 @@ public class UpdateUserRequest {
 
     private String displayName;
 
+    private String jobTitle;
+
+    private String bio;
+
     private String timezone;
 
     private String status;

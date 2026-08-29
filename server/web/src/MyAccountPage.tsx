@@ -459,6 +459,8 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
                 <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
                   {([
+                    { label: 'Job title', value: displayValue(user.jobTitle) },
+                    { label: 'Bio', value: displayValue(user.bio) },
                     { label: 'Email', value: displayValue(user.email) },
                     { label: 'Timezone', value: displayValue(user.timezone) },
                     { label: 'Role', value: displayValue(user.globalRole) },

@@ -32,11 +32,13 @@ class ExternalUserControllerTest {
     private HttpServletRequest request;
 
     @Test
-    void getUserReturnsOnlyLimitedIdentityFields() {
+    void getUserReturnsIdentityAndProfileFields() {
         AppUser user = new AppUser();
         user.setId("user-1");
         user.setUsername("jane");
         user.setDisplayName("Jane Doe");
+        user.setJobTitle("Product manager");
+        user.setBio("Helps teams prioritize customer problems.");
         user.setEmail("jane@example.com");
         user.setStatus(UserStatuses.ACTIVE);
         user.setGlobalRole("ADMIN");
@@ -47,7 +49,12 @@ class ExternalUserControllerTest {
 
         verify(externalAccessService).requireScope(request, ApiKeyScopes.USERS_READ);
         assertThat(response.data()).isEqualTo(
-                new ExternalUserIdentityResponse("user-1", "jane", "Jane Doe"));
+                new ExternalUserIdentityResponse(
+                        "user-1",
+                        "jane",
+                        "Jane Doe",
+                        "Product manager",
+                        "Helps teams prioritize customer problems."));
         assertThat(response.data()).isInstanceOf(ExternalUserIdentityResponse.class);
     }
 

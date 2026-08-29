@@ -7,13 +7,17 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record ExternalUserIdentityResponse(
         String id,
         String username,
-        String displayName
+        String displayName,
+        String jobTitle,
+        String bio
 ) {
 
     public static ExternalUserIdentityResponse from(AppUser user) {
         return new ExternalUserIdentityResponse(
                 user.getId(),
                 user.getUsername(),
-                user.getDisplayName());
+                user.getDisplayName(),
+                user.getJobTitle(),
+                user.getBio());
     }
 }

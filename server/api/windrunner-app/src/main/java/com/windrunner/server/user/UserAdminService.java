@@ -87,6 +87,8 @@ public class UserAdminService {
         user.setUsername(normalizedUsername);
         user.setEmail(normalizedEmail);
         user.setDisplayName(StringUtils.hasText(createRequest.getDisplayName()) ? createRequest.getDisplayName().trim() : null);
+        user.setJobTitle(normalizeOptionalText(createRequest.getJobTitle()));
+        user.setBio(normalizeOptionalText(createRequest.getBio()));
         user.setTimezone(normalizedTimezone);
         user.setPasswordHash(passwordEncoder.encode(createRequest.getPassword()));
         user.setStatus(normalizeStatus(createRequest.getStatus()));
@@ -99,6 +101,8 @@ public class UserAdminService {
                 user.getUsername(),
                 user.getEmail(),
                 user.getDisplayName(),
+                user.getJobTitle(),
+                user.getBio(),
                 user.getTimezone(),
                 user.getPasswordHash(),
                 user.getStatus(),
@@ -143,6 +147,8 @@ public class UserAdminService {
         user.setUsername(normalizedUsername);
         user.setEmail(normalizedEmail);
         user.setDisplayName(StringUtils.hasText(updateRequest.getDisplayName()) ? updateRequest.getDisplayName().trim() : null);
+        user.setJobTitle(normalizeOptionalText(updateRequest.getJobTitle()));
+        user.setBio(normalizeOptionalText(updateRequest.getBio()));
         user.setTimezone(normalizedTimezone);
         user.setStatus(normalizeStatus(updateRequest.getStatus()));
         user.setGlobalRole(normalizedRole);
@@ -152,6 +158,8 @@ public class UserAdminService {
                 user.getUsername(),
                 user.getEmail(),
                 user.getDisplayName(),
+                user.getJobTitle(),
+                user.getBio(),
                 user.getTimezone(),
                 user.getStatus(),
                 user.getGlobalRole(),
@@ -277,6 +285,10 @@ public class UserAdminService {
         return username.trim().toLowerCase();
     }
 
+    private String normalizeOptionalText(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
     private String normalizeEmail(String email) {
         if (!StringUtils.hasText(email)) {
             return null;
@@ -342,6 +354,8 @@ public class UserAdminService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
+                .jobTitle(user.getJobTitle())
+                .bio(user.getBio())
                 .timezone(user.getTimezone())
                 .status(user.getStatus())
                 .globalRole(user.getGlobalRole())
@@ -357,6 +371,8 @@ public class UserAdminService {
         snapshot.put("username", user.getUsername());
         snapshot.put("email", user.getEmail());
         snapshot.put("displayName", user.getDisplayName());
+        snapshot.put("jobTitle", user.getJobTitle());
+        snapshot.put("bio", user.getBio());
         snapshot.put("timezone", user.getTimezone());
         snapshot.put("status", user.getStatus());
         snapshot.put("globalRole", user.getGlobalRole());

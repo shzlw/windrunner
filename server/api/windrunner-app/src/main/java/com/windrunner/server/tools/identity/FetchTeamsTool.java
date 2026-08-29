@@ -59,10 +59,10 @@ public class FetchTeamsTool implements Tool<FetchTeamsTool.Parameters> {
     public record Result(List<ResultTeam> teams, int count, int limit) {
     }
 
-    public record ResultTeam(String id, String name) {
+    public record ResultTeam(String id, String name, String description) {
 
         static ResultTeam from(Team team) {
-            return new ResultTeam(team.getId(), team.getName());
+            return new ResultTeam(team.getId(), team.getName(), team.getDescription());
         }
     }
 }

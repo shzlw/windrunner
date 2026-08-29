@@ -59,10 +59,10 @@ public class FetchUsersTool implements Tool<FetchUsersTool.Parameters> {
     public record Result(List<ResultUser> users, int count, int limit) {
     }
 
-    public record ResultUser(String id, String username, String displayName, String email) {
+    public record ResultUser(String id, String username, String displayName, String email, String jobTitle, String bio) {
 
         static ResultUser from(AppUser user) {
-            return new ResultUser(user.getId(), user.getUsername(), user.getDisplayName(), user.getEmail());
+            return new ResultUser(user.getId(), user.getUsername(), user.getDisplayName(), user.getEmail(), user.getJobTitle(), user.getBio());
         }
     }
 }

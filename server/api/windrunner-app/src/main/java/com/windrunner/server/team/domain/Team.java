@@ -19,6 +19,7 @@ public class Team {
     @Id
     private String id;
     private String name;
+    private String description;
     @Column("created_at")
     private OffsetDateTime createdAt;
     @Column("updated_at")

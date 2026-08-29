@@ -9,6 +9,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empt
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   createTeam,
@@ -44,6 +45,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
   const [teams, setTeams] = useState<Team[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [createName, setCreateName] = useState('')
+  const [createDescription, setCreateDescription] = useState('')
   const [createOwnerUserIds, setCreateOwnerUserIds] = useState<string[]>([])
   const [createOwnerUserId, setCreateOwnerUserId] = useState('')
   const [isSheetOpen, setIsSheetOpen] = useState(false)
@@ -73,7 +75,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
       return teams
     }
 
-    return teams.filter((team) => [team.name, team.id].some((value) => value.toLowerCase().includes(normalizedQuery)))
+    return teams.filter((team) => [team.name, team.description ?? '', team.id].some((value) => value.toLowerCase().includes(normalizedQuery)))
   }, [query, teams])
 
   async function loadPage() {
@@ -101,6 +103,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
 
   function openCreateSheet() {
     setCreateName('')
+    setCreateDescription('')
     setCreateOwnerUserIds([])
     setCreateOwnerUserId('')
     setOwnerSubmitAttempted(false)
@@ -135,8 +138,9 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
     setIsCreating(true)
 
     try {
-      const created = await createTeam({ name, ownerUserIds: createOwnerUserIds })
+      const created = await createTeam({ name, description: createDescription.trim() || null, ownerUserIds: createOwnerUserIds })
       setCreateName('')
+      setCreateDescription('')
       setCreateOwnerUserIds([])
       setCreateOwnerUserId('')
       setIsSheetOpen(false)
@@ -188,6 +192,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Description</TableHead>
                   <TableHead>Members</TableHead>
                   <TableHead>Projects</TableHead>
                   <TableHead>Created</TableHead>
@@ -200,6 +205,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
                   return (
                     <TableRow key={team.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/app/teams/${team.id}`)}>
                       <TableCell className="font-medium">{team.name}</TableCell>
+                      <TableCell className="max-w-[360px] truncate text-muted-foreground">{team.description?.trim() || '—'}</TableCell>
                       <TableCell>
                         {members.length > 0 ? (
                           <div className="flex -space-x-2" aria-label={`${members.length} members`}>
@@ -241,6 +247,15 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
               <div className="space-y-2">
                 <label className="block text-sm font-semibold">Name</label>
                 <Input value={createName} onChange={(event) => setCreateName(event.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold">Description</label>
+                <Textarea
+                  value={createDescription}
+                  onChange={(event) => setCreateDescription(event.target.value)}
+                  placeholder="What is this team responsible for?"
+                  rows={3}
+                />
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-semibold">Team owners</label>

@@ -8,6 +8,8 @@ public record AuthUserResponse(
         String username,
         String email,
         String displayName,
+        String jobTitle,
+        String bio,
         String timezone,
         String status,
         String globalRole,

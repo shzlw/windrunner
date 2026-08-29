@@ -20,6 +20,8 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
                 username,
                 email,
                 display_name,
+                job_title,
+                bio,
                 timezone,
                 password_hash,
                 status,
@@ -46,6 +48,8 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
                    @Param("username") String username,
                    @Param("email") String email,
                    @Param("displayName") String displayName,
+                   @Param("jobTitle") String jobTitle,
+                   @Param("bio") String bio,
                    @Param("timezone") String timezone,
                    @Param("passwordHash") String passwordHash,
                    @Param("status") String status,
@@ -60,6 +64,8 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
             SET username = :username,
                 email = :email,
                 display_name = :displayName,
+                job_title = :jobTitle,
+                bio = :bio,
                 timezone = :timezone,
                 status = :status,
                 global_role = :globalRole,
@@ -70,6 +76,8 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
                           @Param("username") String username,
                           @Param("email") String email,
                           @Param("displayName") String displayName,
+                          @Param("jobTitle") String jobTitle,
+                          @Param("bio") String bio,
                           @Param("timezone") String timezone,
                           @Param("status") String status,
                           @Param("globalRole") String globalRole,
@@ -133,7 +141,7 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
     List<AppUser> findUserAndAdminPage(@Param("limit") int limit, @Param("offset") long offset);
 
     @Query("""
-            SELECT id, username, email, display_name
+            SELECT id, username, email, display_name, job_title, bio
             FROM app_user
             WHERE UPPER(status) = 'ACTIVE'
               AND (
@@ -142,6 +150,8 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
                  OR LOWER(username) LIKE CONCAT('%', LOWER(:query), '%')
                  OR LOWER(COALESCE(display_name, '')) LIKE CONCAT('%', LOWER(:query), '%')
                  OR LOWER(COALESCE(email, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(job_title, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(bio, '')) LIKE CONCAT('%', LOWER(:query), '%')
               )
             ORDER BY lower(COALESCE(display_name, username)) ASC, id ASC
             LIMIT :limit

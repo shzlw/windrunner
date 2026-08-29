@@ -14,14 +14,14 @@ import java.util.Optional;
 public interface TeamRepository extends CrudRepository<Team, String> {
 
     @Query("""
-            SELECT id, name, created_at, updated_at
+            SELECT id, name, description, created_at, updated_at
             FROM team
             ORDER BY lower(name) ASC, id ASC
             """)
     List<Team> findAllOrdered();
 
     @Query("""
-            SELECT id, name, created_at, updated_at
+            SELECT id, name, description, created_at, updated_at
             FROM team
             ORDER BY lower(name) ASC, id ASC
             LIMIT :limit OFFSET :offset
@@ -32,18 +32,19 @@ public interface TeamRepository extends CrudRepository<Team, String> {
     long countTeams();
 
     @Query("""
-            SELECT id, name, created_at, updated_at
+            SELECT id, name, description, created_at, updated_at
             FROM team
             WHERE :query IS NULL
                OR :query = ''
                OR LOWER(name) LIKE CONCAT('%', LOWER(:query), '%')
+               OR LOWER(COALESCE(description, '')) LIKE CONCAT('%', LOWER(:query), '%')
             ORDER BY lower(name) ASC, id ASC
             LIMIT :limit
             """)
     List<Team> findAssignableTeams(@Param("query") String query, @Param("limit") int limit);
 
     @Query("""
-            SELECT id, name, created_at, updated_at
+            SELECT id, name, description, created_at, updated_at
             FROM team
             WHERE lower(name) = lower(:name)
             """)
@@ -53,23 +54,28 @@ public interface TeamRepository extends CrudRepository<Team, String> {
     @Query("""
             INSERT INTO team (
                 id,
-                name
+                name,
+                description
             )
             VALUES (
                 :id,
-                :name
+                :name,
+                :description
             )
             """)
     void insert(@Param("id") String id,
-                @Param("name") String name);
+                @Param("name") String name,
+                @Param("description") String description);
 
     @Modifying
     @Query("""
             UPDATE team
             SET name = :name,
+                description = :description,
                 updated_at = NOW()
             WHERE id = :id
             """)
     int update(@Param("id") String id,
-               @Param("name") String name);
+               @Param("name") String name,
+               @Param("description") String description);
 }

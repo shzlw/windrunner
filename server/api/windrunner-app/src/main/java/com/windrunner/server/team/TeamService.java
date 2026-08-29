@@ -81,12 +81,13 @@ public class TeamService {
 
         Team team = new Team();
         team.setName(createRequest.name());
+        team.setDescription(normalizeOptionalText(createRequest.description()));
         validateTeam(team, null);
         List<String> ownerUserIds = requireOwnerUserIds(createRequest.ownerUserIds());
         if (team.getId() == null || team.getId().isBlank()) {
             team.setId(idGenerator.generate(EntityIdType.TEAM));
         }
-        teamRepository.insert(team.getId(), team.getName());
+        teamRepository.insert(team.getId(), team.getName(), team.getDescription());
         for (String ownerUserId : ownerUserIds) {
             teamMemberRepository.insert(team.getId(), ownerUserId, TeamRoles.TEAM_OWNER);
         }
@@ -110,7 +111,7 @@ public class TeamService {
         Team beforeTeam = requireTeam(id);
         Map<String, Object> before = teamSnapshot(beforeTeam);
         validateTeam(team, id);
-        if (teamRepository.update(id, team.getName()) == 0) {
+        if (teamRepository.update(id, team.getName(), team.getDescription()) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found");
         }
         team.setId(id);
@@ -370,6 +371,7 @@ public class TeamService {
             }
         });
         team.setName(name);
+        team.setDescription(normalizeOptionalText(team.getDescription()));
     }
 
     private List<String> requireOwnerUserIds(List<String> ownerUserIds) {
@@ -434,10 +436,15 @@ public class TeamService {
         return value.trim();
     }
 
+    private String normalizeOptionalText(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private Map<String, Object> teamSnapshot(Team team) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("id", team.getId());
         snapshot.put("name", team.getName());
+        snapshot.put("description", team.getDescription());
         return snapshot;
     }
 }

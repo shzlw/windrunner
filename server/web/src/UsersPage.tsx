@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -45,6 +46,8 @@ type User = {
   username: string
   email: string | null
   displayName: string | null
+  jobTitle: string | null
+  bio: string | null
   timezone: string | null
   status: string | null
   globalRole: string | null
@@ -57,6 +60,8 @@ type UserFormState = {
   username: string
   email: string
   displayName: string
+  jobTitle: string
+  bio: string
   timezone: string
   status: string
   globalRole: string
@@ -74,6 +79,8 @@ const emptyForm: UserFormState = {
   username: '',
   email: '',
   displayName: '',
+  jobTitle: '',
+  bio: '',
   timezone: defaultTimezone,
   status: 'ACTIVE',
   globalRole: 'USER',
@@ -85,6 +92,8 @@ function toFormState(user: User): UserFormState {
     username: user.username ?? '',
     email: user.email ?? '',
     displayName: user.displayName ?? '',
+    jobTitle: user.jobTitle ?? '',
+    bio: user.bio ?? '',
     timezone: user.timezone ?? defaultTimezone,
     status: user.status ?? 'ACTIVE',
     globalRole: user.globalRole ?? 'USER',
@@ -263,6 +272,8 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       username: form.username.trim(),
       email: form.email.trim() || null,
       displayName: form.displayName.trim() || null,
+      jobTitle: form.jobTitle.trim() || null,
+      bio: form.bio.trim() || null,
       timezone: form.timezone.trim() || 'UTC',
       status: form.status.trim() || 'ACTIVE',
       ...(isSuperAdmin ? { globalRole: form.globalRole.trim() || 'USER' } : {}),
@@ -360,7 +371,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       return true
     }
 
-    return [user.username, user.displayName, user.email, user.timezone, user.status, user.globalRole]
+    return [user.username, user.displayName, user.jobTitle, user.bio, user.email, user.timezone, user.status, user.globalRole]
       .filter((value): value is string => Boolean(value))
       .some((value) => value.toLowerCase().includes(normalizedQuery))
   })
@@ -410,6 +421,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Job title</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Username</TableHead>
                     <TableHead>Status</TableHead>
@@ -428,6 +440,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                         onClick={() => void selectUser(user.id)}
                       >
                         <TableCell className="font-medium">{user.displayName?.trim() || user.username}</TableCell>
+                        <TableCell className="max-w-[220px] truncate text-muted-foreground">{formatValue(user.jobTitle)}</TableCell>
                         <TableCell className="max-w-[280px] truncate text-muted-foreground">{formatValue(user.email)}</TableCell>
                         <TableCell className="font-mono text-[11px] text-muted-foreground">@{user.username}</TableCell>
                         <TableCell>
@@ -511,6 +524,8 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   <dl className="space-y-4">
                     {[
                       ['Display name', formatValue(selectedUser.displayName)],
+                      ['Job title', formatValue(selectedUser.jobTitle)],
+                      ['Bio', formatValue(selectedUser.bio)],
                       ['Username', selectedUser.username],
                       ['Email', formatValue(selectedUser.email)],
                       ['Timezone', formatValue(selectedUser.timezone)],
@@ -614,6 +629,27 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                       aria-invalid={Boolean(emailValidationMessage)}
                     />
                     {emailValidationMessage ? <p className="text-sm text-destructive">{emailValidationMessage}</p> : null}
+                  </Field>
+
+                  <Field className="gap-2">
+                    <label className="block text-sm font-semibold" htmlFor="user-job-title">Job title</label>
+                    <Input
+                      id="user-job-title"
+                      value={form.jobTitle}
+                      onChange={(event) => updateField('jobTitle', event.target.value)}
+                      placeholder="e.g. Product manager"
+                    />
+                  </Field>
+
+                  <Field className="gap-2">
+                    <label className="block text-sm font-semibold" htmlFor="user-bio">Bio</label>
+                    <Textarea
+                      id="user-bio"
+                      value={form.bio}
+                      onChange={(event) => updateField('bio', event.target.value)}
+                      placeholder="A short description about this person"
+                      rows={4}
+                    />
                   </Field>
 
                   <Field className="gap-2">

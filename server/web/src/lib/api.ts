@@ -3,6 +3,8 @@ export type AuthUser = {
   username: string
   email: string | null
   displayName: string | null
+  jobTitle: string | null
+  bio: string | null
   timezone: string | null
   status: string | null
   globalRole: string | null
@@ -200,6 +202,8 @@ export interface User {
   username: string
   email: string | null
   displayName: string | null
+  jobTitle: string | null
+  bio: string | null
   timezone: string | null
   status: string | null
   globalRole: string | null
@@ -259,6 +263,7 @@ export interface NodeSubtreeResponse {
 export interface Team {
   id: string
   name: string
+  description: string | null
   createdAt?: string
   memberUserIds?: string[]
   memberDisplayNames?: Record<string, string>
@@ -268,6 +273,7 @@ export interface Team {
 
 export interface CreateTeamRequest {
   name: string
+  description?: string | null
   ownerUserIds: string[]
 }
 

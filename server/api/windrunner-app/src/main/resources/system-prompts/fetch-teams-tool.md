@@ -19,6 +19,7 @@ limit should be between 1 and 100; use 20 unless broader disambiguation is requi
 <usage>
 Use this tool before adding a `TEAM` assignee to a WorkItem.
 Use returned team ids exactly as `assigneeId` values with `assigneeType: "TEAM"`.
+Use the returned description to understand the team's responsibility when it is set.
 If one team name matches multiple teams, choose only when context makes the identity clear; otherwise ask the user for clarification.
 Do not create an Entry or Relationship merely to represent assignment.
 </usage>
@@ -30,7 +31,8 @@ The tool returns:
   "teams": [
     {
       "id": string,
-      "name": string
+      "name": string,
+      "description": string | null
     }
   ],
   "count": number,
