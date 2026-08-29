@@ -134,6 +134,7 @@ export default function ProjectChatPanel({
   flush = false,
   showHeader = true,
   allowEmptyProject = false,
+  initialDraft,
   composerFooter,
   onClose,
 }: {
@@ -153,6 +154,7 @@ export default function ProjectChatPanel({
   flush?: boolean
   showHeader?: boolean
   allowEmptyProject?: boolean
+  initialDraft?: string
   composerFooter?: ReactNode
   onClose?: () => void
 }) {
@@ -161,7 +163,7 @@ export default function ProjectChatPanel({
   const chatProjectIds = projectIds?.length ? projectIds : projectId ? [projectId] : []
   const chatProjectId = chatProjectIds[0] ?? ''
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [draft, setDraft] = useState('')
+  const [draft, setDraft] = useState(initialDraft ?? '')
   const [isLoadingSession, setIsLoadingSession] = useState(true)
   const [isStartingSession, setIsStartingSession] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)

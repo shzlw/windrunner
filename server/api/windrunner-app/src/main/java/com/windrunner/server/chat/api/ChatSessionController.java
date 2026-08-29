@@ -81,6 +81,19 @@ public class ChatSessionController {
         return ApiResponse.success();
     }
 
+    @DeleteMapping("/{sessionId}")
+    public ApiResponse<Void> delete(
+            @PathVariable("projectId") String projectId,
+            @PathVariable("sessionId") String sessionId,
+            HttpServletRequest servletRequest
+    ) {
+        AppUser actor = authService.requireCurrentUser(servletRequest);
+        projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
+        UserContext user = authService.requireUserContext(servletRequest);
+        chatService.deleteSession(projectId, sessionId, user.userId());
+        return ApiResponse.success();
+    }
+
     public record RenameChatSessionRequest(String title) {
     }
 }

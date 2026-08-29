@@ -31,4 +31,8 @@ public interface WorkspaceChangeRepository extends CrudRepository<WorkspaceChang
     @Query("UPDATE workspace_change SET status = :status, feedback = :feedback, applied_at = CASE WHEN :status = 'APPLIED' THEN NOW() ELSE applied_at END, updated_at = NOW() WHERE id = :id AND proposal_id = :proposalId AND project_id = :projectId")
     int decide(@Param("id") String id, @Param("proposalId") String proposalId, @Param("projectId") String projectId,
                @Param("status") String status, @Param("feedback") String feedback);
+
+    @Modifying
+    @Query("DELETE FROM workspace_change WHERE proposal_id IN (SELECT id FROM workspace_change_proposal WHERE chat_session_id = :chatSessionId)")
+    int deleteByChatSessionId(@Param("chatSessionId") String chatSessionId);
 }

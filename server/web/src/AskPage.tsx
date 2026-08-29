@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useOutletContext } from 'react-router'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router'
 import { AlertTriangle, Loader2, Plus, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } 
 import ProjectChatPanel, { type ChatWorkItemReference } from '@/ProjectChatPanel'
 import { getLlmStatus, listNodes, listProjects, type Project, type ProjectNode } from '@/lib/api'
 import type { AskPageOutletContext } from './App'
+import AdaptiveWorkspaceShell from './AdaptiveWorkspaceShell'
 
 const maxSelectedProjects = 10
 
@@ -36,10 +37,12 @@ function referencesForNodes(nodes: ProjectNode[]) {
 
 export default function AskPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const {
     askProjectId,
     chatSessions,
     selectedSessionId,
+    newChatRequestKey,
     isLoadingSessions,
     refreshChatSessions,
     setAskProjectId,
@@ -69,6 +72,7 @@ export default function AskPage() {
   }, [projectQuery, projects])
   const primaryProjectId = selectedProjectIds[0] ?? ''
   const activeChatProjectId = chatProjectId || primaryProjectId
+  const initialPrompt = searchParams.get('prompt') ?? ''
 
   const selectedSession = useMemo(
     () => chatSessions.find((session) => session.id === selectedSessionId && session.projectId === activeChatProjectId),
@@ -87,6 +91,23 @@ export default function AskPage() {
   }, [activeChatProjectId, setAskProjectId])
 
   useEffect(() => {
+    if (newChatRequestKey === 0) {
+      return
+    }
+
+    let isMounted = true
+    queueMicrotask(() => {
+      if (isMounted) {
+        setSelectedProjectIds([])
+        setProjectQuery('')
+      }
+    })
+    return () => {
+      isMounted = false
+    }
+  }, [newChatRequestKey])
+
+  useEffect(() => {
     let isMounted = true
 
     async function loadPage() {
@@ -103,6 +124,9 @@ export default function AskPage() {
         setIsLlmAvailable(llmStatus.available)
         setChatProjectId(nextProjects[0]?.id ?? '')
         setSelectedProjectIds((current) => {
+          if (newChatRequestKey > 0) {
+            return []
+          }
           const stillAvailable = current.filter((projectId) => nextProjects.some((project) => project.id === projectId))
           return stillAvailable.length > 0 ? stillAvailable : nextProjects[0] ? [nextProjects[0].id] : []
         })
@@ -121,7 +145,7 @@ export default function AskPage() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [newChatRequestKey])
 
   useEffect(() => {
     if (selectedProjectIds.length === 0) {
@@ -261,6 +285,42 @@ export default function AskPage() {
     </div>
   )
 
+  const chatContent = sessionsLoading ? (
+    <div className="flex h-full min-h-0 items-center justify-center bg-background text-muted-foreground">
+      <Loader2 className="h-5 w-5 animate-spin" />
+    </div>
+  ) : !isLlmAvailable ? (
+    <div className="flex h-full min-h-0 items-center justify-center bg-background p-6">
+      <Empty className="border-0">
+        <EmptyHeader>
+          <EmptyMedia variant="icon"><AlertTriangle /></EmptyMedia>
+          <EmptyTitle>AI is unavailable</EmptyTitle>
+          <EmptyDescription>Configure an AI provider to start asking questions and generating artifacts.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    </div>
+  ) : (
+    <ProjectChatPanel
+      projectId={activeChatProjectId}
+      projectIds={selectedProjectIds}
+      sessionId={selectedSession?.id}
+      initialDraft={initialPrompt}
+      readOnly={Boolean(selectedSession && selectedSession.status !== 'ACTIVE')}
+      onSessionActivity={() => refreshChatSessions(activeChatProjectId).catch(showSessionError)}
+      onStreamingChange={onStreamingChange}
+      showHeader={false}
+      allowEmptyProject
+      composerFooter={projectContext}
+      workItemReferences={visibleReferences}
+      onWorkItemReferenceClick={(workItemId) => {
+        const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
+        navigate(`/app/projects/${projectId}?workItemId=${encodeURIComponent(workItemId)}`)
+      }}
+      flush
+      className="h-full min-h-0"
+    />
+  )
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
@@ -273,46 +333,7 @@ export default function AskPage() {
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="min-h-0 min-w-0 flex-1 overflow-hidden border-b bg-background">
-            <section className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-                <div className="min-h-0 flex-1 overflow-hidden">
-                  {sessionsLoading ? (
-                    <div className="flex h-full min-h-0 items-center justify-center bg-background text-muted-foreground">
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    </div>
-                  ) : !isLlmAvailable ? (
-                    <div className="flex h-full min-h-0 items-center justify-center bg-background p-6">
-                      <Empty className="border-0">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon"><AlertTriangle /></EmptyMedia>
-                          <EmptyTitle>AI is unavailable</EmptyTitle>
-                          <EmptyDescription>Configure an AI provider to start asking questions and generating artifacts.</EmptyDescription>
-                        </EmptyHeader>
-                      </Empty>
-                    </div>
-                  ) : (
-                    <ProjectChatPanel
-                      projectId={activeChatProjectId}
-                      projectIds={selectedProjectIds}
-                      sessionId={selectedSession?.id}
-                      readOnly={Boolean(selectedSession && selectedSession.status !== 'ACTIVE')}
-                      onSessionActivity={() => refreshChatSessions(activeChatProjectId).catch(showSessionError)}
-                      onStreamingChange={onStreamingChange}
-                      showHeader={false}
-                      allowEmptyProject
-                      composerFooter={projectContext}
-                      workItemReferences={visibleReferences}
-                      onWorkItemReferenceClick={(workItemId) => {
-                        const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
-                        navigate(`/app/projects/${projectId}?workItemId=${encodeURIComponent(workItemId)}`)
-                      }}
-                      flush
-                      className="h-full min-h-0"
-                    />
-                  )}
-                </div>
-            </section>
-          </div>
+          <AdaptiveWorkspaceShell chat={chatContent} className="border-b" />
         )}
       </div>
     </div>

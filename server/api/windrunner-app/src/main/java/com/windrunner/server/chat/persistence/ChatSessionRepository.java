@@ -83,4 +83,10 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
                     @Param("projectId") String projectId,
                     @Param("userId") String userId,
                     @Param("title") String title);
+
+    @Modifying
+    @Query("DELETE FROM chat_session WHERE id = :id AND project_id = :projectId AND user_id = :userId")
+    int deleteSession(@Param("id") String id,
+                      @Param("projectId") String projectId,
+                      @Param("userId") String userId);
 }

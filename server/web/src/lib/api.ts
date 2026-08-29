@@ -793,6 +793,12 @@ export async function renameChatSession(projectId: string, sessionId: string, ti
   })
 }
 
+export async function deleteChatSession(projectId: string, sessionId: string): Promise<void> {
+  await request<void>(`/internal-api/v1/projects/${projectId}/chat-sessions/${sessionId}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function createProject(project: CreateProjectRequest): Promise<Project> {
   const created = await request<{
     id: string

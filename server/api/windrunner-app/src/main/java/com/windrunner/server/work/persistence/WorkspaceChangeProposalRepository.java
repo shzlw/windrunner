@@ -28,4 +28,8 @@ public interface WorkspaceChangeProposalRepository extends CrudRepository<Worksp
     @Modifying
     @Query("UPDATE workspace_change_proposal SET status = :status, updated_at = NOW() WHERE id = :id AND project_id = :projectId")
     int updateStatus(@Param("id") String id, @Param("projectId") String projectId, @Param("status") String status);
+
+    @Modifying
+    @Query("DELETE FROM workspace_change_proposal WHERE chat_session_id = :chatSessionId")
+    int deleteByChatSessionId(@Param("chatSessionId") String chatSessionId);
 }

@@ -46,4 +46,8 @@ public interface ChatMessageRepository extends CrudRepository<ChatMessage, Strin
                 @Param("chatSessionId") String chatSessionId,
                 @Param("role") String role,
                 @Param("content") String content);
+
+    @Modifying
+    @Query("DELETE FROM chat_message WHERE chat_session_id = :chatSessionId")
+    int deleteBySessionId(@Param("chatSessionId") String chatSessionId);
 }

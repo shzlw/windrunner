@@ -8,6 +8,8 @@ import com.windrunner.server.chat.persistence.ChatMessageRepository;
 import com.windrunner.server.chat.persistence.ChatSessionRepository;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
+import com.windrunner.server.work.persistence.WorkspaceChangeProposalRepository;
+import com.windrunner.server.work.persistence.WorkspaceChangeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,8 @@ public class ChatService {
 
     private final ChatSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;
+    private final WorkspaceChangeProposalRepository proposalRepository;
+    private final WorkspaceChangeRepository changeRepository;
     private final EntityIdGenerator idGenerator;
 
     @Transactional
@@ -81,6 +85,18 @@ public class ChatService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat session title must be 120 characters or fewer");
         }
         if (sessionRepository.updateTitle(sessionId, projectId, userId, title) == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session not found");
+        }
+    }
+
+    @Transactional
+    public void deleteSession(String projectId, String sessionId, String userId) {
+        sessionRepository.findByIdAndProjectIdAndUserId(sessionId, projectId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session not found"));
+        changeRepository.deleteByChatSessionId(sessionId);
+        proposalRepository.deleteByChatSessionId(sessionId);
+        messageRepository.deleteBySessionId(sessionId);
+        if (sessionRepository.deleteSession(sessionId, projectId, userId) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session not found");
         }
     }
