@@ -194,7 +194,11 @@ export default function ProjectChatPanel({
           ? await getChatSession(chatProjectId, sessionId)
           : await getActiveChatSession(chatProjectId)
         if (isMounted) {
-          applySession(session)
+          if (session) {
+            applySession(session)
+          } else {
+            setMessages([])
+          }
         }
       } catch (error) {
         if (isMounted) {

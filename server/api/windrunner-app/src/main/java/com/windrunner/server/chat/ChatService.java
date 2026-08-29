@@ -42,7 +42,9 @@ public class ChatService {
     }
 
     public ChatSessionView getActiveSession(String projectId, String userId) {
-        return toView(getOrCreateActiveSession(projectId, userId));
+        return sessionRepository.findActive(projectId, userId)
+                .map(this::toView)
+                .orElse(null);
     }
 
     public ChatSessionView getSession(String projectId, String sessionId, String userId) {
@@ -61,7 +63,6 @@ public class ChatService {
 
     @Transactional
     public List<ChatSessionSummaryView> listSessions(String projectId, String userId) {
-        getOrCreateActiveSession(projectId, userId);
         List<ChatSession> sessions = sessionRepository.findAllByProjectIdAndUserIdOrdered(projectId, userId);
         List<String> sessionIds = sessions.stream().map(ChatSession::getId).toList();
         Map<String, ChatMessage> firstUserMessages = sessionIds.isEmpty()

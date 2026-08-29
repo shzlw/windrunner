@@ -13,6 +13,10 @@ export default function AppView() {
   const isHome = location.pathname === '/app' || location.pathname === '/app/home'
   const isAskAi = location.pathname === '/app/ask-ai' || location.pathname.startsWith('/app/ask-ai/')
   const hasAssistant = searchParams.get('assistant') === '1'
+  const requestedSessionId = searchParams.get('session')
+  const sessionProjectId = requestedSessionId
+    ? appContext.chatSessions.find((session) => session.id === requestedSessionId)?.projectId
+    : undefined
 
   if (isHome) {
     return <PaneLayout mode="full" content={outlet} />
@@ -25,7 +29,7 @@ export default function AppView() {
   return (
     <PaneLayout
       mode={hasAssistant ? 'split' : 'artifact'}
-      chat={hasAssistant ? <AskPage projectId={projectId} /> : undefined}
+      chat={hasAssistant ? <AskPage projectId={sessionProjectId ?? projectId} /> : undefined}
       artifact={outlet}
     />
   )

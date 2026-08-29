@@ -12,7 +12,6 @@ public final class ApiKeyScopes {
     public static final String TEAM_PROJECTS_READ = "team_projects:read";
     public static final String TEAM_PROJECTS_WRITE = "team_projects:write";
     public static final String USERS_READ = "users:read";
-    public static final String USERS_WRITE = "users:write";
     public static final String PROJECTS_READ = "projects:read";
     public static final String PROJECTS_WRITE = "projects:write";
     public static final String PROJECT_ACCESS_READ = "project_access:read";
@@ -33,7 +32,6 @@ public final class ApiKeyScopes {
             TEAM_PROJECTS_READ,
             TEAM_PROJECTS_WRITE,
             USERS_READ,
-            USERS_WRITE,
             PROJECTS_READ,
             PROJECTS_WRITE,
             PROJECT_ACCESS_READ,

@@ -70,8 +70,7 @@ const API_KEY_SCOPE_GROUPS: Array<{
   {
     label: 'Users',
     options: [
-      { value: 'users:read', label: 'Read users', description: 'Read user profiles available to the key owner.' },
-      { value: 'users:write', label: 'Write users', description: 'Create, update, and delete manageable users.' },
+      { value: 'users:read', label: 'Resolve users', description: 'Resolve limited identity information by user ID.' },
     ],
   },
   {

@@ -441,6 +441,22 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     navigate(sessionId ? `/app/ask-ai?session=${encodeURIComponent(sessionId)}` : '/app/ask-ai')
   }
 
+  function handleSelectSession(sessionId: string) {
+    setSelectedAskSessionId(sessionId)
+    const keepsArtifact = location.pathname !== '/app'
+      && location.pathname !== '/app/home'
+      && !location.pathname.startsWith('/app/ask-ai')
+    const nextPath = keepsArtifact ? location.pathname : '/app/ask-ai'
+    const nextParams = new URLSearchParams(location.search)
+    nextParams.set('session', sessionId)
+    if (keepsArtifact) {
+      nextParams.set('assistant', '1')
+    } else {
+      nextParams.delete('assistant')
+    }
+    navigate(`${nextPath}?${nextParams.toString()}`)
+  }
+
   const askPageContext: AskPageOutletContext = {
     askProjectId,
     chatSessions: askSessions,
@@ -515,10 +531,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                 sessions={askSessions}
                 selectedSessionId={selectedAskSessionId}
                 isLoading={Boolean(askProjectId) && sessionsProjectId !== askProjectId}
-                onSelectSession={(sessionId) => {
-                  setSelectedAskSessionId(sessionId)
-                  navigate(`/app/ask-ai?session=${encodeURIComponent(sessionId)}`)
-                }}
+                onSelectSession={handleSelectSession}
                 onRenameSession={renameChatSession}
                 onDeleteSession={deleteChatSession}
               />

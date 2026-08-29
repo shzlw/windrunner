@@ -17,7 +17,6 @@ export type ApiKeyScope =
   | 'team_projects:read'
   | 'team_projects:write'
   | 'users:read'
-  | 'users:write'
   | 'projects:read'
   | 'projects:write'
   | 'project_access:read'
@@ -774,7 +773,7 @@ export async function streamProjectChat(
   )
 }
 
-export async function getActiveChatSession(projectId: string): Promise<ChatSession> {
+export async function getActiveChatSession(projectId: string): Promise<ChatSession | null> {
   return request<ChatSession>(`/internal-api/v1/projects/${projectId}/chat-sessions`, { method: 'GET' })
 }
 
