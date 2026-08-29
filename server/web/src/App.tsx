@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Search, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
@@ -26,7 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { Toaster } from '@/components/ui/sonner'
-import { deleteChatSession as deleteChatSessionRequest, fetchCurrentUser, listChatSessions, listProjects, login, renameChatSession as renameChatSessionRequest, startNewChatSession, type AuthUser, type ChatSessionSummary, updatePassword } from '@/lib/api'
+import { deleteChatSession as deleteChatSessionRequest, fetchCurrentUser, listChatSessions, login, renameChatSession as renameChatSessionRequest, startNewChatSession, type AuthUser, type ChatSession, type ChatSessionSummary, updatePassword } from '@/lib/api'
 import { toast } from 'sonner'
 
 import './App.css'
@@ -54,16 +54,13 @@ const baseMenuItems = [
 ]
 
 const aiEfficiencyMenuItem = { label: 'AI Efficiency', path: '/app/ai-efficiency', icon: TrendingUp }
-const sessionPageSize = 10
-
 export type AskPageOutletContext = {
-  askProjectId: string
   chatSessions: ChatSessionSummary[]
   selectedSessionId: string | null
   newChatRequestKey: number
   isLoadingSessions: boolean
-  refreshChatSessions: (projectId: string, preferredSessionId?: string) => Promise<void>
-  setAskProjectId: (projectId: string) => void
+  refreshChatSessions: (preferredSessionId?: string) => Promise<void>
+  createChatSession: () => Promise<ChatSession | null>
   onSubmitHomeCommand: (prompt: string) => Promise<void>
   onStreamingChange: (isStreaming: boolean) => void
 }
@@ -113,35 +110,32 @@ function formatRelativeAge(timestamp?: string) {
 }
 
 function AskSessionsSidebar({
-  projectId,
   sessions,
   selectedSessionId,
   isLoading,
+  hasMore,
   onSelectSession,
+  onLoadMore,
+  onSearch,
   onRenameSession,
   onDeleteSession,
 }: {
-  projectId: string
   sessions: ChatSessionSummary[]
   selectedSessionId: string | null
   isLoading: boolean
+  hasMore: boolean
   onSelectSession: (sessionId: string) => void
+  onLoadMore: () => Promise<void>
+  onSearch: (query: string) => void
   onRenameSession: (sessionId: string, title: string) => Promise<void>
   onDeleteSession: (sessionId: string) => Promise<void>
 }) {
-  const [page, setPage] = useState(0)
   const [openActionSessionId, setOpenActionSessionId] = useState<string | null>(null)
   const [actionMode, setActionMode] = useState<'actions' | 'rename' | 'delete'>('actions')
   const [renameValue, setRenameValue] = useState('')
   const [isRenaming, setIsRenaming] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const visibleSessions = useMemo(
-    () => projectId ? sessions.filter((session) => session.projectId === projectId) : sessions,
-    [projectId, sessions],
-  )
-  const totalPages = Math.max(1, Math.ceil(visibleSessions.length / sessionPageSize))
-  const currentPage = Math.min(page, totalPages - 1)
-  const loadedSessions = visibleSessions.slice(0, (currentPage + 1) * sessionPageSize)
+  const [search, setSearch] = useState('')
 
   async function handleRename(event: FormEvent<HTMLFormElement>, sessionId: string) {
     event.preventDefault()
@@ -182,17 +176,18 @@ function AskSessionsSidebar({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto px-0 py-2 group-data-[collapsible=icon]:no-scrollbar">
-        {!projectId ? (
-          <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">Start a chat to see conversations</div>
-        ) : isLoading ? (
+        <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
+          <Input value={search} onChange={(event) => { setSearch(event.target.value); onSearch(event.target.value) }} placeholder="Search" className="h-8 bg-white text-xs" />
+        </div>
+        {isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
-        ) : visibleSessions.length === 0 ? (
+        ) : sessions.length === 0 ? (
           <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">No recent conversations yet</div>
         ) : (
           <SidebarMenu>
-            {loadedSessions.map((session) => {
+            {sessions.map((session) => {
               const isSelected = session.id === selectedSessionId
               return (
                 <SidebarMenuItem
@@ -307,13 +302,13 @@ function AskSessionsSidebar({
         )}
       </div>
 
-      {loadedSessions.length < visibleSessions.length ? (
+      {hasMore ? (
         <div className="shrink-0 px-2 py-1 group-data-[collapsible=icon]:hidden">
           <Button
             type="button"
             variant="ghost"
             className="h-7 w-full text-xs"
-            onClick={() => setPage((current) => Math.min(totalPages - 1, current + 1))}
+            onClick={() => void onLoadMore()}
           >
             Load more
           </Button>
@@ -326,10 +321,12 @@ function AskSessionsSidebar({
 function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const [askProjectId, setAskProjectId] = useState('')
   const [askSessions, setAskSessions] = useState<ChatSessionSummary[]>([])
   const [selectedAskSessionId, setSelectedAskSessionId] = useState<string | null>(null)
-  const [sessionsProjectId, setSessionsProjectId] = useState<string | null>(null)
+  const [sessionsHasMore, setSessionsHasMore] = useState(false)
+  const [sessionsOffset, setSessionsOffset] = useState(0)
+  const [sessionSearch, setSessionSearch] = useState('')
+  const [isLoadingChatSessions, setIsLoadingChatSessions] = useState(true)
   const [isStartingSession, setIsStartingSession] = useState(false)
   const [isChatStreaming, setIsChatStreaming] = useState(false)
   const [newChatRequestKey, setNewChatRequestKey] = useState(0)
@@ -341,126 +338,125 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
       ]
     : [...baseMenuItems, aiEfficiencyMenuItem]
   const accountLabel = `@${currentUser?.displayName || currentUser?.username || 'account'}`
-  const refreshChatSessions = useCallback(async (projectId: string, preferredSessionId?: string) => {
-    const nextSessions = await listChatSessions(projectId)
-    setAskSessions(nextSessions)
-    setSessionsProjectId(projectId)
-    setSelectedAskSessionId((current) => {
-      if (preferredSessionId && nextSessions.some((session) => session.id === preferredSessionId)) {
-        return preferredSessionId
-      }
-      if (current && nextSessions.some((session) => session.id === current)) {
+  const refreshChatSessions = useCallback(async (preferredSessionId?: string) => {
+    setIsLoadingChatSessions(true)
+    try {
+      const page = await listChatSessions(sessionSearch, 20, 0)
+      const nextSessions = page.items
+      setAskSessions(nextSessions)
+      setSessionsOffset(nextSessions.length)
+      setSessionsHasMore(page.hasMore)
+      setSelectedAskSessionId((current) => {
+        if (preferredSessionId && nextSessions.some((session) => session.id === preferredSessionId)) return preferredSessionId
         return current
-      }
-      return nextSessions.find((session) => session.status === 'ACTIVE')?.id ?? nextSessions[0]?.id ?? null
-    })
+      })
+    } finally {
+      setIsLoadingChatSessions(false)
+    }
+  }, [sessionSearch])
+
+  const loadMoreChatSessions = useCallback(async () => {
+    setIsLoadingChatSessions(true)
+    try {
+      const page = await listChatSessions(sessionSearch, 20, sessionsOffset)
+      setAskSessions((current) => [...current, ...page.items])
+      setSessionsOffset((current) => current + page.items.length)
+      setSessionsHasMore(page.hasMore)
+    } finally {
+      setIsLoadingChatSessions(false)
+    }
+  }, [sessionSearch, sessionsOffset])
+
+  const searchChatSessions = useCallback(async (query: string) => {
+    setSessionSearch(query)
+    setIsLoadingChatSessions(true)
+    try {
+      const page = await listChatSessions(query, 20, 0)
+      setAskSessions(page.items)
+      setSessionsOffset(page.items.length)
+      setSessionsHasMore(page.hasMore)
+    } finally {
+      setIsLoadingChatSessions(false)
+    }
   }, [])
 
   const renameChatSession = useCallback(async (sessionId: string, title: string) => {
-    await renameChatSessionRequest(askProjectId, sessionId, title)
-    await refreshChatSessions(askProjectId)
-  }, [askProjectId, refreshChatSessions])
+    await renameChatSessionRequest(sessionId, title)
+    await refreshChatSessions(sessionId)
+  }, [refreshChatSessions])
 
   const deleteChatSession = useCallback(async (sessionId: string) => {
-    await deleteChatSessionRequest(askProjectId, sessionId)
-    await refreshChatSessions(askProjectId)
-  }, [askProjectId, refreshChatSessions])
+    await deleteChatSessionRequest(sessionId)
+    await refreshChatSessions()
+  }, [refreshChatSessions])
 
   useEffect(() => {
-    if (askProjectId) {
-      return
-    }
-
     let isMounted = true
-    listProjects()
-      .then((projects) => {
-        if (isMounted && projects[0]) {
-          setAskProjectId(projects[0].id)
-        }
-      })
-      .catch(() => {
-        // The Home and workspace navigation remain usable if projects cannot be loaded.
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [askProjectId])
-
-  useEffect(() => {
-    if (!askProjectId) {
-      return
-    }
-    let isMounted = true
-    listChatSessions(askProjectId)
-      .then((nextSessions) => {
+    setIsLoadingChatSessions(true)
+    listChatSessions('', 20, 0)
+      .then((page) => {
         if (!isMounted) return
-        setAskSessions(nextSessions)
-        setSessionsProjectId(askProjectId)
-        setSelectedAskSessionId(nextSessions.find((session) => session.status === 'ACTIVE')?.id ?? nextSessions[0]?.id ?? null)
+        setAskSessions(page.items)
+        setSessionsOffset(page.items.length)
+        setSessionsHasMore(page.hasMore)
       })
       .catch((error) => {
         if (isMounted) {
-          setSessionsProjectId(askProjectId)
           toast.error(error instanceof Error ? error.message : 'Failed to load chat sessions.')
         }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingChatSessions(false)
       })
 
     return () => {
       isMounted = false
     }
-  }, [askProjectId])
+  }, [])
 
-  async function handleStartNewSession(projectId = askProjectId): Promise<string | null> {
-    if (!projectId || isStartingSession || isChatStreaming) return null
+  const createChatSession = useCallback(async (): Promise<ChatSession | null> => {
+    if (isStartingSession || isChatStreaming) return null
     setIsStartingSession(true)
     try {
-      const session = await startNewChatSession(projectId)
-      await refreshChatSessions(projectId, session.id)
-      return session.id
+      const session = await startNewChatSession()
+      await refreshChatSessions(session.id)
+      return session
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to start a new chat session.')
       return null
     } finally {
       setIsStartingSession(false)
     }
-  }
+  }, [isChatStreaming, isStartingSession, refreshChatSessions])
 
   async function handleNewChat() {
     setNewChatRequestKey((current) => current + 1)
-    if (!askProjectId) {
-      navigate('/app/ask-ai')
-      return
-    }
-    const sessionId = await handleStartNewSession()
-    navigate(sessionId ? `/app/ask-ai?session=${encodeURIComponent(sessionId)}` : '/app/ask-ai')
+    const session = await createChatSession()
+    navigate(session ? `/app/ask-ai?session=${encodeURIComponent(session.id)}` : '/app/ask-ai')
   }
 
   async function handleHomeCommand(prompt: string) {
     setNewChatRequestKey((current) => current + 1)
-    let projectId = askProjectId
-    if (!projectId) {
-      try {
-        const projects = await listProjects()
-        projectId = projects[0]?.id ?? ''
-        if (projectId) {
-          setAskProjectId(projectId)
-        }
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to load projects.')
-      }
-    }
-    if (!projectId) {
-      toast.error('Create a project before starting a chat.')
-      return
-    }
-    const sessionId = await handleStartNewSession(projectId)
-    if (!sessionId) {
+    const session = await createChatSession()
+    if (!session) {
       return
     }
     const params = new URLSearchParams({ prompt, autoSend: '1' })
-    params.set('session', sessionId)
+    params.set('session', session.id)
     navigate(`/app/ask-ai?${params.toString()}`)
+  }
+
+  useEffect(() => {
+    const requestedSessionId = new URLSearchParams(location.search).get('session')
+    if (requestedSessionId) setSelectedAskSessionId(requestedSessionId)
+  }, [location.search])
+
+  function workspaceDestination(path: string) {
+    const currentParams = new URLSearchParams(location.search)
+    const sessionId = currentParams.get('session')
+    if (!sessionId) return path
+    const params = new URLSearchParams({ session: sessionId, assistant: '1' })
+    return `${path}?${params.toString()}`
   }
 
   function handleSelectSession(sessionId: string) {
@@ -480,13 +476,12 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   }
 
   const askPageContext: AskPageOutletContext = {
-    askProjectId,
     chatSessions: askSessions,
     selectedSessionId: selectedAskSessionId,
     newChatRequestKey,
-    isLoadingSessions: Boolean(askProjectId) && sessionsProjectId !== askProjectId,
+    isLoadingSessions: isLoadingChatSessions,
     refreshChatSessions,
-    setAskProjectId,
+    createChatSession,
     onSubmitHomeCommand: handleHomeCommand,
     onStreamingChange: setIsChatStreaming,
   }
@@ -498,7 +493,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
           <SidebarHeader className="pb-0">
             <div className="flex h-10 items-center justify-between group-data-[collapsible=icon]:justify-center">
               <NavLink
-                to="/app/home"
+                to={workspaceDestination('/app/home')}
                 className="flex h-8 items-center gap-2 overflow-hidden rounded-md p-2 group-data-[collapsible=icon]:hidden"
               >
                 <div className="min-w-0 flex-1 text-left text-lg leading-tight">
@@ -515,7 +510,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      render={<NavLink to="/app/home" />}
+                      render={<NavLink to={workspaceDestination('/app/home')} />}
                       isActive={location.pathname === '/app' || location.pathname === '/app/home'}
                       tooltip="Home"
                     >
@@ -549,12 +544,13 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
               <SidebarGroupLabel className="h-6 px-2">Recent conversations</SidebarGroupLabel>
               <SidebarGroupContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <AskSessionsSidebar
-                key={askProjectId || 'no-project'}
-                projectId={askProjectId}
                 sessions={askSessions}
                 selectedSessionId={selectedAskSessionId}
-                isLoading={Boolean(askProjectId) && sessionsProjectId !== askProjectId}
+                isLoading={isLoadingChatSessions}
+                hasMore={sessionsHasMore}
                 onSelectSession={handleSelectSession}
+                onLoadMore={loadMoreChatSessions}
+                onSearch={searchChatSessions}
                 onRenameSession={renameChatSession}
                 onDeleteSession={deleteChatSession}
               />
@@ -568,7 +564,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                   {menuItems.map((item) => (
                     <SidebarMenuItem key={item.path}>
                       <SidebarMenuButton
-                        render={<NavLink to={item.path} />}
+                        render={<NavLink to={workspaceDestination(item.path)} />}
                         isActive={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)}
                         tooltip={item.label}
                       >
@@ -593,7 +589,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    render={<NavLink to="/app/account" />}
+                    render={<NavLink to={workspaceDestination('/app/account')} />}
                     isActive={location.pathname === '/app/account'}
                     tooltip={accountLabel}
                   >

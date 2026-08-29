@@ -7,9 +7,9 @@ import java.util.List;
 
 public record ChatSessionView(
         String id,
-        String projectId,
         String status,
         OffsetDateTime createdAt,
-        List<ChatMessage> messages
+        List<ChatMessage> messages,
+        List<ChatSessionContextView> contexts
 ) {
 }

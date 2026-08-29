@@ -14,48 +14,43 @@ import java.util.Optional;
 public interface ChatSessionRepository extends CrudRepository<ChatSession, String> {
 
     @Query("""
-            SELECT id, project_id, user_id, title, status, created_at, updated_at, archived_at
+            SELECT id, user_id, title, status, created_at, updated_at, archived_at
             FROM chat_session
-            WHERE project_id = :projectId AND user_id = :userId AND status = 'ACTIVE'
+            WHERE id = :id AND user_id = :userId
             """)
-    Optional<ChatSession> findActive(@Param("projectId") String projectId,
-                                     @Param("userId") String userId);
+    Optional<ChatSession> findByIdAndUserId(@Param("id") String id,
+                                            @Param("userId") String userId);
 
     @Query("""
-            SELECT id, project_id, user_id, title, status, created_at, updated_at, archived_at
+            SELECT id, user_id, title, status, created_at, updated_at, archived_at
             FROM chat_session
-            WHERE id = :id AND project_id = :projectId
+            WHERE user_id = :userId
+              AND (
+                    :query IS NULL
+                 OR :query = ''
+                 OR LOWER(COALESCE(title, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR EXISTS (
+                     SELECT 1
+                     FROM chat_message first_message
+                     WHERE first_message.chat_session_id = chat_session.id
+                       AND first_message.role = 'user'
+                       AND LOWER(first_message.content) LIKE CONCAT('%', LOWER(:query), '%')
+                 )
+              )
+            ORDER BY updated_at DESC NULLS LAST, id DESC
+            LIMIT :limit OFFSET :offset
             """)
-    Optional<ChatSession> findByIdAndProjectId(@Param("id") String id,
-                                               @Param("projectId") String projectId);
-
-    @Query("""
-            SELECT id, project_id, user_id, title, status, created_at, updated_at, archived_at
-            FROM chat_session
-            WHERE id = :id AND project_id = :projectId AND user_id = :userId
-            """)
-    Optional<ChatSession> findByIdAndProjectIdAndUserId(@Param("id") String id,
-                                                        @Param("projectId") String projectId,
-                                                        @Param("userId") String userId);
-
-    @Query("""
-            SELECT id, project_id, user_id, title, status, created_at, updated_at, archived_at
-            FROM chat_session
-            WHERE project_id = :projectId AND user_id = :userId
-            ORDER BY CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END, updated_at DESC, id DESC
-            LIMIT 100
-            """)
-    List<ChatSession> findAllByProjectIdAndUserIdOrdered(@Param("projectId") String projectId,
-                                                         @Param("userId") String userId);
+    List<ChatSession> findPageByUserId(@Param("userId") String userId,
+                                       @Param("query") String query,
+                                       @Param("limit") int limit,
+                                       @Param("offset") long offset);
 
     @Modifying
     @Query("""
-            INSERT INTO chat_session (id, project_id, user_id, status)
-            VALUES (:id, :projectId, :userId, 'ACTIVE')
+            INSERT INTO chat_session (id, user_id, status)
+            VALUES (:id, :userId, 'ACTIVE')
             """)
-    void insert(@Param("id") String id,
-                @Param("projectId") String projectId,
-                @Param("userId") String userId);
+    void insert(@Param("id") String id, @Param("userId") String userId);
 
     @Modifying
     @Query("""
@@ -68,25 +63,12 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
     @Modifying
     @Query("""
             UPDATE chat_session
-            SET status = 'ARCHIVED', archived_at = NOW(), updated_at = NOW()
-            WHERE project_id = :projectId AND user_id = :userId AND status = 'ACTIVE'
-            """)
-    int archiveActive(@Param("projectId") String projectId, @Param("userId") String userId);
-
-    @Modifying
-    @Query("""
-            UPDATE chat_session
             SET title = :title
-            WHERE id = :id AND project_id = :projectId AND user_id = :userId
+            WHERE id = :id AND user_id = :userId
             """)
-    int updateTitle(@Param("id") String id,
-                    @Param("projectId") String projectId,
-                    @Param("userId") String userId,
-                    @Param("title") String title);
+    int updateTitle(@Param("id") String id, @Param("userId") String userId, @Param("title") String title);
 
     @Modifying
-    @Query("DELETE FROM chat_session WHERE id = :id AND project_id = :projectId AND user_id = :userId")
-    int deleteSession(@Param("id") String id,
-                      @Param("projectId") String projectId,
-                      @Param("userId") String userId);
+    @Query("DELETE FROM chat_session WHERE id = :id AND user_id = :userId")
+    int deleteSession(@Param("id") String id, @Param("userId") String userId);
 }

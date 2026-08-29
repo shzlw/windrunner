@@ -10,7 +10,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import ProjectChatPanel, { type ChatWorkItemReference } from '@/ProjectChatPanel'
-import { getLlmStatus, listNodes, listProjects, type Project, type ProjectNode } from '@/lib/api'
+import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, listChatSessionContext, listNodes, listProjects, type ChatSessionContext, type Project, type ProjectNode } from '@/lib/api'
 import type { AskPageOutletContext } from './App'
 
 const maxSelectedProjects = 10
@@ -43,13 +43,12 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const {
-    askProjectId,
     chatSessions,
     selectedSessionId,
     newChatRequestKey,
     isLoadingSessions,
     refreshChatSessions,
-    setAskProjectId,
+    createChatSession,
     onStreamingChange,
   } = useOutletContext<AskPageOutletContext>()
   const [projects, setProjects] = useState<Project[]>([])
@@ -59,7 +58,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingReferences, setIsLoadingReferences] = useState(false)
   const [isLlmAvailable, setIsLlmAvailable] = useState(false)
-  const [chatProjectId, setChatProjectId] = useState('')
+  const [sessionContexts, setSessionContexts] = useState<ChatSessionContext[]>([])
 
   const selectedProjects = useMemo(
     () => selectedProjectIds
@@ -74,27 +73,34 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     }
     return projects.filter((project) => projectTitle(project).toLowerCase().includes(query))
   }, [projectQuery, projects])
-  const primaryProjectId = selectedProjectIds[0] ?? ''
-  const activeChatProjectId = routeProjectId || chatProjectId || primaryProjectId
+  const activeChatProjectId = routeProjectId || selectedProjectIds[0] || ''
   const requestedSessionId = searchParams.get('session')
   const initialPrompt = searchParams.get('prompt') ?? ''
   const autoSubmitInitialDraft = searchParams.get('autoSend') === '1'
 
   const selectedSession = useMemo(
-    () => chatSessions.find((session) => session.id === (requestedSessionId ?? selectedSessionId) && session.projectId === activeChatProjectId),
-    [activeChatProjectId, chatSessions, requestedSessionId, selectedSessionId],
+    () => chatSessions.find((session) => session.id === (requestedSessionId ?? selectedSessionId)),
+    [chatSessions, requestedSessionId, selectedSessionId],
   )
+
   useEffect(() => {
     let isMounted = true
-    queueMicrotask(() => {
-      if (isMounted) {
-        setAskProjectId(activeChatProjectId)
-      }
-    })
-    return () => {
-      isMounted = false
+    if (!selectedSession?.id) {
+      setSessionContexts([])
+      return
     }
-  }, [activeChatProjectId, setAskProjectId])
+    listChatSessionContext(selectedSession.id)
+      .then((contexts) => {
+        if (isMounted) {
+          setSessionContexts(contexts)
+          setSelectedProjectIds(contexts.filter((context) => context.entityType === 'PROJECT').map((context) => context.entityId))
+        }
+      })
+      .catch((error) => {
+        if (isMounted) toast.error(error instanceof Error ? error.message : 'Failed to load chat context.')
+      })
+    return () => { isMounted = false }
+  }, [selectedSession?.id])
 
   useEffect(() => {
     if (newChatRequestKey === 0) {
@@ -130,13 +136,12 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
         setIsLlmAvailable(llmStatus.available)
           const defaultProjectId = routeProjectId && nextProjects.some((project) => project.id === routeProjectId)
             ? routeProjectId
-            : nextProjects[0]?.id ?? ''
-          setChatProjectId(defaultProjectId)
+            : ''
           setSelectedProjectIds((current) => {
             if (newChatRequestKey > 0) {
               return []
             }
-            if (defaultProjectId) {
+            if (defaultProjectId && current.length === 0) {
               return [defaultProjectId]
             }
             const stillAvailable = current.filter((projectId) => nextProjects.some((project) => project.id === projectId))
@@ -199,14 +204,38 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       }
       return [...current, projectId]
     })
+    if (selectedSession?.id) {
+      const existing = sessionContexts.find((context) => context.entityType === 'PROJECT' && context.entityId === projectId)
+      if (existing) {
+        void deleteChatSessionContext(selectedSession.id, existing.id).catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to update context.'))
+        setSessionContexts((current) => current.filter((context) => context.id !== existing.id))
+      } else {
+        void addChatSessionContext(selectedSession.id, 'PROJECT', projectId)
+          .then((context) => setSessionContexts((current) => [...current, context]))
+          .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to update context.'))
+      }
+    }
   }
 
   function removeProject(projectId: string) {
     setSelectedProjectIds((current) => current.filter((currentProjectId) => currentProjectId !== projectId))
+    const existing = selectedSession && sessionContexts.find((context) => context.entityType === 'PROJECT' && context.entityId === projectId)
+    if (existing && selectedSession) {
+      void deleteChatSessionContext(selectedSession.id, existing.id)
+        .then(() => setSessionContexts((current) => current.filter((context) => context.id !== existing.id)))
+        .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to remove context.'))
+    }
   }
 
   function clearProjects() {
     setSelectedProjectIds([])
+    if (selectedSession) {
+      const projectContexts = sessionContexts.filter((context) => context.entityType === 'PROJECT')
+      projectContexts.forEach((context) => {
+        void deleteChatSessionContext(selectedSession.id, context.id).catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to clear context.'))
+      })
+      setSessionContexts((current) => current.filter((context) => context.entityType !== 'PROJECT'))
+    }
   }
 
   const visibleReferences = useMemo(() => {
@@ -217,7 +246,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       [...references].filter(([, reference]) => !reference.projectId || selectedProjectIds.includes(reference.projectId)),
     )
   }, [references, selectedProjectIds])
-  const sessionsLoading = isLoadingSessions || askProjectId !== activeChatProjectId
+  const sessionsLoading = isLoadingSessions
   const referencesLoading = selectedProjectIds.length > 0 && isLoadingReferences
 
   function showSessionError(error: unknown) {
@@ -325,7 +354,8 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
         const query = nextParams.toString()
         navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, { replace: true })
       }}
-      onSessionActivity={() => refreshChatSessions(activeChatProjectId).catch(showSessionError)}
+      onCreateSession={createChatSession}
+      onSessionActivity={() => refreshChatSessions().catch(showSessionError)}
       onStreamingChange={onStreamingChange}
       showHeader={false}
       allowEmptyProject

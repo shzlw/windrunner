@@ -11,10 +11,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import {
-  getActiveChatSession,
   getChatSession,
   startNewChatSession,
-  streamProjectChat,
+  streamChatSession,
   type ChatSession,
   type ProjectChatContext,
   type ProjectChatMessage,
@@ -124,6 +123,7 @@ export default function ProjectChatPanel({
   selectedContext,
   onClearSelectedContext,
   onSessionStarted,
+  onCreateSession,
   onInitialDraftSubmitted,
   onSessionActivity,
   onStreamingChange,
@@ -133,7 +133,6 @@ export default function ProjectChatPanel({
   className,
   flush = false,
   showHeader = true,
-  allowEmptyProject = false,
   initialDraft,
   autoSubmitInitialDraft = false,
   composerFooter,
@@ -145,6 +144,7 @@ export default function ProjectChatPanel({
   selectedContext?: SelectedChatContext | null
   onClearSelectedContext?: () => void
   onSessionStarted?: (session: ChatSession) => void
+  onCreateSession?: () => Promise<ChatSession | null>
   onInitialDraftSubmitted?: () => void
   onSessionActivity?: () => void | Promise<void>
   onStreamingChange?: (isStreaming: boolean) => void
@@ -190,7 +190,7 @@ export default function ProjectChatPanel({
       !autoSubmitInitialDraft
       || !initialDraft?.trim()
       || hasAutoSubmittedInitialDraftRef.current
-      || !chatProjectId
+      || !sessionId
       || isLoadingSession
       || isStreaming
     ) {
@@ -201,22 +201,20 @@ export default function ProjectChatPanel({
     onInitialDraftSubmitted?.()
     const timeoutId = window.setTimeout(() => composerFormRef.current?.requestSubmit(), 0)
     return () => window.clearTimeout(timeoutId)
-  }, [autoSubmitInitialDraft, chatProjectId, initialDraft, isLoadingSession, isStreaming, onInitialDraftSubmitted])
+  }, [autoSubmitInitialDraft, chatProjectId, initialDraft, isLoadingSession, isStreaming, onInitialDraftSubmitted, sessionId])
 
   useEffect(() => {
     let isMounted = true
 
     async function loadSession() {
-      if (!chatProjectId && allowEmptyProject) {
+      if (!sessionId) {
         setMessages([])
         setIsLoadingSession(false)
         return
       }
       setIsLoadingSession(true)
       try {
-        const session = sessionId
-          ? await getChatSession(chatProjectId, sessionId)
-          : await getActiveChatSession(chatProjectId)
+        const session = await getChatSession(sessionId)
         if (isMounted) {
           if (session) {
             applySession(session)
@@ -240,7 +238,7 @@ export default function ProjectChatPanel({
     return () => {
       isMounted = false
     }
-  }, [allowEmptyProject, chatProjectId, sessionId])
+  }, [sessionId])
 
   function applySession(session: ChatSession) {
     setMessages(session.messages.map((message) => ({
@@ -253,7 +251,18 @@ export default function ProjectChatPanel({
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = draft.trim()
-    if (!content || !chatProjectId || isStreaming || isLoadingSession) {
+    if (!content || isStreaming || isLoadingSession) {
+      return
+    }
+
+    let activeSessionId = sessionId
+    if (!activeSessionId) {
+      const createdSession = onCreateSession ? await onCreateSession() : await startNewChatSession()
+      activeSessionId = createdSession?.id
+      if (createdSession) onSessionStarted?.(createdSession)
+    }
+    if (!activeSessionId) {
+      toast.error('Start a chat session before sending a message.')
       return
     }
 
@@ -274,9 +283,8 @@ export default function ProjectChatPanel({
     onStreamingChange?.(true)
 
     try {
-      await streamProjectChat(
-        chatProjectId,
-        sessionId,
+      await streamChatSession(
+        activeSessionId,
         requestMessages,
         selectedContext?.context,
         ({ event: eventName, data }) => {
@@ -307,6 +315,7 @@ export default function ProjectChatPanel({
         },
         controller.signal,
         projectIds,
+        chatProjectId,
       )
 
       if (streamError) {
@@ -379,7 +388,7 @@ export default function ProjectChatPanel({
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleTextareaKeyDown}
             placeholder="Ask anything..."
-            disabled={!chatProjectId || isLoadingSession || isStreaming}
+            disabled={isLoadingSession || isStreaming}
             className="max-h-32 min-h-16 resize-none border-0 px-1 py-1 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
           <div className="flex justify-end pt-1">
@@ -388,7 +397,7 @@ export default function ProjectChatPanel({
                 <Square className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="submit" size="icon" disabled={!chatProjectId || isLoadingSession || !draft.trim()} aria-label="Send message">
+              <Button type="submit" size="icon" disabled={isLoadingSession || !draft.trim()} aria-label="Send message">
                 <ArrowUp className="h-4 w-4" />
               </Button>
             )}
@@ -400,13 +409,14 @@ export default function ProjectChatPanel({
   }
 
   async function handleStartNewSession() {
-    if (!chatProjectId || isStreaming || isStartingSession) {
+    if (isStreaming || isStartingSession) {
       return
     }
 
     setIsStartingSession(true)
     try {
-      const session = await startNewChatSession(chatProjectId)
+      const session = onCreateSession ? await onCreateSession() : await startNewChatSession()
+      if (!session) return
       applySession(session)
       setDraft('')
       onSessionStarted?.(session)

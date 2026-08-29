@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactElement, ReactNode } from 'react'
-import { NavLink, Navigate, useParams, useSearchParams } from 'react-router'
+import { NavLink, Navigate, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router'
 import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -32,6 +32,7 @@ import {
   createNode,
   createEntry,
   createRelationship,
+  addChatSessionContext,
   deleteRelationship,
   acceptEntryAiReview,
   acceptNewEntryAiReview,
@@ -83,6 +84,7 @@ import {
   subscribeWorkItem,
   unsubscribeWorkItem,
 } from '@/lib/api'
+import type { AskPageOutletContext } from './App'
 import { cn } from '@/lib/utils'
 import { entryTypeBadgeClass, workItemTypeBadgeClass } from '@/lib/typeBadges'
 import ProjectChatPanel, { type ChatWorkItemReference } from '@/ProjectChatPanel'
@@ -2583,6 +2585,8 @@ function WorkspaceProposalPanel({
 export default function ProjectWorkspacePage() {
   const { projectId } = useParams()
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const appContext = useOutletContext<AskPageOutletContext>()
   const requestedWorkItemId = searchParams.get('workItemId')?.trim() || null
   const [project, setProject] = useState<Project | null>(null)
   const [workspacePanelLayout] = useState(readWorkspacePanelLayout)
@@ -5129,9 +5133,21 @@ export default function ProjectWorkspacePage() {
               {inspectorMode === 'ai' && isLlmAvailable ? (
                 <ProjectChatPanel
                   projectId={projectId}
+                  sessionId={searchParams.get('session') ?? undefined}
+                  onCreateSession={appContext.createChatSession}
                   selectedContext={selectedChatContext}
                   onClearSelectedContext={clearSelectedNode}
+                  onSessionStarted={(session) => {
+                    const nextParams = new URLSearchParams(searchParams)
+                    nextParams.set('session', session.id)
+                    nextParams.set('assistant', '1')
+                    navigate(`/app/projects/${projectId}?${nextParams.toString()}`, { replace: true })
+                    if (selectedNode?.id && !selectedNode.proposal) {
+                      void addChatSessionContext(session.id, 'WORK_ITEM', selectedNode.id).catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to save work item context.'))
+                    }
+                  }}
                   onGraphChangeProposalSaved={() => reloadTreeAndProposals()}
+                  onSessionActivity={() => appContext.refreshChatSessions(searchParams.get('session') ?? undefined)}
                   workItemReferences={chatWorkItemReferences}
                   onWorkItemReferenceClick={(workItemId) => void handleChatWorkItemReference(workItemId)}
                   flush

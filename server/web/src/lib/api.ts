@@ -336,19 +336,36 @@ export interface ChatSessionMessage extends ProjectChatMessage {
 
 export interface ChatSession {
   id: string
-  projectId: string
   status: string
   createdAt?: string
   messages: ChatSessionMessage[]
+  contexts: ChatSessionContext[]
 }
 
 export interface ChatSessionSummary {
   id: string
-  projectId: string
   status: string
   createdAt?: string
   updatedAt?: string
   title: string
+}
+
+export type ChatContextEntityType = 'PROJECT' | 'TEAM' | 'USER' | 'WORK_ITEM'
+
+export interface ChatSessionContext {
+  id: string
+  entityType: ChatContextEntityType
+  entityId: string
+  label: string
+  projectId?: string | null
+  createdAt?: string
+}
+
+export interface ChatSessionPage {
+  items: ChatSessionSummary[]
+  hasMore: boolean
+  offset: number
+  limit: number
 }
 
 export interface LlmStatus {
@@ -746,24 +763,22 @@ export async function getLlmUsage(projectId?: string, days?: number): Promise<Ll
   return request<LlmUsageSummary>(`/internal-api/v1/llm-usage${query ? `?${query}` : ''}`, { method: 'GET' })
 }
 
-export async function streamProjectChat(
-  projectId: string,
-  sessionId: string | undefined,
+export async function streamChatSession(
+  sessionId: string,
   messages: ProjectChatMessage[],
   context: ProjectChatContext | null | undefined,
   onEvent: (event: { event: string; data: ProjectChatStreamData }) => void,
   signal?: AbortSignal,
   projectIds?: string[],
+  targetProjectId?: string,
 ) {
-  const body: { messages: ProjectChatMessage[]; context: ProjectChatContext | null | undefined; projectIds?: string[]; sessionId?: string } = { messages, context }
-  if (sessionId) {
-    body.sessionId = sessionId
-  }
+  const body: { messages: ProjectChatMessage[]; context: ProjectChatContext | null | undefined; projectIds?: string[]; targetProjectId?: string } = { messages, context }
   if (projectIds?.length) {
     body.projectIds = projectIds
   }
+  if (targetProjectId) body.targetProjectId = targetProjectId
   return streamRequest<ProjectChatStreamData>(
-    `/internal-api/v1/projects/${projectId}/chat-messages/stream`,
+    `/internal-api/v1/chat-sessions/${sessionId}/messages/stream`,
     {
       method: 'POST',
       body: JSON.stringify(body),
@@ -773,31 +788,44 @@ export async function streamProjectChat(
   )
 }
 
-export async function getActiveChatSession(projectId: string): Promise<ChatSession | null> {
-  return request<ChatSession>(`/internal-api/v1/projects/${projectId}/chat-sessions`, { method: 'GET' })
+export async function getChatSession(sessionId: string): Promise<ChatSession> {
+  return request<ChatSession>(`/internal-api/v1/chat-sessions/${sessionId}`, { method: 'GET' })
 }
 
-export async function listChatSessions(projectId: string): Promise<ChatSessionSummary[]> {
-  return request<ChatSessionSummary[]>(`/internal-api/v1/projects/${projectId}/chat-sessions/history`, { method: 'GET' })
+export async function listChatSessions(search = '', limit = 20, offset = 0): Promise<ChatSessionPage> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  if (search.trim()) params.set('search', search.trim())
+  return request<ChatSessionPage>(`/internal-api/v1/chat-sessions?${params.toString()}`, { method: 'GET' })
 }
 
-export async function getChatSession(projectId: string, sessionId: string): Promise<ChatSession> {
-  return request<ChatSession>(`/internal-api/v1/projects/${projectId}/chat-sessions/${sessionId}`, { method: 'GET' })
+export async function startNewChatSession(): Promise<ChatSession> {
+  return request<ChatSession>('/internal-api/v1/chat-sessions', { method: 'POST' })
 }
 
-export async function startNewChatSession(projectId: string): Promise<ChatSession> {
-  return request<ChatSession>(`/internal-api/v1/projects/${projectId}/chat-sessions/new`, { method: 'POST' })
+export async function listChatSessionContext(sessionId: string): Promise<ChatSessionContext[]> {
+  return request<ChatSessionContext[]>(`/internal-api/v1/chat-sessions/${sessionId}/context`, { method: 'GET' })
 }
 
-export async function renameChatSession(projectId: string, sessionId: string, title: string): Promise<void> {
-  await request<void>(`/internal-api/v1/projects/${projectId}/chat-sessions/${sessionId}/title`, {
+export async function addChatSessionContext(sessionId: string, entityType: ChatContextEntityType, entityId: string): Promise<ChatSessionContext> {
+  return request<ChatSessionContext>(`/internal-api/v1/chat-sessions/${sessionId}/context`, {
+    method: 'POST',
+    body: JSON.stringify({ entityType, entityId }),
+  })
+}
+
+export async function deleteChatSessionContext(sessionId: string, contextId: string): Promise<void> {
+  await request<void>(`/internal-api/v1/chat-sessions/${sessionId}/context/${contextId}`, { method: 'DELETE' })
+}
+
+export async function renameChatSession(sessionId: string, title: string): Promise<void> {
+  await request<void>(`/internal-api/v1/chat-sessions/${sessionId}/title`, {
     method: 'PATCH',
     body: JSON.stringify({ title }),
   })
 }
 
-export async function deleteChatSession(projectId: string, sessionId: string): Promise<void> {
-  await request<void>(`/internal-api/v1/projects/${projectId}/chat-sessions/${sessionId}`, {
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  await request<void>(`/internal-api/v1/chat-sessions/${sessionId}`, {
     method: 'DELETE',
   })
 }
