@@ -12,7 +12,7 @@ export default function AppView() {
   const outlet = useOutlet(appContext)
   const isHome = location.pathname === '/app' || location.pathname === '/app/home'
   const isAskAi = location.pathname === '/app/ask-ai' || location.pathname.startsWith('/app/ask-ai/')
-  const hasAssistant = searchParams.get('assistant') === '1'
+  const hasChatPanel = searchParams.get('chatPanel') === 'open'
 
   if (isHome) {
     return <PaneLayout mode="full" content={outlet} />
@@ -24,8 +24,8 @@ export default function AppView() {
 
   return (
     <PaneLayout
-      mode={hasAssistant ? 'split' : 'artifact'}
-      chat={hasAssistant ? <AskPage projectId={projectId} /> : undefined}
+      mode={hasChatPanel ? 'split' : 'artifact'}
+      chat={hasChatPanel ? <AskPage projectId={projectId} /> : undefined}
       artifact={outlet}
     />
   )

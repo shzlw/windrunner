@@ -116,7 +116,6 @@ function AskSessionsSidebar({
   hasMore,
   onSelectSession,
   onLoadMore,
-  onSearch,
   onRenameSession,
   onDeleteSession,
 }: {
@@ -126,7 +125,6 @@ function AskSessionsSidebar({
   hasMore: boolean
   onSelectSession: (sessionId: string) => void
   onLoadMore: () => Promise<void>
-  onSearch: (query: string) => void
   onRenameSession: (sessionId: string, title: string) => Promise<void>
   onDeleteSession: (sessionId: string) => Promise<void>
 }) {
@@ -135,7 +133,6 @@ function AskSessionsSidebar({
   const [renameValue, setRenameValue] = useState('')
   const [isRenaming, setIsRenaming] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [search, setSearch] = useState('')
 
   async function handleRename(event: FormEvent<HTMLFormElement>, sessionId: string) {
     event.preventDefault()
@@ -176,15 +173,12 @@ function AskSessionsSidebar({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto px-0 py-2 group-data-[collapsible=icon]:no-scrollbar">
-        <div className="px-2 pb-2 group-data-[collapsible=icon]:hidden">
-          <Input value={search} onChange={(event) => { setSearch(event.target.value); onSearch(event.target.value) }} placeholder="Search" className="h-8 bg-white text-xs" />
-        </div>
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         ) : sessions.length === 0 ? (
-          <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">No recent conversations yet</div>
+          <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">No conversations yet</div>
         ) : (
           <SidebarMenu>
             {sessions.map((session) => {
@@ -325,7 +319,6 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const [selectedAskSessionId, setSelectedAskSessionId] = useState<string | null>(null)
   const [sessionsHasMore, setSessionsHasMore] = useState(false)
   const [sessionsOffset, setSessionsOffset] = useState(0)
-  const [sessionSearch, setSessionSearch] = useState('')
   const [isLoadingChatSessions, setIsLoadingChatSessions] = useState(true)
   const [isStartingSession, setIsStartingSession] = useState(false)
   const [isChatStreaming, setIsChatStreaming] = useState(false)
@@ -341,7 +334,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const refreshChatSessions = useCallback(async (preferredSessionId?: string) => {
     setIsLoadingChatSessions(true)
     try {
-      const page = await listChatSessions(sessionSearch, 20, 0)
+      const page = await listChatSessions('', 20, 0)
       const nextSessions = page.items
       setAskSessions(nextSessions)
       setSessionsOffset(nextSessions.length)
@@ -353,32 +346,19 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     } finally {
       setIsLoadingChatSessions(false)
     }
-  }, [sessionSearch])
+  }, [])
 
   const loadMoreChatSessions = useCallback(async () => {
     setIsLoadingChatSessions(true)
     try {
-      const page = await listChatSessions(sessionSearch, 20, sessionsOffset)
+      const page = await listChatSessions('', 20, sessionsOffset)
       setAskSessions((current) => [...current, ...page.items])
       setSessionsOffset((current) => current + page.items.length)
       setSessionsHasMore(page.hasMore)
     } finally {
       setIsLoadingChatSessions(false)
     }
-  }, [sessionSearch, sessionsOffset])
-
-  const searchChatSessions = useCallback(async (query: string) => {
-    setSessionSearch(query)
-    setIsLoadingChatSessions(true)
-    try {
-      const page = await listChatSessions(query, 20, 0)
-      setAskSessions(page.items)
-      setSessionsOffset(page.items.length)
-      setSessionsHasMore(page.hasMore)
-    } finally {
-      setIsLoadingChatSessions(false)
-    }
-  }, [])
+  }, [sessionsOffset])
 
   const renameChatSession = useCallback(async (sessionId: string, title: string) => {
     await renameChatSessionRequest(sessionId, title)
@@ -432,7 +412,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   async function handleNewChat() {
     setNewChatRequestKey((current) => current + 1)
     const session = await createChatSession()
-    navigate(session ? `/app/ask-ai?session=${encodeURIComponent(session.id)}` : '/app/ask-ai')
+    navigate(session ? `/app/ask-ai?chatSessionId=${encodeURIComponent(session.id)}` : '/app/ask-ai')
   }
 
   async function handleHomeCommand(prompt: string) {
@@ -442,20 +422,20 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
       return
     }
     const params = new URLSearchParams({ prompt, autoSend: '1' })
-    params.set('session', session.id)
+    params.set('chatSessionId', session.id)
     navigate(`/app/ask-ai?${params.toString()}`)
   }
 
   useEffect(() => {
-    const requestedSessionId = new URLSearchParams(location.search).get('session')
+    const requestedSessionId = new URLSearchParams(location.search).get('chatSessionId')
     if (requestedSessionId) setSelectedAskSessionId(requestedSessionId)
   }, [location.search])
 
   function workspaceDestination(path: string) {
     const currentParams = new URLSearchParams(location.search)
-    const sessionId = currentParams.get('session')
+    const sessionId = currentParams.get('chatSessionId')
     if (!sessionId) return path
-    const params = new URLSearchParams({ session: sessionId, assistant: '1' })
+    const params = new URLSearchParams({ chatSessionId: sessionId, chatPanel: 'open' })
     return `${path}?${params.toString()}`
   }
 
@@ -466,11 +446,11 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
       && !location.pathname.startsWith('/app/ask-ai')
     const nextPath = keepsArtifact ? location.pathname : '/app/ask-ai'
     const nextParams = new URLSearchParams(location.search)
-    nextParams.set('session', sessionId)
+    nextParams.set('chatSessionId', sessionId)
     if (keepsArtifact) {
-      nextParams.set('assistant', '1')
+      nextParams.set('chatPanel', 'open')
     } else {
-      nextParams.delete('assistant')
+      nextParams.delete('chatPanel')
     }
     navigate(`${nextPath}?${nextParams.toString()}`)
   }
@@ -550,7 +530,6 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                 hasMore={sessionsHasMore}
                 onSelectSession={handleSelectSession}
                 onLoadMore={loadMoreChatSessions}
-                onSearch={searchChatSessions}
                 onRenameSession={renameChatSession}
                 onDeleteSession={deleteChatSession}
               />

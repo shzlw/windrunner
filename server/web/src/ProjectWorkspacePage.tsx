@@ -5133,21 +5133,21 @@ export default function ProjectWorkspacePage() {
               {inspectorMode === 'ai' && isLlmAvailable ? (
                 <ProjectChatPanel
                   projectId={projectId}
-                  sessionId={searchParams.get('session') ?? undefined}
+                  sessionId={searchParams.get('chatSessionId') ?? undefined}
                   onCreateSession={appContext.createChatSession}
                   selectedContext={selectedChatContext}
                   onClearSelectedContext={clearSelectedNode}
                   onSessionStarted={(session) => {
                     const nextParams = new URLSearchParams(searchParams)
-                    nextParams.set('session', session.id)
-                    nextParams.set('assistant', '1')
+                    nextParams.set('chatSessionId', session.id)
+                    nextParams.set('chatPanel', 'open')
                     navigate(`/app/projects/${projectId}?${nextParams.toString()}`, { replace: true })
                     if (selectedNode?.id && !selectedNode.proposal) {
                       void addChatSessionContext(session.id, 'WORK_ITEM', selectedNode.id).catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to save work item context.'))
                     }
                   }}
                   onGraphChangeProposalSaved={() => reloadTreeAndProposals()}
-                  onSessionActivity={() => appContext.refreshChatSessions(searchParams.get('session') ?? undefined)}
+                  onSessionActivity={() => appContext.refreshChatSessions(searchParams.get('chatSessionId') ?? undefined)}
                   workItemReferences={chatWorkItemReferences}
                   onWorkItemReferenceClick={(workItemId) => void handleChatWorkItemReference(workItemId)}
                   flush

@@ -63,7 +63,7 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
 
   function openAssistant() {
     const params = new URLSearchParams(location.search)
-    params.set('assistant', '1')
+    params.set('chatPanel', 'open')
     const query = params.toString()
     navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`)
   }

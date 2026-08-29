@@ -74,7 +74,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     return projects.filter((project) => projectTitle(project).toLowerCase().includes(query))
   }, [projectQuery, projects])
   const activeChatProjectId = routeProjectId || selectedProjectIds[0] || ''
-  const requestedSessionId = searchParams.get('session')
+  const requestedSessionId = searchParams.get('chatSessionId')
   const initialPrompt = searchParams.get('prompt') ?? ''
   const autoSubmitInitialDraft = searchParams.get('autoSend') === '1'
 
@@ -364,12 +364,12 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       onWorkItemReferenceClick={(workItemId) => {
         const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
         const nextParams = new URLSearchParams({
-          assistant: '1',
+          chatPanel: 'open',
           workItemId,
         })
         const sessionId = selectedSession?.id ?? requestedSessionId
         if (sessionId) {
-          nextParams.set('session', sessionId)
+          nextParams.set('chatSessionId', sessionId)
         }
         navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
       }}
