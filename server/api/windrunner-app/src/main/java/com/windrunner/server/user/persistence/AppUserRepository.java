@@ -161,6 +161,14 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
     List<AppUser> findActiveAssignableUsers(@Param("query") String query, @Param("limit") int limit);
 
     @Query("""
+            SELECT id, username, email, display_name, title, bio
+            FROM app_user
+            WHERE UPPER(status) = 'ACTIVE'
+              AND id IN (:userIds)
+            """)
+    List<AppUser> findActiveUsersByIds(@Param("userIds") List<String> userIds);
+
+    @Query("""
             SELECT COUNT(*)
             FROM app_user
             """)

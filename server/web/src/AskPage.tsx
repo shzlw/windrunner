@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router'
 import { AlertTriangle, Loader2, Plus, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -9,11 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
-import ProjectChatPanel, { type ChatWorkItemReference } from '@/ProjectChatPanel'
-import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, listChatSessionContext, listNodes, listProjects, type ChatSessionContext, type Project, type ProjectNode } from '@/lib/api'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import ChatPanel, { type ChatWorkItemReference } from '@/ChatPanel'
+import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, listChatSessionContext, listNodes, listProjects, listTeams, type ChatSessionContext, type Project, type ProjectNode, type Team } from '@/lib/api'
 import type { AskPageOutletContext } from './App'
 
 const maxSelectedProjects = 10
+type ContextType = 'projects' | 'teams'
 
 type AskPageProps = {
   projectId?: string
@@ -51,9 +53,15 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     createChatSession,
     onStreamingChange,
   } = useOutletContext<AskPageOutletContext>()
+  const hasLoadedSessionsRef = useRef(!isLoadingSessions)
+  if (!isLoadingSessions) {
+    hasLoadedSessionsRef.current = true
+  }
   const [projects, setProjects] = useState<Project[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
-  const [projectQuery, setProjectQuery] = useState('')
+  const [contextType, setContextType] = useState<ContextType>('projects')
+  const [contextQuery, setContextQuery] = useState('')
   const [references, setReferences] = useState<Map<string, ChatWorkItemReference>>(new Map())
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingReferences, setIsLoadingReferences] = useState(false)
@@ -67,12 +75,23 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     [projects, selectedProjectIds],
   )
   const filteredProjects = useMemo(() => {
-    const query = projectQuery.trim().toLowerCase()
+    const query = contextQuery.trim().toLowerCase()
     if (!query) {
       return projects
     }
     return projects.filter((project) => projectTitle(project).toLowerCase().includes(query))
-  }, [projectQuery, projects])
+  }, [contextQuery, projects])
+  const filteredTeams = useMemo(() => {
+    const query = contextQuery.trim().toLowerCase()
+    if (!query) {
+      return teams
+    }
+    return teams.filter((team) => [team.name, team.description ?? '', team.id].some((value) => value.toLowerCase().includes(query)))
+  }, [contextQuery, teams])
+  const selectedTeamIds = useMemo(
+    () => new Set(sessionContexts.filter((context) => context.entityType === 'TEAM').map((context) => context.entityId)),
+    [sessionContexts],
+  )
   const activeChatProjectId = routeProjectId || selectedProjectIds[0] || ''
   const requestedSessionId = searchParams.get('chatSessionId')
   const initialPrompt = searchParams.get('prompt') ?? ''
@@ -111,7 +130,8 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     queueMicrotask(() => {
       if (isMounted) {
         setSelectedProjectIds([])
-        setProjectQuery('')
+        setContextQuery('')
+        setContextType('projects')
       }
     })
     return () => {
@@ -125,14 +145,16 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     async function loadPage() {
       setIsLoading(true)
       try {
-        const [nextProjects, llmStatus] = await Promise.all([
+        const [nextProjects, nextTeams, llmStatus] = await Promise.all([
           listProjects(),
+          listTeams(),
           getLlmStatus().catch(() => ({ provider: 'none', available: false })),
         ])
         if (!isMounted) {
           return
         }
         setProjects(nextProjects)
+        setTeams(nextTeams)
         setIsLlmAvailable(llmStatus.available)
           const defaultProjectId = routeProjectId && nextProjects.some((project) => project.id === routeProjectId)
             ? routeProjectId
@@ -217,6 +239,29 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     }
   }
 
+  async function toggleTeam(teamId: string) {
+    const existing = selectedSession && sessionContexts.find((context) => context.entityType === 'TEAM' && context.entityId === teamId)
+    if (existing && selectedSession) {
+      void deleteChatSessionContext(selectedSession.id, existing.id)
+        .then(() => setSessionContexts((current) => current.filter((context) => context.id !== existing.id)))
+        .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to remove team context.'))
+      return
+    }
+
+    let sessionId = selectedSession?.id
+    if (!sessionId) {
+      const session = await createChatSession()
+      sessionId = session?.id
+    }
+    if (!sessionId) {
+      return
+    }
+
+    void addChatSessionContext(sessionId, 'TEAM', teamId)
+      .then((context) => setSessionContexts((current) => [...current.filter((item) => item.id !== context.id), context]))
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to add team context.'))
+  }
+
   function removeProject(projectId: string) {
     setSelectedProjectIds((current) => current.filter((currentProjectId) => currentProjectId !== projectId))
     const existing = selectedSession && sessionContexts.find((context) => context.entityType === 'PROJECT' && context.entityId === projectId)
@@ -272,56 +317,90 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
 
   const projectContext = (
     <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs">
-      {projects.length > 0 ? (
-        <Popover onOpenChange={(open) => { if (!open) setProjectQuery('') }}>
+      {projects.length > 0 || teams.length > 0 ? (
+        <Popover onOpenChange={(open) => { if (!open) setContextQuery('') }}>
           <PopoverTrigger
             render={(
-              <Button type="button" size="icon-xs" variant="ghost" className="text-muted-foreground" aria-label="Add project context" title="Add project context">
+              <Button type="button" size={hasContext ? 'icon-xs' : 'xs'} variant="ghost" className="gap-1.5 text-muted-foreground" aria-label="Add context" title="Add context">
                 <Plus className="h-3.5 w-3.5" />
+                <span className={hasContext ? 'sr-only' : undefined}>Add context</span>
               </Button>
             )}
           />
           <PopoverContent align="start" className="w-[22rem] gap-0 p-0">
             <PopoverHeader className="border-b px-4 py-3">
-              <PopoverTitle>Add project context</PopoverTitle>
+              <PopoverTitle>Add context</PopoverTitle>
             </PopoverHeader>
-            <div className="border-b p-3">
-              <div className="relative">
-                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={projectQuery}
-                  onChange={(event) => setProjectQuery(event.target.value)}
-                  placeholder="Search projects…"
-                  className="pl-9"
-                  autoFocus
-                />
+            <Tabs value={contextType} onValueChange={(value) => { setContextType(value as ContextType); setContextQuery('') }}>
+              <TabsList variant="line" className="w-full rounded-none border-b px-3">
+                <TabsTrigger value="projects">Projects</TabsTrigger>
+                <TabsTrigger value="teams">Teams</TabsTrigger>
+              </TabsList>
+              <div className="border-b p-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={contextQuery}
+                    onChange={(event) => setContextQuery(event.target.value)}
+                    placeholder="Search"
+                    className="pl-9"
+                    autoFocus
+                  />
+                </div>
               </div>
-            </div>
-            <div className="max-h-72 overflow-y-auto p-2">
-              {filteredProjects.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">No matching projects</div>
-              ) : filteredProjects.map((project) => {
-                const isSelected = selectedProjectIds.includes(project.id)
-                return (
-                  <div key={project.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleProject(project.id)}
-                      aria-label={`Use ${projectTitle(project)} as context`}
-                    />
-                    <button
-                      type="button"
-                      className="min-w-0 flex-1 truncate text-left text-sm"
-                      onClick={() => toggleProject(project.id)}
-                    >
-                      {projectTitle(project)}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
+              <TabsContent value="projects" className="mt-0">
+                <div className="max-h-72 overflow-y-auto p-2">
+                  {filteredProjects.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">No matching projects</div>
+                  ) : filteredProjects.map((project) => {
+                    const isSelected = selectedProjectIds.includes(project.id)
+                    return (
+                      <div key={project.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleProject(project.id)}
+                          aria-label={`Use ${projectTitle(project)} as context`}
+                        />
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 truncate text-left text-sm"
+                          onClick={() => toggleProject(project.id)}
+                        >
+                          {projectTitle(project)}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </TabsContent>
+              <TabsContent value="teams" className="mt-0">
+                <div className="max-h-72 overflow-y-auto p-2">
+                  {filteredTeams.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">No matching teams</div>
+                  ) : filteredTeams.map((team) => {
+                    const isSelected = selectedTeamIds.has(team.id)
+                    return (
+                      <div key={team.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => void toggleTeam(team.id)}
+                          aria-label={`Use ${team.name} as context`}
+                        />
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 truncate text-left text-sm"
+                          onClick={() => void toggleTeam(team.id)}
+                        >
+                          {team.name}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </TabsContent>
+            </Tabs>
             <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
-              <span>{selectedProjects.length} selected</span>
+              <span>{contextType === 'projects' ? `${selectedProjects.length} selected` : `${selectedTeamIds.size} selected`}</span>
               <Button type="button" size="xs" variant="ghost" onClick={clearContexts} disabled={!hasContext}>Clear all</Button>
             </div>
           </PopoverContent>
@@ -347,13 +426,12 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
           </button>
         </Badge>
       ))}
-      {!hasContext ? <span className="text-muted-foreground">Add context</span> : null}
       {hasContext ? <Button type="button" size="xs" variant="ghost" className="text-muted-foreground" onClick={clearContexts}>Clear all</Button> : null}
       {referencesLoading ? <span className="text-muted-foreground">Loading context…</span> : null}
     </div>
   )
 
-  const chatContent = sessionsLoading ? (
+  const chatContent = sessionsLoading && !hasLoadedSessionsRef.current ? (
     <div className="flex h-full min-h-0 items-center justify-center bg-background text-muted-foreground">
       <Loader2 className="h-5 w-5 animate-spin" />
     </div>
@@ -368,7 +446,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       </Empty>
     </div>
   ) : (
-    <ProjectChatPanel
+    <ChatPanel
       projectId={activeChatProjectId}
       projectIds={selectedProjectIds}
       sessionId={selectedSession?.id}

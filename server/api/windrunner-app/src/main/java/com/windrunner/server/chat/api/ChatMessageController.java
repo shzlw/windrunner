@@ -32,6 +32,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -118,6 +119,11 @@ public class ChatMessageController {
                 send(emitter, "done", new ChatDone(session.getId(), sourceMessage.getId(), assistantMessage.getId()));
                 emitter.complete();
             } catch (Exception exception) {
+                if (isClientDisconnect(exception)) {
+                    log.debug("Global chat client disconnected for sessionId={}", session.getId());
+                    emitter.complete();
+                    return;
+                }
                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
                 llmUsageService.recordFailure(new LlmUsageContext(actor.getId(), usageProjectId, LlmUsageFeature.CHAT), exception.getMessage(), durationMs);
                 log.warn("Global chat failed for sessionId={}", session.getId(), exception);
@@ -267,6 +273,24 @@ public class ChatMessageController {
 
     private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
     private void send(SseEmitter emitter, String eventName, Object data) throws IOException { emitter.send(SseEmitter.event().name(eventName).data(data)); }
+    private boolean isClientDisconnect(Throwable exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof AsyncRequestNotUsableException) return true;
+            if (current instanceof IOException && isDisconnectMessage(current.getMessage())) return true;
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private boolean isDisconnectMessage(String message) {
+        if (message == null) return false;
+        String normalized = message.toLowerCase(Locale.ROOT);
+        return normalized.contains("broken pipe")
+                || normalized.contains("connection reset")
+                || normalized.contains("connection aborted");
+    }
+
     private String userFacingMessage(Exception exception) { return exception.getMessage() == null || exception.getMessage().isBlank() ? "The chat response could not be completed" : exception.getMessage(); }
     private String titleFromMessage(String content) {
         String title = content.replaceAll("\\s+", " ").trim();

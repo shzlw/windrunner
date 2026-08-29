@@ -178,7 +178,10 @@ function AskSessionsSidebar({
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         ) : sessions.length === 0 ? (
-          <div className="px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">No conversations yet</div>
+          <div className="flex flex-col items-center gap-2 px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">
+            <MessageSquareText className="h-5 w-5 text-muted-foreground/70" aria-hidden="true" />
+            <span>No conversations yet</span>
+          </div>
         ) : (
           <SidebarMenu>
             {sessions.map((session) => {
@@ -191,6 +194,7 @@ function AskSessionsSidebar({
                   <SidebarMenuButton
                     render={<button type="button" onClick={() => onSelectSession(session.id)} />}
                     isActive={isSelected}
+                    className="pr-10 group-data-[collapsible=icon]:pr-2"
                     tooltip={session.title}
                   >
                     <MessageSquareText className={isSelected ? 'text-primary' : 'text-muted-foreground'} />

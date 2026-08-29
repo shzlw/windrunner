@@ -38,7 +38,8 @@ npx playwright test --project=api -g "projects"
 ## Performance seeding
 
 Seeds two projects with ~2000 work items each (hierarchy, entries,
-relationships), 50 users, and 20 teams — useful for testing search,
+relationships), 50 users, and 20 teams (including SRE, Development, Product,
+Sales, and Support) — useful for testing search,
 pagination, and UI behavior at realistic volume. Data choices are deterministic
 and the run namespace is unique by default; it takes several minutes.
 
@@ -50,7 +51,7 @@ SEED_PERF=1 E2E_LOGIN=<you> E2E_PASSWORD=<pass> \
 Use an `ADMIN` or `SUPERADMIN` account for the seed login.
 
 Tunables: `SEED_PROJECTS` (2), `SEED_ITEMS` (2000), `SEED_USERS` (50),
-`SEED_TEAMS` (20), `SEED_CONCURRENCY` (4), and `SEED_RUN_ID` (a unique
+`SEED_TEAMS` (20, minimum 5), `SEED_CONCURRENCY` (4), and `SEED_RUN_ID` (a unique
 timestamp by default). The run id namespaces generated users, teams, and
 projects so rerunning after a partial failure does not collide with old data.
 The default concurrency is sized for the server's default Hikari pool of 10;

@@ -1,6 +1,7 @@
 package com.windrunner.server.llm;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +10,47 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
 class AgentServiceTest {
+
+    @Test
+    void failsImmediatelyWhenProviderRequestsAnUnavailableTool() {
+        AgentService service = new AgentService(new ObjectMapper());
+        AtomicInteger modelCalls = new AtomicInteger();
+
+        assertThatThrownBy(() -> service.<Response>run(
+                "TestProvider",
+                List.of(new LlmTool<>(
+                        "echo",
+                        "Echo test input",
+                        Parameters.class,
+                        parameters -> "seen:" + parameters.value()
+                )),
+                2,
+                new AgentService.AgentLoop<>() {
+                    @Override
+                    public Response callModel() {
+                        modelCalls.incrementAndGet();
+                        return new Response(List.of(new LlmToolCall("call-1", "fetch_user_details", "{}")));
+                    }
+
+                    @Override
+                    public List<LlmToolCall> findToolCalls(Response response) {
+                        return response.toolCalls();
+                    }
+
+                    @Override
+                    public void preserveModelResponse(Response response) {
+                    }
+
+                    @Override
+                    public void appendToolResult(LlmToolCall toolCall, String output) {
+                    }
+                }
+        ))
+                .isInstanceOf(LlmException.class)
+                .hasMessage("TestProvider requested an unavailable tool: fetch_user_details. The request cannot be completed because that capability is not available.");
+
+        assertThat(modelCalls).hasValue(1);
+    }
 
     @Test
     void executesToolsUntilProviderReturnsNoToolCalls() {

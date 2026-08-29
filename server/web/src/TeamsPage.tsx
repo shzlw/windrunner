@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Loader2, Plus, Search, UsersRound, X } from 'lucide-react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -41,6 +41,7 @@ function avatarInitials(label: string) {
 }
 
 export default function TeamsPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const location = useLocation()
   const navigate = useNavigate()
   const [teams, setTeams] = useState<Team[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -77,6 +78,15 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
 
     return teams.filter((team) => [team.name, team.description ?? '', team.id].some((value) => value.toLowerCase().includes(normalizedQuery)))
   }, [query, teams])
+
+  function workspaceDestination(path: string) {
+    const params = new URLSearchParams(location.search)
+    if (!params.get('chatSessionId')) {
+      return path
+    }
+    params.set('chatPanel', 'open')
+    return `${path}?${params.toString()}`
+  }
 
   async function loadPage() {
     setIsLoading(true)
@@ -145,7 +155,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
       setCreateOwnerUserId('')
       setIsSheetOpen(false)
       toast.success('Team created.')
-      navigate(`/app/teams/${created.id}`)
+      navigate(workspaceDestination(`/app/teams/${created.id}`))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create team.')
     } finally {
@@ -203,7 +213,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
                 {filteredTeams.map((team) => {
                   const members = (team.memberUserIds ?? []).map((userId) => ({ id: userId, label: team.memberDisplayNames?.[userId] || displayUser(userById.get(userId)) }))
                   return (
-                    <TableRow key={team.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/app/teams/${team.id}`)}>
+                    <TableRow key={team.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(workspaceDestination(`/app/teams/${team.id}`))}>
                       <TableCell className="font-medium">{team.name}</TableCell>
                       <TableCell className="max-w-[360px] truncate text-muted-foreground">{team.description?.trim() || '—'}</TableCell>
                       <TableCell>

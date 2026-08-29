@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Check, ChevronRight, FolderOpen, Loader2, Plus, Save, Sparkles, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
-import { NavLink, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router'
+import { Check, ChevronRight, FolderOpen, Loader2, Plus, Save, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
+import { NavLink, useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   addTeamProject,
-  addChatSessionContext,
   decideTeamJoinRequest,
   deleteTeam,
   listProjects,
@@ -36,7 +35,6 @@ import {
   type TeamMember,
   type User,
 } from '@/lib/api'
-import type { AskPageOutletContext } from './App'
 
 function displayUser(user: User | AuthUser | null | undefined) {
   if (!user) {
@@ -58,11 +56,9 @@ const TEAM_ROLE_OPTIONS: TeamMember['role'][] = ['TEAM_MEMBER', 'TEAM_OWNER']
 const PROJECT_ROLE_OPTIONS: ProjectTeam['role'][] = ['VIEWER', 'EDITOR', 'OWNER']
 
 export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser | null }) {
-  const { createChatSession, refreshChatSessions } = useOutletContext<AskPageOutletContext>()
   const location = useLocation()
   const navigate = useNavigate()
   const { teamId } = useParams()
-  const [searchParams] = useSearchParams()
   const [team, setTeam] = useState<Team | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -82,7 +78,6 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
   const [isAddingMember, setIsAddingMember] = useState(false)
   const [isAddingProject, setIsAddingProject] = useState(false)
   const [isRequestingJoin, setIsRequestingJoin] = useState(false)
-  const [isOpeningChat, setIsOpeningChat] = useState(false)
   const [isDecidingJoinRequestId, setIsDecidingJoinRequestId] = useState<string | null>(null)
 
   const userById = useMemo(() => {
@@ -107,6 +102,15 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
   }, [currentUser, users])
   const availableUsers = usersForSelection.filter((user) => !memberUserIds.has(user.id))
   const availableProjects = projects.filter((project) => !linkedProjectIds.has(project.id))
+
+  function workspaceDestination(path: string) {
+    const params = new URLSearchParams(location.search)
+    if (!params.get('chatSessionId')) {
+      return path
+    }
+    params.set('chatPanel', 'open')
+    return `${path}?${params.toString()}`
+  }
 
   async function loadPage() {
     if (!teamId) {
@@ -212,7 +216,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
     try {
       await deleteTeam(team.id)
       toast.success('Team deleted.')
-      navigate('/app/teams')
+      navigate(workspaceDestination('/app/teams'))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete team.')
     } finally {
@@ -307,35 +311,6 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
     }
   }
 
-  async function handleAskAboutTeam() {
-    if (!team || isOpeningChat) {
-      return
-    }
-
-    setIsOpeningChat(true)
-    try {
-      let sessionId = searchParams.get('chatSessionId')
-      if (!sessionId) {
-        const session = await createChatSession()
-        sessionId = session?.id ?? null
-      }
-      if (!sessionId) {
-        return
-      }
-
-      await addChatSessionContext(sessionId, 'TEAM', team.id)
-      await refreshChatSessions(sessionId)
-      const nextParams = new URLSearchParams(searchParams)
-      nextParams.set('chatSessionId', sessionId)
-      nextParams.set('chatPanel', 'open')
-      navigate(`${location.pathname}?${nextParams.toString()}`)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to open AI chat for this team.')
-    } finally {
-      setIsOpeningChat(false)
-    }
-  }
-
   async function handleDecideJoinRequest(requestId: string, decision: 'APPROVE' | 'REJECT') {
     if (!team) {
       return
@@ -389,7 +364,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 md:px-6">
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold leading-none tracking-normal">
-          <NavLink to="/app/teams" className="shrink-0 text-muted-foreground hover:text-foreground">
+          <NavLink to={workspaceDestination('/app/teams')} className="shrink-0 text-muted-foreground hover:text-foreground">
             Teams
           </NavLink>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -398,18 +373,12 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
             <span className="truncate">{team.name}</span>
           </span>
         </h1>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button type="button" variant="default" className="gap-2" disabled={isOpeningChat} onClick={() => void handleAskAboutTeam()}>
-            {isOpeningChat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Ask AI about this team
+        {!isCurrentUserMember && currentUser && currentUser.globalRole !== 'SUPERADMIN' ? (
+          <Button type="button" variant="outline" className="gap-2" disabled={isRequestingJoin} onClick={() => void handleRequestJoin()}>
+            {isRequestingJoin ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+            Request access
           </Button>
-          {!isCurrentUserMember && currentUser && currentUser.globalRole !== 'SUPERADMIN' ? (
-            <Button type="button" variant="outline" className="gap-2" disabled={isRequestingJoin} onClick={() => void handleRequestJoin()}>
-              {isRequestingJoin ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-              Request access
-            </Button>
-          ) : null}
-        </div>
+        ) : null}
       </div>
 
       <div className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
@@ -594,7 +563,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                       const project = projectById.get(link.projectId)
                       return (
                         <div key={link.projectId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                          <button type="button" className="min-w-0 text-left" onClick={() => navigate(`/app/projects/${link.projectId}`)}>
+                          <button type="button" className="min-w-0 text-left" onClick={() => navigate(workspaceDestination(`/app/projects/${link.projectId}`))}>
                             <div className="truncate text-sm font-medium">{displayProject(project)}</div>
                             <div className="truncate text-xs text-muted-foreground">{link.role}</div>
                           </button>

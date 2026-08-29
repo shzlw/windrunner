@@ -28,7 +28,14 @@ function positiveInteger(name: string, fallback: number) {
 const PROJECT_COUNT = positiveInteger('SEED_PROJECTS', 2);
 const WORK_ITEMS_PER_PROJECT = positiveInteger('SEED_ITEMS', 2000);
 const USER_COUNT = positiveInteger('SEED_USERS', 50);
-const TEAM_COUNT = positiveInteger('SEED_TEAMS', 20);
+const FUNCTION_TEAMS = [
+  {name: 'SRE', description: 'Owns reliability, observability, incident response, and platform operations.'},
+  {name: 'Development', description: 'Builds and maintains the product and shared engineering systems.'},
+  {name: 'Product', description: 'Owns product direction, discovery, prioritization, and customer outcomes.'},
+  {name: 'Sales', description: 'Builds customer relationships and supports growth and commercial opportunities.'},
+  {name: 'Support', description: 'Helps customers resolve issues and turns feedback into product improvements.'},
+] as const;
+const TEAM_COUNT = Math.max(positiveInteger('SEED_TEAMS', 20), FUNCTION_TEAMS.length);
 // The API uses a Hikari pool of 10 connections by default, and audited writes
 // can briefly need a second connection. Keep the default below that limit;
 // increase it only when the server's datasource pool is configured accordingly.
@@ -212,22 +219,36 @@ test('Seed Windrunner with realistic multi-project data', async ({request}) => {
   // ---------- teams ----------
   const teamIds: string[] = [];
   for (let i = 0; i < TEAM_COUNT; i++) {
+    const functionTeam = FUNCTION_TEAMS[i];
     const response = await post('/internal-api/v1/teams', {
-      name: `e2e Team ${runId} ${String.fromCharCode(65 + (i % 26))}${Math.floor(i / 26) || ''} — ${pick(FEATURES)} guild`,
-      description: TEAM_RESPONSIBILITIES[i % TEAM_RESPONSIBILITIES.length],
-      ownerUserIds: [ownerUserId],
+      name: functionTeam
+        ? `e2e ${runId} ${functionTeam.name}`
+        : `e2e Team ${runId} ${String.fromCharCode(65 + (i % 26))}${Math.floor(i / 26) || ''} — ${pick(FEATURES)} guild`,
+      description: functionTeam?.description ?? TEAM_RESPONSIBILITIES[i % TEAM_RESPONSIBILITIES.length],
+      ownerUserIds: [userIds[i % userIds.length]],
     });
     teamIds.push((await responseData<{id: string}>(response, `Create seeded team ${i + 1}`)).id);
   }
   created.teams = teamIds.length;
 
   // each team gets 3–8 members
-  await mapPool(teamIds, CONCURRENCY, async teamId => {
+  await mapPool(teamIds, CONCURRENCY, async (teamId, teamIndex) => {
+    const functionTeam = FUNCTION_TEAMS[teamIndex];
+    const teamOwnerId = userIds[teamIndex % userIds.length];
+    const groupedUserIds = functionTeam
+      ? userIds.filter((_, userIndex) => userIndex % FUNCTION_TEAMS.length === teamIndex)
+      : [];
     const memberCount = Math.min(3 + Math.floor(rng() * 6), Math.max(0, userIds.length - 1));
     const members = new Set<string>();
-    while (members.size < memberCount) {
-      const userId = pick(userIds);
-      if (userId !== ownerUserId) members.add(userId);
+    if (functionTeam) {
+      groupedUserIds.forEach(userId => {
+        if (userId !== teamOwnerId) members.add(userId);
+      });
+    } else {
+      while (members.size < memberCount) {
+        const userId = pick(userIds);
+        if (userId !== teamOwnerId) members.add(userId);
+      }
     }
     for (const userId of members) {
       await post(`/internal-api/v1/teams/${teamId}/members`, {userId});

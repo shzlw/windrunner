@@ -48,7 +48,10 @@ public class AgentService {
                 }
                 LlmTool<?> tool = toolsByName.get(toolCall.name());
                 if (tool == null) {
-                    throw new LlmException(providerName + " requested an unregistered tool: " + toolCall.name());
+                    log.warn("LLM requested unavailable tool provider={}, name={}, availableTools={}",
+                            providerName, toolCall.name(), toolsByName.keySet());
+                    throw new LlmException(providerName + " requested an unavailable tool: " + toolCall.name()
+                            + ". The request cannot be completed because that capability is not available.");
                 }
 
                 log.info("Executing LLM tool provider={}, name={}, callId={}, toolRound={}",

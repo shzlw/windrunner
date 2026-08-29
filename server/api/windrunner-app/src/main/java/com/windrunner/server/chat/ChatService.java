@@ -54,6 +54,11 @@ public class ChatService {
 
     @Transactional
     public ChatSessionView createSession(String userId, AppUser actor) {
+        ChatSession latestSession = sessionRepository.findLatestActiveByUserId(userId).orElse(null);
+        if (latestSession != null && messageRepository.findBySessionIdOrdered(latestSession.getId()).isEmpty()) {
+            return getSession(latestSession.getId(), userId, actor);
+        }
+
         String id = idGenerator.generate(EntityIdType.CHAT_SESSION);
         sessionRepository.insert(id, userId);
         return getSession(id, userId, actor);

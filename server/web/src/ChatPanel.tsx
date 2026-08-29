@@ -121,7 +121,7 @@ function renderAssistantContent(
   return rendered.length > 0 ? rendered : <span className="whitespace-pre-wrap">{content}</span>
 }
 
-export default function ProjectChatPanel({
+export default function ChatPanel({
   projectId = '',
   projectIds,
   sessionId,
@@ -182,6 +182,8 @@ export default function ProjectChatPanel({
   const composerFormRef = useRef<HTMLFormElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const hasAutoSubmittedInitialDraftRef = useRef(false)
+  const isRequestInFlightRef = useRef(false)
+  const requestSessionIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -221,15 +223,21 @@ export default function ProjectChatPanel({
         setIsLoadingSession(false)
         return
       }
+      // Creating a session refreshes the sidebar and can update sessionId
+      // while the first request is still streaming. Keep the optimistic
+      // messages until that request has finished instead of replacing them
+      // with the partially persisted session.
+      if (isRequestInFlightRef.current && requestSessionIdRef.current === sessionId) {
+        setIsLoadingSession(false)
+        return
+      }
       setIsLoadingSession(true)
       try {
         const session = await getChatSession(sessionId)
-        if (isMounted) {
-          if (session) {
-            applySession(session)
-          } else {
-            setMessages([])
-          }
+        const requestStartedDuringLoad = isRequestInFlightRef.current && requestSessionIdRef.current === sessionId
+        if (isMounted && !requestStartedDuringLoad) {
+          if (session) applySession(session)
+          else setMessages([])
         }
       } catch (error) {
         if (isMounted) {
@@ -274,6 +282,7 @@ export default function ProjectChatPanel({
       toast.error('Start a chat session before sending a message.')
       return
     }
+    const requestSessionId = activeSessionId
 
     const userMessage: ChatMessage = { id: createMessageId(), role: 'user', content }
     const assistantMessage: ChatMessage = { id: createMessageId(), role: 'assistant', content: '' }
@@ -284,7 +293,25 @@ export default function ProjectChatPanel({
     const controller = new AbortController()
     let streamError: string | null = null
     let didFinish = false
+    let recoveredPersistedResponse = false
 
+    async function syncPersistedResponse() {
+      if (controller.signal.aborted) return false
+      try {
+        const latestSession = await getChatSession(requestSessionId)
+        const lastMessage = latestSession.messages[latestSession.messages.length - 1]
+        const hasNewAssistantResponse = latestSession.messages.length > requestMessages.length
+          && lastMessage?.role === 'assistant'
+        if (!hasNewAssistantResponse) return false
+        applySession(latestSession)
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    requestSessionIdRef.current = activeSessionId
+    isRequestInFlightRef.current = true
     abortControllerRef.current = controller
     setDraft('')
     setMessages((current) => [...current, userMessage, assistantMessage])
@@ -332,11 +359,18 @@ export default function ProjectChatPanel({
       if (streamError) {
         throw new Error(streamError)
       }
-      if (!didFinish) {
+      recoveredPersistedResponse = await syncPersistedResponse()
+      if (!didFinish && !recoveredPersistedResponse) {
         throw new Error('The chat stream ended before the response completed.')
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+      if (!recoveredPersistedResponse) {
+        recoveredPersistedResponse = await syncPersistedResponse()
+      }
+      if (recoveredPersistedResponse) {
         return
       }
       const errorMessage = error instanceof Error ? error.message : 'Failed to stream the response.'
@@ -359,6 +393,8 @@ export default function ProjectChatPanel({
       setIsStreaming(false)
       onStreamingChange?.(false)
       void onSessionActivity?.()
+      isRequestInFlightRef.current = false
+      requestSessionIdRef.current = null
     }
   }
 
@@ -400,7 +436,7 @@ export default function ProjectChatPanel({
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleTextareaKeyDown}
             placeholder="Ask anything..."
-            disabled={isLoadingSession || isStreaming}
+            disabled={isLoadingSession}
             className="max-h-32 min-h-16 resize-none border-0 px-1 py-1 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
           <div className="flex justify-end pt-1">
@@ -514,7 +550,12 @@ export default function ProjectChatPanel({
                       ) : (
                         message.content
                           ? renderAssistantContent(message.content, workItemReferences, teamReferences, onWorkItemReferenceClick, onTeamReferenceClick)
-                          : <Loader2 className="h-4 w-4 animate-spin" />
+                          : (
+                            <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span>Thinking…</span>
+                            </span>
+                          )
                       )}
                     </BubbleContent>
                   </Bubble>

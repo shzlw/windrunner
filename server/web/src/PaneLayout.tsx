@@ -1,7 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Bot, ChevronLeft } from 'lucide-react'
-import { usePanelRef } from 'react-resizable-panels'
+import { useGroupRef, usePanelRef } from 'react-resizable-panels'
 
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -14,6 +14,8 @@ type PaneLayoutProps = {
   content?: ReactNode
   chat?: ReactNode
   artifact?: ReactNode
+  onOpenAssistant?: () => void | Promise<void>
+  assistantLabel?: string
   className?: string
 }
 
@@ -34,32 +36,43 @@ function loadDefaultLayout(storageKey: string) {
   return { 'conversation-pane': 35, 'artifact-pane': 65 }
 }
 
-function AssistantLauncher({ onClick, label = 'Open Ask AI' }: { onClick: () => void; label?: string }) {
+function AssistantLauncher({ onClick, label = 'Open Ask AI' }: { onClick: () => void | Promise<void>; label?: string }) {
   return (
     <Button
       type="button"
       size="icon-lg"
       variant="outline"
       className="absolute right-4 bottom-4 z-20 h-12 w-12 rounded-full bg-background shadow-md"
-      onClick={onClick}
+      onClick={() => void onClick()}
       aria-label={label}
       title={label}
     >
-      <Bot className="h-5 w-5" />
+      <Bot className="h-6 w-6" strokeWidth={2.5} />
     </Button>
   )
 }
 
-export default function PaneLayout({ mode, content, chat, artifact, className }: PaneLayoutProps) {
+export default function PaneLayout({ mode, content, chat, artifact, onOpenAssistant, assistantLabel, className }: PaneLayoutProps) {
   const isMobile = useIsMobile()
   const location = useLocation()
   const navigate = useNavigate()
+  const groupRef = useGroupRef()
   const chatPanelRef = usePanelRef()
   const [mobilePane, setMobilePane] = useState<'chat' | 'artifact'>('chat')
   const [isChatCollapsed, setIsChatCollapsed] = useState(false)
   const layoutStorageKey = `${paneLayoutStorageKey}:${location.pathname}`
   const defaultLayout = useMemo(() => loadDefaultLayout(layoutStorageKey), [layoutStorageKey])
+  const previousLayoutStorageKeyRef = useRef(layoutStorageKey)
   const rootClassName = ['flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background', className ?? ''].join(' ')
+
+  useEffect(() => {
+    if (previousLayoutStorageKeyRef.current === layoutStorageKey) {
+      return
+    }
+
+    previousLayoutStorageKeyRef.current = layoutStorageKey
+    groupRef.current?.setLayout(loadDefaultLayout(layoutStorageKey))
+  }, [groupRef, layoutStorageKey])
 
   function openAssistant() {
     const params = new URLSearchParams(location.search)
@@ -67,6 +80,8 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
     const query = params.toString()
     navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`)
   }
+
+  const handleOpenAssistant = onOpenAssistant ?? openAssistant
 
   function toggleChatPanel() {
     const panel = chatPanelRef.current
@@ -80,6 +95,11 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
       panel.collapse()
       setIsChatCollapsed(true)
     }
+  }
+
+  async function expandAssistant() {
+    await handleOpenAssistant()
+    toggleChatPanel()
   }
 
   if (mode === 'full') {
@@ -102,7 +122,7 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
         <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
           {artifact}
         </main>
-        <AssistantLauncher onClick={openAssistant} />
+        <AssistantLauncher onClick={handleOpenAssistant} label={assistantLabel ?? 'Open Ask AI'} />
       </div>
     )
   }
@@ -146,7 +166,7 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
     <div className={rootClassName} data-layout="chat-artifact">
       <ResizablePanelGroup
         id="conversation-artifact-layout"
-        key={layoutStorageKey}
+        groupRef={groupRef}
         orientation="horizontal"
         defaultLayout={defaultLayout}
         onLayoutChanged={(layout, meta) => {
@@ -189,7 +209,7 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
         <ResizablePanel id="artifact-pane" defaultSize="65%" minSize={320}>
           <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
             {artifact}
-            {isChatCollapsed ? <AssistantLauncher onClick={toggleChatPanel} label="Expand Ask AI" /> : null}
+            {isChatCollapsed ? <AssistantLauncher onClick={expandAssistant} label={assistantLabel ?? 'Expand Ask AI'} /> : null}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
