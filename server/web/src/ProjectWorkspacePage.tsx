@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactElement, ReactNode } from 'react'
-import { NavLink, Navigate, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router'
+import { NavLink, Navigate, useParams, useSearchParams } from 'react-router'
 import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -32,7 +32,6 @@ import {
   createNode,
   createEntry,
   createRelationship,
-  addChatSessionContext,
   deleteRelationship,
   acceptEntryAiReview,
   acceptNewEntryAiReview,
@@ -84,10 +83,8 @@ import {
   subscribeWorkItem,
   unsubscribeWorkItem,
 } from '@/lib/api'
-import type { AskPageOutletContext } from './App'
 import { cn } from '@/lib/utils'
 import { entryTypeBadgeClass, workItemTypeBadgeClass } from '@/lib/typeBadges'
-import ProjectChatPanel, { type ChatWorkItemReference } from '@/ProjectChatPanel'
 import WorkItemHistoryPanel from '@/WorkItemHistoryPanel'
 
 type TreeNode = ProjectNode & {
@@ -125,7 +122,7 @@ type FlatTreeNode = TreeNode & {
   depth: number
 }
 
-type InspectorMode = 'task' | 'ai' | 'history'
+type InspectorMode = 'task' | 'history'
 type CreatedSortDirection = 'ASC' | 'DESC' | null
 type WorkItemFilterField = 'STATUS' | 'PRIORITY' | 'DUE_DATE' | 'ASSIGNEE'
 type WorkItemFilterOperator = 'AND' | 'OR'
@@ -2585,8 +2582,6 @@ function WorkspaceProposalPanel({
 export default function ProjectWorkspacePage() {
   const { projectId } = useParams()
   const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
-  const appContext = useOutletContext<AskPageOutletContext>()
   const requestedWorkItemId = searchParams.get('workItemId')?.trim() || null
   const [project, setProject] = useState<Project | null>(null)
   const [workspacePanelLayout] = useState(readWorkspacePanelLayout)
@@ -2730,24 +2725,6 @@ export default function ProjectWorkspacePage() {
     ...blockerWorkItems.map((item) => [item.id, item.title] as const),
     ...displayedNodes.map((node) => [node.id, node.title] as const),
   ]), [blockerWorkItems, displayedNodes])
-  const chatWorkItemReferences = useMemo(() => {
-    const references = new Map<string, ChatWorkItemReference>()
-    blockerWorkItems.forEach((item) => references.set(item.id, {
-      id: item.id,
-      title: item.title,
-      type: item.type,
-      status: item.status,
-      dueDate: item.dueDate,
-    }))
-    displayedNodes.forEach((node) => references.set(node.id, {
-      id: node.id,
-      title: node.title,
-      type: node.type,
-      status: String(nodeFieldValue(node, 'status') ?? 'OPEN'),
-      dueDate: String(nodeFieldValue(node, 'dueDate') ?? '').trim() || null,
-    }))
-    return references
-  }, [blockerWorkItems, displayedNodes])
   const userLabels = useMemo(() => new Map(referenceUsers.map((user) => [user.id, referenceUserLabel(user)])), [referenceUsers])
   const teamLabels = useMemo(() => new Map(referenceTeams.map((team) => [team.id, referenceTeamLabel(team)])), [referenceTeams])
   const referenceUserOptions = useMemo(() => (
@@ -2814,26 +2791,6 @@ export default function ProjectWorkspacePage() {
       .map((entry) => ({ entityType: 'ENTRY' as const, entityId: entry.id, parentWorkItemId: entry.workItemId, label: entry.body.trim().replace(/\s+/g, ' ').slice(0, 100) || 'Untitled update', detail: 'Update', depth: (flattenedTree.find((node) => node.id === entry.workItemId)?.depth ?? 0) + 1 }))
     return [...workItems, ...updates].filter((item) => !normalizedQuery || [item.label, item.detail, item.entityId].some((value) => value.toLowerCase().includes(normalizedQuery)))
   }, [entries, flattenedTree, invalidMoveDestinationIds, moveQuery])
-  const selectedChatContext = useMemo(() => {
-    if (!selectedNode) {
-      return null
-    }
-    if (selectedNode.proposal) {
-      return {
-        label: `Proposal: ${selectedNode.title}`,
-        context: {
-          selectedProposalId: selectedNode.proposal.proposalId,
-          selectedProposalChangeId: selectedNode.proposal.changeId,
-        },
-      }
-    }
-    return {
-      label: `Item: ${selectedNode.title}`,
-      context: {
-        selectedNodeId: selectedNode.id,
-      },
-    }
-  }, [selectedNode])
   const handleInlineTitleUpdate = useCallback(async (node: ProjectNode, title: string) => {
     if (!projectId) {
       throw new Error('Project is unavailable.')
@@ -3315,6 +3272,7 @@ export default function ProjectWorkspacePage() {
         setForm(createFormState(initialSelectedNode))
         if (initialSelectedNode) {
           setInspectorMode('task')
+          highlightChatReference(initialSelectedNode.id)
         }
       } catch (error) {
         if (isMounted) {
@@ -3737,50 +3695,6 @@ export default function ProjectWorkspacePage() {
       setChatHighlightedNodeId((current) => current === workItemId ? null : current)
       chatHighlightTimerRef.current = null
     }, 1800)
-  }
-
-  async function handleChatWorkItemReference(workItemId: string) {
-    if (!projectId) {
-      return
-    }
-
-    setFocusedNodeId(null)
-    setWorkItemSearchQuery('')
-    setAppliedWorkItemSearchQuery('')
-    setWorkItemFilterConditions([])
-    setAppliedWorkItemFilterConditions([])
-
-    const loadedNode = findTreeNode(tree, workItemId) ?? pendingProposalItems.find((node) => node.id === workItemId) ?? null
-    if (loadedNode) {
-      const path = findTreeNodePath(tree, workItemId)
-      setExpandedNodeIds((current) => new Set([...current, ...path.slice(0, -1).map((node) => node.id)]))
-      setSelectedNodeId(loadedNode.id)
-      setSelectedEntryId(null)
-      setForm(createFormState(loadedNode))
-      setInspectorMode('task')
-      highlightChatReference(loadedNode.id)
-      return
-    }
-
-    try {
-      const requestedNodePath = await loadRequestedWorkItemTreePath(projectId, workItemId, nodes)
-      if (!requestedNodePath.selectedNode) {
-        toast.error('That WorkItem is no longer available.')
-        return
-      }
-
-      setNodes((current) => mergeNodesById(current, requestedNodePath.nodes))
-      setExpandedNodeIds((current) => new Set([...current, ...requestedNodePath.expandedNodeIds]))
-      setLoadedChildrenParentIds((current) => new Set([...current, ...requestedNodePath.loadedChildrenParentIds]))
-      setChildrenPageInfoByParentId((current) => new Map([...current, ...requestedNodePath.childrenPageInfoByParentId]))
-      setSelectedNodeId(requestedNodePath.selectedNode.id)
-      setSelectedEntryId(null)
-      setForm(createFormState(requestedNodePath.selectedNode))
-      setInspectorMode('task')
-      highlightChatReference(requestedNodePath.selectedNode.id)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to locate that WorkItem.')
-    }
   }
 
   async function handleCreateNode(parentId?: string, type = 'TASK') {
@@ -4648,18 +4562,6 @@ export default function ProjectWorkspacePage() {
                   <History className="h-3.5 w-3.5" />
                   History
                 </Button>
-                {isLlmAvailable ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={inspectorMode === 'ai' ? 'default' : 'ghost'}
-                    className={cn('gap-1 rounded-sm', inspectorMode === 'ai' ? 'shadow-xs' : 'text-muted-foreground')}
-                    onClick={() => setInspectorMode('ai')}
-                  >
-                    <Bot className="h-3.5 w-3.5" />
-                    AI
-                  </Button>
-                ) : null}
               </div>
               {selectedNode ? (
                 <div className="flex items-center gap-2">
@@ -5130,30 +5032,6 @@ export default function ProjectWorkspacePage() {
                 </Empty>
               ) : null}
 
-              {inspectorMode === 'ai' && isLlmAvailable ? (
-                <ProjectChatPanel
-                  projectId={projectId}
-                  sessionId={searchParams.get('chatSessionId') ?? undefined}
-                  onCreateSession={appContext.createChatSession}
-                  selectedContext={selectedChatContext}
-                  onClearSelectedContext={clearSelectedNode}
-                  onSessionStarted={(session) => {
-                    const nextParams = new URLSearchParams(searchParams)
-                    nextParams.set('chatSessionId', session.id)
-                    nextParams.set('chatPanel', 'open')
-                    navigate(`/app/projects/${projectId}?${nextParams.toString()}`, { replace: true })
-                    if (selectedNode?.id && !selectedNode.proposal) {
-                      void addChatSessionContext(session.id, 'WORK_ITEM', selectedNode.id).catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to save work item context.'))
-                    }
-                  }}
-                  onGraphChangeProposalSaved={() => reloadTreeAndProposals()}
-                  onSessionActivity={() => appContext.refreshChatSessions(searchParams.get('chatSessionId') ?? undefined)}
-                  workItemReferences={chatWorkItemReferences}
-                  onWorkItemReferenceClick={(workItemId) => void handleChatWorkItemReference(workItemId)}
-                  flush
-                  className="h-full min-h-0"
-                />
-              ) : null}
             </div>
           </aside>
         </ResizablePanel>
