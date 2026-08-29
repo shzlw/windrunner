@@ -1,0 +1,112 @@
+---
+sidebar_position: 8
+title: Internationalization
+---
+
+# Internationalization
+
+Windrunner's web interface uses `i18next` and `react-i18next`. Translations are
+organized by language so adding another locale does not require changing the
+application structure.
+
+## Localization files
+
+The setup lives in the web app:
+
+- `web/src/i18n/index.ts` initializes i18next, detects the browser language, and
+  persists the selected language in local storage.
+- `web/src/i18n/locales/en.ts` contains the English translations and is the
+  source of truth for translation keys.
+- `web/src/i18n/locales/index.ts` registers resources and the languages shown in
+  the language selector.
+- `web/src/components/LanguageSelect.tsx` renders the language selector in My
+  Account.
+
+## Add a language
+
+### 1. Create the locale file
+
+Copy the English resource and rename it using the language code. For example,
+to add Spanish:
+
+```bash
+cp web/src/i18n/locales/en.ts web/src/i18n/locales/es.ts
+```
+
+Translate the values in `es.ts`, but keep every key unchanged:
+
+```ts
+const es = {
+  navigation: {
+    home: 'Inicio',
+    newChat: 'Nuevo chat',
+  },
+  language: {
+    label: 'Idioma',
+  },
+} as const
+
+export default es
+```
+
+The new locale should retain the complete key structure from `en.ts`. Missing
+keys fall back to English, but keeping files complete makes translation gaps
+easy to find during review.
+
+### 2. Register the resource
+
+Import the locale and add it to `resources` in
+`web/src/i18n/locales/index.ts`:
+
+```ts
+import en from './en'
+import es from './es'
+
+export const resources = {
+  en: { translation: en },
+  es: { translation: es },
+} as const
+```
+
+### 3. Add it to the language selector
+
+Add the locale code and its native display name to `supportedLanguages`:
+
+```ts
+export const supportedLanguages = [
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Español' },
+] as const
+```
+
+The selector will automatically show the new language, and browser language
+detection will recognize it on the next visit.
+
+### 4. Use translation keys for new UI text
+
+Components should use `useTranslation()` for user-facing strings:
+
+```tsx
+import { useTranslation } from 'react-i18next'
+
+export function WelcomeHeading() {
+  const { t } = useTranslation()
+
+  return <h1>{t('home.welcome')}</h1>
+}
+```
+
+Add the same key to every supported locale. Keep keys grouped by feature and
+keep interpolation placeholders unchanged across locales.
+
+### 5. Build and review
+
+Run the web build and check the interface using the new language:
+
+```bash
+cd web
+npm run build
+```
+
+Pay particular attention to navigation labels, buttons, dialogs, and layouts
+where longer translations may wrap or require more space.

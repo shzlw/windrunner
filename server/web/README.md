@@ -96,5 +96,6 @@ To add a language:
 
 Use `useTranslation()` and `t('feature.key')` for new user-facing text. Keep
 translation keys grouped by feature and keep interpolation placeholders
-unchanged across locales. The in-app Documentation page contains the same
-workflow with examples.
+unchanged across locales. See the repository's
+`docs/docs/guides/internationalization.mdx` page for the full workflow and
+examples.

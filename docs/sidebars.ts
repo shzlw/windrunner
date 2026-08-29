@@ -34,6 +34,7 @@ const sidebars: SidebarsConfig = {
         'guides/users-and-teams',
         'guides/access-control',
         'guides/audit-log',
+        'guides/internationalization',
       ],
     },
     {

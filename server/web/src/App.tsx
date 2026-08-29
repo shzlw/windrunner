@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { BookOpenText, Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Search, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Search, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -33,7 +33,6 @@ import { toast } from 'sonner'
 import './App.css'
 import AuditLogsPage from './AuditLogsPage'
 import AIEfficiencyPage from './AIEfficiencyPage'
-import DocumentationPage from './DocumentationPage'
 import ProjectWorkspacePage from './ProjectWorkspacePage'
 import MyAccountPage from './MyAccountPage'
 import ProjectsPage from './ProjectsPage'
@@ -53,7 +52,6 @@ const baseMenuItems = [
   { labelKey: 'navigation.subscriptions', path: '/app/subscriptions', icon: Bookmark },
   { labelKey: 'navigation.teams', path: '/app/teams', icon: UsersRound },
   { labelKey: 'navigation.users', path: '/app/users', icon: Users },
-  { labelKey: 'navigation.documentation', path: '/app/documentation', icon: BookOpenText },
 ]
 
 const aiEfficiencyMenuItem = { labelKey: 'navigation.aiEfficiency', path: '/app/ai-efficiency', icon: TrendingUp }
@@ -932,7 +930,6 @@ function App() {
           <Route index element={<Navigate to="home" replace />} />
           <Route path="home" element={<HomePage displayName={currentUser?.displayName} />} />
           <Route path="ask-ai" element={null} />
-          <Route path="documentation" element={<DocumentationPage />} />
           <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
           <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
           <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />
