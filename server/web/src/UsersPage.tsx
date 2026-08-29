@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useSearchParams } from 'react-router'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -149,6 +150,7 @@ function isValidOptionalEmail(value: string) {
 }
 
 export default function UsersPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const isSuperAdmin = currentUser?.globalRole === 'SUPERADMIN'
   const isAdminLike = currentUser?.globalRole === 'ADMIN' || currentUser?.globalRole === 'SUPERADMIN'
   const [users, setUsers] = useState<User[]>([])
@@ -169,6 +171,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
   const [isResettingPassword, setIsResettingPassword] = useState(false)
   const [showInitialPassword, setShowInitialPassword] = useState(false)
   const [query, setQuery] = useState('')
+  const requestedUserId = searchParams.get('userId')
 
   async function loadPage(nextPage: number) {
     setIsListLoading(true)
@@ -201,6 +204,11 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
     const { openSheet = true } = options
 
     setSelectedUserId(userId)
+    if (searchParams.get('userId') !== userId) {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.set('userId', userId)
+      setSearchParams(nextParams, { replace: true })
+    }
     setIsDetailLoading(true)
 
     try {
@@ -229,6 +237,11 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
     setIsSheetOpen(false)
     setPasswordResetValue('')
     setForcePasswordChange(true)
+    if (searchParams.has('userId')) {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('userId')
+      setSearchParams(nextParams, { replace: true })
+    }
   }
 
   useEffect(() => {
@@ -236,6 +249,13 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       void loadPage(page)
     })
   }, [page])
+
+  useEffect(() => {
+    if (!requestedUserId || isListLoading || selectedUserId === requestedUserId) {
+      return
+    }
+    void selectUser(requestedUserId)
+  }, [isListLoading, requestedUserId, selectedUserId])
 
   function openCreateSheet() {
     setSheetMode('create')

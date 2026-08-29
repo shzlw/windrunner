@@ -11,11 +11,11 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ChatPanel, { type ChatWorkItemReference } from '@/ChatPanel'
-import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, listChatSessionContext, listNodes, listProjects, listTeams, type ChatSessionContext, type Project, type ProjectNode, type Team } from '@/lib/api'
+import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, listChatSessionContext, listNodes, listProjects, listTeams, loadSelectableUsers, type ChatSessionContext, type Project, type ProjectNode, type Team, type User } from '@/lib/api'
 import type { AskPageOutletContext } from './App'
 
 const maxSelectedProjects = 10
-type ContextType = 'projects' | 'teams'
+type ContextType = 'projects' | 'teams' | 'users'
 
 type AskPageProps = {
   projectId?: string
@@ -23,6 +23,10 @@ type AskPageProps = {
 
 function projectTitle(project: Project) {
   return project.title?.trim() || project.name?.trim() || 'Untitled project'
+}
+
+function userTitle(user: User) {
+  return user.displayName?.trim() || user.username
 }
 
 function fieldValue(node: ProjectNode, name: string) {
@@ -59,6 +63,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
   }
   const [projects, setProjects] = useState<Project[]>([])
   const [teams, setTeams] = useState<Team[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
   const [contextType, setContextType] = useState<ContextType>('projects')
   const [contextQuery, setContextQuery] = useState('')
@@ -88,8 +93,19 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     }
     return teams.filter((team) => [team.name, team.description ?? '', team.id].some((value) => value.toLowerCase().includes(query)))
   }, [contextQuery, teams])
+  const filteredUsers = useMemo(() => {
+    const query = contextQuery.trim().toLowerCase()
+    if (!query) {
+      return users
+    }
+    return users.filter((user) => [userTitle(user), user.username, user.title ?? '', user.id].some((value) => value.toLowerCase().includes(query)))
+  }, [contextQuery, users])
   const selectedTeamIds = useMemo(
     () => new Set(sessionContexts.filter((context) => context.entityType === 'TEAM').map((context) => context.entityId)),
+    [sessionContexts],
+  )
+  const selectedUserIds = useMemo(
+    () => new Set(sessionContexts.filter((context) => context.entityType === 'USER').map((context) => context.entityId)),
     [sessionContexts],
   )
   const activeChatProjectId = routeProjectId || selectedProjectIds[0] || ''
@@ -145,9 +161,10 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
     async function loadPage() {
       setIsLoading(true)
       try {
-        const [nextProjects, nextTeams, llmStatus] = await Promise.all([
+        const [nextProjects, nextTeams, nextUsers, llmStatus] = await Promise.all([
           listProjects(),
           listTeams(),
+          loadSelectableUsers(),
           getLlmStatus().catch(() => ({ provider: 'none', available: false })),
         ])
         if (!isMounted) {
@@ -155,6 +172,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
         }
         setProjects(nextProjects)
         setTeams(nextTeams)
+        setUsers(nextUsers)
         setIsLlmAvailable(llmStatus.available)
           const defaultProjectId = routeProjectId && nextProjects.some((project) => project.id === routeProjectId)
             ? routeProjectId
@@ -262,6 +280,29 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to add team context.'))
   }
 
+  async function toggleUser(userId: string) {
+    const existing = selectedSession && sessionContexts.find((context) => context.entityType === 'USER' && context.entityId === userId)
+    if (existing && selectedSession) {
+      void deleteChatSessionContext(selectedSession.id, existing.id)
+        .then(() => setSessionContexts((current) => current.filter((context) => context.id !== existing.id)))
+        .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to remove user context.'))
+      return
+    }
+
+    let sessionId = selectedSession?.id
+    if (!sessionId) {
+      const session = await createChatSession()
+      sessionId = session?.id
+    }
+    if (!sessionId) {
+      return
+    }
+
+    void addChatSessionContext(sessionId, 'USER', userId)
+      .then((context) => setSessionContexts((current) => [...current.filter((item) => item.id !== context.id), context]))
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to add user context.'))
+  }
+
   function removeProject(projectId: string) {
     setSelectedProjectIds((current) => current.filter((currentProjectId) => currentProjectId !== projectId))
     const existing = selectedSession && sessionContexts.find((context) => context.entityType === 'PROJECT' && context.entityId === projectId)
@@ -317,7 +358,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
 
   const projectContext = (
     <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs">
-      {projects.length > 0 || teams.length > 0 ? (
+      {projects.length > 0 || teams.length > 0 || users.length > 0 ? (
         <Popover onOpenChange={(open) => { if (!open) setContextQuery('') }}>
           <PopoverTrigger
             render={(
@@ -335,6 +376,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
               <TabsList variant="line" className="w-full rounded-none border-b px-3">
                 <TabsTrigger value="projects">Projects</TabsTrigger>
                 <TabsTrigger value="teams">Teams</TabsTrigger>
+                <TabsTrigger value="users">People</TabsTrigger>
               </TabsList>
               <div className="border-b p-3">
                 <div className="relative">
@@ -398,9 +440,35 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
                   })}
                 </div>
               </TabsContent>
+              <TabsContent value="users" className="mt-0">
+                <div className="max-h-72 overflow-y-auto p-2">
+                  {filteredUsers.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">No matching people</div>
+                  ) : filteredUsers.map((user) => {
+                    const isSelected = selectedUserIds.has(user.id)
+                    return (
+                      <div key={user.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => void toggleUser(user.id)}
+                          aria-label={`Use ${userTitle(user)} as context`}
+                        />
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 truncate text-left text-sm"
+                          onClick={() => void toggleUser(user.id)}
+                        >
+                          <span className="block truncate">{userTitle(user)}</span>
+                          {user.title ? <span className="block truncate text-xs text-muted-foreground">{user.title}</span> : null}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </TabsContent>
             </Tabs>
             <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
-              <span>{contextType === 'projects' ? `${selectedProjects.length} selected` : `${selectedTeamIds.size} selected`}</span>
+              <span>{contextType === 'projects' ? `${selectedProjects.length} selected` : contextType === 'teams' ? `${selectedTeamIds.size} selected` : `${selectedUserIds.size} selected`}</span>
               <Button type="button" size="xs" variant="ghost" onClick={clearContexts} disabled={!hasContext}>Clear all</Button>
             </div>
           </PopoverContent>
@@ -467,6 +535,10 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       composerFooter={projectContext}
       workItemReferences={visibleReferences}
       teamReferences={new Map(sessionContexts.filter((context) => context.entityType === 'TEAM').map((context) => [context.entityId, context.label]))}
+      userReferences={new Map([
+        ...users.map((user) => [user.id, userTitle(user)] as const),
+        ...sessionContexts.filter((context) => context.entityType === 'USER').map((context) => [context.entityId, context.label] as const),
+      ])}
       onWorkItemReferenceClick={(workItemId) => {
         const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
         const nextParams = new URLSearchParams({
@@ -483,6 +555,14 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
         const nextParams = new URLSearchParams({ chatPanel: 'open', chatSessionId: selectedSession?.id ?? requestedSessionId ?? '' })
         if (!nextParams.get('chatSessionId')) nextParams.delete('chatSessionId')
         navigate(`/app/teams/${teamId}?${nextParams.toString()}`)
+      }}
+      onUserReferenceClick={(userId) => {
+        const nextParams = new URLSearchParams({ chatPanel: 'open', userId })
+        const sessionId = selectedSession?.id ?? requestedSessionId
+        if (sessionId) {
+          nextParams.set('chatSessionId', sessionId)
+        }
+        navigate(`/app/users?${nextParams.toString()}`)
       }}
       flush
       className="h-full min-h-0"
