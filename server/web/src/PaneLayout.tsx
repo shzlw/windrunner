@@ -42,12 +42,12 @@ function AssistantLauncher({ onClick, label = 'Open Ask AI' }: { onClick: () => 
       type="button"
       size="icon-lg"
       variant="outline"
-      className="absolute right-4 bottom-4 z-20 h-12 w-12 rounded-full bg-background shadow-md"
+      className="absolute right-5 bottom-5 z-20 h-14 w-14 rounded-full bg-background shadow-md"
       onClick={() => void onClick()}
       aria-label={label}
       title={label}
     >
-      <Bot className="h-6 w-6" strokeWidth={2.5} />
+      <Bot className="h-7 w-7" strokeWidth={2.75} />
     </Button>
   )
 }

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Search, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { BookOpenText, Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Search, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import {
   Sidebar,
@@ -32,6 +33,7 @@ import { toast } from 'sonner'
 import './App.css'
 import AuditLogsPage from './AuditLogsPage'
 import AIEfficiencyPage from './AIEfficiencyPage'
+import DocumentationPage from './DocumentationPage'
 import ProjectWorkspacePage from './ProjectWorkspacePage'
 import MyAccountPage from './MyAccountPage'
 import ProjectsPage from './ProjectsPage'
@@ -46,14 +48,15 @@ import HomePage from './HomePage'
 import NotificationCenter, { NotificationProvider } from './components/NotificationCenter'
 
 const baseMenuItems = [
-  { label: 'Projects', path: '/app/projects', icon: FolderOpen },
-  { label: 'My Work', path: '/app/my-work', icon: ListTodo },
-  { label: 'Subscriptions', path: '/app/subscriptions', icon: Bookmark },
-  { label: 'Teams', path: '/app/teams', icon: UsersRound },
-  { label: 'Users', path: '/app/users', icon: Users },
+  { labelKey: 'navigation.projects', path: '/app/projects', icon: FolderOpen },
+  { labelKey: 'navigation.myWork', path: '/app/my-work', icon: ListTodo },
+  { labelKey: 'navigation.subscriptions', path: '/app/subscriptions', icon: Bookmark },
+  { labelKey: 'navigation.teams', path: '/app/teams', icon: UsersRound },
+  { labelKey: 'navigation.users', path: '/app/users', icon: Users },
+  { labelKey: 'navigation.documentation', path: '/app/documentation', icon: BookOpenText },
 ]
 
-const aiEfficiencyMenuItem = { label: 'AI Efficiency', path: '/app/ai-efficiency', icon: TrendingUp }
+const aiEfficiencyMenuItem = { labelKey: 'navigation.aiEfficiency', path: '/app/ai-efficiency', icon: TrendingUp }
 export type AskPageOutletContext = {
   chatSessions: ChatSessionSummary[]
   selectedSessionId: string | null
@@ -317,6 +320,7 @@ function AskSessionsSidebar({
 }
 
 function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const [askSessions, setAskSessions] = useState<ChatSessionSummary[]>([])
@@ -330,7 +334,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const menuItems = isAdminLike(currentUser)
     ? [
         ...baseMenuItems,
-        { label: 'Audit Logs', path: '/app/audit-logs', icon: FileClock },
+        { labelKey: 'navigation.auditLogs', path: '/app/audit-logs', icon: FileClock },
         aiEfficiencyMenuItem,
       ]
     : [...baseMenuItems, aiEfficiencyMenuItem]
@@ -496,28 +500,28 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                     <SidebarMenuButton
                       render={<NavLink to={workspaceDestination('/app/home')} />}
                       isActive={location.pathname === '/app' || location.pathname === '/app/home'}
-                      tooltip="Home"
+                      tooltip={t('navigation.home')}
                     >
                       <Home />
-                      <span>Home</span>
+                      <span>{t('navigation.home')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       render={<button type="button" onClick={() => void handleNewChat()} />}
-                      tooltip="New chat"
+                      tooltip={t('navigation.newChat')}
                     >
                       <Plus />
-                      <span>New chat</span>
+                      <span>{t('navigation.newChat')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       render={<button type="button" onClick={() => navigate('/app/home?focus=search')} />}
-                      tooltip="Search"
+                      tooltip={t('navigation.search')}
                     >
                       <Search />
-                      <span>Search</span>
+                      <span>{t('navigation.search')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
@@ -525,7 +529,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
             </SidebarGroup>
             <SidebarSeparator className="mx-0" />
             <SidebarGroup className="min-h-0 flex-1 overflow-hidden pt-2">
-              <SidebarGroupLabel className="h-6 px-2">Recent conversations</SidebarGroupLabel>
+              <SidebarGroupLabel className="h-6 px-2">{t('navigation.recentConversations')}</SidebarGroupLabel>
               <SidebarGroupContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <AskSessionsSidebar
                 sessions={askSessions}
@@ -541,7 +545,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
             </SidebarGroup>
             <SidebarSeparator className="mx-0" />
             <SidebarGroup className="shrink-0 pt-2">
-              <SidebarGroupLabel className="h-6 px-2">Workspace</SidebarGroupLabel>
+              <SidebarGroupLabel className="h-6 px-2">{t('navigation.workspace')}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="pt-2">
                   {menuItems.map((item) => (
@@ -549,10 +553,10 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                       <SidebarMenuButton
                         render={<NavLink to={workspaceDestination(item.path)} />}
                         isActive={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)}
-                        tooltip={item.label}
+                        tooltip={t(item.labelKey)}
                       >
                         <item.icon />
-                        <span>{item.label}</span>
+                        <span>{t(item.labelKey)}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -928,6 +932,7 @@ function App() {
           <Route index element={<Navigate to="home" replace />} />
           <Route path="home" element={<HomePage displayName={currentUser?.displayName} />} />
           <Route path="ask-ai" element={null} />
+          <Route path="documentation" element={<DocumentationPage />} />
           <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
           <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
           <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />

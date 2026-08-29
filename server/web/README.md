@@ -73,3 +73,28 @@ export default defineConfig([
 ])
 
 ```
+
+## Internationalization
+
+The UI uses `i18next` with `react-i18next`. The localization setup lives under
+`src/i18n`:
+
+- `src/i18n/index.ts` initializes i18next, detects the browser language, and
+  persists the selected language in local storage.
+- `src/i18n/locales/en.ts` contains the English translation keys and values.
+- `src/i18n/locales/index.ts` registers available resources and language labels.
+- `src/components/LanguageSelect.tsx` provides the language selector shown in
+  My Account.
+
+To add a language:
+
+1. Copy `src/i18n/locales/en.ts` to a new locale file, such as `fr.ts`.
+2. Translate the values while keeping the same key structure.
+3. Import the locale in `src/i18n/locales/index.ts` and add it to `resources`.
+4. Add its code and native label to `supportedLanguages`.
+5. Run `npm run build` and review the UI for longer translated text.
+
+Use `useTranslation()` and `t('feature.key')` for new user-facing text. Keep
+translation keys grouped by feature and keep interpolation placeholders
+unchanged across locales. The in-app Documentation page contains the same
+workflow with examples.

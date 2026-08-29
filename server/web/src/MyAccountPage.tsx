@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { toast } from 'sonner'
 import { Bot, Copy, Eye, EyeOff, KeyRound, LogOut, Plug, RefreshCw, ShieldAlert, X } from 'lucide-react'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
+import LanguageSelect from '@/components/LanguageSelect'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -167,6 +169,7 @@ type MyAccountPageProps = {
 }
 
 export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPageProps) {
+  const { t } = useTranslation()
   const [user, setUser] = useState<AuthUser | null>(currentUser)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -474,6 +477,12 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                     </div>
                   ))}
                 </dl>
+
+                <div className="border-t pt-5">
+                  <h3 className="text-sm font-semibold">{t('language.preferencesTitle')}</h3>
+                  <p className="mt-1 mb-4 text-sm text-muted-foreground">{t('language.description')}</p>
+                  <LanguageSelect />
+                </div>
               </section>
             </TabsContent>
 

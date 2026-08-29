@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
+import type { Components } from 'react-markdown'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+import remarkGfm from 'remark-gfm'
 import { useParams } from 'react-router'
 import { AlertTriangle, ArrowUp, Bot, FileText, Loader2, Plus, Square, User, UsersRound, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -55,6 +59,24 @@ function workItemStatusLabel(status: string) {
 // would flash as raw text before completing, so it is hidden until closed.
 const incompleteTrailingMarkerPattern = /\[\[(?:workitem|team):[^\]\s]*$/
 
+const markdownSanitizeSchema = {
+  ...defaultSchema,
+  protocols: {
+    ...defaultSchema.protocols,
+    href: [...(defaultSchema.protocols?.href ?? []), 'artifact'],
+  },
+}
+
+function artifactMarkersToLinks(content: string) {
+  return content.replace(
+    artifactReferencePattern,
+    (_marker, referenceType: 'workitem' | 'team', referenceId: string) => {
+      const label = referenceType === 'team' ? 'Team' : 'Work item'
+      return `[${label}](artifact:${referenceType}:${referenceId})`
+    },
+  )
+}
+
 function renderAssistantContent(
   content: string,
   references: Map<string, ChatWorkItemReference>,
@@ -62,63 +84,99 @@ function renderAssistantContent(
   onWorkItemReferenceClick?: (workItemId: string) => void,
   onTeamReferenceClick?: (teamId: string) => void,
 ) {
-  const rendered: ReactNode[] = []
   content = content.replace(incompleteTrailingMarkerPattern, '')
-  let lastIndex = 0
-  let match: RegExpExecArray | null
-  let referenceIndex = 0
+  const markdown = artifactMarkersToLinks(content)
 
-  artifactReferencePattern.lastIndex = 0
-  while ((match = artifactReferencePattern.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      rendered.push(<span key={`text-${match.index}`} className="whitespace-pre-wrap">{content.slice(lastIndex, match.index)}</span>)
-    }
+  const components: Components = {
+    h1: ({ children }) => <h3 className="mb-2 mt-4 text-base font-semibold first:mt-0">{children}</h3>,
+    h2: ({ children }) => <h3 className="mb-2 mt-4 text-base font-semibold first:mt-0">{children}</h3>,
+    h3: ({ children }) => <h4 className="mb-1.5 mt-3 text-sm font-semibold first:mt-0">{children}</h4>,
+    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+    ul: ({ children }) => <ul className="mb-2 ml-5 list-disc space-y-1 last:mb-0">{children}</ul>,
+    ol: ({ children }) => <ol className="mb-2 ml-5 list-decimal space-y-1 last:mb-0">{children}</ol>,
+    li: ({ children }) => <li className="pl-1">{children}</li>,
+    blockquote: ({ children }) => <blockquote className="my-2 border-l-2 border-primary/30 pl-3 text-muted-foreground">{children}</blockquote>,
+    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+    code: ({ children, className }) => (
+      <code className={cn('rounded bg-muted px-1 py-0.5 text-[0.85em]', className)}>{children}</code>
+    ),
+    pre: ({ children }) => <pre className="my-2 overflow-x-auto rounded-md bg-muted p-3 text-xs leading-relaxed">{children}</pre>,
+    hr: () => <hr className="my-3 border-border" />,
+    table: ({ children }) => (
+      <div className="my-2 max-w-full overflow-x-auto">
+        <table className="w-full border-collapse text-sm">{children}</table>
+      </div>
+    ),
+    th: ({ children }) => <th className="border bg-muted px-2 py-1 text-left font-medium">{children}</th>,
+    td: ({ children }) => <td className="border px-2 py-1 align-top">{children}</td>,
+    a: ({ children, href, ...props }) => {
+      const artifactMatch = href?.match(/^artifact:(workitem|team):([A-Za-z0-9_-]+)$/)
+      if (!artifactMatch) {
+        return (
+          <a
+            {...props}
+            href={href}
+            className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+            target="_blank"
+            rel="noreferrer"
+          >
+            {children}
+          </a>
+        )
+      }
 
-    const referenceType = match[1]
-    const referenceId = match[2]
-    const reference = referenceType === 'workitem' ? references.get(referenceId) : undefined
-    const teamName = referenceType === 'team' ? teamReferences.get(referenceId) : undefined
-    // Unresolved IDs stay visible (truncated) so hallucinated or missing
-    // references are diagnosable instead of blending in.
-    const label = reference?.title
-      ?? teamName
-      ?? (referenceId.length > 18 ? `${referenceId.slice(0, 15)}\u2026` : referenceId)
-    const isClickable = referenceType === 'team' ? Boolean(onTeamReferenceClick) : Boolean(onWorkItemReferenceClick)
-    const referenceButton = (
-      <button
-        type="button"
-        className={cn(
-          'mx-0.5 inline-flex max-w-full items-center gap-1 rounded border px-1.5 py-0.5 align-baseline text-xs font-medium transition-colors',
-          isClickable
-            ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/15'
-            : 'border-border bg-muted text-muted-foreground',
-        )}
-        onClick={() => referenceType === 'team' ? onTeamReferenceClick?.(referenceId) : onWorkItemReferenceClick?.(referenceId)}
-        disabled={!isClickable}
-        aria-label={`Open ${referenceType === 'team' ? 'team' : 'work item'} ${label}`}
+      const referenceType = artifactMatch[1]
+      const referenceId = artifactMatch[2]
+      const reference = referenceType === 'workitem' ? references.get(referenceId) : undefined
+      const teamName = referenceType === 'team' ? teamReferences.get(referenceId) : undefined
+      // Unresolved IDs stay visible (truncated) so hallucinated or missing
+      // references are diagnosable instead of blending in.
+      const label = reference?.title
+        ?? teamName
+        ?? (referenceId.length > 18 ? `${referenceId.slice(0, 15)}\u2026` : referenceId)
+      const isClickable = referenceType === 'team' ? Boolean(onTeamReferenceClick) : Boolean(onWorkItemReferenceClick)
+      const referenceButton = (
+        <button
+          type="button"
+          className={cn(
+            'mx-0.5 inline-flex max-w-[min(100%,20rem)] items-center gap-1 rounded border px-1.5 py-0.5 align-baseline text-xs font-medium transition-colors',
+            isClickable
+              ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/15'
+              : 'border-border bg-muted text-muted-foreground',
+          )}
+          onClick={() => referenceType === 'team' ? onTeamReferenceClick?.(referenceId) : onWorkItemReferenceClick?.(referenceId)}
+          disabled={!isClickable}
+          aria-label={`Open ${referenceType === 'team' ? 'team' : 'work item'} ${label}`}
+        >
+          {referenceType === 'team' ? <UsersRound className="h-3 w-3 shrink-0" /> : <FileText className="h-3 w-3 shrink-0" />}
+          <span className="truncate">{label}</span>
+        </button>
+      )
+
+      return (
+        <Tooltip>
+          <TooltipTrigger render={referenceButton} />
+          <TooltipContent>
+            <span>{referenceType === 'team' ? 'Team' : reference ? `${workItemStatusLabel(reference.status)} · ${reference.type}` : 'Unresolved reference'}</span>
+          </TooltipContent>
+        </Tooltip>
+      )
+    },
+  }
+
+  return (
+    <div className="min-w-0 text-sm leading-6">
+      <ReactMarkdown
+        components={components}
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeSanitize, markdownSanitizeSchema]]}
+        skipHtml
+        urlTransform={(url) => url.startsWith('artifact:') ? url : defaultUrlTransform(url)}
       >
-        {referenceType === 'team' ? <UsersRound className="h-3 w-3 shrink-0" /> : <FileText className="h-3 w-3 shrink-0" />}
-        <span className="truncate">{label}</span>
-      </button>
-    )
-
-    rendered.push(
-      <Tooltip key={`reference-${referenceIndex}`}>
-        <TooltipTrigger render={referenceButton} />
-        <TooltipContent>
-          <span>{referenceType === 'team' ? 'Team' : reference ? `${workItemStatusLabel(reference.status)} · ${reference.type}` : 'Unresolved reference'}</span>
-        </TooltipContent>
-      </Tooltip>,
-    )
-    referenceIndex += 1
-    lastIndex = match.index + match[0].length
-  }
-
-  if (lastIndex < content.length) {
-    rendered.push(<span key={`text-${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex)}</span>)
-  }
-
-  return rendered.length > 0 ? rendered : <span className="whitespace-pre-wrap">{content}</span>
+        {markdown}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
 export default function ChatPanel({
@@ -541,7 +599,7 @@ export default function ChatPanel({
                     align={message.role === 'user' ? 'end' : 'start'}
                     variant={message.status === 'error' ? 'destructive' : message.role === 'user' ? 'default' : 'muted'}
                   >
-                    <BubbleContent className="whitespace-pre-wrap">
+                    <BubbleContent className="min-w-0">
                       {message.status === 'error' ? (
                         <span className="flex min-w-0 items-start gap-2">
                           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -549,7 +607,9 @@ export default function ChatPanel({
                         </span>
                       ) : (
                         message.content
-                          ? renderAssistantContent(message.content, workItemReferences, teamReferences, onWorkItemReferenceClick, onTeamReferenceClick)
+                          ? message.role === 'assistant'
+                            ? renderAssistantContent(message.content, workItemReferences, teamReferences, onWorkItemReferenceClick, onTeamReferenceClick)
+                            : <span className="whitespace-pre-wrap">{message.content}</span>
                           : (
                             <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                               <Loader2 className="h-4 w-4 animate-spin" />
