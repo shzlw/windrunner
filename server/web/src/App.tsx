@@ -420,7 +420,23 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   async function handleNewChat() {
     setNewChatRequestKey((current) => current + 1)
     const session = await createChatSession()
-    navigate(session ? `/app/ask-ai?chatSessionId=${encodeURIComponent(session.id)}` : '/app/ask-ai')
+    if (!session) {
+      return
+    }
+
+    const keepsArtifact = location.pathname !== '/app'
+      && location.pathname !== '/app/home'
+      && !location.pathname.startsWith('/app/ask-ai')
+    if (keepsArtifact) {
+      const params = new URLSearchParams(location.search)
+      params.set('chatSessionId', session.id)
+      params.set('chatPanel', 'open')
+      const query = params.toString()
+      navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`)
+      return
+    }
+
+    navigate(`/app/ask-ai?chatSessionId=${encodeURIComponent(session.id)}`)
   }
 
   async function handleHomeCommand(prompt: string) {

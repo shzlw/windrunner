@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Bot, ChevronLeft } from 'lucide-react'
 import { useGroupRef, usePanelRef } from 'react-resizable-panels'
@@ -60,19 +60,8 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
   const chatPanelRef = usePanelRef()
   const [mobilePane, setMobilePane] = useState<'chat' | 'artifact'>('chat')
   const [isChatCollapsed, setIsChatCollapsed] = useState(false)
-  const layoutStorageKey = `${paneLayoutStorageKey}:${location.pathname}`
-  const defaultLayout = useMemo(() => loadDefaultLayout(layoutStorageKey), [layoutStorageKey])
-  const previousLayoutStorageKeyRef = useRef(layoutStorageKey)
+  const defaultLayout = useMemo(() => loadDefaultLayout(paneLayoutStorageKey), [])
   const rootClassName = ['flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background', className ?? ''].join(' ')
-
-  useEffect(() => {
-    if (previousLayoutStorageKeyRef.current === layoutStorageKey) {
-      return
-    }
-
-    previousLayoutStorageKeyRef.current = layoutStorageKey
-    groupRef.current?.setLayout(loadDefaultLayout(layoutStorageKey))
-  }, [groupRef, layoutStorageKey])
 
   function openAssistant() {
     const params = new URLSearchParams(location.search)
@@ -180,7 +169,7 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
             return
           }
           try {
-            window.localStorage.setItem(layoutStorageKey, JSON.stringify(layout))
+            window.localStorage.setItem(paneLayoutStorageKey, JSON.stringify(layout))
           } catch {
             // Layout persistence is optional when browser storage is unavailable.
           }
