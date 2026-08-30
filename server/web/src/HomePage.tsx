@@ -74,7 +74,7 @@ export default function HomePage({ displayName }: HomePageProps) {
               onChange={(event) => setCommand(event.target.value)}
               rows={2}
               onKeyDown={handleCommandKeyDown}
-              placeholder="Ask anything..."
+              placeholder="Ask anything…"
               aria-label="Ask anything"
               disabled={isSubmitting}
               className="max-h-32 min-h-16 resize-none border-0 px-2.5 py-2 shadow-none focus-visible:border-0 focus-visible:ring-0"

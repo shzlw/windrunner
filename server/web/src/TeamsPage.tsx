@@ -263,7 +263,6 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
                 <Textarea
                   value={createDescription}
                   onChange={(event) => setCreateDescription(event.target.value)}
-                  placeholder="What is this team responsible for?"
                   rows={3}
                 />
               </div>

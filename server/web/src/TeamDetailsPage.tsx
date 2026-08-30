@@ -406,7 +406,6 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                     value={editDescription}
                     onChange={(event) => setEditDescription(event.target.value)}
                     disabled={!isAdminLike}
-                    placeholder="What is this team responsible for?"
                     rows={4}
                   />
                 </div>

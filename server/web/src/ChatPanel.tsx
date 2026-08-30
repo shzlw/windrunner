@@ -533,7 +533,7 @@ export default function ChatPanel({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleTextareaKeyDown}
-            placeholder="Ask anything..."
+            placeholder="Ask anything…"
             disabled={isLoadingSession}
             className="max-h-32 min-h-16 resize-none border-0 px-1 py-1 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />

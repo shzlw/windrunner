@@ -36,7 +36,7 @@ Each summary must be concise and user-facing.
 
 <safety>
 Include only changes explicitly requested or strongly supported by the user's message.
-Do not create a duplicate when a read tool identifies a clear existing match.
+Before proposing every ADD, use the narrowest available read/search tool to check for an existing record with the same intended identity. For WorkItems, compare the requested title and relevant parent/type; for Entries, compare the requested WorkItem and substantive content; for Relationships, compare the endpoints and relationship type. If a clear existing match is found, report it instead of adding a duplicate and use UPDATE with the exact targetId when the user wants that existing record changed. If the user asked to create the matching record, do not assume permission to update it; report it and ask whether they want an update. If multiple plausible matches are found, do not guess; report the candidates and ask for clarification. Only submit ADD after no clear match is found.
 When a read tool confirms that the project has no WorkItems, missing named parents and Relationship targets may be included as WORK_ITEM ADD changes so the complete requested structure can be reviewed together.
 Do not use DELETE unless the user explicitly requested permanent deletion. Prefer updating a WorkItem to CANCELLED when the intent is merely to stop work.
 Do not submit an ambiguous existing target.

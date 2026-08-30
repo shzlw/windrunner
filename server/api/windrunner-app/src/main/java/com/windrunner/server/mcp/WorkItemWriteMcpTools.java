@@ -41,7 +41,7 @@ public class WorkItemWriteMcpTools {
 
     @McpTool(
             name = "add_entry",
-            description = "Add an entry (comment, finding, answer, evidence) to a work item. Use this to record findings or progress so humans can review them.",
+            description = "Add an entry (comment, finding, answer, evidence) to a work item. Before calling, use search_work_items with a focused query to check whether the same substantive entry already exists. If a clear match exists, report it and do not add a duplicate; use an existing update capability when the user wants to change it.",
             generateOutputSchema = true,
             annotations = @McpAnnotations(
                     readOnlyHint = false,
@@ -65,7 +65,7 @@ public class WorkItemWriteMcpTools {
 
     @McpTool(
             name = "update_work_item_status",
-            description = "Change only the status of a work item (for example OPEN, IN_PROGRESS, DONE, BLOCKED). Other fields are left untouched.",
+            description = "Change only the status of an existing work item (for example OPEN, IN_PROGRESS, DONE, BLOCKED). Read the work item first, verify its exact ID, and leave other fields untouched.",
             generateOutputSchema = true,
             annotations = @McpAnnotations(
                     readOnlyHint = false,
@@ -83,7 +83,7 @@ public class WorkItemWriteMcpTools {
 
     @McpTool(
             name = "create_work_item",
-            description = "Create a new work item in a project: a TASK, QUESTION, APPROVAL, REVIEW, or DECISION. Optionally place it under a parent work item.",
+            description = "Create a new work item in a project: a TASK, QUESTION, APPROVAL, REVIEW, or DECISION. Before calling, use search_work_items with the intended title and inspect the relevant parent/type. If a clear existing match exists, report it and use an existing update capability instead of creating a duplicate. If matches are ambiguous, ask for clarification. Optionally place it under a parent work item.",
             generateOutputSchema = true,
             annotations = @McpAnnotations(
                     readOnlyHint = false,
@@ -117,7 +117,7 @@ public class WorkItemWriteMcpTools {
 
     @McpTool(
             name = "link_relationship",
-            description = "Create a typed relationship between two items, for example BLOCKED_BY or DEPENDS_ON between two work items.",
+            description = "Create a typed relationship between two items, for example BLOCKED_BY or DEPENDS_ON between two work items. Before calling, read/search the relevant relationships and compare both endpoints and the type. If an exact relationship exists, report it and do not create a duplicate; use an existing update capability when the user wants to change its reason. If the endpoints or type are ambiguous, ask for clarification.",
             generateOutputSchema = true,
             annotations = @McpAnnotations(
                     readOnlyHint = false,

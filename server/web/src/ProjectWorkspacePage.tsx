@@ -1575,7 +1575,6 @@ function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigge
                         className="h-8"
                         value={reasonDraft}
                         onChange={(event) => setReasonDraft(event.target.value)}
-                        placeholder="Optional reason"
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
                             event.preventDefault()
@@ -1617,7 +1616,7 @@ function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigge
         <div className="space-y-4 p-4">
           <div className="space-y-2">
             <label htmlFor={`blocker-search-${nodeId}`} className="block text-sm font-semibold">Search work items</label>
-            <Input id={`blocker-search-${nodeId}`} autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search work items…" />
+            <Input id={`blocker-search-${nodeId}`} autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search" />
           </div>
           <div className="max-h-52 overflow-auto">
             {options.length === 0 ? (
@@ -1701,11 +1700,11 @@ function WorkItemRelationshipPopover({ nodeId, trigger, relationshipUi }: { node
           </div>
           <div className="space-y-2">
             <label htmlFor={`relationship-reason-${nodeId}`} className="block text-sm font-semibold">Reason <span className="font-normal text-muted-foreground">(optional)</span></label>
-            <Input id={`relationship-reason-${nodeId}`} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why are these items related?" />
+            <Input id={`relationship-reason-${nodeId}`} value={reason} onChange={(event) => setReason(event.target.value)} />
           </div>
           <div className="space-y-2">
             <label htmlFor={`relationship-search-${nodeId}`} className="block text-sm font-semibold">Work item</label>
-            <Input id={`relationship-search-${nodeId}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search work items…" />
+            <Input id={`relationship-search-${nodeId}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search" />
           </div>
           <div className="max-h-52 overflow-auto">
             {options.length === 0 ? (
@@ -4381,7 +4380,7 @@ export default function ProjectWorkspacePage() {
                     <label htmlFor="work-item-filter-search" className="block text-sm font-semibold">Search</label>
                     <div className="relative">
                       <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="work-item-filter-search" className="h-9 pl-10" value={workItemSearchQuery} onChange={(event) => setWorkItemSearchQuery(event.target.value)} placeholder="Search titles, entries, and relationships…" />
+                      <Input id="work-item-filter-search" className="h-9 pl-10" value={workItemSearchQuery} onChange={(event) => setWorkItemSearchQuery(event.target.value)} placeholder="Search" />
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -5172,7 +5171,7 @@ export default function ProjectWorkspacePage() {
           <div className="min-w-0 space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-medium">Move before</label>
-              <Input value={moveQuery} onChange={(event) => setMoveQuery(event.target.value)} placeholder="Find a work item or update…" />
+              <Input value={moveQuery} onChange={(event) => setMoveQuery(event.target.value)} placeholder="Search" />
             </div>
             <div className="min-w-0 w-full max-w-full max-h-80 overflow-x-hidden overflow-y-auto rounded-md border p-1">
               <button

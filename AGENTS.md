@@ -36,6 +36,7 @@
 - Prefer a focused batch lookup for known IDs over repeated broad searches when more details are required.
 - Keep tool instructions accurate about each tool's returned fields and intended use.
 - Keep write operations separate from read tools. Use an explicit proposal or confirmation flow for mutations, and never claim a mutation was applied unless it was actually persisted.
+- Before an LLM write proposes an ADD, require a targeted read/search for an existing match. Report a clear match and use UPDATE with its exact ID when the user wants to change it; do not guess between ambiguous matches; only propose ADD after no clear match is found.
 
 ## Docker
 

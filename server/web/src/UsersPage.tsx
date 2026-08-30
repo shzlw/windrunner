@@ -118,7 +118,7 @@ function TimezonePicker({
       itemToStringValue={(timezone) => timezone}
       autoHighlight
     >
-      <ComboboxInput className="w-full" placeholder="Search timezone" />
+      <ComboboxInput className="w-full" placeholder="Search" />
       <ComboboxContent>
         <ComboboxEmpty>No timezone found.</ComboboxEmpty>
         <ComboboxList>
@@ -657,7 +657,6 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                       id="user-title"
                       value={form.title}
                       onChange={(event) => updateField('title', event.target.value)}
-                      placeholder="e.g. Product manager"
                     />
                   </Field>
 
@@ -667,7 +666,6 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                       id="user-bio"
                       value={form.bio}
                       onChange={(event) => updateField('bio', event.target.value)}
-                      placeholder="A short description about this person"
                       rows={4}
                     />
                   </Field>
