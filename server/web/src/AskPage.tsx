@@ -533,13 +533,14 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       showHeader={false}
       allowEmptyProject
       composerFooter={projectContext}
+      projectReferences={new Map(projects.map((project) => [project.id, projectTitle(project)] as const))}
       workItemReferences={visibleReferences}
       teamReferences={new Map(sessionContexts.filter((context) => context.entityType === 'TEAM').map((context) => [context.entityId, context.label]))}
       userReferences={new Map([
         ...users.map((user) => [user.id, userTitle(user)] as const),
         ...sessionContexts.filter((context) => context.entityType === 'USER').map((context) => [context.entityId, context.label] as const),
       ])}
-      onWorkItemReferenceClick={(workItemId) => {
+      onWorkItemReferenceClick={async (workItemId) => {
         const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
         const nextParams = new URLSearchParams({
           chatPanel: 'open',
@@ -549,18 +550,58 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
         if (sessionId) {
           nextParams.set('chatSessionId', sessionId)
         }
+        if (sessionId && projectId) {
+          try {
+            await Promise.all([
+              addChatSessionContext(sessionId, 'PROJECT', projectId),
+              addChatSessionContext(sessionId, 'WORK_ITEM', workItemId),
+            ])
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Failed to add work item context.')
+          }
+        }
         navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
       }}
-      onTeamReferenceClick={(teamId) => {
+      onProjectReferenceClick={async (projectId) => {
+        const nextParams = new URLSearchParams({ chatPanel: 'open' })
+        const sessionId = selectedSession?.id ?? requestedSessionId
+        if (sessionId) {
+          nextParams.set('chatSessionId', sessionId)
+        }
+        if (sessionId) {
+          try {
+            await addChatSessionContext(sessionId, 'PROJECT', projectId)
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Failed to add project context.')
+          }
+        }
+        navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
+      }}
+      onTeamReferenceClick={async (teamId) => {
         const nextParams = new URLSearchParams({ chatPanel: 'open', chatSessionId: selectedSession?.id ?? requestedSessionId ?? '' })
         if (!nextParams.get('chatSessionId')) nextParams.delete('chatSessionId')
+        const sessionId = selectedSession?.id ?? requestedSessionId
+        if (sessionId) {
+          try {
+            await addChatSessionContext(sessionId, 'TEAM', teamId)
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Failed to add team context.')
+          }
+        }
         navigate(`/app/teams/${teamId}?${nextParams.toString()}`)
       }}
-      onUserReferenceClick={(userId) => {
+      onUserReferenceClick={async (userId) => {
         const nextParams = new URLSearchParams({ chatPanel: 'open', userId })
         const sessionId = selectedSession?.id ?? requestedSessionId
         if (sessionId) {
           nextParams.set('chatSessionId', sessionId)
+        }
+        if (sessionId) {
+          try {
+            await addChatSessionContext(sessionId, 'USER', userId)
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Failed to add user context.')
+          }
         }
         navigate(`/app/users?${nextParams.toString()}`)
       }}

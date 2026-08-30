@@ -9,7 +9,7 @@ import { addChatSessionContext, type ChatContextEntityType } from '@/lib/api'
 type PageArtifactContext = {
   entityType: ChatContextEntityType
   entityId: string
-  label: 'team' | 'user'
+  label: 'project' | 'work item' | 'team' | 'user'
 }
 
 export default function AppView() {
@@ -23,15 +23,18 @@ export default function AppView() {
   const isAskAi = location.pathname === '/app/ask-ai' || location.pathname.startsWith('/app/ask-ai/')
   const hasChatPanel = searchParams.get('chatPanel') === 'open'
   const userId = location.pathname === '/app/users' ? searchParams.get('userId') : null
-  const artifactContext: PageArtifactContext | null = teamId
-    ? { entityType: 'TEAM', entityId: teamId, label: 'team' }
-    : userId
-      ? { entityType: 'USER', entityId: userId, label: 'user' }
-      : null
+  const workItemId = projectId && location.pathname.startsWith('/app/projects/') ? searchParams.get('workItemId') : null
+  const artifactContexts: PageArtifactContext[] = [
+    projectId ? { entityType: 'PROJECT', entityId: projectId, label: 'project' } : null,
+    workItemId ? { entityType: 'WORK_ITEM', entityId: workItemId, label: 'work item' } : null,
+    teamId ? { entityType: 'TEAM', entityId: teamId, label: 'team' } : null,
+    userId ? { entityType: 'USER', entityId: userId, label: 'user' } : null,
+  ].filter((context): context is PageArtifactContext => Boolean(context))
+  const assistantArtifact = artifactContexts.find((context) => context.entityType === 'WORK_ITEM') ?? artifactContexts[0]
 
   async function openAssistant() {
     let sessionId = searchParams.get('chatSessionId')
-    if (artifactContext) {
+    if (artifactContexts.length > 0) {
       if (!sessionId) {
         const session = await appContext.createChatSession()
         sessionId = session?.id ?? null
@@ -39,11 +42,12 @@ export default function AppView() {
       if (!sessionId) {
         return
       }
+      const activeSessionId = sessionId
       try {
-        await addChatSessionContext(sessionId, artifactContext.entityType, artifactContext.entityId)
-        await appContext.refreshChatSessions(sessionId)
+        await Promise.all(artifactContexts.map((context) => addChatSessionContext(activeSessionId, context.entityType, context.entityId)))
+        await appContext.refreshChatSessions(activeSessionId)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : `Failed to add this ${artifactContext.label} to AI context.`)
+        toast.error(error instanceof Error ? error.message : 'Failed to add this page to AI context.')
         return
       }
     }
@@ -71,7 +75,7 @@ export default function AppView() {
       chat={hasChatPanel ? <AskPage projectId={projectId} /> : undefined}
       artifact={outlet}
       onOpenAssistant={openAssistant}
-      assistantLabel={artifactContext ? `Ask AI about this ${artifactContext.label}` : undefined}
+      assistantLabel={assistantArtifact ? `Ask AI about this ${assistantArtifact.label}` : undefined}
     />
   )
 }

@@ -5,7 +5,7 @@ import type { Components } from 'react-markdown'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import { useParams } from 'react-router'
-import { AlertTriangle, ArrowUp, Bot, FileText, Loader2, Plus, Square, User, UserRound, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, ArrowUp, Bot, FileText, FolderOpen, Loader2, Plus, Square, User, UserRound, UsersRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
@@ -42,7 +42,7 @@ export type ChatWorkItemReference = {
   projectId?: string
 }
 
-const artifactReferencePattern = /\[\[(workitem|team|user):([A-Za-z0-9_-]+)\]\]/g
+const artifactReferencePattern = /\[\[(project|workitem|team|user):([A-Za-z0-9_-]+)\]\]/g
 
 function createMessageId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -57,7 +57,7 @@ function workItemStatusLabel(status: string) {
 
 // A partially-streamed artifact marker (e.g. "[[team:team_ab" without its "]]")
 // would flash as raw text before completing, so it is hidden until closed.
-const incompleteTrailingMarkerPattern = /\[\[(?:workitem|team|user):[^\]\s]*$/
+const incompleteTrailingMarkerPattern = /\[\[(?:project|workitem|team|user):[^\]\s]*$/
 
 const markdownSanitizeSchema = {
   ...defaultSchema,
@@ -70,8 +70,14 @@ const markdownSanitizeSchema = {
 function artifactMarkersToLinks(content: string) {
   return content.replace(
     artifactReferencePattern,
-    (_marker, referenceType: 'workitem' | 'team' | 'user', referenceId: string) => {
-      const label = referenceType === 'team' ? 'Team' : referenceType === 'user' ? 'User' : 'Work item'
+    (_marker, referenceType: 'project' | 'workitem' | 'team' | 'user', referenceId: string) => {
+      const label = referenceType === 'project'
+        ? 'Project'
+        : referenceType === 'team'
+          ? 'Team'
+          : referenceType === 'user'
+            ? 'User'
+            : 'Work item'
       return `[${label}](artifact:${referenceType}:${referenceId})`
     },
   )
@@ -80,9 +86,11 @@ function artifactMarkersToLinks(content: string) {
 function renderAssistantContent(
   content: string,
   references: Map<string, ChatWorkItemReference>,
+  projectReferences: Map<string, string>,
   teamReferences: Map<string, string>,
   userReferences: Map<string, string>,
   onWorkItemReferenceClick?: (workItemId: string) => void,
+  onProjectReferenceClick?: (projectId: string) => void,
   onTeamReferenceClick?: (teamId: string) => void,
   onUserReferenceClick?: (userId: string) => void,
 ) {
@@ -112,7 +120,7 @@ function renderAssistantContent(
     th: ({ children }) => <th className="border bg-muted px-2 py-1 text-left font-medium">{children}</th>,
     td: ({ children }) => <td className="border px-2 py-1 align-top">{children}</td>,
     a: ({ children, href, ...props }) => {
-      const artifactMatch = href?.match(/^artifact:(workitem|team|user):([A-Za-z0-9_-]+)$/)
+      const artifactMatch = href?.match(/^artifact:(project|workitem|team|user):([A-Za-z0-9_-]+)$/)
       if (!artifactMatch) {
         return (
           <a
@@ -129,17 +137,21 @@ function renderAssistantContent(
 
       const referenceType = artifactMatch[1]
       const referenceId = artifactMatch[2]
+      const projectName = referenceType === 'project' ? projectReferences.get(referenceId) : undefined
       const reference = referenceType === 'workitem' ? references.get(referenceId) : undefined
       const teamName = referenceType === 'team' ? teamReferences.get(referenceId) : undefined
       const userName = referenceType === 'user' ? userReferences.get(referenceId) : undefined
       // Unresolved IDs stay visible (truncated) so hallucinated or missing
       // references are diagnosable instead of blending in.
-      const label = reference?.title
+      const label = projectName
+        ?? reference?.title
         ?? teamName
         ?? userName
         ?? (referenceId.length > 18 ? `${referenceId.slice(0, 15)}\u2026` : referenceId)
-      const isClickable = referenceType === 'team'
-        ? Boolean(onTeamReferenceClick)
+      const isClickable = referenceType === 'project'
+        ? Boolean(onProjectReferenceClick)
+        : referenceType === 'team'
+          ? Boolean(onTeamReferenceClick)
         : referenceType === 'user'
           ? Boolean(onUserReferenceClick)
           : Boolean(onWorkItemReferenceClick)
@@ -152,19 +164,23 @@ function renderAssistantContent(
               ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/15'
               : 'border-border bg-muted text-muted-foreground',
           )}
-          onClick={() => referenceType === 'team'
-            ? onTeamReferenceClick?.(referenceId)
-            : referenceType === 'user'
-              ? onUserReferenceClick?.(referenceId)
-              : onWorkItemReferenceClick?.(referenceId)}
+          onClick={() => referenceType === 'project'
+            ? onProjectReferenceClick?.(referenceId)
+            : referenceType === 'team'
+              ? onTeamReferenceClick?.(referenceId)
+              : referenceType === 'user'
+                ? onUserReferenceClick?.(referenceId)
+                : onWorkItemReferenceClick?.(referenceId)}
           disabled={!isClickable}
-          aria-label={`Open ${referenceType === 'team' ? 'team' : referenceType === 'user' ? 'user' : 'work item'} ${label}`}
+          aria-label={`Open ${referenceType === 'project' ? 'project' : referenceType === 'team' ? 'team' : referenceType === 'user' ? 'user' : 'work item'} ${label}`}
         >
-          {referenceType === 'team'
-            ? <UsersRound className="h-3 w-3 shrink-0" />
-            : referenceType === 'user'
-              ? <UserRound className="h-3 w-3 shrink-0" />
-              : <FileText className="h-3 w-3 shrink-0" />}
+          {referenceType === 'project'
+            ? <FolderOpen className="h-3 w-3 shrink-0" />
+            : referenceType === 'team'
+              ? <UsersRound className="h-3 w-3 shrink-0" />
+              : referenceType === 'user'
+                ? <UserRound className="h-3 w-3 shrink-0" />
+                : <FileText className="h-3 w-3 shrink-0" />}
           <span className="truncate">{label}</span>
         </button>
       )
@@ -173,7 +189,7 @@ function renderAssistantContent(
         <Tooltip>
           <TooltipTrigger render={referenceButton} />
           <TooltipContent>
-            <span>{referenceType === 'team' ? 'Team' : referenceType === 'user' ? 'User' : reference ? `${workItemStatusLabel(reference.status)} · ${reference.type}` : 'Unresolved reference'}</span>
+            <span>{referenceType === 'project' ? 'Project' : referenceType === 'team' ? 'Team' : referenceType === 'user' ? 'User' : reference ? `${workItemStatusLabel(reference.status)} · ${reference.type}` : 'Unresolved reference'}</span>
           </TooltipContent>
         </Tooltip>
       )
@@ -209,6 +225,8 @@ export default function ChatPanel({
   onGraphChangeProposalSaved,
   workItemReferences = new Map(),
   onWorkItemReferenceClick,
+  projectReferences = new Map(),
+  onProjectReferenceClick,
   teamReferences = new Map(),
   onTeamReferenceClick,
   userReferences = new Map(),
@@ -234,6 +252,8 @@ export default function ChatPanel({
   onGraphChangeProposalSaved?: () => void | Promise<void>
   workItemReferences?: Map<string, ChatWorkItemReference>
   onWorkItemReferenceClick?: (workItemId: string) => void | Promise<void>
+  projectReferences?: Map<string, string>
+  onProjectReferenceClick?: (projectId: string) => void | Promise<void>
   teamReferences?: Map<string, string>
   onTeamReferenceClick?: (teamId: string) => void | Promise<void>
   userReferences?: Map<string, string>
@@ -628,7 +648,7 @@ export default function ChatPanel({
                       ) : (
                         message.content
                           ? message.role === 'assistant'
-                            ? renderAssistantContent(message.content, workItemReferences, teamReferences, userReferences, onWorkItemReferenceClick, onTeamReferenceClick, onUserReferenceClick)
+                            ? renderAssistantContent(message.content, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick)
                             : <span className="whitespace-pre-wrap">{message.content}</span>
                           : (
                             <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
