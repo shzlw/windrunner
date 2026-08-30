@@ -19,6 +19,20 @@ public interface RelationshipRepository extends CrudRepository<Relationship, Str
     Optional<Relationship> findById(@Param("id") String id);
 
     @Query("""
+            SELECT id, project_id, from_entity_type, from_entity_id, to_entity_type, to_entity_id, type, reason, source_entry_id, created_by_user_id, created_at
+            FROM relationship
+            WHERE project_id = :projectId
+              AND ((from_entity_type = :entityType AND from_entity_id = :entityId)
+                OR (to_entity_type = :entityType AND to_entity_id = :entityId))
+            ORDER BY created_at DESC, id
+            LIMIT :limit
+            """)
+    List<Relationship> findByEntity(@Param("projectId") String projectId,
+                                    @Param("entityType") String entityType,
+                                    @Param("entityId") String entityId,
+                                    @Param("limit") int limit);
+
+    @Query("""
             SELECT r.id, r.project_id, r.from_entity_type, r.from_entity_id, r.to_entity_type, r.to_entity_id, r.type, r.reason, r.source_entry_id, r.created_by_user_id, r.created_at
             FROM relationship r
             WHERE r.project_id = :projectId

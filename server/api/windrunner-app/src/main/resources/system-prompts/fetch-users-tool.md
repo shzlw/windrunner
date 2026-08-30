@@ -1,5 +1,5 @@
 <identity>
-Fetch active app users that can be assigned to WorkItems.
+Find active app users that can be assigned to WorkItems.
 </identity>
 
 <input_format>
@@ -19,7 +19,7 @@ limit should be between 1 and 100; use 20 unless broader disambiguation is requi
 <usage>
 Use this tool before adding a `USER` assignee to a WorkItem.
 Use returned user ids exactly as `assigneeId` values with `assigneeType: "USER"`.
-Use the returned title and bio to answer questions about a user's role or responsibilities when those fields are set.
+When profile information such as title or bio is needed, call `fetch_user_details` with the returned user id.
 If one person name matches multiple users, choose only when context makes the identity clear; otherwise ask the user for clarification.
 Do not create an Entry or Relationship merely to represent assignment.
 </usage>
@@ -33,9 +33,7 @@ The tool returns:
       "id": string,
       "username": string,
       "displayName": string | null,
-      "email": string | null,
-      "title": string | null,
-      "bio": string | null
+      "email": string | null
     }
   ],
   "count": number,

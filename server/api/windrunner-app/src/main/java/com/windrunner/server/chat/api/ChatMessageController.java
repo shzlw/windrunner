@@ -18,12 +18,9 @@ import com.windrunner.server.tools.work.FetchRelationshipsTool;
 import com.windrunner.server.tools.work.FetchWorkItemsTool;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.utils.FileUtils;
-import com.windrunner.server.work.EntryService;
 import com.windrunner.server.work.WorkItemService;
 import com.windrunner.server.work.WorkspaceChangeProposalService;
-import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.WorkItem;
-import com.windrunner.server.work.domain.WorkItemAssignee;
 import com.windrunner.server.work.persistence.WorkItemRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -60,7 +57,6 @@ public class ChatMessageController {
     private final ChatService chatService;
     private final WorkItemService workItems;
     private final WorkItemRepository workItemRepository;
-    private final EntryService entries;
     private final WorkspaceChangeProposalService workspaceChangeProposals;
     private final LlmUsageService llmUsageService;
 
@@ -218,43 +214,24 @@ public class ChatMessageController {
     }
 
     private String selectedProjectContext(List<Project> selectedProjects) {
-        StringBuilder scope = new StringBuilder("Selected project context (each project is a separate source; includes current WorkItems and updates):\n");
+        StringBuilder scope = new StringBuilder("Selected project context (project references only; fetch WorkItems and updates with the available read tools):\n");
         for (Project project : selectedProjects) {
-            List<WorkItem> allWorkItems = workItems.list(project.getId());
-            List<Entry> allEntries = entries.list(project.getId());
-            Map<String, List<WorkItemAssignee>> assignees = assigneesByWorkItemId(allWorkItems);
-            scope.append("\nProject: ").append(project.getName()).append(" [id=").append(project.getId()).append("]\n");
-            allWorkItems.stream().filter(item -> item.getParentWorkItemId() == null)
-                    .sorted(Comparator.<WorkItem>comparingInt(item -> item.getSortIndex() == null ? Integer.MAX_VALUE : item.getSortIndex()).thenComparing(WorkItem::getId))
-                    .forEach(item -> appendWorkItemScope(item, allWorkItems, allEntries, assignees, 0, scope));
-            if (allWorkItems.isEmpty()) scope.append("  No WorkItems.\n");
+            scope.append("- Project: ").append(project.getName()).append(" [id=").append(project.getId()).append("]\n");
         }
+        scope.append("Use fetch_work_items, fetch_entries, and fetch_relationships only when the user's question requires current project data.");
         return scope.toString().trim();
     }
 
     private String selectedWorkItemContext(String projectId, ChatContext context) {
         if (projectId == null || projectId.isBlank() || context == null || context.selectedNodeId() == null || context.selectedNodeId().isBlank()) return "No specific artifact is selected. Use the available read tools to find relevant workspace records, and ask a concise clarification when the request is ambiguous.";
         WorkItem item = workItems.get(projectId, context.selectedNodeId().trim());
-        StringBuilder scope = new StringBuilder("Selected WorkItem scope (includes every nested WorkItem and update):\n");
-        List<WorkItem> allWorkItems = workItems.list(projectId);
-        appendWorkItemScope(item, allWorkItems, entries.list(projectId), assigneesByWorkItemId(allWorkItems), 0, scope);
-        return scope.toString().trim();
+        return "Selected WorkItem context (selected item only; fetch related data with the available read tools):\n"
+                + "- WorkItem: " + item.getTitle() + " [id=" + item.getId() + ", projectId=" + projectId
+                + ", type=" + item.getType() + ", status=" + item.getStatus()
+                + ", priority=" + Objects.toString(item.getPriority(), "Not set")
+                + ", due date=" + Objects.toString(item.getDueDate(), "Not set")
+                + ", assignees=" + workItems.assignees(item.getId()) + "]";
     }
-
-    private Map<String, List<WorkItemAssignee>> assigneesByWorkItemId(List<WorkItem> allWorkItems) {
-        Map<String, List<WorkItemAssignee>> result = new HashMap<>();
-        workItems.views(allWorkItems).forEach(view -> result.put(view.workItem().getId(), view.assignees()));
-        return result;
-    }
-
-    private void appendWorkItemScope(WorkItem item, List<WorkItem> allWorkItems, List<Entry> allEntries, Map<String, List<WorkItemAssignee>> assignees, int depth, StringBuilder scope) {
-        String indent = "  ".repeat(depth);
-        scope.append(indent).append("- WorkItem: ").append(item.getTitle()).append(" [id=").append(item.getId()).append(", type=").append(item.getType()).append(", status=").append(item.getStatus()).append(", priority=").append(Objects.toString(item.getPriority(), "Not set")).append(", due date=").append(Objects.toString(item.getDueDate(), "Not set")).append(", assignees=").append(assignees.getOrDefault(item.getId(), List.of())).append("]\n");
-        allEntries.stream().filter(entry -> item.getId().equals(entry.getWorkItemId())).forEach(entry -> scope.append(indent).append("  - Update: ").append(entrySummary(entry)).append('\n'));
-        allWorkItems.stream().filter(child -> item.getId().equals(child.getParentWorkItemId())).sorted(Comparator.comparingInt(child -> child.getSortIndex() == null ? Integer.MAX_VALUE : child.getSortIndex())).forEach(child -> appendWorkItemScope(child, allWorkItems, allEntries, assignees, depth + 1, scope));
-    }
-
-    private String entrySummary(Entry entry) { return "[type=" + entry.getType() + ", updated=" + Objects.toString(entry.getUpdatedAt(), "Unknown") + "] " + entry.getBody(); }
 
     private String instructions(Project targetProject, ChatSession session, ChatMessage sourceMessage, String selectedContext, List<String> contextProjectIds) {
         return FileUtils.loadSystemPrompt("chat-instructions.md")

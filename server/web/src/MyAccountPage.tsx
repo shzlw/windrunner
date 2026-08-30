@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { toast } from 'sonner'
-import { Bot, Copy, Eye, EyeOff, KeyRound, LogOut, Plug, RefreshCw, ShieldAlert, X } from 'lucide-react'
+import { Copy, Eye, EyeOff, KeyRound, LogOut, Plug, RefreshCw, ShieldAlert, X } from 'lucide-react'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import LanguageSelect from '@/components/LanguageSelect'
@@ -18,8 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   createMyApiKey,
   fetchCurrentUser,
-  getLlmStatus,
-  getMySettings,
   listMyApiKeys,
   logout,
   revokeMyApiKey,
@@ -27,7 +25,6 @@ import {
   type ApiKeyScope,
   type AuthUser,
   type CreatedApiKey,
-  updateMySetting,
   updatePassword,
 } from '@/lib/api'
 
@@ -187,9 +184,6 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
   const [createdApiKey, setCreatedApiKey] = useState<CreatedApiKey | null>(null)
   const [isCreatingApiKey, setIsCreatingApiKey] = useState(false)
   const [revokingApiKeyId, setRevokingApiKeyId] = useState<string | null>(null)
-  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(false)
-  const [isUpdatingAiSuggestions, setIsUpdatingAiSuggestions] = useState(false)
-  const [isLlmAvailable, setIsLlmAvailable] = useState(false)
 
   async function loadApiKeys() {
     setIsLoadingApiKeys(true)
@@ -204,21 +198,6 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
     }
   }
 
-  async function loadSettings() {
-    try {
-      const [nextSettings, nextLlmStatus] = await Promise.all([
-        getMySettings(),
-        getLlmStatus().catch(() => ({ provider: 'none', available: false })),
-      ])
-      setAiSuggestionsEnabled(nextSettings['ai-suggestions']?.value === true)
-      setIsLlmAvailable(nextLlmStatus.available)
-    } catch (loadError) {
-      setAiSuggestionsEnabled(false)
-      setIsLlmAvailable(false)
-      toast.error(loadError instanceof Error ? loadError.message : 'Failed to load settings.')
-    }
-  }
-
   async function loadUser() {
     setIsLoading(true)
 
@@ -226,7 +205,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       const nextUser = await fetchCurrentUser()
       setUser(nextUser)
       onUserChange(nextUser)
-      await Promise.all([loadApiKeys(), loadSettings()])
+      await loadApiKeys()
     } catch (loadError) {
       setUser(null)
       onUserChange(null)
@@ -384,19 +363,6 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
     }
   }
 
-  async function handleAiSuggestionsToggle(checked: boolean) {
-    setIsUpdatingAiSuggestions(true)
-    try {
-      await updateMySetting('ai-suggestions', { dataType: 'boolean', value: checked })
-      setAiSuggestionsEnabled(checked)
-      toast.success(checked ? 'AI suggestions enabled.' : 'AI suggestions disabled.')
-    } catch (submitError) {
-      toast.error(submitError instanceof Error ? submitError.message : 'Failed to update AI suggestions setting.')
-    } finally {
-      setIsUpdatingAiSuggestions(false)
-    }
-  }
-
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 md:px-6">
@@ -434,7 +400,6 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="password">Password</TabsTrigger>
               <TabsTrigger value="api-keys">API keys</TabsTrigger>
-              {isLlmAvailable ? <TabsTrigger value="settings">Settings</TabsTrigger> : null}
             </TabsList>
 
             <TabsContent value="profile">
@@ -727,32 +692,6 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
               </section>
             </TabsContent>
 
-            <TabsContent value="settings">
-              {isLlmAvailable ? (
-                <section className="max-w-4xl space-y-4 rounded-md border bg-background p-4">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold">
-                    <Bot className="h-4 w-4" />
-                    AI suggestions
-                  </h3>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 space-y-1">
-                      <label htmlFor="ai-suggestions-setting" className="block cursor-pointer text-sm font-medium">
-                        Enable AI suggestions in project workspaces
-                      </label>
-                      <p className="text-sm text-muted-foreground">
-                        When enabled, edits you make in a project workspace are reviewed by AI before saving.
-                      </p>
-                    </div>
-                    <Checkbox
-                      id="ai-suggestions-setting"
-                      checked={aiSuggestionsEnabled}
-                      disabled={isUpdatingAiSuggestions}
-                      onCheckedChange={(checked) => void handleAiSuggestionsToggle(checked === true)}
-                    />
-                  </div>
-                </section>
-              ) : null}
-            </TabsContent>
           </Tabs>
         ) : null}
       </div>

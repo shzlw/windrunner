@@ -38,12 +38,10 @@ import {
   decideGraphChangeProposal,
   deleteEntry,
   deleteNode,
-  getMySettings,
   getNode,
   getProject,
   getWorkspace,
   getLlmStatus,
-  updateMySetting,
   listProjectMembers,
   listProjectTeams,
   listTeamMembers,
@@ -67,7 +65,6 @@ import {
   type ProjectNodeFieldDataType,
   type ContentOrderItem,
   type Relationship,
-  type SettingValue,
   type Team,
   type User,
   updateNode,
@@ -1058,7 +1055,7 @@ function WorkItemEntries({
   composerPlaceholder,
   isQuestion,
   acceptedAnswerEntryId,
-  isAiSuggestionsEnabled,
+  isAiReviewAvailable,
   onEntryComposerOpened,
   onSelect,
   onCreate,
@@ -1084,7 +1081,7 @@ function WorkItemEntries({
   composerPlaceholder: string
   isQuestion: boolean
   acceptedAnswerEntryId: string | null
-  isAiSuggestionsEnabled: boolean
+  isAiReviewAvailable: boolean
   onEntryComposerOpened: () => void
   onSelect: (entry: Entry) => void
   onCreate: (type: string, body: string) => Promise<void>
@@ -1110,8 +1107,6 @@ function WorkItemEntries({
   const [reviewFeedbackByEntryId, setReviewFeedbackByEntryId] = useState<Map<string, string>>(new Map())
   const [newEntryReview, setNewEntryReview] = useState<EntryAiReview | null>(null)
   const [newReviewFeedback, setNewReviewFeedback] = useState('')
-  const [skipNewEntryAiReview, setSkipNewEntryAiReview] = useState(false)
-  const [skipEntryAiReviewId, setSkipEntryAiReviewId] = useState<string | null>(null)
   const [acceptingAnswerEntryId, setAcceptingAnswerEntryId] = useState<string | null>(null)
   const visibleContent = showEntries ? content : content.filter((item) => item.entityType === 'WORK_ITEM')
 
@@ -1123,6 +1118,40 @@ function WorkItemEntries({
     }
   }, [onEntryComposerOpened, startAdding])
 
+  async function reviewNewEntry() {
+    if (!newBody.trim()) {
+      toast.error('Update text is required.')
+      return
+    }
+    setIsSaving(true)
+    try {
+      const review = await onReviewNew(newType, newBody.trim())
+      setNewEntryReview({ ...review, entryType: newType })
+      setIsAdding(false)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to review update.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function reviewEditedEntry(entry: Entry) {
+    if (!editBody.trim()) {
+      toast.error('Update text is required.')
+      return
+    }
+    setIsSaving(true)
+    try {
+      const review = await onReview(entry, editType, editBody.trim())
+      setReviewByEntryId((current) => new Map(current).set(entry.id, { ...review, entryType: editType }))
+      setEditingEntryId(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to review update.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   async function saveNewEntry() {
     if (!newBody.trim()) {
       toast.error('Update text is required.')
@@ -1130,16 +1159,9 @@ function WorkItemEntries({
     }
     setIsSaving(true)
     try {
-      if (isAiSuggestionsEnabled && !skipNewEntryAiReview) {
-        const review = await onReviewNew(newType, newBody.trim())
-        setNewEntryReview({ ...review, entryType: newType })
-        setIsAdding(false)
-      } else {
-        await onCreate(newType, newBody.trim())
-        setNewBody('')
-        setIsAdding(false)
-        setSkipNewEntryAiReview(false)
-      }
+      await onCreate(newType, newBody.trim())
+      setNewBody('')
+      setIsAdding(false)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to add update.')
     } finally {
@@ -1154,13 +1176,7 @@ function WorkItemEntries({
     }
     setIsSaving(true)
     try {
-      if (isAiSuggestionsEnabled && skipEntryAiReviewId !== entry.id) {
-        const review = await onReview(entry, editType, editBody.trim())
-        setReviewByEntryId((current) => new Map(current).set(entry.id, { ...review, entryType: editType }))
-      } else {
-        await onUpdate(entry, editType, editBody.trim())
-        setSkipEntryAiReviewId(null)
-      }
+      await onUpdate(entry, editType, editBody.trim())
       setEditingEntryId(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to save update.')
@@ -1221,6 +1237,11 @@ function WorkItemEntries({
                   disabled={isSaving}
                   aria-label="Update content"
                 />
+                {isAiReviewAvailable ? (
+                  <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={() => void reviewEditedEntry(entry)}>
+                    <Bot className="h-3.5 w-3.5" /> AI Review
+                  </Button>
+                ) : null}
                 <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveEditedEntry(entry)} aria-label="Save update" title="Save update">
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
                 </Button>
@@ -1325,7 +1346,6 @@ function WorkItemEntries({
                     setEditType(review.proposedType ?? review.entryType ?? entry.type)
                     setEditBody(review.proposedBody)
                     setReviewByEntryId((current) => { const next = new Map(current); next.delete(entry.id); return next })
-                    setSkipEntryAiReviewId(entry.id)
                   }} aria-label="Keep editing AI suggestion" title="Keep editing"><Pencil /></Button>
                   <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
                     setIsSaving(true)
@@ -1339,7 +1359,6 @@ function WorkItemEntries({
                       setEditingEntryId(entry.id)
                       setEditType(review.entryType ?? entry.type)
                       setEditBody(review.originalBody)
-                      setSkipEntryAiReviewId(entry.id)
                     } catch (error) {
                       toast.error(error instanceof Error ? error.message : 'Failed to reject AI suggestion.')
                     } finally {
@@ -1379,6 +1398,11 @@ function WorkItemEntries({
             disabled={isSaving}
             aria-label={composerPlaceholder}
           />
+          {isAiReviewAvailable ? (
+            <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={() => void reviewNewEntry()}>
+              <Bot className="h-3.5 w-3.5" /> AI Review
+            </Button>
+          ) : null}
           <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveNewEntry()} aria-label="Add update" title="Add update">
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
           </Button>
@@ -1433,7 +1457,6 @@ function WorkItemEntries({
             setNewBody(newEntryReview.proposedBody)
             setNewEntryReview(null)
             setIsAdding(true)
-            setSkipNewEntryAiReview(true)
           }} aria-label="Keep editing AI suggestion" title="Keep editing"><Pencil /></Button>
           <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
             setIsSaving(true)
@@ -1443,7 +1466,6 @@ function WorkItemEntries({
               setNewType(newEntryReview.entryType ?? newType)
               setNewBody(newEntryReview.originalBody)
               setIsAdding(true)
-              setSkipNewEntryAiReview(true)
             } catch (error) {
               toast.error(error instanceof Error ? error.message : 'Failed to reject AI suggestion.')
             } finally {
@@ -1701,7 +1723,7 @@ function TreeRowContent({
   userLabels,
   teamLabels,
   selectedEntryId,
-  isAiSuggestionsEnabled,
+  isAiReviewAvailable,
   canReorder,
   canMoveUp,
   canMoveDown,
@@ -1749,7 +1771,7 @@ function TreeRowContent({
   userLabels: Map<string, string>
   teamLabels: Map<string, string>
   selectedEntryId: string | null
-  isAiSuggestionsEnabled: boolean
+  isAiReviewAvailable: boolean
   canReorder: boolean
   canMoveUp: boolean
   canMoveDown: boolean
@@ -2183,7 +2205,7 @@ function TreeRowContent({
                 userLabels={userLabels}
                 teamLabels={teamLabels}
                 selectedEntryId={selectedEntryId}
-                isAiSuggestionsEnabled={isAiSuggestionsEnabled}
+                isAiReviewAvailable={isAiReviewAvailable}
                 canReorder={canReorderContent}
                 canMoveUp={contentIndex > 0}
                 canMoveDown={contentIndex < totalContent - 1}
@@ -2222,7 +2244,7 @@ function TreeRowContent({
             composerPlaceholder={node.type.toUpperCase() === 'QUESTION' ? 'Write an answer…' : 'Write an update…'}
             isQuestion={node.type.toUpperCase() === 'QUESTION'}
             acceptedAnswerEntryId={acceptedAnswerByQuestionId.get(node.id) ?? null}
-            isAiSuggestionsEnabled={isAiSuggestionsEnabled}
+            isAiReviewAvailable={isAiReviewAvailable}
             onEntryComposerOpened={() => setEntryComposerRequested(false)}
             onSelect={onSelectEntry}
             onCreate={(type, body) => onCreateEntry(node.id, type, body)}
@@ -2609,10 +2631,8 @@ export default function ProjectWorkspacePage() {
   const [entryInspectorBody, setEntryInspectorBody] = useState('')
   const [entryInspectorReview, setEntryInspectorReview] = useState<EntryAiReview | null>(null)
   const [entryInspectorReviewFeedback, setEntryInspectorReviewFeedback] = useState('')
-  const [skipInspectorEntryAiReview, setSkipInspectorEntryAiReview] = useState(false)
   const [workItemInspectorReview, setWorkItemInspectorReview] = useState<WorkItemAiReview | null>(null)
   const [workItemInspectorReviewFeedback, setWorkItemInspectorReviewFeedback] = useState('')
-  const [newWorkItemAwaitingInitialReviewId, setNewWorkItemAwaitingInitialReviewId] = useState<string | null>(null)
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false)
   const [moveTargetContentKey, setMoveTargetContentKey] = useState('')
   const [moveQuery, setMoveQuery] = useState('')
@@ -2621,8 +2641,6 @@ export default function ProjectWorkspacePage() {
   const [decidingProposalChangeId, setDecidingProposalChangeId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isLlmAvailable, setIsLlmAvailable] = useState(false)
-  const [isAiSuggestionsEnabled, setIsAiSuggestionsEnabled] = useState(false)
-  const isAiSuggestionsActive = isLlmAvailable && isAiSuggestionsEnabled
   const [subscribedWorkItemIds, setSubscribedWorkItemIds] = useState<ReadonlySet<string>>(new Set())
   const [workItemSearchQuery, setWorkItemSearchQuery] = useState('')
   const [appliedWorkItemSearchQuery, setAppliedWorkItemSearchQuery] = useState('')
@@ -2796,34 +2814,6 @@ export default function ProjectWorkspacePage() {
       throw new Error('Project is unavailable.')
     }
 
-    if (isAiSuggestionsActive && newWorkItemAwaitingInitialReviewId === node.id) {
-      const draft = { ...createFormState(node), title }
-      setSelectedNodeId(node.id)
-      setSelectedEntryId(null)
-      setInspectorMode('task')
-      try {
-        const review = await reviewWorkItemWithAi(projectId, node.id, {
-          title,
-          type: node.type as WorkItem['type'],
-          status: (normalizedStatus(nodeFieldValue(node, 'status')) || defaultStatusForType(node.type)).replaceAll(' ', '_') as WorkItem['status'],
-          dueDate: String(nodeFieldValue(node, 'dueDate') ?? '').trim() || null,
-          priority: String(nodeFieldValue(node, 'priority') ?? '').trim() || null,
-          assignees: [
-            ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')).map((assigneeId) => ({ assigneeType: 'USER' as const, assigneeId })),
-            ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')).map((assigneeId) => ({ assigneeType: 'TEAM' as const, assigneeId })),
-          ],
-        })
-        setForm(draft)
-        setWorkItemInspectorReview(review)
-        setWorkItemInspectorReviewFeedback('')
-        setNewWorkItemAwaitingInitialReviewId(null)
-        return
-      } catch (error) {
-        setForm(draft)
-        throw error
-      }
-    }
-
     const updated = await updateNode(projectId, node.id, {
       projectId,
       parentNodeId: node.parentNodeId ?? null,
@@ -2838,7 +2828,7 @@ export default function ProjectWorkspacePage() {
         ? { ...updated, childrenCount: currentNode.childrenCount ?? updated.childrenCount }
         : currentNode
     )))
-  }, [isAiSuggestionsActive, newWorkItemAwaitingInitialReviewId, projectId])
+  }, [projectId])
   const handleCreateEntry = useCallback(async (workItemId: string, type: string, body: string) => {
     if (!projectId) throw new Error('Project is unavailable.')
     const created = await createEntry(projectId, { workItemId, type, body })
@@ -3036,21 +3026,33 @@ export default function ProjectWorkspacePage() {
     }
     setIsSaving(true)
     try {
-      if (isAiSuggestionsActive && !skipInspectorEntryAiReview) {
-        const review = await reviewEntryWithAi(projectId, selectedEntry.id, body, entryInspectorType)
-        setEntryInspectorReview({ ...review, entryType: entryInspectorType })
-      } else {
-        const updated = await updateEntry(projectId, selectedEntry.id, { workItemId: selectedEntry.workItemId, type: entryInspectorType, body })
-        setEntries((current) => current.map((entry) => entry.id === updated.id ? updated : entry))
-        setSkipInspectorEntryAiReview(false)
-        toast.success('Update saved.')
-      }
+      const updated = await updateEntry(projectId, selectedEntry.id, { workItemId: selectedEntry.workItemId, type: entryInspectorType, body })
+      setEntries((current) => current.map((entry) => entry.id === updated.id ? updated : entry))
+      toast.success('Update saved.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to save update.')
     } finally {
       setIsSaving(false)
     }
-  }, [entryInspectorBody, entryInspectorType, isAiSuggestionsActive, projectId, selectedEntry, skipInspectorEntryAiReview])
+  }, [entryInspectorBody, entryInspectorType, projectId, selectedEntry])
+  const handleReviewInspectorEntryWithAi = useCallback(async () => {
+    if (!projectId || !selectedEntry) return
+    const body = entryInspectorBody.trim()
+    if (!body) {
+      toast.error('Update text is required.')
+      return
+    }
+    setIsSaving(true)
+    try {
+      const review = await reviewEntryWithAi(projectId, selectedEntry.id, body, entryInspectorType)
+      setEntryInspectorReview({ ...review, entryType: entryInspectorType })
+      setEntryInspectorReviewFeedback('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to review update.')
+    } finally {
+      setIsSaving(false)
+    }
+  }, [entryInspectorBody, entryInspectorType, projectId, selectedEntry])
   const handleAcceptInspectorEntryReview = useCallback(async () => {
     if (!projectId || !selectedEntry || !entryInspectorReview) return
     setIsSaving(true)
@@ -3073,7 +3075,6 @@ export default function ProjectWorkspacePage() {
       await rejectEntryAiReview(projectId, selectedEntry.id, entryInspectorReview.originalBody, entryInspectorReview.proposedBody)
       setEntryInspectorReview(null)
       setEntryInspectorReviewFeedback('')
-      setSkipInspectorEntryAiReview(true)
       toast.success('AI suggestion rejected.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to reject AI suggestion.')
@@ -3106,7 +3107,6 @@ export default function ProjectWorkspacePage() {
     setEntryInspectorType(entryInspectorReview.proposedType ?? entryInspectorReview.entryType ?? entryInspectorType)
     setEntryInspectorReview(null)
     setEntryInspectorReviewFeedback('')
-    setSkipInspectorEntryAiReview(true)
   }
   const handleDeleteEntry = useCallback(async (entryId: string) => {
     if (!projectId) throw new Error('Project is unavailable.')
@@ -3198,7 +3198,7 @@ export default function ProjectWorkspacePage() {
       setErrorMessage(null)
 
       try {
-        const [nextProject, nextRootNodes, nextWorkspace, nextGraphChangeProposals, nextLlmStatus, nextUsers, nextTeams, nextProjectMembers, nextProjectTeams, nextSettings] = await Promise.all([
+        const [nextProject, nextRootNodes, nextWorkspace, nextGraphChangeProposals, nextLlmStatus, nextUsers, nextTeams, nextProjectMembers, nextProjectTeams] = await Promise.all([
           getProject(currentProjectId),
           listTreeNodes(currentProjectId, { page: 0, size: treePageSize }),
           getWorkspace(currentProjectId),
@@ -3208,7 +3208,6 @@ export default function ProjectWorkspacePage() {
           listTeams().catch(() => []),
           listProjectMembers(currentProjectId).catch(() => []),
           listProjectTeams(currentProjectId).catch(() => []),
-          getMySettings().catch(() => ({}) as Record<string, SettingValue>),
         ])
 
         if (!isMounted) {
@@ -3263,7 +3262,6 @@ export default function ProjectWorkspacePage() {
         setProjectTeamIds(new Set(nextProjectTeams.map((team) => team.teamId)))
         setGraphChangeProposals(nextGraphChangeProposals)
         setIsLlmAvailable(nextLlmStatus.available)
-        setIsAiSuggestionsEnabled(nextSettings['ai-suggestions']?.value === true)
         setExpandedNodeIds(new Set(initialExpandedNodeIds))
         setLoadedChildrenParentIds(initialLoadedChildrenParentIds)
         setChildrenPageInfoByParentId(initialChildrenPageInfoByParentId)
@@ -3310,7 +3308,6 @@ export default function ProjectWorkspacePage() {
       setEntryInspectorBody(selectedEntry.body)
       setEntryInspectorReview(null)
       setEntryInspectorReviewFeedback('')
-      setSkipInspectorEntryAiReview(false)
     }
   }, [selectedEntry])
   useEffect(() => {
@@ -3747,7 +3744,6 @@ export default function ProjectWorkspacePage() {
       setSelectedNodeId(created.id)
       setForm(createFormState(created))
       setInspectorMode('task')
-      setNewWorkItemAwaitingInitialReviewId(isAiSuggestionsActive ? created.id : null)
       setAutoEditTitleNodeId(created.id)
       toast.success(parentId ? 'Sub-item created.' : 'Item created.')
     } catch (error) {
@@ -4381,27 +4377,6 @@ export default function ProjectWorkspacePage() {
             </DropdownMenu>
             </div>
             </div>
-            {isLlmAvailable ? (
-              <Button
-                type="button"
-                size="sm"
-                variant={isAiSuggestionsEnabled ? 'default' : 'outline'}
-                className="ml-auto shrink-0 gap-2"
-                onClick={() => {
-                  const nextEnabled = !isAiSuggestionsEnabled
-                  setIsAiSuggestionsEnabled(nextEnabled)
-                  void updateMySetting('ai-suggestions', { dataType: 'boolean', value: nextEnabled }).catch(() => {
-                    setIsAiSuggestionsEnabled(!nextEnabled)
-                    toast.error('Failed to update AI suggestions setting.')
-                  })
-                }}
-                aria-pressed={isAiSuggestionsEnabled}
-                title="Review update edits with AI before saving"
-              >
-                <Bot className="h-4 w-4" />
-                AI Suggestions
-              </Button>
-            ) : null}
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col p-2">
@@ -4489,7 +4464,7 @@ export default function ProjectWorkspacePage() {
                         userLabels={userLabels}
                         teamLabels={teamLabels}
                         selectedEntryId={selectedEntryId}
-                        isAiSuggestionsEnabled={isAiSuggestionsActive}
+                        isAiReviewAvailable={isLlmAvailable}
                         canReorder={canReorderContent}
                         canMoveUp={rootIndex > 0}
                         canMoveDown={rootIndex < filteredTree.length - 1}
@@ -5013,9 +4988,16 @@ export default function ProjectWorkspacePage() {
                         <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRejectInspectorEntryReview()}>Reject</Button>
                       </>
                     ) : (
-                      <Button type="button" className="gap-2" disabled={isSaving} onClick={() => void handleSaveInspectorEntry()}>
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {isAiSuggestionsEnabled ? 'Review with AI' : 'Save'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button type="button" className="gap-2" disabled={isSaving} onClick={() => void handleSaveInspectorEntry()}>
+                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
+                        </Button>
+                        {isLlmAvailable ? (
+                          <Button type="button" variant="outline" className="gap-2" disabled={isSaving} onClick={() => void handleReviewInspectorEntryWithAi()}>
+                            <Bot className="h-4 w-4" /> AI Review
+                          </Button>
+                        ) : null}
+                      </div>
                     )}
                   </div>
                 </div>

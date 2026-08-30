@@ -9,11 +9,15 @@ import com.windrunner.server.work.api.EntryAiNewReviewRequest;
 import com.windrunner.server.work.api.EntryAiReviewDecisionRequest;
 import com.windrunner.server.work.api.EntryAiReviewResponse;
 import com.windrunner.server.work.domain.Entry;
+import com.windrunner.server.work.domain.WorkItem;
+import com.windrunner.server.work.persistence.EntryRepository;
+import com.windrunner.server.work.persistence.RelationshipRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.LinkedHashMap;
@@ -30,6 +34,8 @@ public class EntryAiReviewService {
 
     private final EntryService entries;
     private final WorkItemService workItems;
+    private final EntryRepository entryRepository;
+    private final RelationshipRepository relationshipRepository;
     private final AuditLogService auditLogService;
     private final LlmAvailabilityService llmAvailability;
     private final ObjectProvider<LlmService> llmServiceProvider;
@@ -56,6 +62,12 @@ public class EntryAiReviewService {
         }
 
         AtomicReference<Proposal> proposalRef = new AtomicReference<>();
+        LlmTool<EmptyInput> fetchContextTool = new LlmTool<>(
+                "fetch_entry_context",
+                "Fetch the parent WorkItem, related updates, and relationships for this entry when the supplied context is not enough.",
+                EmptyInput.class,
+                ignored -> fetchEntryContext(projectId, workItemId)
+        );
         LlmTool<Proposal> tool = new LlmTool<>(
                 "propose_entry_revision",
                 "Submit the reviewed entry body, proposed entry type, and a concise rationale for the revision.",
@@ -70,11 +82,20 @@ public class EntryAiReviewService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI suggestions are unavailable");
         }
         long startNanos = System.nanoTime();
-        LlmResult<?> llmResult = llmService.runChatWithTools(
-                List.of(new LlmMessage("user", reviewInput(parent.getType(), parent.getTitle(), currentType, originalBody, instruction))),
-                FileUtils.loadSystemPrompt(REVIEW_PROMPT),
-                List.of(tool)
-        );
+        LlmResult<?> llmResult;
+        try {
+            llmResult = llmService.runChatWithTools(
+                    List.of(new LlmMessage("user", reviewInput(parent.getType(), parent.getTitle(), currentType, originalBody, instruction))),
+                    FileUtils.loadSystemPrompt(REVIEW_PROMPT),
+                    List.of(fetchContextTool, tool)
+            );
+        } catch (RestClientResponseException exception) {
+            if (exception.getStatusCode().value() == HttpStatus.TOO_MANY_REQUESTS.value()) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "The AI service is temporarily rate-limited. Please try the review again in a moment.", exception);
+            }
+            throw exception;
+        }
         long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
         llmUsageService.record(
                 new LlmUsageContext(actorId, projectId, LlmUsageFeature.ENTRY_AI_REVIEW),
@@ -171,11 +192,49 @@ public class EntryAiReviewService {
     }
 
     private String reviewInput(String workItemType, String workItemTitle, String entryType, String body, String instruction) {
-        return "Work item type: " + workItemType + "\n"
+        return "Selected Entry context only:\nWork item type: " + workItemType + "\n"
                 + "Work item title: " + workItemTitle + "\n"
                 + "Current entry type: " + entryType + "\n"
                 + "Entry body:\n" + body
+                + "\nAdditional parent and related-entry context is available through fetch_entry_context. Use it only when needed."
                 + (WorkItemService.blank(instruction) ? "" : "\n\nAuthor feedback for this revision:\n" + instruction.trim());
+    }
+
+    private EntryContext fetchEntryContext(String projectId, String workItemId) {
+        WorkItem parent = workItems.get(projectId, workItemId);
+        List<EntrySummary> relatedEntries = entryRepository.findPageByWorkItemId(workItemId, null, AiReviewLimits.MAX_RELATED_ENTRIES, 0)
+                .stream()
+                .map(entry -> new EntrySummary(entry.getId(), entry.getType(), AiReviewLimits.bounded(entry.getBody(), AiReviewLimits.MAX_TEXT_LENGTH), entry.getCreatedAt()))
+                .toList();
+        List<RelationshipSummary> relatedRelationships = relationshipRepository.findByEntity(
+                        projectId, "WORK_ITEM", workItemId, AiReviewLimits.MAX_RELATED_RELATIONSHIPS)
+                .stream()
+                .map(relationship -> new RelationshipSummary(
+                        relationship.getId(), relationship.getType(), relationship.getFromEntityType(), relationship.getFromEntityId(),
+                        relationship.getToEntityType(), relationship.getToEntityId(), AiReviewLimits.bounded(relationship.getReason(), AiReviewLimits.MAX_TEXT_LENGTH)))
+                .toList();
+        return new EntryContext(
+                new WorkItemSummary(parent.getId(), parent.getParentWorkItemId(), parent.getType(), parent.getTitle(), parent.getStatus(), parent.getDueDate(), parent.getPriority()),
+                relatedEntries,
+                relatedRelationships);
+    }
+
+    public record EmptyInput() {
+    }
+
+    public record EntryContext(WorkItemSummary parentWorkItem, List<EntrySummary> relatedEntries,
+                               List<RelationshipSummary> relationships) {
+    }
+
+    public record WorkItemSummary(String id, String parentWorkItemId, String type, String title,
+                                  String status, java.time.LocalDate dueDate, String priority) {
+    }
+
+    public record EntrySummary(String id, String type, String body, java.time.OffsetDateTime createdAt) {
+    }
+
+    public record RelationshipSummary(String id, String type, String fromEntityType, String fromEntityId,
+                                      String toEntityType, String toEntityId, String reason) {
     }
 
     public record Proposal(String proposedBody, String proposedType, String rationale) {
