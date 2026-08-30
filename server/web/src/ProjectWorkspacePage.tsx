@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactElement, ReactNode } from 'react'
 import { NavLink, Navigate, useParams, useSearchParams } from 'react-router'
-import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
@@ -551,6 +551,14 @@ function serializeFields(fields: NodeFormField[]): ProjectNodeField[] {
           visibleInTree: field.visibleInTree,
         }
     }
+  })
+}
+
+function formFingerprint(form: NodeFormState) {
+  return JSON.stringify({
+    type: form.type.trim(),
+    title: form.title.trim(),
+    fields: serializeFields(form.fields).map(({ order, ...field }) => field),
   })
 }
 
@@ -2709,6 +2717,10 @@ export default function ProjectWorkspacePage() {
     () => selectedNode ? openWorkspaceChangesForNode(graphChangeProposals, selectedNode.id) : [],
     [graphChangeProposals, selectedNode],
   )
+  const hasUnsavedWorkItemChanges = useMemo(
+    () => Boolean(selectedNode && !selectedNode.proposal && formFingerprint(form) !== formFingerprint(createFormState(selectedNode))),
+    [form, selectedNode],
+  )
   const flattenedTree = useMemo(() => flattenTree(tree), [tree])
   const nodeTitleById = useMemo(() => new Map(displayedNodes.map((node) => [node.id, node.title])), [displayedNodes])
   const entriesByWorkItemId = useMemo(() => {
@@ -3867,6 +3879,7 @@ export default function ProjectWorkspacePage() {
     })
     setWorkItemInspectorReview(null)
     setWorkItemInspectorReviewFeedback('')
+    toast.success('AI suggestion applied to draft. Save changes to update the work item.')
   }
 
   async function handleAddSuggestedBlockers(review: WorkItemAiReview) {
@@ -4836,10 +4849,14 @@ export default function ProjectWorkspacePage() {
 
                 <div className="z-10 mt-auto flex shrink-0 items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur">
                   <div className="flex items-center gap-2">
-                    <Button type="submit" className="gap-2" disabled={isSaving || Boolean(selectedNode.proposal)}>
+                    <Button type="submit" className="gap-2" disabled={isSaving || Boolean(selectedNode.proposal) || !hasUnsavedWorkItemChanges}>
                       {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Save
+                      Save changes
                     </Button>
+                    <span className={cn('flex items-center gap-1.5 text-xs', hasUnsavedWorkItemChanges ? 'font-medium text-amber-700' : 'text-muted-foreground')}>
+                      {hasUnsavedWorkItemChanges ? <CircleAlert className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                      {hasUnsavedWorkItemChanges ? 'Unsaved changes' : 'All changes saved'}
+                    </span>
                     {isLlmAvailable ? (
                       <Button type="button" variant="outline" className="gap-2" disabled={isSaving || Boolean(selectedNode.proposal)} onClick={() => void handleReviewWorkItemWithAi()}>
                         <Bot className="h-4 w-4" />
