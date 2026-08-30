@@ -27,7 +27,7 @@ public interface EntryRepository extends CrudRepository<Entry, String> {
             SELECT e.id, e.project_id, e.work_item_id, e.sort_index, e.author_user_id, e.type, e.body, e.created_at, e.updated_at
             FROM entry e
             WHERE e.work_item_id = :workItemId
-              AND (:updatedAfter IS NULL OR e.updated_at > :updatedAfter)
+              AND (CAST(:updatedAfter AS TIMESTAMPTZ) IS NULL OR e.updated_at > CAST(:updatedAfter AS TIMESTAMPTZ))
             ORDER BY e.updated_at DESC, e.id
             LIMIT :limit OFFSET :offset
             """)
@@ -40,7 +40,7 @@ public interface EntryRepository extends CrudRepository<Entry, String> {
             SELECT COUNT(*)
             FROM entry e
             WHERE e.work_item_id = :workItemId
-              AND (:updatedAfter IS NULL OR e.updated_at > :updatedAfter)
+              AND (CAST(:updatedAfter AS TIMESTAMPTZ) IS NULL OR e.updated_at > CAST(:updatedAfter AS TIMESTAMPTZ))
             """)
     long countByWorkItemId(@Param("workItemId") String workItemId,
                            @Param("updatedAfter") java.time.OffsetDateTime updatedAfter);

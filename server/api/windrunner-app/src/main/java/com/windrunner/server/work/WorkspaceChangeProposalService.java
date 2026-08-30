@@ -215,7 +215,7 @@ public class WorkspaceChangeProposalService {
             item.setId(targetId);
             item.setProjectId(projectId);
             item.setTitle(draft.title().trim());
-            item.setType(valueOr(draft.type(), "TASK"));
+            item.setType(workItemTypeOrDefault(draft.type()));
             item.setStatus(valueOr(draft.status(), "OPEN"));
             item.setDueDate(date(draft.dueDate()));
             item.setPriority(blankToNull(draft.priority()));
@@ -230,7 +230,7 @@ public class WorkspaceChangeProposalService {
             if (!"DELETE".equals(action)) {
                 if (draft == null) throw WorkItemService.bad("Work item updates require proposed values");
                 if (!WorkItemService.blank(draft.title())) item.setTitle(draft.title().trim());
-                if (!WorkItemService.blank(draft.type())) item.setType(draft.type());
+                if (!WorkItemService.blank(draft.type())) item.setType(workItemTypeOrDefault(draft.type()));
                 if (!WorkItemService.blank(draft.status())) item.setStatus(draft.status());
                 if (draft.dueDate() != null) item.setDueDate(date(draft.dueDate()));
                 if (draft.priority() != null) item.setPriority(blankToNull(draft.priority()));
@@ -362,6 +362,15 @@ public class WorkspaceChangeProposalService {
 
     private String valueOr(String value, String fallback) {
         return WorkItemService.blank(value) ? fallback : value.trim();
+    }
+
+    private String workItemTypeOrDefault(String value) {
+        if (WorkItemService.blank(value)) return "TASK";
+        String normalized = value.trim().toUpperCase().replace('-', '_').replace(' ', '_');
+        return switch (normalized) {
+            case "WORK_ITEM", "WORKITEM", "ITEM" -> "TASK";
+            default -> value.trim();
+        };
     }
 
     private List<WorkItemAssignee> assignees(List<AssigneeDraft> requested) {

@@ -195,7 +195,7 @@ function AskSessionsSidebar({
                   <SidebarMenuButton
                     render={<button type="button" onClick={() => onSelectSession(session.id)} />}
                     isActive={isSelected}
-                    className="pr-10 group-data-[collapsible=icon]:pr-2"
+                    className="group-data-[collapsible=icon]:pr-2"
                     tooltip={session.title}
                   >
                     <MessageSquareText className={isSelected ? 'text-primary' : 'text-muted-foreground'} />
@@ -223,7 +223,7 @@ function AskSessionsSidebar({
                             type="button"
                             size="icon-xs"
                             variant="ghost"
-                            className="h-7 w-8 p-0 opacity-0 transition-opacity group-hover/session-row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+                            className="h-7 w-8 bg-sidebar p-0 opacity-0 transition-opacity group-hover/session-row:bg-sidebar-accent group-hover/session-row:opacity-100 focus-visible:bg-sidebar-accent focus-visible:opacity-100 data-popup-open:bg-sidebar-accent data-popup-open:opacity-100"
                             aria-label={`More actions for ${session.title}`}
                             title="More actions"
                           >

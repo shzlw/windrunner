@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactElement, ReactNode } from 'react'
 import { NavLink, Navigate, useLocation, useParams, useSearchParams } from 'react-router'
-import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, PanelRightClose, PanelRightOpen, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { usePanelRef } from 'react-resizable-panels'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import { Badge } from '@/components/ui/badge'
@@ -177,6 +178,7 @@ const treeSubtreeMaxDepth = 20
 const treeSubtreeMaxItems = 1000
 const treeDepthIndentPx = 18
 const workspacePanelLayoutStorageKey = 'windrunner.project-workspace.panel-layout'
+const workspaceInspectorCollapsedStorageKey = 'windrunner.project-workspace.inspector-collapsed'
 const defaultWorkspacePanelLayout = { 'project-tree': 70, 'project-inspector': 30 }
 
 function readWorkspacePanelLayout() {
@@ -194,6 +196,18 @@ function readWorkspacePanelLayout() {
     // Ignore missing or malformed persisted layouts.
   }
   return defaultWorkspacePanelLayout
+}
+
+function readWorkspaceInspectorCollapsed() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+  try {
+    return window.localStorage.getItem(workspaceInspectorCollapsedStorageKey) === 'true'
+  } catch {
+    // Ignore unavailable browser storage.
+    return false
+  }
 }
 
 const untitledWorkItemTitle = 'Untitled item'
@@ -2616,6 +2630,8 @@ export default function ProjectWorkspacePage() {
   const requestedWorkItemId = searchParams.get('workItemId')?.trim() || null
   const [project, setProject] = useState<Project | null>(null)
   const [workspacePanelLayout] = useState(readWorkspacePanelLayout)
+  const inspectorPanelRef = usePanelRef()
+  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(readWorkspaceInspectorCollapsed)
   const [nodes, setNodes] = useState<ProjectNode[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
   const [relationships, setRelationships] = useState<Relationship[]>([])
@@ -2671,6 +2687,18 @@ export default function ProjectWorkspacePage() {
       window.clearTimeout(chatHighlightTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    const panel = inspectorPanelRef.current
+    if (!panel) {
+      return
+    }
+    if (isInspectorCollapsed && !panel.isCollapsed()) {
+      panel.collapse()
+    } else if (!isInspectorCollapsed && panel.isCollapsed()) {
+      panel.expand()
+    }
+  }, [inspectorPanelRef, isInspectorCollapsed])
 
   useEffect(() => {
     if (!chatHighlightedNodeId) {
@@ -3374,6 +3402,16 @@ export default function ProjectWorkspacePage() {
     }
     params.set('chatPanel', 'open')
     return `${path}?${params.toString()}`
+  }
+
+  function toggleInspectorPanel() {
+    const nextCollapsed = !isInspectorCollapsed
+    setIsInspectorCollapsed(nextCollapsed)
+    try {
+      window.localStorage.setItem(workspaceInspectorCollapsedStorageKey, String(nextCollapsed))
+    } catch {
+      // Layout persistence is optional when browser storage is unavailable.
+    }
   }
 
   function selectNode(node: ProjectNode) {
@@ -4262,6 +4300,7 @@ export default function ProjectWorkspacePage() {
         defaultLayout={workspacePanelLayout}
         onLayoutChanged={(layout, meta) => {
           if (!meta.isUserInteraction) return
+          if (Number(layout['project-inspector']) < 10) return
           try {
             window.localStorage.setItem(workspacePanelLayoutStorageKey, JSON.stringify(layout))
           } catch {
@@ -4400,6 +4439,23 @@ export default function ProjectWorkspacePage() {
             </DropdownMenu>
             </div>
             </div>
+            <Tooltip>
+              <TooltipTrigger
+                render={(
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className="shrink-0"
+                    onClick={toggleInspectorPanel}
+                    aria-label={isInspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+                  />
+                )}
+              >
+                {isInspectorCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+              </TooltipTrigger>
+              <TooltipContent>{isInspectorCollapsed ? 'Show inspector' : 'Hide inspector'}</TooltipContent>
+            </Tooltip>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col p-2">
@@ -4534,7 +4590,15 @@ export default function ProjectWorkspacePage() {
 
         <ResizableHandle withHandle />
 
-        <ResizablePanel id="project-inspector" defaultSize="30" minSize="24" maxSize="55">
+        <ResizablePanel
+          id="project-inspector"
+          defaultSize="30"
+          minSize="24"
+          maxSize="55"
+          collapsible
+          collapsedSize={0}
+          panelRef={inspectorPanelRef}
+        >
           <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
             <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b px-3 py-2">
               <div className="inline-flex rounded-md border bg-background p-0.5" role="group" aria-label="Inspector mode">

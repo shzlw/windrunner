@@ -40,7 +40,7 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
               AND (:status IS NULL OR w.status = :status)
               AND (:type IS NULL OR w.type = :type)
               AND (:priority IS NULL OR w.priority = :priority)
-              AND (:updatedAfter IS NULL OR w.updated_at > :updatedAfter)
+              AND (CAST(:updatedAfter AS TIMESTAMPTZ) IS NULL OR w.updated_at > CAST(:updatedAfter AS TIMESTAMPTZ))
             ORDER BY w.updated_at DESC, w.id
             LIMIT :limit OFFSET :offset
             """)
@@ -59,7 +59,7 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
               AND (:status IS NULL OR w.status = :status)
               AND (:type IS NULL OR w.type = :type)
               AND (:priority IS NULL OR w.priority = :priority)
-              AND (:updatedAfter IS NULL OR w.updated_at > :updatedAfter)
+              AND (CAST(:updatedAfter AS TIMESTAMPTZ) IS NULL OR w.updated_at > CAST(:updatedAfter AS TIMESTAMPTZ))
             """)
     long countForProject(@Param("projectId") String projectId,
                          @Param("status") String status,

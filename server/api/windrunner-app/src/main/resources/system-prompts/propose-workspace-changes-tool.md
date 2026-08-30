@@ -25,6 +25,9 @@ For UPDATE or DELETE, provide the exact existing targetId returned by a read too
 For UPDATE, set unspecified fields to null so their current values remain unchanged.
 WorkItem assignees contain only assigneeType (`USER` or `TEAM`) and assigneeId.
 Dates use YYYY-MM-DD.
+A WorkItem type must be exactly one of `TASK`, `QUESTION`, `APPROVAL`, `REVIEW`, or `DECISION`; if the user does not specify a type, use `TASK`. Do not use labels such as `WORK_ITEM`, `FEATURE`, `BUG`, or `EPIC` as types.
+WorkItem status must be one of `OPEN`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `WAITING`, `ANSWERED`, `PENDING`, `APPROVED`, `REJECTED`, or `CANCELLED`.
+Entry type must be one of `COMMENT`, `INFORMATION`, `ANSWER`, `EVIDENCE`, `PROPOSAL`, or `RESOLUTION`.
 Use PROJECT_ROOT only when intentionally moving an existing WorkItem to project level.
 A parentWorkItemId, Entry workItemId, Relationship endpoint, or sourceEntryId may use another ADD change's clientRef.
 Relationship UPDATE changes only its reason. To change its endpoints or type, use DELETE followed by ADD.
