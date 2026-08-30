@@ -10,8 +10,9 @@ const en = {
     subscriptions: 'Subscriptions',
     teams: 'Teams',
     users: 'Users',
+    administration: 'Administration',
     auditLogs: 'Audit Logs',
-    aiEfficiency: 'AI Efficiency',
+    aiAnalytics: 'AI Analytics',
   },
   language: {
     label: 'Language',

@@ -32,7 +32,7 @@ import { toast } from 'sonner'
 
 import './App.css'
 import AuditLogsPage from './AuditLogsPage'
-import AIEfficiencyPage from './AIEfficiencyPage'
+import AIAnalyticsPage from './AIAnalyticsPage'
 import ProjectWorkspacePage from './ProjectWorkspacePage'
 import MyAccountPage from './MyAccountPage'
 import ProjectsPage from './ProjectsPage'
@@ -54,7 +54,10 @@ const baseMenuItems = [
   { labelKey: 'navigation.users', path: '/app/users', icon: Users },
 ]
 
-const aiEfficiencyMenuItem = { labelKey: 'navigation.aiEfficiency', path: '/app/ai-efficiency', icon: TrendingUp }
+const administrationMenuItems = [
+  { labelKey: 'navigation.auditLogs', path: '/app/audit-logs', icon: FileClock },
+  { labelKey: 'navigation.aiAnalytics', path: '/app/ai-analytics', icon: TrendingUp },
+]
 export type AskPageOutletContext = {
   chatSessions: ChatSessionSummary[]
   selectedSessionId: string | null
@@ -331,13 +334,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const [isStartingSession, setIsStartingSession] = useState(false)
   const [isChatStreaming, setIsChatStreaming] = useState(false)
   const [newChatRequestKey, setNewChatRequestKey] = useState(0)
-  const menuItems = isAdminLike(currentUser)
-    ? [
-        ...baseMenuItems,
-        { labelKey: 'navigation.auditLogs', path: '/app/audit-logs', icon: FileClock },
-        aiEfficiencyMenuItem,
-      ]
-    : [...baseMenuItems, aiEfficiencyMenuItem]
+  const menuItems = baseMenuItems
   const accountLabel = `@${currentUser?.displayName || currentUser?.username || 'account'}`
   const refreshChatSessions = useCallback(async (preferredSessionId?: string) => {
     setIsLoadingChatSessions(true)
@@ -559,6 +556,30 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+            {isAdminLike(currentUser) ? (
+              <>
+                <SidebarSeparator className="mx-0" />
+                <SidebarGroup className="shrink-0 pt-2">
+                  <SidebarGroupLabel className="h-6 px-2">{t('navigation.administration')}</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu className="pt-2">
+                      {administrationMenuItems.map((item) => (
+                        <SidebarMenuItem key={item.path}>
+                          <SidebarMenuButton
+                            render={<NavLink to={workspaceDestination(item.path)} />}
+                            isActive={location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)}
+                            tooltip={t(item.labelKey)}
+                          >
+                            <item.icon />
+                            <span>{t(item.labelKey)}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </>
+            ) : null}
           </SidebarContent>
 
           <SidebarFooter className="gap-0 p-0">
@@ -931,7 +952,6 @@ function App() {
           <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
           <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
           <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />
-          <Route path="ai-efficiency" element={<AIEfficiencyPage />} />
           <Route path="subscriptions" element={<SubscriptionsPage />} />
           <Route path="my-work" element={<MyWorkPage />} />
           <Route
@@ -955,6 +975,14 @@ function App() {
             element={
               <AdminOnlyRoute currentUser={currentUser}>
                 <AuditLogsPage />
+              </AdminOnlyRoute>
+            }
+          />
+          <Route
+            path="ai-analytics"
+            element={
+              <AdminOnlyRoute currentUser={currentUser}>
+                <AIAnalyticsPage />
               </AdminOnlyRoute>
             }
           />

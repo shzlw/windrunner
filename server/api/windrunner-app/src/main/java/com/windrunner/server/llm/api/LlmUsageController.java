@@ -38,7 +38,7 @@ public class LlmUsageController {
             @RequestParam(value = "days", required = false) Integer days,
             HttpServletRequest request
     ) {
-        AppUser actor = authService.requireCurrentUser(request);
+        AppUser actor = authService.requireAdmin(request);
         if (days != null && days < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "days must be a positive integer");
         }

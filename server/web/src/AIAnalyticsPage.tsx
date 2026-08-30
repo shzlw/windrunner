@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Bot, CheckCircle2, Cpu, Info, Loader2, RefreshCw, Timer, TrendingUp, XCircle } from 'lucide-react'
+import { AlertTriangle, Bot, CheckCircle2, Cpu, Info, Loader2, RefreshCw, Timer, TrendingUp, XCircle, type LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router'
 import { toast } from 'sonner'
 
@@ -8,6 +8,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empt
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   getLlmStatus,
   getLlmUsage,
@@ -260,7 +261,71 @@ function sumImpacts(impacts: ProjectImpact[]): ProjectImpact {
   })
 }
 
-export default function AIEfficiencyPage() {
+function formatFeatureName(feature: string) {
+  return feature
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function MetricCard({ label, value, description, icon: Icon }: {
+  label: string
+  value: string
+  description: string
+  icon: LucideIcon
+}) {
+  return (
+    <div className="rounded-md border px-3 py-2">
+      <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+        {label}
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="mt-2 text-2xl font-semibold">{value}</div>
+      <div className="mt-1 text-sm text-muted-foreground">{description}</div>
+    </div>
+  )
+}
+
+function FeatureUsageTable({ usage }: { usage: LlmUsageSummary | null }) {
+  if (!usage || usage.byFeature.length === 0) {
+    return (
+      <Empty className="min-h-32 border-0">
+        <EmptyHeader>
+          <EmptyMedia variant="icon"><Bot /></EmptyMedia>
+          <EmptyTitle>No feature usage yet</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Feature</TableHead>
+          <TableHead className="text-right">Tokens</TableHead>
+          <TableHead className="text-right">Requests</TableHead>
+          <TableHead className="text-right">Failures</TableHead>
+          <TableHead className="text-right">Success rate</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {usage.byFeature.map((row) => (
+          <TableRow key={row.feature}>
+            <TableCell className="font-medium">{formatFeatureName(row.feature)}</TableCell>
+            <TableCell className="text-right">{formatCompact(row.inputTokens + row.outputTokens)}</TableCell>
+            <TableCell className="text-right">{formatNumber(row.requests)}</TableCell>
+            <TableCell className="text-right">{formatNumber(row.failures)}</TableCell>
+            <TableCell className="text-right">{formatPercent(row.successRate)}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+export default function AIAnalyticsPage() {
   const [projectReports, setProjectReports] = useState<ProjectProposalReport[]>([])
   const [llmStatus, setLlmStatus] = useState<LlmStatus | null>(null)
   const [usage, setUsage] = useState<LlmUsageSummary | null>(null)
@@ -305,7 +370,7 @@ export default function AIEfficiencyPage() {
       setLlmStatus(nextLlmStatus)
       setProjectReports(projectProposals)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load AI efficiency report.')
+      toast.error(error instanceof Error ? error.message : 'Failed to load AI analytics report.')
     } finally {
       setIsLoading(false)
     }
@@ -368,7 +433,7 @@ export default function AIEfficiencyPage() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center gap-2 border-b px-4 py-3 md:px-6">
-        <h1 className="text-xl font-semibold leading-none tracking-normal">AI Efficiency</h1>
+        <h1 className="text-xl font-semibold leading-none tracking-normal">AI Analytics</h1>
       </div>
 
       <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
@@ -388,20 +453,71 @@ export default function AIEfficiencyPage() {
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          <Button type="button" variant="outline" className="gap-2" onClick={() => { void loadImpact(); void loadUsage() }} disabled={isLoading}>
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          <Button type="button" variant="outline" className="gap-2" onClick={() => { void loadImpact(); void loadUsage() }} disabled={isLoading || isUsageLoading}>
+            {isLoading || isUsageLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh
           </Button>
         </div>
 
-        <div className="rounded-md border bg-background p-4">
-          {llmStatus && !llmStatus.available ? (
-            <div className="mb-4 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>AI provider unavailable. Historical report remains available.</span>
-            </div>
-          ) : null}
+        {llmStatus && !llmStatus.available ? (
+          <div className="flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>AI provider unavailable. Historical analytics remain available.</span>
+          </div>
+        ) : null}
 
+        <Tabs defaultValue="overview" className="gap-4">
+          <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="usage">Usage &amp; reliability</TabsTrigger>
+            <TabsTrigger value="outcomes">ROI &amp; outcomes</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="mt-0 space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                label="AI requests"
+                value={usage ? formatNumber(usage.totals.requests) : '—'}
+                description={usage ? `${formatNumber(usage.totals.failures)} failed` : 'Loading usage'}
+                icon={Bot}
+              />
+              <MetricCard
+                label="Total tokens"
+                value={usage ? formatCompact(usage.totals.inputTokens + usage.totals.outputTokens) : '—'}
+                description="input + output"
+                icon={Cpu}
+              />
+              <MetricCard
+                label="Accepted changes"
+                value={isLoading ? '—' : formatNumber(totals.changesAccepted)}
+                description={isLoading ? 'Loading outcomes' : `${totals.nodeChangesAccepted} nodes, ${totals.edgeChangesAccepted} edges`}
+                icon={CheckCircle2}
+              />
+              <MetricCard
+                label="Acceptance rate"
+                value={isLoading ? '—' : formatPercent(totals.acceptanceRate)}
+                description={isLoading ? 'Loading outcomes' : `${totals.decidedChanges} decided changes`}
+                icon={TrendingUp}
+              />
+            </div>
+
+            <div className="rounded-md border bg-background p-4">
+              <div className="mb-4 flex items-center gap-2">
+                <h2 className="text-sm font-semibold tracking-normal">AI usage by feature</h2>
+                {isUsageLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
+              </div>
+              {isUsageLoading ? (
+                <div className="flex min-h-32 items-center justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <FeatureUsageTable usage={usage} />
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="outcomes" className="mt-0 space-y-3">
+        <div className="rounded-md border bg-background p-4">
           <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-md border px-3 py-2">
               <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
@@ -514,7 +630,9 @@ export default function AIEfficiencyPage() {
             </Table>
           )}
         </div>
+        </TabsContent>
 
+        <TabsContent value="usage" className="mt-0 space-y-3">
         <div className="rounded-md border bg-background p-4">
           <div className="mb-4 flex items-center gap-2">
             <h2 className="text-sm font-semibold tracking-normal">Token usage</h2>
@@ -650,6 +768,8 @@ export default function AIEfficiencyPage() {
             </Table>
           </div>
         ) : null}
+        </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

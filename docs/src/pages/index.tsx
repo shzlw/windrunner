@@ -17,9 +17,9 @@ import {
 const features = [
   {
     icon: MessageSquareText,
-    title: 'Project-level AI chat',
+    title: 'AI that understands your work',
     description:
-      "Ask what's next, what's blocked, or how a project is going — and let AI propose changes for you to review.",
+      "Ask what's next, what's blocked, or how work is progressing — with project context built in.",
     to: '/docs/guides/ai-assistance',
     accent: 'accent-blue',
   },
@@ -35,7 +35,7 @@ const features = [
     icon: Bot,
     title: 'AI review with approval',
     description:
-      'Review work items and entry drafts with AI. Suggested changes stay visible until a user accepts or rejects them.',
+      'Let AI suggest updates to work items and entries. Suggested changes stay visible until a person accepts or rejects them.',
     to: '/docs/guides/ai-assistance',
     accent: 'accent-amber',
   },
@@ -49,9 +49,9 @@ const features = [
   },
   {
     icon: ListTodo,
-    title: 'Full manual workspace',
+    title: 'Human-controlled workspace',
     description:
-      'Create, organize, assign, search, filter, and follow work without relying on AI.',
+      'Create, organize, assign, search, filter, and follow work directly whenever you want.',
     to: '/docs/guides/following-work',
     accent: 'accent-emerald',
   },
@@ -179,20 +179,19 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title="Windrunner"
-      description="A self-hosted project workspace for clearer progress, faster decisions, and less status chasing."
+      description="AI-powered work management for teams, with connected project context, reviewable AI updates, and support for agents through MCP."
     >
       <main className="home-main">
         <header className="home-hero">
           <div className="container home-hero-grid">
             <div className="home-hero-copy">
-              <p className="home-hero-eyebrow">Structured work · Project AI</p>
+              <p className="home-hero-eyebrow">AI-powered work management for teams</p>
               <h1 className="hero__title">Manage the work. Ask the project.</h1>
               <p className="hero__subtitle">
-                Windrunner combines a structured project workspace with
-                project-level AI. Teams can manage work directly or use natural
-                language to share updates, find blockers, understand progress,
-                and make decisions with less back-and-forth. Connect AI agents
-                through MCP or automate terminal workflows with the CLI.
+                Windrunner brings work items, decisions, blockers, and evidence
+                together in one place. Teams can manage work directly, ask AI
+                what’s next, review proposed updates, and connect AI agents
+                through MCP.
               </p>
               <div className="home-hero-actions">
                 <Link
