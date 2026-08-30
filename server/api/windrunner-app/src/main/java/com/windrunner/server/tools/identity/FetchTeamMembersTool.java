@@ -54,22 +54,26 @@ public class FetchTeamMembersTool implements Tool<FetchTeamMembersTool.Parameter
         int limit = requestedLimit == null
                 ? DEFAULT_LIMIT
                 : Math.max(1, Math.min(requestedLimit, MAX_LIMIT));
-        List<TeamMember> memberships = teamMemberRepository.findByTeamId(teamId).stream().limit(limit).toList();
+        long offset = parameters == null || parameters.offset() == null ? 0 : Math.max(0, parameters.offset());
+        List<TeamMember> memberships = teamMemberRepository.findPageByTeamId(teamId, limit, offset);
         Map<String, AppUser> usersById = new LinkedHashMap<>();
-        userRepository.findActiveUsersByIds(memberships.stream().map(TeamMember::getUserId).toList())
-                .forEach(user -> usersById.put(user.getId(), user));
+        if (!memberships.isEmpty()) {
+            userRepository.findActiveUsersByIds(memberships.stream().map(TeamMember::getUserId).toList())
+                    .forEach(user -> usersById.put(user.getId(), user));
+        }
         List<Member> members = memberships.stream()
                 .map(member -> {
                     AppUser user = usersById.get(member.getUserId());
                     return new Member(member.getUserId(), user == null ? null : user.getUsername(), user == null ? null : user.getDisplayName(), user == null ? null : user.getTitle(), user == null ? null : user.getBio(), member.getRole());
                 })
                 .toList();
-        return new Result(team.getId(), team.getName(), members, members.size(), limit);
+        long total = teamMemberRepository.countByTeamId(teamId);
+        return new Result(team.getId(), team.getName(), members, members.size(), total, limit, offset, offset + members.size() < total);
     }
 
-    public record Parameters(String teamId, Integer limit) { }
+    public record Parameters(String teamId, Integer limit, Integer offset) { }
 
-    public record Result(String teamId, String teamName, List<Member> members, int count, int limit) { }
+    public record Result(String teamId, String teamName, List<Member> members, int count, long total, int limit, long offset, boolean hasMore) { }
 
     public record Member(String userId, String username, String displayName, String title, String bio, String role) { }
 }

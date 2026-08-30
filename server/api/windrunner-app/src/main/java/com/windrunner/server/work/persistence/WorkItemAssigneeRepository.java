@@ -12,6 +12,24 @@ import java.util.List;
 
 @Repository
 public interface WorkItemAssigneeRepository extends CrudRepository<WorkItemAssignee, String> {
+    record AssigneeCount(String assigneeType, String assigneeId, String assigneeLabel, long count) {
+    }
+
+    @Query("""
+            SELECT a.assignee_type AS assignee_type,
+                   a.assignee_id AS assignee_id,
+                   COALESCE(u.display_name, u.username, t.name, a.assignee_id) AS assignee_label,
+                   COUNT(*) AS count
+            FROM work_item_assignee a
+            JOIN work_item w ON w.id = a.work_item_id
+            LEFT JOIN app_user u ON a.assignee_type = 'USER' AND u.id = a.assignee_id
+            LEFT JOIN team t ON a.assignee_type = 'TEAM' AND t.id = a.assignee_id
+            WHERE w.project_id = :projectId
+            GROUP BY a.assignee_type, a.assignee_id, u.display_name, u.username, t.name
+            ORDER BY count DESC, a.assignee_type, a.assignee_id
+            """)
+    List<AssigneeCount> countByProjectId(@Param("projectId") String projectId);
+
     @Query("SELECT id, work_item_id, assignee_type, assignee_id, created_at FROM work_item_assignee WHERE work_item_id = :workItemId ORDER BY assignee_type, assignee_id")
     List<WorkItemAssignee> findByWorkItemId(@Param("workItemId") String workItemId);
 

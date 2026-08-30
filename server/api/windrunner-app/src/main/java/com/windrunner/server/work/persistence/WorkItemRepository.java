@@ -17,6 +17,33 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE project_id = :projectId ORDER BY parent_work_item_id NULLS FIRST, sort_index, id")
     List<WorkItem> findByProjectId(@Param("projectId") String projectId);
 
+    record DistributionRow(String value, long count) {
+    }
+
+    record DueDateSummary(long withDueDate, long overdue, long dueWithinNext7Days) {
+    }
+
+    @Query("SELECT COUNT(*) FROM work_item WHERE project_id = :projectId")
+    long countAllByProjectId(@Param("projectId") String projectId);
+
+    @Query("SELECT COALESCE(status, 'UNSET') AS value, COUNT(*) AS count FROM work_item WHERE project_id = :projectId GROUP BY status ORDER BY value")
+    List<DistributionRow> countByStatusForProject(@Param("projectId") String projectId);
+
+    @Query("SELECT COALESCE(type, 'UNSET') AS value, COUNT(*) AS count FROM work_item WHERE project_id = :projectId GROUP BY type ORDER BY value")
+    List<DistributionRow> countByTypeForProject(@Param("projectId") String projectId);
+
+    @Query("SELECT COALESCE(priority, 'UNSET') AS value, COUNT(*) AS count FROM work_item WHERE project_id = :projectId GROUP BY priority ORDER BY value")
+    List<DistributionRow> countByPriorityForProject(@Param("projectId") String projectId);
+
+    @Query("""
+            SELECT COUNT(*) FILTER (WHERE due_date IS NOT NULL) AS with_due_date,
+                   COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('DONE', 'CANCELLED')) AS overdue,
+                   COUNT(*) FILTER (WHERE due_date >= CURRENT_DATE AND due_date <= CURRENT_DATE + 7 AND status NOT IN ('DONE', 'CANCELLED')) AS due_within_next_7_days
+            FROM work_item
+            WHERE project_id = :projectId
+            """)
+    DueDateSummary summarizeDueDates(@Param("projectId") String projectId);
+
     @Query("""
             SELECT w.id, w.project_id, w.parent_work_item_id, w.sort_index, w.type, w.title, w.status, w.due_date, w.priority, w.created_by_user_id, w.created_at, w.updated_at
             FROM work_item w, websearch_to_tsquery('simple', :ftsQuery) q
@@ -29,6 +56,30 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
                                    @Param("ftsQuery") String ftsQuery,
                                    @Param("rawQuery") String rawQuery,
                                    @Param("limit") int limit);
+
+    @Query("""
+            SELECT w.id, w.project_id, w.parent_work_item_id, w.sort_index, w.type, w.title, w.status, w.due_date, w.priority, w.created_by_user_id, w.created_at, w.updated_at
+            FROM work_item w, websearch_to_tsquery('simple', :ftsQuery) q
+            WHERE w.project_id = :projectId
+              AND (w.search_vec @@ q OR w.title % :rawQuery)
+            ORDER BY ts_rank_cd(w.search_vec, q) DESC, w.updated_at DESC, w.id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<WorkItem> searchInProjectPage(@Param("projectId") String projectId,
+                                       @Param("ftsQuery") String ftsQuery,
+                                       @Param("rawQuery") String rawQuery,
+                                       @Param("limit") int limit,
+                                       @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM work_item w, websearch_to_tsquery('simple', :ftsQuery) q
+            WHERE w.project_id = :projectId
+              AND (w.search_vec @@ q OR w.title % :rawQuery)
+            """)
+    long countSearchInProject(@Param("projectId") String projectId,
+                              @Param("ftsQuery") String ftsQuery,
+                              @Param("rawQuery") String rawQuery);
 
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE id IN (:ids)")
     List<WorkItem> findByIds(@Param("ids") java.util.Collection<String> ids);

@@ -54,22 +54,26 @@ public class FetchTeamProjectsTool implements Tool<FetchTeamProjectsTool.Paramet
         int limit = requestedLimit == null
                 ? DEFAULT_LIMIT
                 : Math.max(1, Math.min(requestedLimit, MAX_LIMIT));
-        List<ProjectTeam> links = projectTeamRepository.findByTeamId(teamId).stream().limit(limit).toList();
+        long offset = parameters == null || parameters.offset() == null ? 0 : Math.max(0, parameters.offset());
+        List<ProjectTeam> links = projectTeamRepository.findPageByTeamId(teamId, limit, offset);
         Map<String, Project> projectsById = new LinkedHashMap<>();
-        projectRepository.findAllById(links.stream().map(ProjectTeam::getProjectId).toList())
-                .forEach(project -> projectsById.put(project.getId(), project));
+        if (!links.isEmpty()) {
+            projectRepository.findAllById(links.stream().map(ProjectTeam::getProjectId).toList())
+                    .forEach(project -> projectsById.put(project.getId(), project));
+        }
         List<LinkedProject> projects = links.stream()
                 .map(link -> {
                     Project project = projectsById.get(link.getProjectId());
                     return new LinkedProject(link.getProjectId(), project == null ? null : project.getName(), link.getRole());
                 })
                 .toList();
-        return new Result(team.getId(), team.getName(), projects, projects.size(), limit);
+        long total = projectTeamRepository.countByTeamId(teamId);
+        return new Result(team.getId(), team.getName(), projects, projects.size(), total, limit, offset, offset + projects.size() < total);
     }
 
-    public record Parameters(String teamId, Integer limit) { }
+    public record Parameters(String teamId, Integer limit, Integer offset) { }
 
-    public record Result(String teamId, String teamName, List<LinkedProject> projects, int count, int limit) { }
+    public record Result(String teamId, String teamName, List<LinkedProject> projects, int count, long total, int limit, long offset, boolean hasMore) { }
 
     public record LinkedProject(String projectId, String name, String role) { }
 }

@@ -23,6 +23,20 @@ public interface TeamMemberRepository extends CrudRepository<TeamMember, String>
     @Query("""
             SELECT team_id, user_id, role, created_at
             FROM team_member
+            WHERE team_id = :teamId
+            ORDER BY user_id ASC
+            LIMIT :limit OFFSET :offset
+            """)
+    List<TeamMember> findPageByTeamId(@Param("teamId") String teamId,
+                                      @Param("limit") int limit,
+                                      @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM team_member WHERE team_id = :teamId")
+    long countByTeamId(@Param("teamId") String teamId);
+
+    @Query("""
+            SELECT team_id, user_id, role, created_at
+            FROM team_member
             WHERE team_id IN (:teamIds)
             ORDER BY team_id ASC, user_id ASC
             """)

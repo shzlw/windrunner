@@ -33,15 +33,17 @@ public class FetchRelationshipsTool implements Tool<FetchRelationshipsTool.Param
     public Object execute(Parameters parameters) {
         if (parameters == null || parameters.projectId() == null || parameters.projectId().isBlank())
             throw new IllegalArgumentException("projectId is required");
-        String entityId = parameters.entityId();
+        String entityId = parameters.entityId() == null ? null : parameters.entityId().trim();
         int limit = parameters.limit() == null ? 50 : Math.max(1, Math.min(parameters.limit(), 100));
-        List<Relationship> results = relationships.list(parameters.projectId()).stream().filter(r -> entityId == null || entityId.isBlank() || entityId.equals(r.getFromEntityId()) || entityId.equals(r.getToEntityId())).limit(limit).toList();
-        return new Response(results, results.size(), limit);
+        long offset = parameters.offset() == null ? 0 : Math.max(0, parameters.offset());
+        List<Relationship> results = relationships.listPageForTool(parameters.projectId().trim(), entityId, limit, offset);
+        long total = relationships.countForTool(parameters.projectId().trim(), entityId);
+        return new Response(results, results.size(), total, limit, offset, offset + results.size() < total);
     }
 
-    public record Parameters(String projectId, String entityId, Integer limit) {
+    public record Parameters(String projectId, String entityId, Integer limit, Integer offset) {
     }
 
-    public record Response(List<Relationship> relationships, int count, int limit) {
+    public record Response(List<Relationship> relationships, int count, long total, int limit, long offset, boolean hasMore) {
     }
 }

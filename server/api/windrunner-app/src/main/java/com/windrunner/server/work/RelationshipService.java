@@ -33,6 +33,18 @@ public class RelationshipService {
         return relationships.findByProjectId(projectId);
     }
 
+    public List<Relationship> listPageForTool(String projectId, String entityId, int limit, long offset) {
+        return entityId == null || entityId.isBlank()
+                ? relationships.findPageByProjectId(projectId, null, null, limit, offset)
+                : relationships.findPageByProjectAndEntity(projectId, entityId, limit, offset);
+    }
+
+    public long countForTool(String projectId, String entityId) {
+        return entityId == null || entityId.isBlank()
+                ? relationships.countByProjectId(projectId, null, null)
+                : relationships.countByProjectAndEntity(projectId, entityId);
+    }
+
     public Relationship findInAnyProject(String id) {
         return relationships.findById(id).orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
     }

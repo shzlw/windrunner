@@ -535,9 +535,6 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                       <Server className="h-4 w-4" />
                       System information
                     </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Deployment and AI configuration for this Windrunner server.
-                    </p>
                   </div>
 
                   {isLoadingSystemInformation ? (

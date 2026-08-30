@@ -17,6 +17,30 @@ public interface EntryRepository extends CrudRepository<Entry, String> {
     @Query("SELECT " + COLUMNS + " FROM entry WHERE project_id = :projectId ORDER BY work_item_id, sort_index, id")
     List<Entry> findByProjectId(@Param("projectId") String projectId);
 
+    @Query("SELECT " + COLUMNS + " FROM entry WHERE project_id = :projectId ORDER BY created_at DESC, id LIMIT :limit OFFSET :offset")
+    List<Entry> findPageByProjectId(@Param("projectId") String projectId,
+                                    @Param("limit") int limit,
+                                    @Param("offset") long offset);
+
+    @Query("SELECT " + COLUMNS + " FROM entry WHERE project_id = :projectId AND work_item_id = :workItemId ORDER BY sort_index, id LIMIT :limit OFFSET :offset")
+    List<Entry> findPageByProjectIdAndWorkItemId(@Param("projectId") String projectId,
+                                                 @Param("workItemId") String workItemId,
+                                                 @Param("limit") int limit,
+                                                 @Param("offset") long offset);
+
+    record DistributionRow(String value, long count) {
+    }
+
+    @Query("SELECT COUNT(*) FROM entry WHERE project_id = :projectId")
+    long countAllByProjectId(@Param("projectId") String projectId);
+
+    @Query("SELECT COUNT(*) FROM entry WHERE project_id = :projectId AND work_item_id = :workItemId")
+    long countByProjectIdAndWorkItemId(@Param("projectId") String projectId,
+                                       @Param("workItemId") String workItemId);
+
+    @Query("SELECT COALESCE(type, 'UNSET') AS value, COUNT(*) AS count FROM entry WHERE project_id = :projectId GROUP BY type ORDER BY value")
+    List<DistributionRow> countByTypeForProject(@Param("projectId") String projectId);
+
     @Query("SELECT " + COLUMNS + " FROM entry WHERE work_item_id = :workItemId ORDER BY sort_index, id")
     List<Entry> findByWorkItemId(@Param("workItemId") String workItemId);
 

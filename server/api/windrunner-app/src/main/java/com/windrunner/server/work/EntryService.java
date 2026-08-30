@@ -37,6 +37,19 @@ public class EntryService {
         return populateAuthorDisplayNames(entries.findByProjectId(projectId));
     }
 
+    public List<Entry> listPageForTool(String projectId, String workItemId, int limit, long offset) {
+        List<Entry> page = workItemId == null || workItemId.isBlank()
+                ? entries.findPageByProjectId(projectId, limit, offset)
+                : entries.findPageByProjectIdAndWorkItemId(projectId, workItemId, limit, offset);
+        return populateAuthorDisplayNames(page);
+    }
+
+    public long countForTool(String projectId, String workItemId) {
+        return workItemId == null || workItemId.isBlank()
+                ? entries.countAllByProjectId(projectId)
+                : entries.countByProjectIdAndWorkItemId(projectId, workItemId);
+    }
+
     public Entry get(String projectId, String id) {
         return populateAuthorDisplayName(entries.findById(id).filter(e -> projectId.equals(e.getProjectId())).orElseThrow(() -> WorkItemService.notFound("Entry not found")));
     }

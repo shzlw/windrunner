@@ -36,3 +36,19 @@ CREATE INDEX IF NOT EXISTS chat_session_context_session_idx
 
 CREATE INDEX IF NOT EXISTS chat_session_context_entity_idx
     ON chat_session_context (entity_type, entity_id, chat_session_id);
+
+-- Keep paged LLM detail reads on indexed project-local orderings.
+CREATE INDEX IF NOT EXISTS work_item_project_updated_idx
+    ON work_item (project_id, updated_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS entry_project_created_idx
+    ON entry (project_id, created_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS relationship_project_created_idx
+    ON relationship (project_id, created_at DESC, id);
+
+CREATE INDEX IF NOT EXISTS relationship_project_blocked_by_idx
+    ON relationship (project_id, from_entity_id, to_entity_id)
+    WHERE type = 'BLOCKED_BY'
+      AND from_entity_type = 'WORK_ITEM'
+      AND to_entity_type = 'WORK_ITEM';

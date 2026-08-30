@@ -14,6 +14,8 @@ import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.tools.ToolRegistry;
 import com.windrunner.server.tools.work.FetchEntriesTool;
+import com.windrunner.server.tools.work.FetchProjectBlockersTool;
+import com.windrunner.server.tools.work.FetchProjectSummaryTool;
 import com.windrunner.server.tools.work.FetchRelationshipsTool;
 import com.windrunner.server.tools.work.FetchWorkItemsTool;
 import com.windrunner.server.user.domain.AppUser;
@@ -193,7 +195,7 @@ public class ChatMessageController {
 
     private List<LlmTool<?>> projectScopedTools(List<String> allowedProjectIds) {
         return toolRegistry.llmTools().stream().map(tool -> switch (tool.name()) {
-            case "fetch_work_items", "fetch_entries", "fetch_relationships" -> scopedProjectTool(tool, allowedProjectIds);
+            case "fetch_work_items", "fetch_entries", "fetch_relationships", "fetch_project_summary", "fetch_project_blockers" -> scopedProjectTool(tool, allowedProjectIds);
             default -> tool;
         }).toList();
     }
@@ -210,6 +212,8 @@ public class ChatMessageController {
         if (arguments instanceof FetchWorkItemsTool.Parameters p) return p.projectId();
         if (arguments instanceof FetchEntriesTool.Parameters p) return p.projectId();
         if (arguments instanceof FetchRelationshipsTool.Parameters p) return p.projectId();
+        if (arguments instanceof FetchProjectSummaryTool.Parameters p) return p.projectId();
+        if (arguments instanceof FetchProjectBlockersTool.Parameters p) return p.projectId();
         return null;
     }
 
@@ -218,7 +222,7 @@ public class ChatMessageController {
         for (Project project : selectedProjects) {
             scope.append("- Project: ").append(project.getName()).append(" [id=").append(project.getId()).append("]\n");
         }
-        scope.append("Use fetch_work_items, fetch_entries, and fetch_relationships only when the user's question requires current project data.");
+        scope.append("For project-level summaries use fetch_project_summary first; for blocker questions use fetch_project_blockers. Use fetch_work_items, fetch_entries, and fetch_relationships afterward only for targeted records that need more detail.");
         return scope.toString().trim();
     }
 

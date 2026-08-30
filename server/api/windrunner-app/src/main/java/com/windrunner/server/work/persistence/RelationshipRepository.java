@@ -15,6 +15,119 @@ public interface RelationshipRepository extends CrudRepository<Relationship, Str
     @Query("SELECT id, project_id, from_entity_type, from_entity_id, to_entity_type, to_entity_id, type, reason, source_entry_id, created_by_user_id, created_at FROM relationship WHERE project_id = :projectId ORDER BY created_at, id")
     List<Relationship> findByProjectId(@Param("projectId") String projectId);
 
+    record DistributionRow(String value, long count) {
+    }
+
+    record BlockerRow(
+            String relationshipId,
+            String blockedWorkItemId,
+            String blockedWorkItemTitle,
+            String blockedWorkItemStatus,
+            String blockerWorkItemId,
+            String blockerWorkItemTitle,
+            String blockerWorkItemStatus,
+            String reason
+    ) {
+    }
+
+    @Query("SELECT COUNT(*) FROM relationship WHERE project_id = :projectId")
+    long countAllByProjectId(@Param("projectId") String projectId);
+
+    @Query("SELECT COALESCE(type, 'UNSET') AS value, COUNT(*) AS count FROM relationship WHERE project_id = :projectId GROUP BY type ORDER BY value")
+    List<DistributionRow> countByTypeForProject(@Param("projectId") String projectId);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM relationship r
+            JOIN work_item blocked
+              ON blocked.id = r.from_entity_id
+             AND blocked.project_id = r.project_id
+            JOIN work_item blocker
+              ON blocker.id = r.to_entity_id
+             AND blocker.project_id = r.project_id
+            WHERE r.project_id = :projectId
+              AND r.type = 'BLOCKED_BY'
+              AND r.from_entity_type = 'WORK_ITEM'
+              AND r.to_entity_type = 'WORK_ITEM'
+            """)
+    long countWorkItemBlockers(@Param("projectId") String projectId);
+
+    @Query("""
+            SELECT COUNT(DISTINCT r.from_entity_id)
+            FROM relationship r
+            JOIN work_item blocked
+              ON blocked.id = r.from_entity_id
+             AND blocked.project_id = r.project_id
+            JOIN work_item blocker
+              ON blocker.id = r.to_entity_id
+             AND blocker.project_id = r.project_id
+            WHERE r.project_id = :projectId
+              AND r.type = 'BLOCKED_BY'
+              AND r.from_entity_type = 'WORK_ITEM'
+              AND r.to_entity_type = 'WORK_ITEM'
+            """)
+    long countBlockedWorkItems(@Param("projectId") String projectId);
+
+    @Query("""
+            SELECT id, project_id, from_entity_type, from_entity_id, to_entity_type, to_entity_id, type, reason, source_entry_id, created_by_user_id, created_at
+            FROM relationship
+            WHERE project_id = :projectId
+              AND (from_entity_id = :entityId OR to_entity_id = :entityId)
+            ORDER BY created_at DESC, id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<Relationship> findPageByProjectAndEntity(@Param("projectId") String projectId,
+                                                  @Param("entityId") String entityId,
+                                                  @Param("limit") int limit,
+                                                  @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM relationship WHERE project_id = :projectId AND (from_entity_id = :entityId OR to_entity_id = :entityId)")
+    long countByProjectAndEntity(@Param("projectId") String projectId,
+                                 @Param("entityId") String entityId);
+
+    @Query("""
+            SELECT r.id AS relationship_id,
+                   r.from_entity_id AS blocked_work_item_id,
+                   blocked.title AS blocked_work_item_title,
+                   blocked.status AS blocked_work_item_status,
+                   r.to_entity_id AS blocker_work_item_id,
+                   blocker.title AS blocker_work_item_title,
+                   blocker.status AS blocker_work_item_status,
+                   r.reason AS reason
+            FROM relationship r
+            JOIN work_item blocked
+              ON blocked.id = r.from_entity_id
+             AND blocked.project_id = r.project_id
+            JOIN work_item blocker
+              ON blocker.id = r.to_entity_id
+             AND blocker.project_id = r.project_id
+            WHERE r.project_id = :projectId
+              AND r.type = 'BLOCKED_BY'
+              AND r.from_entity_type = 'WORK_ITEM'
+              AND r.to_entity_type = 'WORK_ITEM'
+            ORDER BY blocked.title, blocked.id, blocker.title, blocker.id, r.id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<BlockerRow> findPageWorkItemBlockers(@Param("projectId") String projectId,
+                                              @Param("limit") int limit,
+                                              @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM relationship r
+            JOIN work_item blocked
+              ON blocked.id = r.from_entity_id
+             AND blocked.project_id = r.project_id
+            JOIN work_item blocker
+              ON blocker.id = r.to_entity_id
+             AND blocker.project_id = r.project_id
+            WHERE r.project_id = :projectId
+              AND r.type = 'BLOCKED_BY'
+              AND r.from_entity_type = 'WORK_ITEM'
+              AND r.to_entity_type = 'WORK_ITEM'
+            """)
+    long countAllWorkItemBlockers(@Param("projectId") String projectId);
+
     @Query("SELECT id, project_id, from_entity_type, from_entity_id, to_entity_type, to_entity_id, type, reason, source_entry_id, created_by_user_id, created_at FROM relationship WHERE id = :id")
     Optional<Relationship> findById(@Param("id") String id);
 
