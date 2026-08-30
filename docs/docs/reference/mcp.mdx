@@ -6,7 +6,8 @@ title: MCP server
 # MCP server
 
 Windrunner exposes a [Model Context Protocol](https://modelcontextprotocol.io)
-server for AI clients that need to read or update project work.
+server for AI clients that need to read workspace information or update project
+work.
 
 ## Endpoint and transport
 
@@ -46,16 +47,46 @@ Claude Desktop (`claude_desktop_config.json`):
 
 ## Available tools
 
+Read tools:
+
 | Tool | Scope required | Description |
 | --- | --- | --- |
-| `list_projects` | `projects:read` | Projects visible to the key owner |
+| `list_projects` | `projects:read` | A bounded, paginated page of projects visible to the key owner |
+| `list_teams` | `teams:read` | Bounded team candidates, optionally filtered by query |
+| `get_team` | `teams:read` | One team's name and description |
+| `list_team_members` | `team_members:read` | A bounded, paginated team-member page with title, bio, and role |
+| `list_team_projects` | `team_projects:read` | A bounded, paginated page of projects linked to a team |
+| `list_users` | `users:read` | Bounded active-user candidates, optionally filtered by query |
+| `get_user` | `users:read` | One active user's identity, title, and bio |
 | `search_work_items` | `work_items:read` | Search a project's work items, entries, and relationship reasons |
-| `get_work_item` | `work_items:read` | Full picture of one item: fields, assignees, entries, relationships |
-| `list_my_work` | *(any valid key)* | Items assigned to the key owner across all visible projects |
+| `list_work_items` | `work_items:read` | A bounded, paginated work-item page for a project |
+| `get_work_item` | `work_items:read` + `entries:read` + `relationships:read` | One selected item plus the first bounded pages of entries and relationships |
+| `list_entries` | `entries:read` | A bounded, paginated entry page for a project or work item |
+| `list_relationships` | `relationships:read` | A bounded, paginated relationship page for a project or entity |
+| `list_project_blockers` | `work_items:read` + `relationships:read` | Server-side blocker results with bounded pagination |
+| `get_project_summary` | `projects:read` + `work_items:read` + `entries:read` + `relationships:read` | Server-side project totals and distributions |
+| `list_my_work` | *(any valid key)* | A bounded, paginated page of items assigned to the key owner |
+
+Write tools:
+
+| Tool | Scope required | Description |
+| --- | --- | --- |
 | `add_entry` | `entries:write` | Add a comment, finding, answer, or evidence to an item |
 | `update_work_item_status` | `work_items:write` | Change only the status of an item |
 | `create_work_item` | `work_items:write` | Create a TASK, QUESTION, APPROVAL, REVIEW, or DECISION |
 | `link_relationship` | `relationships:write` | Create a typed link such as BLOCKED_BY between two items |
+
+## Progressive reads
+
+Start with a list or search tool to identify the relevant team, user, project,
+or work item. Candidate lists and collection tools return bounded results;
+collection responses include `total` and `hasMore` where pagination applies.
+Fetch another page only when the question requires it, then use a targeted
+detail tool for the selected ID.
+
+Project summaries and blocker results are aggregated on the server, so they do
+not require loading every work item or entry into the model. This keeps MCP
+usage aligned with the same progressive-fetch behavior used by Ask AI.
 
 ## Safety
 

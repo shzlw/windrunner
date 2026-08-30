@@ -16,7 +16,18 @@ public class ExternalAccessService {
     private final ExternalApiKeyAuthService apiKeyAuthService;
 
     public AppUser requireScope(HttpServletRequest request, String scope) {
-        AuthenticatedApiKey authenticatedApiKey = apiKeyAuthService.requireScope(request, scope);
+        return requireScopes(request, scope);
+    }
+
+    public AppUser requireScopes(HttpServletRequest request, String... scopes) {
+        AuthenticatedApiKey authenticatedApiKey = apiKeyAuthService.authenticate(request);
+        if (scopes != null) {
+            for (String scope : scopes) {
+                if (!authenticatedApiKey.scopes().contains(scope)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "API key scope is not allowed");
+                }
+            }
+        }
         return authenticatedApiKey.owner();
     }
 

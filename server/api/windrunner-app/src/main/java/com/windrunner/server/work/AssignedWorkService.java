@@ -23,11 +23,17 @@ public class AssignedWorkService {
     public List<AssignedWorkItemView> listAssignedToUser(AppUser actor, int page, int size) {
         int normalizedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         long offset = (long) Math.max(page, 0) * normalizedSize;
+        return listAssignedToUser(actor, normalizedSize, offset);
+    }
+
+    public List<AssignedWorkItemView> listAssignedToUser(AppUser actor, int size, long offset) {
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        long normalizedOffset = Math.max(offset, 0);
         List<String> projectIds = visibleProjectIds(actor);
         if (projectIds.isEmpty()) {
             return List.of();
         }
-        return workItems.listAssignedToUser(actor.getId(), projectIds, normalizedSize, offset)
+        return workItems.listAssignedToUser(actor.getId(), projectIds, normalizedSize, normalizedOffset)
                 .stream()
                 .map(row -> new AssignedWorkItemView(
                         row.projectId(),
