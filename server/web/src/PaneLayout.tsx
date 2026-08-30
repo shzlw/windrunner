@@ -114,7 +114,7 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
   if (mode === 'artifact') {
     return (
       <div className={[rootClassName, 'relative'].join(' ')} data-layout="artifact-only">
-        <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {artifact}
         </main>
         <AssistantLauncher onClick={handleOpenAssistant} label={assistantLabel ?? 'Open Ask AI'} />
