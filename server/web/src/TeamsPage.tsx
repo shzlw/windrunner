@@ -84,7 +84,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
     if (!params.get('chatSessionId')) {
       return path
     }
-    params.set('chatPanel', 'open')
+    params.set('chatPanel', params.get('chatPanel') === 'closed' ? 'closed' : 'open')
     return `${path}?${params.toString()}`
   }
 

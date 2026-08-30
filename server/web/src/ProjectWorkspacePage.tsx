@@ -2526,6 +2526,38 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
   )
 }
 
+function ProposalAddDetails({ node, nodeTitleById }: { node: TreeNode; nodeTitleById: Map<string, string> }) {
+  const rows = [
+    { label: 'Title', value: node.title },
+    { label: 'Type', value: node.type },
+    { label: 'Status', value: formatProposalValue(nodeFieldValue(node, 'status')) },
+    { label: 'Due date', value: formatProposalValue(nodeFieldValue(node, 'dueDate')) },
+    { label: 'Priority', value: formatProposalValue(nodeFieldValue(node, 'priority')) },
+    { label: 'Assignees', value: formatProposalValue([
+      ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')),
+      ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')),
+    ]) },
+    { label: 'Parent', value: node.parentNodeId ? nodeTitleById.get(node.parentNodeId) ?? 'Existing work item' : 'Project root' },
+  ]
+
+  return (
+    <div className="rounded-md border bg-muted/20 p-3">
+      <div className="mb-3">
+        <p className="text-sm font-medium">Proposed new work item</p>
+        <p className="text-xs text-muted-foreground">Review the details before adding it to the workspace.</p>
+      </div>
+      <div className="grid gap-2 text-sm sm:grid-cols-2">
+        {rows.map((row) => (
+          <div key={row.label} className="min-w-0 rounded-md border bg-background p-2">
+            <div className="text-xs font-medium text-muted-foreground">{row.label}</div>
+            <div className="mt-0.5 break-words font-medium">{row.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function WorkspaceProposalPanel({
   node,
   changes,
@@ -2558,6 +2590,7 @@ function WorkspaceProposalPanel({
         <Badge variant="secondary">{changes.length} {changes.length === 1 ? 'change' : 'changes'}</Badge>
       </div>
 
+      {node.proposal?.action === 'ADD' ? <ProposalAddDetails node={node} nodeTitleById={nodeTitleById} /> : null}
       {node.proposal?.action === 'UPDATE' ? <ProposalUpdateDiff node={node} /> : null}
 
       {otherNodeChanges.map(({ change }) => (
@@ -2714,7 +2747,7 @@ export default function ProjectWorkspacePage() {
 
   const displayedNodes = useMemo(() => mergeProposalNodes(nodes, graphChangeProposals), [nodes, graphChangeProposals])
   const pendingProposalItems = useMemo(() => pendingProposalNodes(nodes, graphChangeProposals), [nodes, graphChangeProposals])
-  const contentOrderByParent = useMemo(() => groupContentOrderByParent(nodes, entries), [entries, nodes])
+  const contentOrderByParent = useMemo(() => groupContentOrderByParent(displayedNodes, entries), [displayedNodes, entries])
   const tree = useMemo(() => {
     const builtTree = buildTree(displayedNodes, createdSortDirection)
     return createdSortDirection ? builtTree : sortTreeByContentOrder(builtTree, contentOrderByParent)
@@ -3400,7 +3433,7 @@ export default function ProjectWorkspacePage() {
     if (!params.get('chatSessionId')) {
       return path
     }
-    params.set('chatPanel', 'open')
+    params.set('chatPanel', params.get('chatPanel') === 'closed' ? 'closed' : 'open')
     return `${path}?${params.toString()}`
   }
 

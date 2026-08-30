@@ -443,7 +443,12 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     const currentParams = new URLSearchParams(location.search)
     const sessionId = currentParams.get('chatSessionId')
     if (!sessionId) return path
-    const params = new URLSearchParams({ chatSessionId: sessionId, chatPanel: 'open' })
+    const params = new URLSearchParams({ chatSessionId: sessionId })
+    if (currentParams.get('chatPanel') !== 'closed') {
+      params.set('chatPanel', 'open')
+    } else {
+      params.set('chatPanel', 'closed')
+    }
     return `${path}?${params.toString()}`
   }
 

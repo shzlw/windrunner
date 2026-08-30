@@ -84,7 +84,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     if (!params.get('chatSessionId')) {
       return path
     }
-    params.set('chatPanel', 'open')
+    params.set('chatPanel', params.get('chatPanel') === 'closed' ? 'closed' : 'open')
     return `${path}?${params.toString()}`
   }
   const [isAssigningTeam, setIsAssigningTeam] = useState(false)

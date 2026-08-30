@@ -380,6 +380,13 @@ export interface LlmStatus {
   available: boolean
 }
 
+export interface SystemInformation {
+  serverVersion: string
+  llmProvider: string
+  llmModel: string
+  llmAvailable: boolean
+}
+
 export interface ApiError {
   code: string
   message: string
@@ -711,6 +718,10 @@ export async function getProject(id: string): Promise<Project> {
 
 export async function getLlmStatus(): Promise<LlmStatus> {
   return request<LlmStatus>('/internal-api/v1/llm/status', { method: 'GET' })
+}
+
+export async function getSystemInformation(): Promise<SystemInformation> {
+  return request<SystemInformation>('/internal-api/v1/system-information', { method: 'GET' })
 }
 
 export interface LlmUsageTotals {

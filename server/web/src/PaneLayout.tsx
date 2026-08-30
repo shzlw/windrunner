@@ -88,13 +88,19 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
     if (!panel) {
       return
     }
-    if (panel.isCollapsed()) {
+    const shouldOpen = panel.isCollapsed()
+    if (shouldOpen) {
       panel.expand()
       setIsChatCollapsed(false)
     } else {
       panel.collapse()
       setIsChatCollapsed(true)
     }
+
+    const params = new URLSearchParams(location.search)
+    params.set('chatPanel', shouldOpen ? 'open' : 'closed')
+    const query = params.toString()
+    navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, { replace: true })
   }
 
   async function expandAssistant() {

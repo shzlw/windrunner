@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { toast } from 'sonner'
-import { Copy, Eye, EyeOff, KeyRound, LogOut, Plug, RefreshCw, ShieldAlert, X } from 'lucide-react'
+import { Copy, Cpu, Eye, EyeOff, KeyRound, LogOut, Plug, RefreshCw, Server, ShieldAlert, X } from 'lucide-react'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import LanguageSelect from '@/components/LanguageSelect'
@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   createMyApiKey,
   fetchCurrentUser,
+  getSystemInformation,
   listMyApiKeys,
   logout,
   revokeMyApiKey,
@@ -25,6 +26,7 @@ import {
   type ApiKeyScope,
   type AuthUser,
   type CreatedApiKey,
+  type SystemInformation,
   updatePassword,
 } from '@/lib/api'
 
@@ -38,6 +40,11 @@ function accountInitials(user: AuthUser) {
   const parts = source.split(/\s+/).filter(Boolean)
   const initials = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('')
   return initials || '?'
+}
+
+function isAdminLike(user: AuthUser | null) {
+  const role = user?.globalRole?.toUpperCase()
+  return role === 'ADMIN' || role === 'SUPERADMIN'
 }
 
 function formatDateTime(value: string | null | undefined) {
@@ -184,6 +191,8 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
   const [createdApiKey, setCreatedApiKey] = useState<CreatedApiKey | null>(null)
   const [isCreatingApiKey, setIsCreatingApiKey] = useState(false)
   const [revokingApiKeyId, setRevokingApiKeyId] = useState<string | null>(null)
+  const [systemInformation, setSystemInformation] = useState<SystemInformation | null>(null)
+  const [isLoadingSystemInformation, setIsLoadingSystemInformation] = useState(false)
 
   async function loadApiKeys() {
     setIsLoadingApiKeys(true)
@@ -206,6 +215,19 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       setUser(nextUser)
       onUserChange(nextUser)
       await loadApiKeys()
+      if (isAdminLike(nextUser)) {
+        setIsLoadingSystemInformation(true)
+        try {
+          setSystemInformation(await getSystemInformation())
+        } catch (loadError) {
+          setSystemInformation(null)
+          toast.error(loadError instanceof Error ? loadError.message : 'Failed to load system information.')
+        } finally {
+          setIsLoadingSystemInformation(false)
+        }
+      } else {
+        setSystemInformation(null)
+      }
     } catch (loadError) {
       setUser(null)
       onUserChange(null)
@@ -400,6 +422,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="password">Password</TabsTrigger>
               <TabsTrigger value="api-keys">API keys</TabsTrigger>
+              {isAdminLike(user) ? <TabsTrigger value="system">System</TabsTrigger> : null}
             </TabsList>
 
             <TabsContent value="profile">
@@ -503,6 +526,52 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                 </form>
               </section>
             </TabsContent>
+
+            {isAdminLike(user) ? (
+              <TabsContent value="system">
+                <section className="max-w-4xl space-y-5 rounded-md border bg-background p-6">
+                  <div>
+                    <h3 className="flex items-center gap-2 text-sm font-semibold">
+                      <Server className="h-4 w-4" />
+                      System information
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Deployment and AI configuration for this Windrunner server.
+                    </p>
+                  </div>
+
+                  {isLoadingSystemInformation ? (
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <Skeleton className="h-14" />
+                      <Skeleton className="h-14" />
+                    </div>
+                  ) : systemInformation ? (
+                    <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+                      <div>
+                        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Server version</dt>
+                        <dd className="mt-0.5 font-mono text-sm font-medium">{systemInformation.serverVersion}</dd>
+                      </div>
+                      <div>
+                        <dt className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          <Cpu className="h-3.5 w-3.5" />
+                          LLM provider
+                        </dt>
+                        <dd className="mt-0.5 text-sm font-medium">
+                          <span className="capitalize">{systemInformation.llmProvider}</span>
+                          <span className="mx-1.5 text-muted-foreground">·</span>
+                          <span className="font-mono text-xs">{systemInformation.llmModel}</span>
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            ({systemInformation.llmAvailable ? 'available' : 'unavailable'})
+                          </span>
+                        </dd>
+                      </div>
+                    </dl>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">System information is unavailable.</p>
+                  )}
+                </section>
+              </TabsContent>
+            ) : null}
 
             <TabsContent value="api-keys">
               <section className="max-w-5xl space-y-4 rounded-md border bg-background p-4">
