@@ -5,22 +5,29 @@ title: API keys and scopes
 
 # API keys and scopes
 
-{/* TODO: full scope catalog */}
+Create keys from My Account → API keys. Give each key only the scopes it needs.
+The secret is shown once after creation; store it securely.
 
-- Creating API keys on the Account page
-- How keys are authenticated (`Authorization: Bearer <key>` header) and stored (hashed)
-- Keys work for both the REST API and the [MCP server](mcp); each MCP tool requires the scope matching what it does
-- Scope catalog:
+Use a key with the REST API or [MCP server](mcp):
+
+```http
+Authorization: Bearer <key>
+```
+
+## Scopes
 
 | Scope | Allows |
 | --- | --- |
-| teams:read / teams:write | ... |
-| team_members:read / write | ... |
-| team_projects:read / write | ... |
-| users:read / users:write | ... |
-| projects:read / projects:write | ... |
-| work_items:read / work_items:write | ... |
-| entries:read / entries:write | ... |
-| relationships:read / relationships:write | ... |
+| `teams:read` / `teams:write` | Read or manage teams. |
+| `team_members:read` / `team_members:write` | Read or manage team membership. |
+| `team_projects:read` / `team_projects:write` | Read or manage team project links. |
+| `users:read` | Resolve limited user identity information. |
+| `projects:read` / `projects:write` | Read or manage projects. |
+| `project_access:read` / `project_access:write` | Read or manage project members and teams. |
+| `work_items:read` / `work_items:write` | Read or manage work items. |
+| `entries:read` / `entries:write` | Read or manage entries. |
+| `relationships:read` / `relationships:write` | Read or manage relationships. |
+| `audit_logs:read` | Read audit logs. |
 
-- Revoking keys
+Project access still applies: a key can only read or change projects available
+to its owner. Revoke a key from My Account when it should stop working.

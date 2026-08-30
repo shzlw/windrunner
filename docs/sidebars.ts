@@ -9,13 +9,15 @@ const sidebars: SidebarsConfig = {
       items: [
         'getting-started/installation',
         'getting-started/quick-start',
+        'getting-started/build-from-source',
       ],
     },
     {
       type: 'category',
-      label: 'Core Concepts',
-      link: {type: 'doc', id: 'core-concepts/work-items'},
+      label: 'How it works',
+      link: {type: 'doc', id: 'core-concepts/index'},
       items: [
+        'core-concepts/index',
         'core-concepts/work-items',
         'core-concepts/entries',
         'core-concepts/relationships',
@@ -25,8 +27,9 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Guides',
-      link: {type: 'doc', id: 'guides/ai-assistance'},
+      link: {type: 'doc', id: 'guides/home-and-ask-ai'},
       items: [
+        'guides/home-and-ask-ai',
         'guides/ai-assistance',
         'guides/search-and-filtering',
         'guides/following-work',
@@ -34,7 +37,6 @@ const sidebars: SidebarsConfig = {
         'guides/users-and-teams',
         'guides/access-control',
         'guides/audit-log',
-        'guides/internationalization',
       ],
     },
     {
@@ -46,6 +48,7 @@ const sidebars: SidebarsConfig = {
         'reference/cli',
         'reference/configuration',
         'reference/mcp',
+        'reference/internationalization',
       ],
     },
   ],

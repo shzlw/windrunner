@@ -1,13 +1,38 @@
 ---
-sidebar_position: 4
+sidebar_position: 5
 title: Projects and the workspace
 ---
 
 # Projects and the workspace
 
-{/* TODO */}
+A project contains related work items, entries, relationships, and access
+through users and teams.
 
-- Projects as containers for work
-- The workspace layout: tree on the left, inspector on the right
-- Inspector modes: Details, History, AI
-- Reordering content
+## Project access
+
+| Role | Access |
+| --- | --- |
+| `VIEWER` | Read the project and its records. |
+| `EDITOR` | Create and edit work items, entries, and relationships. |
+| `OWNER` | Manage the project and its access, in addition to editor access. |
+
+Access can be assigned directly to a user or through a linked team. A project
+must always have an owner. Super administrators have platform-wide access.
+
+## Workspace layout
+
+The work item tree shows the project outline. The inspector shows details and
+history for the selected item. Editors can add, edit, move, reorder, assign,
+and connect records.
+
+When chat is open, the layout is always:
+
+```text
+Navigation | Conversation | Project workspace
+```
+
+The panels resize and scroll independently. Closing chat does not clear its
+conversation or context, and opening a project does not create a conversation.
+
+Ask AI can use the current project or selected item as context and can propose
+workspace changes for review.

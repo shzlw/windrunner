@@ -1,25 +1,31 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 title: Relationships
 ---
 
 # Relationships
 
-{/* TODO: full semantics table; this is the differentiating concept */}
+Relationships are typed, directed links between work items and entries. They
+make dependencies, blockers, answers, and supporting evidence visible beyond a
+single entry.
 
-Relationships are typed, directional links between work items and entries.
+## Types
 
-| Type | From → To | Meaning |
-| --- | --- | --- |
-| BLOCKED_BY | Work item → Work item | ... |
-| DEPENDS_ON | Work item → Work item | ... |
-| RELATED_TO | Work item → Work item | ... |
-| ANSWERS | Entry → Question | ... |
-| ACCEPTED_ANSWER | Question → Entry | one per question |
-| SUPPORTS | | ... |
-| CONTRADICTS | | ... |
-| RESOLVES | | ... |
-| SUPERSEDES | | ... |
+| Type | Meaning |
+| --- | --- |
+| `BLOCKED_BY` | An item is stopped by another item. |
+| `DEPENDS_ON` | An item relies on another item. |
+| `RELATED_TO` | Two records share a topic. |
+| `ANSWERS` / `ACCEPTED_ANSWER` | An answer is provided or selected for a question. |
+| `SUPPORTS` / `CONTRADICTS` | Records support or conflict with a conclusion. |
+| `RESOLVES` / `SUPERSEDES` | A record closes or replaces another record. |
 
-- Reasons on relationships
-- Who can create which types
+`from` points to `to`. `BLOCKED_BY` normally points from the blocked item to
+the item causing the block. `ACCEPTED_ANSWER` connects a question to one of
+its answer entries, and only one is kept per question.
+
+Both endpoints must be in the same project, and a relationship cannot point to
+itself. Project editors can create, update its reason, and remove it.
+
+Ask AI can propose relationships. Review the endpoints, type, and reason before
+accepting a proposal.

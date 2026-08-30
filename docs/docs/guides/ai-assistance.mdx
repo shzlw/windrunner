@@ -1,14 +1,30 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 title: Using AI assistance
 ---
 
 # Using AI assistance
 
-{/* TODO */}
+Ask AI helps you understand accessible work and prepare changes for review.
+Useful questions include:
 
-- AI review of a work item (title, type, status, due date, blockers)
-- AI review of an entry draft
-- Project chat with tools
-- Workspace change proposals: accept or reject
-- What the AI can and cannot change
+- What needs attention in my work?
+- Which team can help with this issue?
+- What does this person do?
+- What is blocking this project?
+- Review this work item or entry.
+
+AI can use project, team, user, and work-item context. It fetches more detail
+when the question needs it and only uses records you are allowed to access.
+
+## Review changes
+
+AI may propose new or updated work items, entries, and relationships. It checks
+for likely duplicates first. Clear matches are reported for update; ambiguous
+matches require clarification.
+
+Proposals are not applied automatically. Review the proposed fields and then
+accept, reject, or ask for a revision. Users, teams, and projects are not
+directly changed by chat proposals.
+
+Work item and entry AI Review actions follow the same review-before-save model.

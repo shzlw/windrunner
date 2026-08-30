@@ -5,7 +5,7 @@ title: Installation
 
 # Installation
 
-{/* TODO: expand prerequisites section */}
+The quickest way to run Windrunner is Docker Compose.
 
 ## Run with Docker Compose (recommended)
 
@@ -32,100 +32,23 @@ Then:
 docker compose up -d
 ```
 
-Then open http://localhost:8066 and sign in with the bootstrap superadmin
-account from your `.env` (`admin` / from `WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD`
-by default).
+Then open [http://localhost:8066](http://localhost:8066) and sign in with the
+bootstrap superadmin from your `.env`. The default credentials are `admin` and
+the value of `WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD`.
 
-Data lives in the `pgdata` Docker volume. To upgrade to a newer release, pull
-the updated compose file and run `docker compose pull && docker compose up -d`
-— migrations apply automatically.
-
-:::note PostgreSQL 18 data directory
-PostgreSQL 18+ images store data under `/var/lib/postgresql/<version>/`, so the
-volume is mounted at `/var/lib/postgresql` rather than
-`/var/lib/postgresql/data`. If you deployed an earlier Windrunner version with
-the old mount path and a PostgreSQL 17 volume, do **not** point the new stack
-at that volume directly — either start fresh with an empty volume and re-import,
-or migrate using `pg_upgrade`.
-:::
+Data lives in the `pgdata` Docker volume. To upgrade, pull the new image and
+run `docker compose up -d`; Flyway applies migrations automatically.
 
 The app image supports both `linux/amd64` and `linux/arm64` hosts.
 
-<details>
-<summary>Full docker-compose.yml reference</summary>
-
-```yaml
-services:
-  db:
-    image: postgres:18-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: windrunner
-      POSTGRES_USER: ${POSTGRES_USER:-windrunner}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-windrunner}
-    volumes:
-      - pgdata:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-windrunner} -d windrunner"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  app:
-    image: shzlwio/windrunner:1.0
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/windrunner
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-windrunner}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-windrunner}
-      WINDRUNNER_BOOTSTRAP_SUPERADMIN_USERNAME: ${WINDRUNNER_BOOTSTRAP_SUPERADMIN_USERNAME:-admin}
-      WINDRUNNER_BOOTSTRAP_SUPERADMIN_EMAIL: ${WINDRUNNER_BOOTSTRAP_SUPERADMIN_EMAIL:-admin@localhost}
-      WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD: ${WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD:-changeme}
-      WINDRUNNER_AUTH_COOKIE_SECURE: ${WINDRUNNER_AUTH_COOKIE_SECURE:-false}
-    ports:
-      - "${APP_PORT:-8066}:8066"
-
-volumes:
-  pgdata:
-```
-
-</details>
-
 ## Building from source
 
-Prerequisites:
-
-- Java 25 (Temurin recommended)
-- Maven 3.9+
-- Node.js 25+ and npm
-- PostgreSQL with the `pg_trgm` extension available
-
-```bash
-git clone https://github.com/shzlw/windrunner.git
-cd windrunner
-
-./server/build.sh          # builds web UI + API jar
-./server/start-local.sh    # starts against a local PostgreSQL
-```
-
-Database connection defaults live in `server/start-local.sh`; override
-`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and
-`SPRING_DATASOURCE_PASSWORD` as needed.
+For prerequisites, database setup, local configuration, and troubleshooting,
+see [Build from source](./build-from-source).
 
 See [Configuration](../reference/configuration) for all environment variables.
 
 ## Use the CLI
 
-Install the optional Windrunner CLI to work with projects, work items, entries,
-and search from a terminal or automation:
-
-```bash
-npm install -g @shzlwio/windrunner-cli
-windrunner --help
-```
-
-See the [CLI reference](../reference/cli) for authentication, API-key scopes,
-command examples, JSON output, and dry-run behavior.
+The optional [Windrunner CLI](../reference/cli) supports terminal workflows and
+automation.

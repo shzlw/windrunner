@@ -1,0 +1,34 @@
+---
+sidebar_position: 5
+title: Internationalization
+---
+
+# Internationalization
+
+This is a developer guide for adding a web-interface language. English is the
+only language currently registered.
+
+## Add a language
+
+1. Copy `server/web/src/i18n/locales/en.ts` to a new locale file, such as
+   `server/web/src/i18n/locales/es.ts`.
+2. Translate the values without changing the key structure.
+3. Import the locale and add it to `resources` and `supportedLanguages` in
+   `server/web/src/i18n/locales/index.ts`.
+4. Use `useTranslation()` for new user-facing text.
+
+The language selector is rendered by
+`server/web/src/components/LanguageSelect.tsx`. The selected language is
+stored in the browser and browser-language detection is used when no selection
+exists.
+
+## Verify
+
+From the repository root:
+
+```bash
+cd server/web
+npm run build
+```
+
+Check navigation, buttons, dialogs, and layouts with longer translated text.

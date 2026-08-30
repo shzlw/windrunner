@@ -1,16 +1,42 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 title: Work items
 ---
 
 # Work items
 
-{/* TODO: absorb from DESIGN.md */}
+A work item is the durable record for something a project needs to complete,
+answer, approve, review, or decide. Use entries for updates and supporting
+detail.
 
-Work items are outcomes that someone is responsible for.
+## Fields
 
-- The five types: TASK, QUESTION, APPROVAL, REVIEW, DECISION — and when to use each
-- Hierarchy: parent items and sub-items
-- Statuses and priorities
-- Due dates
-- Assignees: users and teams
+| Field | Purpose |
+| --- | --- |
+| Title | Short description of the work. |
+| Type | Kind of work or decision. |
+| Status | Current state, based on the type. |
+| Priority and due date | Optional urgency and target date. |
+| Parent | Optional place in the project outline. |
+| Assignees | Users or teams responsible for the item. |
+
+## Types and statuses
+
+| Type | Starting status | Available statuses |
+| --- | --- | --- |
+| `TASK`, `REVIEW` | `OPEN` | `OPEN`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `CANCELLED` |
+| `QUESTION` | `OPEN` | `OPEN`, `WAITING`, `ANSWERED`, `CANCELLED` |
+| `APPROVAL` | `PENDING` | `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED` |
+| `DECISION` | `OPEN` | `OPEN`, `IN_PROGRESS`, `DONE`, `CANCELLED` |
+
+`BLOCKED` means progress is stopped by another item. Record the cause with a
+[`BLOCKED_BY`](relationships) relationship.
+
+## Hierarchy and assignments
+
+Children can be nested, moved, and reordered. Use a parent for structure and a
+relationship for dependency. An item can be assigned to users, teams, or both;
+team assignments also appear in the assignees' My Work views.
+
+Editors can create and update work items. Ask AI can propose changes, but the
+proposal does not change the project until it is accepted.

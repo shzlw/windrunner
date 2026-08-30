@@ -1,15 +1,36 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 title: Entries
 ---
 
 # Entries
 
-{/* TODO: absorb from DESIGN.md; stress that entries are not comments */}
+An entry is a dated record attached to a work item. Use it for updates,
+decisions, answers, evidence, proposals, and resolutions. Use a work item when
+the subject needs its own title, status, assignees, or place in the hierarchy.
 
-Entries are chronological records attached to a work item.
+## Types
 
-- Entry types: COMMENT, INFORMATION, ANSWER, EVIDENCE, PROPOSAL, RESOLUTION
-- Entries vs. comments: entries carry meaning the graph can reason about
-- Editing and deleting entries
-- How AI review uses entries as evidence
+| Type | Use it for |
+| --- | --- |
+| `COMMENT` | General update or discussion. |
+| `INFORMATION` | Fact or observation. |
+| `ANSWER` | Response to a `QUESTION` work item. |
+| `EVIDENCE` | Supporting fact or finding. |
+| `PROPOSAL` | Suggested approach or change. |
+| `RESOLUTION` | Outcome that closes or resolves an issue. |
+
+Entries have a type, body, author, and timestamps. They do not have their own
+title; the parent work item provides the subject.
+
+## Accepted answers
+
+A question can have one accepted `ANSWER` entry. Accepting another answer
+replaces the previous one. Windrunner records the choice with an
+`ACCEPTED_ANSWER` relationship and changes the question to `ANSWERED`.
+
+## Editing and AI review
+
+Project editors can edit or delete entries. Deleting an entry also removes its
+relationships. AI Review can suggest a clearer body or entry type; the saved
+entry changes only after you accept the suggestion. See [Using AI assistance](../guides/ai-assistance).

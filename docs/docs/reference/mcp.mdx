@@ -5,12 +5,8 @@ title: MCP server
 
 # MCP server
 
-{/* TODO: add client screenshots once available */}
-
 Windrunner exposes a [Model Context Protocol](https://modelcontextprotocol.io)
-server so AI agents such as Codex, Claude Desktop, and Cursor can operate the
-system natively — finding work, reading full context, recording findings, and
-updating status without custom HTTP plumbing.
+server for AI clients that need to read or update project work.
 
 ## Endpoint and transport
 
@@ -22,7 +18,7 @@ updating status without custom HTTP plumbing.
 
 Enable/disable with `WINDRUNNER_MCP_ENABLED` (`true` by default).
 
-## Connecting clients
+## Connect a client
 
 Codex CLI:
 
@@ -48,12 +44,12 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
-## Tool catalog
+## Available tools
 
 | Tool | Scope required | Description |
 | --- | --- | --- |
 | `list_projects` | `projects:read` | Projects visible to the key owner |
-| `search_work_items` | `work_items:read` | Typo-tolerant full-text search across items, entries, and relationship reasons |
+| `search_work_items` | `work_items:read` | Search a project's work items, entries, and relationship reasons |
 | `get_work_item` | `work_items:read` | Full picture of one item: fields, assignees, entries, relationships |
 | `list_my_work` | *(any valid key)* | Items assigned to the key owner across all visible projects |
 | `add_entry` | `entries:write` | Add a comment, finding, answer, or evidence to an item |
@@ -61,10 +57,13 @@ Claude Desktop (`claude_desktop_config.json`):
 | `create_work_item` | `work_items:write` | Create a TASK, QUESTION, APPROVAL, REVIEW, or DECISION |
 | `link_relationship` | `relationships:write` | Create a typed link such as BLOCKED_BY between two items |
 
-## Safety model
+## Safety
 
 - Every action is attributed to the API-key owner in the audit log.
 - Writes trigger the same notifications as human actions.
 - Project-level authorization still applies: a key can only see and modify
   projects its owner can.
+- Agents should search for an existing matching work item, entry, or
+  relationship before creating one. A clear match should be reported or
+  updated rather than duplicated; ambiguous matches should be clarified.
 - No delete tools are exposed.

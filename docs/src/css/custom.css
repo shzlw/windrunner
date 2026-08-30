@@ -96,8 +96,14 @@
 /* ---------- Tables ---------- */
 
 .markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
   border-radius: 0.5rem;
-  overflow: hidden;
+}
+
+.markdown table code {
+  white-space: nowrap;
 }
 
 .markdown table th {

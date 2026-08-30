@@ -38,6 +38,15 @@
 - Keep write operations separate from read tools. Use an explicit proposal or confirmation flow for mutations, and never claim a mutation was applied unless it was actually persisted.
 - Before an LLM write proposes an ADD, require a targeted read/search for an existing match. Report a clear match and use UPDATE with its exact ID when the user wants to change it; do not guess between ambiguous matches; only propose ADD after no clear match is found.
 
+## Documentation
+
+- Document only behavior and features that exist in the product. If a claim is uncertain, check the actual code, routes, UI, or configuration before writing it.
+- Do not document planned, implied, or hypothetical features as if they are available.
+- Keep implementation details out of user-facing documentation unless they are necessary for a user to complete a task.
+- Focus on information users need and the value it provides. Use clear, direct, friendly language and explain what users can do and what to expect.
+- Keep conceptual documentation separate from task-oriented guides and technical reference material.
+- When updating documentation, check links, navigation, formatting, and the documentation build before finishing.
+
 ## Docker
 
 - Publish images to Docker Hub under the `shzlwio` namespace, for example `shzlwio/windrunner:1.0`.

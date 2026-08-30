@@ -1,0 +1,80 @@
+---
+sidebar_position: 3
+title: Build from source
+---
+
+# Build from source
+
+Use this guide for local development or to run Windrunner from a checkout.
+
+## Requirements
+
+- Git
+- Java 25
+- Maven 3.9+
+- Node.js 25+ and npm
+- PostgreSQL with `pg_trgm`
+
+## Prepare PostgreSQL
+
+Create a database and enable the extension:
+
+```bash
+createdb -h 127.0.0.1 -U postgres windrunner
+psql -h 127.0.0.1 -U postgres -d windrunner \
+  -c 'CREATE EXTENSION IF NOT EXISTS pg_trgm;'
+```
+
+Use your own PostgreSQL credentials if they differ from these examples.
+
+## Build and start
+
+From the repository root:
+
+```bash
+./server/build.sh
+./server/start-local.sh
+```
+
+The build creates the frontend, packages it with the server, and produces the
+JAR used by the startup script. Flyway applies the schema when the server
+starts.
+
+The startup defaults are:
+
+```text
+URL:      http://localhost:8066
+Database: jdbc:postgresql://127.0.0.1:5432/windrunner
+Username: your operating-system username
+Password: test
+Login:    admin / changeme
+```
+
+Change the password after signing in. Override database settings with
+`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and
+`SPRING_DATASOURCE_PASSWORD`.
+
+## AI provider
+
+The local script uses OpenAI unless configured otherwise:
+
+```bash
+export WINDRUNNER_LLM_PROVIDER=openai
+export OPENAI_API_KEY=your-api-key
+```
+
+Gemini and Claude are also supported. Use `none` to run without AI:
+
+```bash
+export WINDRUNNER_LLM_PROVIDER=none
+```
+
+See [Configuration](../reference/configuration) for supported variables.
+
+## Common fixes
+
+- **JAR not found:** run `./server/build.sh` first.
+- **Database connection failed:** check PostgreSQL and the
+  `SPRING_DATASOURCE_*` values.
+- **Missing AI key:** set the key for the selected provider or use `none`.
+- **Port in use:** stop the process using port `8066`.

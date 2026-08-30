@@ -1,24 +1,41 @@
 ---
-sidebar_position: 2
+sidebar_position: 7
 title: Access control
 ---
 
 # Access control
 
-{/* TODO: absorb from ACCESS_MODEL_DESIGN.md */}
+Project access comes from direct user membership or membership in a team linked
+to the project. Team or user visibility alone does not grant project access.
 
-- Global roles: USER, ADMIN, SUPERADMIN
-- Project roles: VIEWER, EDITOR, OWNER — what each can do
-- Team roles: TEAM_OWNER, TEAM_MEMBER
-- How project access is granted: direct membership vs. team membership
+## Platform roles
 
-## Teams are a company-wide directory
+| Role | Access |
+| --- | --- |
+| `USER` | Access projects assigned to the user or their teams. |
+| `ADMIN` | Manage users and teams; open Administration pages. |
+| `SUPERADMIN` | Full platform access, including all projects and Administration pages. |
 
-Teams are visible to every authenticated user and every API key with the
-relevant scope. Seeing a team — its name, members, and linked projects —
-grants no permissions beyond that visibility; all authorization is decided by
-project roles. This mirrors the internal product behavior, where the Teams
-page lists the same directory to everyone.
+Admins and superadmins can open Audit Logs and AI Analytics. An admin does not
+automatically become a member of every project.
 
-If private teams are ever introduced, this section is where the policy will be
-defined.
+## Project roles
+
+| Role | Access |
+| --- | --- |
+| `VIEWER` | Read project records and history. |
+| `EDITOR` | Create and edit work items, entries, and relationships. |
+| `OWNER` | Manage project access and settings, in addition to editor access. |
+
+Projects always require at least one owner. A team inherits the project role
+assigned to it, and its members inherit that project access.
+
+## Team roles
+
+| Role | Access |
+| --- | --- |
+| `TEAM_MEMBER` | Belong to the team and inherit its project access. |
+| `TEAM_OWNER` | Review and decide join requests. |
+
+Administrators manage team records, membership, and project links. Team
+ownership does not replace a project role.
