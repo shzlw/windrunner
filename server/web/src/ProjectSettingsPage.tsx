@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ChevronRight, FolderOpen, Loader2, Plus, Save, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
-import { NavLink, useNavigate, useParams } from 'react-router'
+import { NavLink, useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
@@ -60,6 +60,7 @@ function formatOptionalDate(value: string | undefined) {
 }
 
 export default function ProjectSettingsPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const location = useLocation()
   const navigate = useNavigate()
   const { projectId } = useParams()
   const [project, setProject] = useState<Project | null>(null)
@@ -77,6 +78,15 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  function workspaceDestination(path: string) {
+    const params = new URLSearchParams(location.search)
+    if (!params.get('chatSessionId')) {
+      return path
+    }
+    params.set('chatPanel', 'open')
+    return `${path}?${params.toString()}`
+  }
   const [isAssigningTeam, setIsAssigningTeam] = useState(false)
   const [isAssigningMember, setIsAssigningMember] = useState(false)
   const [updatingMemberUserId, setUpdatingMemberUserId] = useState<string | null>(null)
@@ -192,7 +202,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     try {
       await request<void>(`/internal-api/v1/projects/${project.id}`, { method: 'DELETE' })
       toast.success('Project deleted.')
-      navigate('/app/projects')
+      navigate(workspaceDestination('/app/projects'))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete project.')
     } finally {
@@ -343,11 +353,11 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold leading-none tracking-normal">
-          <NavLink to="/app/projects" className="shrink-0 text-muted-foreground hover:text-foreground">
+          <NavLink to={workspaceDestination('/app/projects')} className="shrink-0 text-muted-foreground hover:text-foreground">
             Projects
           </NavLink>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <NavLink to={`/app/projects/${project.id}`} className="flex min-w-0 items-center gap-1.5 text-muted-foreground hover:text-foreground">
+          <NavLink to={workspaceDestination(`/app/projects/${project.id}`)} className="flex min-w-0 items-center gap-1.5 text-muted-foreground hover:text-foreground">
             <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span className="truncate">{formatProjectTitle(project)}</span>
           </NavLink>

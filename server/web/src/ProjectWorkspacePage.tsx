@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactElement, ReactNode } from 'react'
-import { NavLink, Navigate, useParams, useSearchParams } from 'react-router'
+import { NavLink, Navigate, useLocation, useParams, useSearchParams } from 'react-router'
 import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -2610,6 +2610,7 @@ function WorkspaceProposalPanel({
 }
 
 export default function ProjectWorkspacePage() {
+  const location = useLocation()
   const { projectId } = useParams()
   const [searchParams] = useSearchParams()
   const requestedWorkItemId = searchParams.get('workItemId')?.trim() || null
@@ -3364,6 +3365,15 @@ export default function ProjectWorkspacePage() {
 
   if (!projectId) {
     return <Navigate to="/app/projects" replace />
+  }
+
+  function workspaceDestination(path: string) {
+    const params = new URLSearchParams(location.search)
+    if (!params.get('chatSessionId')) {
+      return path
+    }
+    params.set('chatPanel', 'open')
+    return `${path}?${params.toString()}`
   }
 
   function selectNode(node: ProjectNode) {
@@ -4218,7 +4228,7 @@ export default function ProjectWorkspacePage() {
                 <EmptyTitle>Project not found</EmptyTitle>
               </EmptyHeader>
               <div className="flex justify-center">
-                <NavLink to="/app/projects" className={buttonVariants()}>
+                <NavLink to={workspaceDestination('/app/projects')} className={buttonVariants()}>
                   Back to projects
                 </NavLink>
               </div>
@@ -4233,7 +4243,7 @@ export default function ProjectWorkspacePage() {
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 md:px-6">
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold leading-none tracking-normal">
-          <NavLink to="/app/projects" className="shrink-0 text-muted-foreground hover:text-foreground">
+          <NavLink to={workspaceDestination('/app/projects')} className="shrink-0 text-muted-foreground hover:text-foreground">
             Projects
           </NavLink>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -4242,7 +4252,7 @@ export default function ProjectWorkspacePage() {
             <span className="truncate">{formatProjectTitle(project)}</span>
           </span>
         </h1>
-        <Button render={<NavLink to={`/app/projects/${project.id}/settings`} />} variant="ghost" size="icon-sm" aria-label="Project settings">
+        <Button render={<NavLink to={workspaceDestination(`/app/projects/${project.id}/settings`)} />} variant="ghost" size="icon-sm" aria-label="Project settings">
           <Settings className="h-4 w-4" />
         </Button>
       </div>

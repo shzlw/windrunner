@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowRight, Calendar, Clock, FolderOpen, Loader2, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
@@ -100,6 +100,7 @@ function toFormState(project: Project): ProjectFormState {
 }
 
 export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const location = useLocation()
   const navigate = useNavigate()
   const [projects, setProjects] = useState<Project[]>([])
   const [teams, setTeams] = useState<Team[]>([])
@@ -214,7 +215,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
   }
 
   function handleOpenProjectSettings(projectId: string) {
-    void navigate(`/app/projects/${projectId}/settings`)
+    void navigate(workspaceDestination(`/app/projects/${projectId}/settings`))
   }
 
   function openEditSheet() {
@@ -228,7 +229,16 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
   }
 
   function handleOpenProject(projectId: string) {
-    void navigate(`/app/projects/${projectId}`)
+    void navigate(workspaceDestination(`/app/projects/${projectId}`))
+  }
+
+  function workspaceDestination(path: string) {
+    const params = new URLSearchParams(location.search)
+    if (!params.get('chatSessionId')) {
+      return path
+    }
+    params.set('chatPanel', 'open')
+    return `${path}?${params.toString()}`
   }
 
   async function handleCreateProject(event: FormEvent<HTMLFormElement>) {
