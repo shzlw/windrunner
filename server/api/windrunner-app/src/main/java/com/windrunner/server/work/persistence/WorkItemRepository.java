@@ -38,7 +38,7 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
     @Query("""
             SELECT COUNT(*) FILTER (WHERE due_date IS NOT NULL) AS with_due_date,
                    COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('DONE', 'CANCELLED')) AS overdue,
-                   COUNT(*) FILTER (WHERE due_date >= CURRENT_DATE AND due_date <= CURRENT_DATE + 7 AND status NOT IN ('DONE', 'CANCELLED')) AS due_within_next_7_days
+                   COUNT(*) FILTER (WHERE due_date >= CURRENT_DATE AND due_date <= CURRENT_DATE + 7 AND status NOT IN ('DONE', 'CANCELLED')) AS due_within_next7_days
             FROM work_item
             WHERE project_id = :projectId
             """)

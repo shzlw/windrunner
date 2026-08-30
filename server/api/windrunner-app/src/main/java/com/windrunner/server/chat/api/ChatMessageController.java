@@ -45,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/internal-api/v1/chat-sessions/{sessionId}/messages")
 public class ChatMessageController {
     private static final long STREAM_TIMEOUT_MILLIS = 180_000;
+    private static final String GENERIC_CHAT_ERROR = "The AI couldn't complete your request. Please try again.";
     private static final int MAX_MESSAGES = 50;
     private static final int MAX_MESSAGE_LENGTH = 20_000;
     private static final int MAX_TOTAL_LENGTH = 100_000;
@@ -272,7 +273,7 @@ public class ChatMessageController {
                 || normalized.contains("connection aborted");
     }
 
-    private String userFacingMessage(Exception exception) { return exception.getMessage() == null || exception.getMessage().isBlank() ? "The chat response could not be completed" : exception.getMessage(); }
+    static String userFacingMessage(Exception exception) { return GENERIC_CHAT_ERROR; }
     private String titleFromMessage(String content) {
         String title = content.replaceAll("\\s+", " ").trim();
         return title.length() > 120 ? title.substring(0, 117) + "..." : title;

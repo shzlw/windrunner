@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import { useLocation, useNavigate, useOutlet, useOutletContext, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
@@ -18,7 +19,11 @@ export default function AppView() {
   const [searchParams] = useSearchParams()
   const { projectId, teamId } = useParams()
   const appContext = useOutletContext<AskPageOutletContext>()
-  const outlet = useOutlet(appContext)
+  const [artifactRefreshKey, setArtifactRefreshKey] = useState(0)
+  const notifyArtifactChange = useCallback(() => {
+    setArtifactRefreshKey((current) => current + 1)
+  }, [])
+  const outlet = useOutlet({ ...appContext, artifactRefreshKey })
   const isHome = location.pathname === '/app' || location.pathname === '/app/home'
   const isAskAi = location.pathname === '/app/ask-ai' || location.pathname.startsWith('/app/ask-ai/')
   const hasChatPanel = searchParams.get('chatPanel') === 'open'
@@ -72,7 +77,7 @@ export default function AppView() {
   return (
     <PaneLayout
       mode={hasChatPanel ? 'split' : 'artifact'}
-      chat={hasChatPanel ? <AskPage projectId={projectId} /> : undefined}
+      chat={hasChatPanel ? <AskPage projectId={projectId} onGraphChangeProposalSaved={notifyArtifactChange} /> : undefined}
       artifact={outlet}
       onOpenAssistant={openAssistant}
       assistantLabel={assistantArtifact ? `Ask AI about this ${assistantArtifact.label}` : undefined}

@@ -35,10 +35,10 @@ public class LlmUsageService {
                     context.projectId(),
                     context.feature().name(),
                     llmAvailability.provider(),
-                    result.model(),
+                    modelOrConfigured(result.model()),
                     result.inputTokens(),
                     result.outputTokens(),
-                    result.totalTokens(),
+                    totalTokens(result.inputTokens(), result.outputTokens(), result.totalTokens()),
                     OUTCOME_SUCCESS,
                     null,
                     durationMs);
@@ -56,7 +56,7 @@ public class LlmUsageService {
                     context.projectId(),
                     context.feature().name(),
                     llmAvailability.provider(),
-                    null,
+                    modelOrConfigured(null),
                     null,
                     null,
                     null,
@@ -73,6 +73,20 @@ public class LlmUsageService {
             return null;
         }
         return message.length() <= MAX_ERROR_LENGTH ? message : message.substring(0, MAX_ERROR_LENGTH);
+    }
+
+    private String modelOrConfigured(String model) {
+        return model == null || model.isBlank() ? llmAvailability.model() : model;
+    }
+
+    private Long totalTokens(Long inputTokens, Long outputTokens, Long totalTokens) {
+        if (totalTokens != null) {
+            return totalTokens;
+        }
+        if (inputTokens == null && outputTokens == null) {
+            return null;
+        }
+        return (inputTokens == null ? 0 : inputTokens) + (outputTokens == null ? 0 : outputTokens);
     }
 
     @Transactional(readOnly = true)

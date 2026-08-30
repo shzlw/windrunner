@@ -19,6 +19,7 @@ type ContextType = 'projects' | 'teams' | 'users'
 
 type AskPageProps = {
   projectId?: string
+  onGraphChangeProposalSaved?: () => void | Promise<void>
 }
 
 function projectTitle(project: Project) {
@@ -44,7 +45,7 @@ function referencesForNodes(nodes: ProjectNode[]) {
   } satisfies ChatWorkItemReference]))
 }
 
-export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}) {
+export default function AskPage({ projectId: routeProjectId, onGraphChangeProposalSaved }: AskPageProps = {}) {
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -530,6 +531,7 @@ export default function AskPage({ projectId: routeProjectId }: AskPageProps = {}
       onCreateSession={createChatSession}
       onSessionActivity={() => refreshChatSessions().catch(showSessionError)}
       onStreamingChange={onStreamingChange}
+      onGraphChangeProposalSaved={onGraphChangeProposalSaved}
       showHeader={false}
       allowEmptyProject
       composerFooter={projectContext}

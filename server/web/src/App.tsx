@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -307,14 +307,17 @@ function AskSessionsSidebar({
       </div>
 
       {hasMore ? (
-        <div className="shrink-0 px-2 py-1 group-data-[collapsible=icon]:hidden">
+        <div className="shrink-0 px-2 pb-2 pt-1 group-data-[collapsible=icon]:hidden">
           <Button
             type="button"
             variant="ghost"
-            className="h-7 w-full text-xs"
+            size="sm"
+            className="h-7 w-full gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             onClick={() => void onLoadMore()}
+            disabled={isLoading}
           >
-            Load more
+            {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {isLoading ? 'Loading…' : 'Load more'}
           </Button>
         </div>
       ) : null}

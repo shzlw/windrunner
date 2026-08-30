@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactElement, ReactNode } from 'react'
-import { NavLink, Navigate, useLocation, useParams, useSearchParams } from 'react-router'
+import { NavLink, Navigate, useLocation, useOutletContext, useParams, useSearchParams } from 'react-router'
 import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, PanelRightClose, PanelRightOpen, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { usePanelRef } from 'react-resizable-panels'
@@ -123,6 +123,10 @@ type FlatTreeNode = TreeNode & {
 type InspectorMode = 'task' | 'history'
 type CreatedSortDirection = 'ASC' | 'DESC' | null
 type WorkItemFilterField = 'STATUS' | 'PRIORITY' | 'DUE_DATE' | 'ASSIGNEE'
+
+type ProjectWorkspaceOutletContext = {
+  artifactRefreshKey: number
+}
 type WorkItemFilterOperator = 'AND' | 'OR'
 
 type WorkItemFilterCondition = {
@@ -2660,6 +2664,7 @@ export default function ProjectWorkspacePage() {
   const location = useLocation()
   const { projectId } = useParams()
   const [searchParams] = useSearchParams()
+  const { artifactRefreshKey } = useOutletContext<ProjectWorkspaceOutletContext>()
   const requestedWorkItemId = searchParams.get('workItemId')?.trim() || null
   const [project, setProject] = useState<Project | null>(null)
   const [workspacePanelLayout] = useState(readWorkspacePanelLayout)
@@ -2714,6 +2719,8 @@ export default function ProjectWorkspacePage() {
   const [autoEditTitleNodeId, setAutoEditTitleNodeId] = useState<string | null>(null)
   const [blockerWorkItems, setBlockerWorkItems] = useState<WorkItem[]>([])
   const [isSavingBlocker, setIsSavingBlocker] = useState(false)
+  const nodesRef = useRef(nodes)
+  nodesRef.current = nodes
 
   useEffect(() => () => {
     if (chatHighlightTimerRef.current !== null) {
@@ -3679,18 +3686,30 @@ export default function ProjectWorkspacePage() {
     setForm(createFormState(nextSelectedNode))
   }
 
-  async function reloadGraphChangeProposals() {
+  const reloadGraphChangeProposals = useCallback(async () => {
     if (!projectId) {
       return
     }
 
     const nextGraphChangeProposals = await listGraphChangeProposals(projectId)
+    const proposalContextNodes = await loadProposalContextNodes(projectId, nextGraphChangeProposals, nodesRef.current)
+    setNodes((current) => mergeNodesById(current, proposalContextNodes))
     setGraphChangeProposals(nextGraphChangeProposals)
     setExpandedNodeIds((current) => new Set([
       ...current,
       ...proposalParentIds(nextGraphChangeProposals),
     ]))
-  }
+  }, [projectId])
+
+  useEffect(() => {
+    if (artifactRefreshKey === 0 || !projectId) {
+      return
+    }
+
+    void reloadGraphChangeProposals().catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to refresh AI suggestions.')
+    })
+  }, [artifactRefreshKey, projectId, reloadGraphChangeProposals])
 
   async function reloadWorkspaceRelationships() {
     if (!projectId) {

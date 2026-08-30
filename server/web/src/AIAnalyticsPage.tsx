@@ -107,6 +107,10 @@ function formatDuration(milliseconds: number) {
   return `${formatNumber(milliseconds / 60_000)}m`
 }
 
+function formatModelName(model: string | null | undefined) {
+  return model?.trim() || 'Unknown model'
+}
+
 function isStatus(change: GraphChangeProposalChange, status: string) {
   return change.status?.toUpperCase() === status
 }
@@ -467,7 +471,7 @@ export default function AIAnalyticsPage() {
         ) : null}
 
         <Tabs defaultValue="overview" className="gap-4">
-          <TabsList variant="line" className="w-full justify-start overflow-x-auto border-b">
+          <TabsList variant="line" className="justify-start overflow-x-auto overflow-y-hidden border-b">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="usage">Usage &amp; reliability</TabsTrigger>
             <TabsTrigger value="outcomes">ROI &amp; outcomes</TabsTrigger>
@@ -755,7 +759,7 @@ export default function AIAnalyticsPage() {
                   <TableRow key={`${row.provider}:${row.model ?? 'unknown'}`}>
                     <TableCell className="font-medium capitalize">{row.provider}</TableCell>
                     <TableCell>
-                      <span className="font-mono text-xs text-muted-foreground">{row.model ?? '—'}</span>
+                      <span className="font-mono text-xs text-muted-foreground">{formatModelName(row.model)}</span>
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCompact(row.inputTokens + row.outputTokens)}

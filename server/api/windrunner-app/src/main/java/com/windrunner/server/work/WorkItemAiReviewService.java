@@ -92,10 +92,16 @@ public class WorkItemAiReviewService {
                     List.of(new LlmMessage("user", reviewInput)),
                     FileUtils.loadSystemPrompt(REVIEW_PROMPT),
                     List.of(fetchDetailsTool, searchBlockerCandidatesTool, tool));
-        } catch (RestClientResponseException exception) {
-            if (exception.getStatusCode().value() == HttpStatus.TOO_MANY_REQUESTS.value()) {
+        } catch (Exception exception) {
+            long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+            llmUsageService.recordFailure(
+                    new LlmUsageContext(actorId, projectId, LlmUsageFeature.WORK_ITEM_AI_REVIEW),
+                    exception.getMessage(),
+                    durationMs);
+            if (exception instanceof RestClientResponseException responseException
+                    && responseException.getStatusCode().value() == HttpStatus.TOO_MANY_REQUESTS.value()) {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-                        "The AI service is temporarily rate-limited. Please try the review again in a moment.", exception);
+                        "The AI service is temporarily rate-limited. Please try the review again in a moment.", responseException);
             }
             throw exception;
         }
