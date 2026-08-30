@@ -651,7 +651,7 @@ export default function ChatPanel({
                             ? renderAssistantContent(message.content, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick)
                             : <span className="whitespace-pre-wrap">{message.content}</span>
                           : (
-                            <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="flex min-h-5 items-center gap-2 text-sm leading-none text-muted-foreground">
                               <Loader2 className="h-4 w-4 animate-spin" />
                               <span>Thinking…</span>
                             </span>
