@@ -29,6 +29,20 @@ export interface Project {
   archivedAt?: string | null;
 }
 
+export interface ProjectMember {
+  projectId: string;
+  userId: string;
+  role: string;
+  createdAt?: string;
+}
+
+export interface ProjectTeam {
+  projectId: string;
+  teamId: string;
+  role: string;
+  createdAt?: string;
+}
+
 export interface WorkItem {
   id?: string;
   projectId?: string;
@@ -64,6 +78,72 @@ export interface Entry {
   body: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface Relationship {
+  id?: string;
+  projectId?: string;
+  fromEntityType: string;
+  fromEntityId: string;
+  toEntityType: string;
+  toEntityId: string;
+  type: string;
+  reason?: string | null;
+  sourceEntryId?: string | null;
+  createdByUserId?: string;
+  createdAt?: string;
+}
+
+export interface SearchResult {
+  workItems: WorkItemResponse[];
+  entries: Entry[];
+  relationships: Relationship[];
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface TeamMember {
+  teamId: string;
+  userId: string;
+  role: string;
+  createdAt?: string;
+}
+
+export interface UserIdentity {
+  id: string;
+  username: string;
+  displayName?: string | null;
+  title?: string | null;
+  bio?: string | null;
+}
+
+export interface ContentOrderItem {
+  entityType: string;
+  entityId: string;
+  sortIndex: number;
+}
+
+export interface AuditLog {
+  id: string;
+  occurredAt?: string;
+  actorUserId?: string | null;
+  actorDisplayName?: string | null;
+  action?: string;
+  entityType?: string;
+  entityId?: string;
+  entityDisplayName?: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
+  outcome?: string;
+  summary?: string;
+  beforeJson?: string | null;
+  afterJson?: string | null;
+  changesJson?: string | null;
+  metadataJson?: string | null;
 }
 
 export interface DryRunResult {

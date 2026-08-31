@@ -42,13 +42,25 @@ rules as the REST API. The key must have the scope required by the command:
 | Command | Required scope |
 | --- | --- |
 | `projects list`, `projects get` | `projects:read` |
+| `projects create`, `projects update`, `projects delete` | `projects:write` |
+| `projects members list`, `projects teams list` | `project_access:read` |
+| `projects members add/remove`, `projects teams add/remove` | `project_access:write` |
+| `projects reorder` | `work_items:write` and `entries:write` |
 | `work-items list`, `work-items get` | `work_items:read` |
 | `work-items create` | `work_items:write` |
 | `work-items update` | `work_items:read` and `work_items:write` |
-| `work-items delete` | `work_items:write` |
-| `entries list` | `entries:read` |
+| `work-items move`, `work-items delete` | `work_items:write` |
+| `entries list`, `entries get` | `entries:read` |
 | `entries create` | `entries:write` |
-| `search` | `work_items:read` |
+| `entries update`, `entries delete` | `entries:write` |
+| `relationships list` | `relationships:read` |
+| `relationships create`, `relationships update-reason`, `relationships delete` | `relationships:write` |
+| `teams list`, `teams get`, `teams members list` | `teams:read` or `team_members:read` |
+| `teams create/update/delete`, `teams members add/remove` | `teams:write` or `team_members:write` |
+| `teams projects` | `team_projects:read` |
+| `users get` | `users:read` |
+| `audit-logs list`, `audit-logs project` | `audit_logs:read` |
+| `search` | `work_items:read`, `entries:read`, and `relationships:read` |
 
 The update command reads the current work item before sending the update so
 fields that were not specified are preserved. That is why it needs both read
@@ -61,7 +73,25 @@ and write scopes.
 ```bash
 windrunner projects list --json
 windrunner projects get PROJECT_ID --json
+
+windrunner projects create \
+  --name "Platform work" \
+  --owner-user USER_ID
+
+windrunner projects update PROJECT_ID --name "Updated project"
+windrunner projects delete PROJECT_ID --yes
+
+windrunner projects members list PROJECT_ID --json
+windrunner projects members add PROJECT_ID --user-id USER_ID --role EDITOR
+windrunner projects teams add PROJECT_ID --team-id TEAM_ID --role VIEWER
+
+windrunner projects reorder PROJECT_ID \
+  --item WORK_ITEM:item-1 --item ENTRY:entry-1
 ```
+
+Project creation requires at least one `--owner-user` or `--owner-team`. Repeat
+either option to provide multiple owners. Repeat `--item` for reordering in
+the desired order; use `--parent-id` to target a child work-item stream.
 
 ### Work items
 
@@ -77,6 +107,7 @@ windrunner work-items update WORK_ITEM_ID \
   --title "Fix login and add regression coverage" \
   --status IN_PROGRESS
 
+windrunner work-items move WORK_ITEM_ID --parent-id PARENT_ID --before ENTRY:entry-1
 windrunner work-items delete WORK_ITEM_ID --yes
 ```
 
@@ -95,6 +126,41 @@ windrunner work-items create PROJECT_ID \
 ```bash
 windrunner entries list WORK_ITEM_ID --json
 windrunner entries create WORK_ITEM_ID --body "Deployment completed"
+windrunner entries get ENTRY_ID --json
+windrunner entries update ENTRY_ID --body "Updated context" --type EVIDENCE
+windrunner entries delete ENTRY_ID --yes
+```
+
+### Relationships
+
+```bash
+windrunner relationships list PROJECT_ID --type BLOCKED_BY --json
+windrunner relationships create PROJECT_ID \
+  --from WORK_ITEM:item-1 \
+  --to WORK_ITEM:item-2 \
+  --type BLOCKED_BY \
+  --reason "Waiting on the database migration"
+windrunner relationships update-reason RELATIONSHIP_ID --reason "Resolved"
+windrunner relationships delete RELATIONSHIP_ID --yes
+```
+
+### Teams and users
+
+```bash
+windrunner teams list --json
+windrunner teams create --name "Platform" --owner-user USER_ID
+windrunner teams update TEAM_ID --name "Platform engineering" --description "Owns platform services"
+windrunner teams members list TEAM_ID --json
+windrunner teams members add TEAM_ID --user-id USER_ID --role TEAM_MEMBER
+windrunner teams projects TEAM_ID --json
+windrunner users get USER_ID --json
+```
+
+### Audit logs
+
+```bash
+windrunner audit-logs list --json
+windrunner audit-logs project PROJECT_ID --json
 ```
 
 ### Search
