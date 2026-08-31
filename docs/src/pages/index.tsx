@@ -1,4 +1,5 @@
 import type {ReactNode} from 'react';
+import Head from '@docusaurus/Head';
 import Link from '@docusaurus/Link';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import Layout from '@theme/Layout';
@@ -100,6 +101,32 @@ const features = [
 
 type Feature = (typeof features)[number];
 
+const websiteUrl = 'https://shzlw.github.io/windrunner/';
+const websiteDescription =
+  'AI-powered work management for teams, with connected project context, reviewable AI updates, and support for agents through MCP.';
+
+const websiteStructuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${websiteUrl}#organization`,
+      name: 'Windrunner',
+      url: websiteUrl,
+      logo: `${websiteUrl}img/favicon.svg`,
+      sameAs: ['https://github.com/shzlw/windrunner'],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${websiteUrl}#website`,
+      name: 'Windrunner',
+      url: websiteUrl,
+      description: websiteDescription,
+      publisher: {'@id': `${websiteUrl}#organization`},
+    },
+  ],
+};
+
 function FeatureCard({icon: Icon, title, description, to, accent}: Feature) {
   return (
     <Link
@@ -144,8 +171,20 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title="Windrunner"
-      description="AI-powered work management for teams, with connected project context, reviewable AI updates, and support for agents through MCP."
+      description={websiteDescription}
     >
+      <Head>
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Windrunner" />
+        <meta property="og:image" content={`${websiteUrl}img/windrunner-project-workspace.png`} />
+        <meta
+          property="og:image:alt"
+          content="Windrunner project workspace with work items, relationships, and the details inspector"
+        />
+        <script type="application/ld+json">
+          {JSON.stringify(websiteStructuredData)}
+        </script>
+      </Head>
       <main className="home-main">
         <header className="home-hero">
           <div className="container home-hero-grid">
