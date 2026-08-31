@@ -10,6 +10,7 @@ import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.tools.identity.FetchTeamMembersTool;
 import com.windrunner.server.tools.identity.FetchTeamProjectsTool;
+import com.windrunner.server.tools.identity.FetchProjectAssigneesTool;
 import com.windrunner.server.tools.work.FetchEntriesTool;
 import com.windrunner.server.tools.work.FetchProjectBlockersTool;
 import com.windrunner.server.tools.work.FetchProjectSummaryTool;
@@ -208,6 +209,33 @@ class LlmToolPaginationTest {
         assertThat(result.total()).isOne();
         assertThat(result.hasMore()).isFalse();
         verify(projectTeamRepository, never()).findByTeamId("team-1");
+    }
+
+    @Test
+    void fetchProjectAssigneesReturnsOnlyProjectScopedCandidates() {
+        AppUser user = new AppUser();
+        user.setId("user-1");
+        user.setUsername("kc");
+        user.setDisplayName("KC");
+        Team team = team("team-1", "Platform");
+        when(appUserRepository.findAssignableUsersForProject("project-1", "kc", 10))
+                .thenReturn(List.of(user));
+        when(teamRepository.findAssignableTeamsForProject("project-1", "kc", 10))
+                .thenReturn(List.of(team));
+
+        FetchProjectAssigneesTool.Result result = (FetchProjectAssigneesTool.Result) new FetchProjectAssigneesTool(
+                appUserRepository, teamRepository)
+                .execute(new FetchProjectAssigneesTool.Parameters("project-1", " kc ", 10));
+
+        assertThat(result.projectId()).isEqualTo("project-1");
+        assertThat(result.users()).singleElement().satisfies(candidate ->
+                assertThat(candidate.id()).isEqualTo("user-1"));
+        assertThat(result.teams()).singleElement().satisfies(candidate ->
+                assertThat(candidate.id()).isEqualTo("team-1"));
+        assertThat(result.userCount()).isOne();
+        assertThat(result.teamCount()).isOne();
+        verify(appUserRepository).findAssignableUsersForProject("project-1", "kc", 10);
+        verify(teamRepository).findAssignableTeamsForProject("project-1", "kc", 10);
     }
 
     @Test

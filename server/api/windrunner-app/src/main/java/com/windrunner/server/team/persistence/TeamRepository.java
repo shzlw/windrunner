@@ -44,6 +44,28 @@ public interface TeamRepository extends CrudRepository<Team, String> {
     List<Team> findAssignableTeams(@Param("query") String query, @Param("limit") int limit);
 
     @Query("""
+            SELECT t.id, t.name, t.description, t.created_at, t.updated_at
+            FROM team t
+            WHERE EXISTS (
+                    SELECT 1
+                    FROM project_team pt
+                    WHERE pt.project_id = :projectId
+                      AND pt.team_id = t.id
+              )
+              AND (
+                    :query IS NULL
+                 OR :query = ''
+                 OR LOWER(t.name) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(t.description, '')) LIKE CONCAT('%', LOWER(:query), '%')
+              )
+            ORDER BY lower(t.name) ASC, t.id ASC
+            LIMIT :limit
+            """)
+    List<Team> findAssignableTeamsForProject(@Param("projectId") String projectId,
+                                             @Param("query") String query,
+                                             @Param("limit") int limit);
+
+    @Query("""
             SELECT id, name, description, created_at, updated_at
             FROM team
             WHERE lower(name) = lower(:name)

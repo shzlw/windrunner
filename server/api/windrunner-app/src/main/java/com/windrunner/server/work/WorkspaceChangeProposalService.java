@@ -290,7 +290,7 @@ public class WorkspaceChangeProposalService {
             previous = relationships.list(projectId).stream().filter(candidate -> targetId.equals(candidate.getId())).findFirst()
                     .orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
             relationship = copy(previous);
-            if ("UPDATE".equals(action) && draft != null) relationship.setReason(blankToNull(draft.reason()));
+            if ("UPDATE".equals(action) && draft != null && draft.reason() != null) relationship.setReason(blankToNull(draft.reason()));
         }
         return normalized("RELATIONSHIP", action, targetId, summary, relationship, previous);
     }

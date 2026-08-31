@@ -1,5 +1,5 @@
 <identity>
-Fetch teams that can be assigned to WorkItems.
+Find teams by name or description.
 </identity>
 
 <input_format>
@@ -17,8 +17,7 @@ limit should be between 1 and 100; use 20 unless broader disambiguation is requi
 </field_requirements>
 
 <usage>
-Use this tool before adding a `TEAM` assignee to a WorkItem.
-Use returned team ids exactly as `assigneeId` values with `assigneeType: "TEAM"`.
+Use this tool for general Team identity questions. Use `fetch_project_assignees` instead when selecting a TEAM assignee for a WorkItem.
 Use the returned description to understand the team's responsibility when it is set.
 If one team name matches multiple teams, choose only when context makes the identity clear; otherwise ask the user for clarification.
 Do not create an Entry or Relationship merely to represent assignment.

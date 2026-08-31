@@ -161,6 +161,42 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
     List<AppUser> findActiveAssignableUsers(@Param("query") String query, @Param("limit") int limit);
 
     @Query("""
+            SELECT u.id, u.username, u.email, u.display_name, u.title, u.bio
+            FROM app_user u
+            WHERE UPPER(u.status) = 'ACTIVE'
+              AND (
+                    EXISTS (
+                        SELECT 1
+                        FROM project_member pm
+                        WHERE pm.project_id = :projectId
+                          AND pm.user_id = u.id
+                    )
+                 OR EXISTS (
+                        SELECT 1
+                        FROM project_team pt
+                        JOIN team_member tm ON tm.team_id = pt.team_id
+                        WHERE pt.project_id = :projectId
+                          AND tm.user_id = u.id
+                          AND pt.role IN ('OWNER', 'EDITOR', 'VIEWER')
+                    )
+              )
+              AND (
+                    :query IS NULL
+                 OR :query = ''
+                 OR LOWER(u.username) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(u.display_name, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(u.email, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(u.title, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(u.bio, '')) LIKE CONCAT('%', LOWER(:query), '%')
+              )
+            ORDER BY lower(COALESCE(u.display_name, u.username)) ASC, u.id ASC
+            LIMIT :limit
+            """)
+    List<AppUser> findAssignableUsersForProject(@Param("projectId") String projectId,
+                                                @Param("query") String query,
+                                                @Param("limit") int limit);
+
+    @Query("""
             SELECT id, username, email, display_name, title, bio
             FROM app_user
             WHERE UPPER(status) = 'ACTIVE'

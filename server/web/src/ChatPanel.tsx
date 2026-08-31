@@ -270,7 +270,10 @@ export default function ChatPanel({
   const routeProjectId = useParams().projectId
   projectId = projectId || routeProjectId || ''
   const chatProjectIds = projectIds?.length ? projectIds : projectId ? [projectId] : []
-  const chatProjectId = chatProjectIds[0] ?? ''
+  // A multi-project chat has read context but no implicit write target.
+  // Requiring one project avoids silently proposing changes for whichever
+  // project happened to be selected first.
+  const chatProjectId = chatProjectIds.length === 1 ? chatProjectIds[0] : ''
   const [messages, setMessages] = useState<ChatMessageState[]>([])
   const [draft, setDraft] = useState(initialDraft ?? '')
   const [isLoadingSession, setIsLoadingSession] = useState(true)

@@ -13,6 +13,7 @@ import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.tools.ToolRegistry;
+import com.windrunner.server.tools.identity.FetchProjectAssigneesTool;
 import com.windrunner.server.tools.work.FetchEntriesTool;
 import com.windrunner.server.tools.work.FetchProjectBlockersTool;
 import com.windrunner.server.tools.work.FetchProjectSummaryTool;
@@ -196,7 +197,7 @@ public class ChatMessageController {
 
     private List<LlmTool<?>> projectScopedTools(List<String> allowedProjectIds) {
         return toolRegistry.llmTools().stream().map(tool -> switch (tool.name()) {
-            case "fetch_work_items", "fetch_entries", "fetch_relationships", "fetch_project_summary", "fetch_project_blockers" -> scopedProjectTool(tool, allowedProjectIds);
+            case "fetch_work_items", "fetch_entries", "fetch_relationships", "fetch_project_summary", "fetch_project_blockers", "fetch_project_assignees" -> scopedProjectTool(tool, allowedProjectIds);
             default -> tool;
         }).toList();
     }
@@ -215,6 +216,7 @@ public class ChatMessageController {
         if (arguments instanceof FetchRelationshipsTool.Parameters p) return p.projectId();
         if (arguments instanceof FetchProjectSummaryTool.Parameters p) return p.projectId();
         if (arguments instanceof FetchProjectBlockersTool.Parameters p) return p.projectId();
+        if (arguments instanceof FetchProjectAssigneesTool.Parameters p) return p.projectId();
         return null;
     }
 
@@ -240,7 +242,7 @@ public class ChatMessageController {
 
     private String instructions(Project targetProject, ChatSession session, ChatMessage sourceMessage, String selectedContext, List<String> contextProjectIds) {
         return FileUtils.loadSystemPrompt("chat-instructions.md")
-                .replace("{{projectName}}", targetProject == null ? "the selected workspace context" : Objects.toString(targetProject.getName(), "the selected workspace context"))
+                .replace("{{projectName}}", targetProject == null ? "None" : Objects.toString(targetProject.getName(), "Untitled project"))
                 .replace("{{projectId}}", targetProject == null ? "" : Objects.toString(targetProject.getId(), ""))
                 .replace("{{projectIds}}", String.join(", ", contextProjectIds))
                 .replace("{{chatSessionId}}", session.getId())

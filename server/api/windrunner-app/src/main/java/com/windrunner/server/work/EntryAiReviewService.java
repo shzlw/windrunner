@@ -198,7 +198,7 @@ public class EntryAiReviewService {
     }
 
     private String reviewInput(String workItemType, String workItemTitle, String entryType, String body, String instruction) {
-        return "Selected Entry context only:\nWork item type: " + workItemType + "\n"
+        return "Entry review context:\nWork item type: " + workItemType + "\n"
                 + "Work item title: " + workItemTitle + "\n"
                 + "Current entry type: " + entryType + "\n"
                 + "Entry body:\n" + body

@@ -1,5 +1,5 @@
 <identity>
-Find active app users that can be assigned to WorkItems.
+Find active app users by name, username, email, title, or bio.
 </identity>
 
 <input_format>
@@ -17,8 +17,7 @@ limit should be between 1 and 100; use 20 unless broader disambiguation is requi
 </field_requirements>
 
 <usage>
-Use this tool before adding a `USER` assignee to a WorkItem.
-Use returned user ids exactly as `assigneeId` values with `assigneeType: "USER"`.
+Use this tool for general user identity questions. Use `fetch_project_assignees` instead when selecting a USER assignee for a WorkItem.
 When profile information such as title or bio is needed, call `fetch_user_details` with the returned user id.
 If one person name matches multiple users, choose only when context makes the identity clear; otherwise ask the user for clarification.
 Do not create an Entry or Relationship merely to represent assignment.
