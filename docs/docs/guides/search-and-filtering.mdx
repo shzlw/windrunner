@@ -3,6 +3,8 @@ sidebar_position: 3
 title: Searching and filtering
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Searching and filtering
 
 Search is page-specific, not a global search. It narrows the records currently
@@ -11,6 +13,13 @@ shown without changing them.
 Projects, Teams, Users, My Work, and Audit Logs each have their own search.
 My Work also filters by project, status, and priority. Lists may be paginated,
 so search each page of results when reviewing a larger set.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-projects.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-projects.png')} alt="Windrunner Projects page with its search field and project list" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Page search narrows the records in the current surface; it does not change the underlying data.</figcaption>
+</figure>
 
 Use Ask AI for an answer, summary, comparison, or explanation across accessible
 workspace records. Use page search when you need exact visible-record results.

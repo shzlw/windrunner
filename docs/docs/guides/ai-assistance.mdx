@@ -3,6 +3,8 @@ sidebar_position: 2
 title: Using AI assistance
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Using AI assistance
 
 Ask AI helps you understand accessible work and prepare changes for review.
@@ -17,6 +19,10 @@ Useful questions include:
 AI can use project, team, user, and work-item context. It fetches more detail
 when the question needs it and only uses records you are allowed to access.
 
+Project-specific questions work best with a project added as context. Ask AI
+can summarize the project graph, surface blocked or overdue work, explain
+decisions, and point to the records it used.
+
 ## Review changes
 
 AI may propose new or updated work items, entries, and relationships. It checks
@@ -27,4 +33,36 @@ Proposals are not applied automatically. Review the proposed fields and then
 accept, reject, or ask for a revision. Users, teams, and projects are not
 directly changed by chat proposals.
 
+When a proposal targets project work, it also appears in the workspace as an
+`AI proposed` row. Use the accept or reject control on that row after checking
+the action, type, title, priority, status, parent, assignee, and due date.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-ask-ai-proposal.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-ask-ai-proposal.png')} alt="Ask AI showing a proposed high-priority task beside the project workspace" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Example: Ask AI drafts a high-priority task and marks it as not applied until someone reviews it.</figcaption>
+</figure>
+
 Work item and entry AI Review actions follow the same review-before-save model.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-ai-review-draft.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-ai-review-draft.png')} alt="Work item inspector showing an AI suggestion with suggested due date and blocker" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>AI Review shows field-by-field changes and suggested blockers before you apply the draft.</figcaption>
+</figure>
+
+## Measure AI usage
+
+Admins and superadmins can open **AI Analytics** to filter by project and time
+range, review request and token totals, inspect feature reliability, and track
+accepted changes and acceptance rate. The overview separates usage from
+outcomes so a high request count is not mistaken for successful automation.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-ai-analytics.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-ai-analytics.png')} alt="AI Analytics overview with request, token, acceptance, and feature usage metrics" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>AI Analytics reports request volume, tokens, failures, and review outcomes for administrators.</figcaption>
+</figure>

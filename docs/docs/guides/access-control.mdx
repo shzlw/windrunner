@@ -3,10 +3,23 @@ sidebar_position: 7
 title: Access control
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Access control
 
 Project access comes from direct user membership or membership in a team linked
 to the project. Team or user visibility alone does not grant project access.
+
+Owners manage project access from **Project settings → Access**. The page shows
+your effective access, member and team counts, each assigned role, and controls
+to add a user or team as a `VIEWER`, `EDITOR`, or `OWNER`.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-project-access.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-project-access.png')} alt="Project settings Access tab showing project roles and member access" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Project access is explicit: members and linked teams each receive a project role.</figcaption>
+</figure>
 
 ## Platform roles
 

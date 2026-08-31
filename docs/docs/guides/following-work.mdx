@@ -3,6 +3,8 @@ sidebar_position: 4
 title: My Work and subscriptions
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # My Work and subscriptions
 
 ## My Work
@@ -16,3 +18,34 @@ by project, status, and priority.
 Subscribe to follow a work item without becoming its assignee. Subscribing
 does not change ownership. Unsubscribe from the work item workspace or the
 Subscriptions page.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-subscribed-work-item.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-subscribed-work-item.png')} alt="Project workspace inspector showing a subscribed work item" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>The inspector shows the active subscription control for the selected work item.</figcaption>
+</figure>
+
+The Subscriptions page lists every work item you follow with its project and
+subscription time. Use **Unsubscribe** there to stop receiving updates.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-subscriptions.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-subscriptions.png')} alt="Subscriptions page listing two followed work items and their projects" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Subscriptions gives you one place to review and manage followed work.</figcaption>
+</figure>
+
+## Notifications
+
+The notification center in the navigation sidebar surfaces assignment and
+work-item activity updates. Open a notification to mark it read and jump to
+its project when a project link is available, or mark all notifications read
+from the center.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-notifications.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-notifications.png')} alt="Notification center showing a work item assignment notification for kc" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Assignment notifications appear in the sidebar and link the event back to the work item.</figcaption>
+</figure>

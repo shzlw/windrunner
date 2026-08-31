@@ -89,35 +89,53 @@ const config: Config = {
       ],
     },
     footer: {
-      style: 'light',
+      style: 'dark',
       links: [
         {
-          title: 'Docs',
+          title: 'Product',
+          items: [
+            {label: 'AI assistance', to: '/docs/guides/ai-assistance'},
+            {label: 'Projects & workspace', to: '/docs/core-concepts/projects-workspace'},
+            {label: 'Work items', to: '/docs/core-concepts/work-items'},
+            {label: 'Following work', to: '/docs/guides/following-work'},
+            {label: 'Audit log', to: '/docs/guides/audit-log'},
+          ],
+        },
+        {
+          title: 'Learn',
           items: [
             {label: 'Getting started', to: '/docs/getting-started/installation'},
             {label: 'Core concepts', to: '/docs/core-concepts/work-items'},
             {label: 'Search & filtering', to: '/docs/guides/search-and-filtering'},
-            {label: 'AI assistance', to: '/docs/guides/ai-assistance'},
             {label: 'Users & teams', to: '/docs/guides/users-and-teams'},
           ],
         },
         {
-          title: 'Resources',
+          title: 'Developers',
           items: [
             {label: 'API reference', to: '/api'},
-            {label: 'Changelog', to: '/changelog'},
+            {label: 'MCP server', to: '/docs/reference/mcp'},
+            {label: 'CLI', to: '/docs/reference/cli'},
             {label: 'Configuration', to: '/docs/reference/configuration'},
           ],
         },
         {
-          title: 'Project',
+          title: 'Open source',
           items: [
+            {label: 'Changelog', to: '/changelog'},
             {label: 'GitHub', href: 'https://github.com/shzlw/windrunner'},
             {label: 'Issues', href: 'https://github.com/shzlw/windrunner/issues'},
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Windrunner.`,
+      logo: {
+        alt: 'Windrunner',
+        src: 'img/favicon.svg',
+        href: '/',
+        width: 32,
+        height: 32,
+      },
+      copyright: `Copyright © ${new Date().getFullYear()} Windrunner · AI-powered work management for teams.`,
     },
     prism: {
       theme: prismThemes.oneLight,

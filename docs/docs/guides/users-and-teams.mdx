@@ -3,6 +3,8 @@ sidebar_position: 6
 title: Users and teams
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Users and teams
 
 ## Users
@@ -16,6 +18,17 @@ Users page.
 Teams have a name, description, owners, members, and linked projects. Team
 owners review and decide join requests. Administrators manage membership and
 project links. Non-superadmin users can request to join a team.
+
+The Teams page lists member and project counts, creation dates, and your role.
+Open a team to manage its description, owners, members, linked projects, and
+join requests.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-teams.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-teams.png')} alt="Windrunner Teams page listing teams, descriptions, member counts, and linked projects" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Teams provide a reusable people and access directory for projects and Ask AI context.</figcaption>
+</figure>
 
 Teams and users are useful Ask AI context. For example, add a team when asking
 which group can help with an issue, or add a user when asking about their role

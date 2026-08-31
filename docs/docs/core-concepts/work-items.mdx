@@ -3,6 +3,8 @@ sidebar_position: 2
 title: Work items
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Work items
 
 A work item is the durable record for something a project needs to complete,
@@ -37,6 +39,28 @@ detail.
 Children can be nested, moved, and reordered. Use a parent for structure and a
 relationship for dependency. An item can be assigned to users, teams, or both;
 team assignments also appear in the assignees' My Work views.
+
+In the workspace, type badges distinguish tasks and decisions, while update
+counts, priority badges, and blocker labels make triage visible from the tree.
+Select an item to edit its fields in the inspector.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-project-workspace.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-project-workspace.png')} alt="Project work item tree with task and decision type badges, updates, and blockers" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Work items are durable records in the project tree; entries and relationships hang off them as context.</figcaption>
+</figure>
+
+The inspector is the manual editing surface for a selected item. Update the
+title, type, status, due date, priority, or assignees, then save the changes
+without leaving the project tree.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-work-item-inspector.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-work-item-inspector.png')} alt="Work item inspector showing task fields and the save changes control" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>The inspector exposes the fields that define ownership and progress.</figcaption>
+</figure>
 
 Editors can create and update work items. Ask AI can propose changes, but the
 proposal does not change the project until it is accepted.

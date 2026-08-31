@@ -3,6 +3,8 @@ sidebar_position: 2
 title: Quick start
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Quick start
 
 Windrunner starts with a question. Add workspace context only when you need it.
@@ -15,6 +17,13 @@ After signing in, open Home and ask a question such as:
 
 Suggested prompts fill the input without sending it.
 
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-home.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-home.png')} alt="Windrunner Home with the Ask anything composer and suggested prompts" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Home keeps the first action small: ask a question or start from a suggested prompt.</figcaption>
+</figure>
+
 ## 2. Continue in Ask AI
 
 Your question opens in Ask AI. Use the sidebar to switch between conversations
@@ -24,7 +33,8 @@ or start a separate chat for a new topic.
 
 Add a project, team, user, or work item when the question needs a specific
 source. Opening Ask AI from a workspace page also provides that page as
-context.
+context. If a project-specific question has no project selected, Ask AI asks
+you to choose one instead of guessing.
 
 ## 4. Ask AI to create or update work
 

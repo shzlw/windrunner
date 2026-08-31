@@ -969,7 +969,7 @@ function App() {
           <Route path="home" element={<HomePage displayName={currentUser?.displayName} />} />
           <Route path="ask-ai" element={null} />
           <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
-          <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
+          <Route path="projects/:projectId" element={<ProjectWorkspacePage currentUser={currentUser} />} />
           <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />
           <Route path="subscriptions" element={<SubscriptionsPage />} />
           <Route path="my-work" element={<MyWorkPage />} />

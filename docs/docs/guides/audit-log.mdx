@@ -3,6 +3,8 @@ sidebar_position: 8
 title: Audit log
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Audit log
 
 Audit Logs help administrators see what changed, when it changed, and who did
@@ -15,3 +17,10 @@ after, or field-change data.
 The log can include changes to projects, work items, entries, relationships,
 users, teams, API keys, and authentication. The workspace inspector also shows
 history for the selected work item; that view is limited to one item.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-audit-logs.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-audit-logs.png')} alt="Audit Logs table showing recent work item, entry, relationship, and login events" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Audit Logs records the actor, project, outcome, and summary for recent changes.</figcaption>
+</figure>

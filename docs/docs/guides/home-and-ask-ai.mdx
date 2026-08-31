@@ -3,10 +3,19 @@ sidebar_position: 1
 title: Home and Ask AI
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Home and Ask AI
 
 Home is the fastest way to start. Ask a question without choosing a project;
 Windrunner opens the conversation in Ask AI.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-home.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-home.png')} alt="Windrunner Home showing the Ask anything composer and suggested prompts" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Home offers a free-form question box plus suggested prompts that fill the composer without sending it.</figcaption>
+</figure>
 
 ## Conversations
 
@@ -25,6 +34,28 @@ page does not create one.
 Add a project, team, user, or work item when a question needs a specific source.
 Context stays with the conversation until you remove it. Opening Ask AI from a
 workspace page can add that page as context.
+
+For example, a project-aware question can summarize the work graph, identify
+blockers, and recommend next steps. Without a selected project, Ask AI asks
+which project you want to check.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-ask-ai-proposal.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-ask-ai-proposal.png')} alt="Ask AI beside a populated project workspace with project context" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Ask AI can stay open beside the project workspace, keeping the conversation and the selected project visible together.</figcaption>
+</figure>
+
+The dedicated chat view also works on its own when you want to ask a general
+question before choosing a project. The answer explains the kinds of work AI
+can inspect, organize, and prepare for review.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-ask-ai-chat.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-ask-ai-chat.png')} alt="Standalone Ask AI conversation explaining supported work management tasks" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>A standalone conversation keeps the question, answer, history, and composer together.</figcaption>
+</figure>
 
 ## Chat beside a workspace
 

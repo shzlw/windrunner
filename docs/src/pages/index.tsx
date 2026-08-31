@@ -1,5 +1,6 @@
 import type {ReactNode} from 'react';
 import Link from '@docusaurus/Link';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import Layout from '@theme/Layout';
 import {
   Bot,
@@ -116,66 +117,30 @@ function FeatureCard({icon: Icon, title, description, to, accent}: Feature) {
   );
 }
 
-function HeroPreview(): ReactNode {
+function HeroPreview({screenshot}: {screenshot: string}): ReactNode {
   return (
-    <div
-      className="home-hero-visual"
-      role="img"
-      aria-label="Example of asking a project about its blockers"
-    >
-      <div className="home-hero-glow" />
-      <div className="home-hero-window">
-        <div className="home-hero-window-bar">
-          <div className="home-hero-window-dots" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
-          <span className="home-hero-window-label">Project workspace</span>
-          <span className="home-hero-window-status">AI enabled</span>
-        </div>
-
-        <div className="home-hero-question">
-          <div className="home-hero-question-icon">
-            <MessageSquareText size={17} strokeWidth={2} />
-          </div>
-          <div>
-            <span>Ask the project</span>
-            <strong>What is blocking the launch?</strong>
-          </div>
-        </div>
-
-        <div className="home-hero-answer">
-          <div className="home-hero-answer-heading">
-            <Bot size={17} strokeWidth={2} />
-            <span>Project answer</span>
-          </div>
-          <p>Two items are blocked by the API decision. One owner is waiting for an accepted answer.</p>
-          <div className="home-hero-answer-tags">
-            <span>2 blockers</span>
-            <span>1 decision</span>
-            <span>Review context</span>
-          </div>
-        </div>
-
-        <div className="home-hero-graph">
-          <div className="home-hero-graph-heading">
-            <span>Structured project graph</span>
-            <ListTree size={16} strokeWidth={2} />
-          </div>
-          <div className="home-hero-graph-map" aria-hidden="true">
-            <div className="home-hero-graph-node home-hero-graph-node--primary">Launch project</div>
-            <div className="home-hero-graph-node">API decision</div>
-            <div className="home-hero-graph-node">Blocked task</div>
-            <div className="home-hero-graph-node">Accepted answer</div>
-          </div>
-        </div>
-      </div>
+    <div className="home-hero-visual">
+      <a
+        className="home-hero-real-shot"
+        href={screenshot}
+        target="_blank"
+        rel="noreferrer"
+        title="Open full-size workspace screenshot in a new tab"
+      >
+        <img
+          src={screenshot}
+          alt="Windrunner project workspace with work items, relationships, and the details inspector"
+          loading="eager"
+          decoding="async"
+        />
+      </a>
     </div>
   );
 }
 
 export default function Home(): ReactNode {
+  const workspaceScreenshot = useBaseUrl('/img/windrunner-project-workspace.png');
+
   return (
     <Layout
       title="Windrunner"
@@ -208,12 +173,12 @@ export default function Home(): ReactNode {
                 </Link>
               </div>
             </div>
-            <HeroPreview />
+            <HeroPreview screenshot={workspaceScreenshot} />
           </div>
         </header>
 
         <section className="container home-features">
-          <h2 className="home-features-title">What Windrunner provides today</h2>
+          <h2 className="home-features-title">Everything teams need to move work forward</h2>
           <div className="row">
             {features.map((feature) => (
               <div

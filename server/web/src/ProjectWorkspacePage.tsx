@@ -68,6 +68,7 @@ import {
   type Relationship,
   type Team,
   type User,
+  type AuthUser,
   updateNode,
   updateEntry,
   updateRelationshipReason,
@@ -2659,7 +2660,11 @@ function WorkspaceProposalPanel({
   )
 }
 
-export default function ProjectWorkspacePage() {
+type ProjectWorkspacePageProps = {
+  currentUser: AuthUser | null
+}
+
+export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePageProps) {
   const location = useLocation()
   const { projectId } = useParams()
   const [searchParams] = useSearchParams()
@@ -2825,9 +2830,16 @@ export default function ProjectWorkspacePage() {
   ]), [blockerWorkItems, displayedNodes])
   const userLabels = useMemo(() => new Map(referenceUsers.map((user) => [user.id, referenceUserLabel(user)])), [referenceUsers])
   const teamLabels = useMemo(() => new Map(referenceTeams.map((team) => [team.id, referenceTeamLabel(team)])), [referenceTeams])
-  const referenceUserOptions = useMemo(() => (
-    referenceUsers.map((user) => ({ id: user.id, label: referenceUserLabel(user) }))
-  ), [referenceUsers])
+  const referenceUserOptions = useMemo(() => {
+    const options = referenceUsers.map((user) => ({ id: user.id, label: referenceUserLabel(user) }))
+    if (currentUser && projectMemberUserIds.has(currentUser.id) && !options.some((user) => user.id === currentUser.id)) {
+      options.unshift({
+        id: currentUser.id,
+        label: currentUser.displayName?.trim() || currentUser.username || currentUser.email || 'Unnamed user',
+      })
+    }
+    return options
+  }, [currentUser, projectMemberUserIds, referenceUsers])
   const referenceTeamOptions = useMemo(() => (
     referenceTeams.map((team) => ({ id: team.id, label: referenceTeamLabel(team) }))
   ), [referenceTeams])

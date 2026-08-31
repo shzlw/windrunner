@@ -3,6 +3,8 @@ sidebar_position: 4
 title: Relationships
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Relationships
 
 Relationships are typed, directed links between work items and entries. They
@@ -29,3 +31,10 @@ itself. Project editors can create, update its reason, and remove it.
 
 Ask AI can propose relationships. Review the endpoints, type, and reason before
 accepting a proposal.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-relationship-inspector.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-relationship-inspector.png')} alt="Relationship inspector showing blocked by, related to, depends on, and related work items" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>The inspector makes relationship direction, type, and rationale visible beside the project tree.</figcaption>
+</figure>

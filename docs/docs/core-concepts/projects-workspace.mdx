@@ -3,6 +3,8 @@ sidebar_position: 5
 title: Projects and the workspace
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Projects and the workspace
 
 A project contains related work items, entries, relationships, and access
@@ -21,9 +23,51 @@ must always have an owner. Super administrators have platform-wide access.
 
 ## Workspace layout
 
-The work item tree shows the project outline. The inspector shows details and
-history for the selected item. Editors can add, edit, move, reorder, assign,
-and connect records.
+The workspace has three working areas: the navigation sidebar, a central work
+item tree, and an inspector for the selected item. The toolbar provides
+filtering, sorting, and **New item**. Selecting an item exposes its type,
+status, due date, priority, assignees, relationships, timestamps, and AI Review
+controls. The tree also surfaces update counts and blocker badges; expand a
+row to see nested work.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-project-workspace.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-project-workspace.png')} alt="Windrunner project workspace with a populated work item tree and details inspector" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>The project workspace keeps the hierarchy, blocker signals, and item inspector in view at the same time.</figcaption>
+</figure>
+
+The inspector is also the direct editing surface. Select a work item to change
+its title, type, status, due date, priority, assignees, or relationships, then
+save the fields together.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-work-item-inspector.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-work-item-inspector.png')} alt="Work item inspector showing editable task fields and relationships" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Work item fields are edited in place while the project tree remains visible.</figcaption>
+</figure>
+
+Expand an item’s updates and select an entry to edit its type or content in the
+same inspector. Relationship rows show direction, type, reason, and a remove
+control; **Add relationship** opens the typed relationship form.
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-entry-inspector.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-entry-inspector.png')} alt="Entry inspector showing editable resolution content" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Entries are editable records with their author, type, content, and history.</figcaption>
+</figure>
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-relationship-inspector.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-relationship-inspector.png')} alt="Work item inspector showing typed relationships and reasons" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>Relationship editing keeps direction, type, reason, and connected records explicit.</figcaption>
+</figure>
+
+Editors can add, edit, move, reorder, assign, and connect records. The History
+tab on the inspector shows changes for the selected work item.
 
 When chat is open, the layout is always:
 
