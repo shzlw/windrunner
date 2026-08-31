@@ -42,8 +42,12 @@ public class ExternalProjectContentController {
                                                    @RequestParam(value = "q", defaultValue = "") String query,
                                                    @RequestParam(value = "limit", required = false) Integer limit,
                                                    HttpServletRequest request) {
-        AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ);
+        AppUser actor = externalAccessService.requireScopes(request,
+                ApiKeyScopes.WORK_ITEMS_READ,
+                ApiKeyScopes.ENTRIES_READ,
+                ApiKeyScopes.RELATIONSHIPS_READ);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
+        ExternalInputValidation.requireMaxLength(query, "Search query", ExternalInputValidation.MAX_SEARCH_LENGTH);
         if (query == null || query.isBlank()) {
             return ApiResponse.success(new ExternalSearchResultResponse(List.of(), List.of(), List.of()));
         }
@@ -54,11 +58,14 @@ public class ExternalProjectContentController {
     public ApiResponse<List<ContentOrderItem>> reorder(@PathVariable("projectId") String projectId,
                                                        @RequestBody ContentReorderRequest body,
                                                        HttpServletRequest request) {
-        AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_WRITE);
+        AppUser actor = externalAccessService.requireScopes(request,
+                ApiKeyScopes.WORK_ITEMS_WRITE,
+                ApiKeyScopes.ENTRIES_WRITE);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
         if (body == null || body.items() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "items is required");
         }
+        ExternalInputValidation.requireMaxSize(body.items(), "items", ExternalInputValidation.MAX_CONTENT_ORDER_SIZE);
         return ApiResponse.success(contentOrderService.reorder(
                 projectId,
                 body.parentWorkItemId(),

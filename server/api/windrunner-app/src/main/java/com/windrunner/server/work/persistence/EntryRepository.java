@@ -71,6 +71,32 @@ public interface EntryRepository extends CrudRepository<Entry, String> {
 
     @Query("""
             SELECT e.id, e.project_id, e.work_item_id, e.sort_index, e.author_user_id, e.type, e.body, e.created_at, e.updated_at
+            FROM entry e
+            WHERE e.project_id = :projectId
+              AND e.work_item_id = :workItemId
+              AND (CAST(:updatedAfter AS TIMESTAMPTZ) IS NULL OR e.updated_at > CAST(:updatedAfter AS TIMESTAMPTZ))
+            ORDER BY e.updated_at DESC, e.id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<Entry> findExternalPageByProjectIdAndWorkItemId(@Param("projectId") String projectId,
+                                                         @Param("workItemId") String workItemId,
+                                                         @Param("updatedAfter") java.time.OffsetDateTime updatedAfter,
+                                                         @Param("limit") int limit,
+                                                         @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM entry e
+            WHERE e.project_id = :projectId
+              AND e.work_item_id = :workItemId
+              AND (CAST(:updatedAfter AS TIMESTAMPTZ) IS NULL OR e.updated_at > CAST(:updatedAfter AS TIMESTAMPTZ))
+            """)
+    long countExternalByProjectIdAndWorkItemId(@Param("projectId") String projectId,
+                                               @Param("workItemId") String workItemId,
+                                               @Param("updatedAfter") java.time.OffsetDateTime updatedAfter);
+
+    @Query("""
+            SELECT e.id, e.project_id, e.work_item_id, e.sort_index, e.author_user_id, e.type, e.body, e.created_at, e.updated_at
             FROM entry e, websearch_to_tsquery('simple', :ftsQuery) q
             WHERE e.project_id = :projectId
               AND (e.search_vec @@ q OR e.body % :rawQuery)
@@ -104,4 +130,8 @@ public interface EntryRepository extends CrudRepository<Entry, String> {
     @Modifying
     @Query("DELETE FROM entry WHERE project_id = :projectId AND work_item_id = :workItemId")
     int deleteByWorkItemId(@Param("projectId") String projectId, @Param("workItemId") String workItemId);
+
+    @Modifying
+    @Query("DELETE FROM entry WHERE project_id = :projectId")
+    int deleteByProjectId(@Param("projectId") String projectId);
 }

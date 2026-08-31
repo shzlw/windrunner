@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 public final class PasswordPolicy {
 
     public static final int MIN_LENGTH = 6;
+    public static final int MAX_LENGTH = 1_000;
 
     private PasswordPolicy() {
     }
@@ -19,6 +20,15 @@ public final class PasswordPolicy {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Password must be at least " + MIN_LENGTH + " characters");
+        }
+        assertMaxLength(password);
+    }
+
+    public static void assertMaxLength(String password) {
+        if (password != null && password.length() > MAX_LENGTH) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Password must be at most " + MAX_LENGTH + " characters");
         }
     }
 }

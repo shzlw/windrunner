@@ -165,6 +165,16 @@ public class TeamService {
         return teamMemberRepository.findByTeamId(teamId);
     }
 
+    public List<TeamMember> listMembersPage(String teamId, int limit, long offset) {
+        requireTeam(teamId);
+        return teamMemberRepository.findPageByTeamId(teamId, limit, offset);
+    }
+
+    public long countMembers(String teamId) {
+        requireTeam(teamId);
+        return teamMemberRepository.countByTeamId(teamId);
+    }
+
     @Transactional
     public TeamMember addMember(String teamId, TeamLinkRequest linkRequest, AppUser actor) {
         Team team = requireTeam(teamId);
@@ -194,7 +204,17 @@ public class TeamService {
     @Transactional
     public void removeMember(String teamId, String userId, AppUser actor) {
         Team team = requireTeam(teamId);
-        teamMemberRepository.delete(teamId, userId);
+        TeamMember existing = teamMemberRepository.findByTeamIdAndUserId(teamId, userId)
+                .orElse(null);
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Team member not found");
+        }
+        if (TeamRoles.TEAM_OWNER.equals(existing.getRole()) && teamMemberRepository.countOwners(teamId) <= 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one team owner is required");
+        }
+        if (teamMemberRepository.deleteIfNotLastOwner(teamId, userId) == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one team owner is required");
+        }
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor == null ? null : actor.getId(),
                 AuditActions.UPDATE,
@@ -212,6 +232,16 @@ public class TeamService {
     public List<ProjectTeam> listProjects(String teamId) {
         requireTeam(teamId);
         return projectTeamRepository.findByTeamId(teamId);
+    }
+
+    public List<ProjectTeam> listProjectsPage(String teamId, int limit, long offset) {
+        requireTeam(teamId);
+        return projectTeamRepository.findPageByTeamId(teamId, limit, offset);
+    }
+
+    public long countProjects(String teamId) {
+        requireTeam(teamId);
+        return projectTeamRepository.countByTeamId(teamId);
     }
 
     @Transactional

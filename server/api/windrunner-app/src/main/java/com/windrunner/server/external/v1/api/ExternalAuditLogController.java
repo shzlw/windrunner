@@ -6,9 +6,6 @@ import com.windrunner.server.audit.AuditLogEnrichmentService;
 import com.windrunner.server.audit.domain.AuditLog;
 import com.windrunner.server.audit.persistence.AuditLogRepository;
 import com.windrunner.server.external.auth.ExternalAccessService;
-import com.windrunner.server.project.ProjectAccessService;
-import com.windrunner.server.project.ProjectRoles;
-import com.windrunner.server.user.domain.AppUser;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +21,6 @@ public class ExternalAuditLogController {
 
     private final AuditLogRepository auditLogRepository;
     private final AuditLogEnrichmentService auditLogEnrichmentService;
-    private final ProjectAccessService projectAccessService;
     private final ExternalAccessService externalAccessService;
 
     @GetMapping("/audit-logs")
@@ -50,8 +46,7 @@ public class ExternalAuditLogController {
                                                             @RequestParam(name = "page", defaultValue = "0") int page,
                                                             @RequestParam(name = "size", defaultValue = "20") int size,
                                                             HttpServletRequest request) {
-        AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.AUDIT_LOGS_READ);
-        projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
+        externalAccessService.requireAdminScope(request, ApiKeyScopes.AUDIT_LOGS_READ);
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.max(1, Math.min(size, 100));
         long totalItems = auditLogRepository.countLogsByProjectId(projectId);

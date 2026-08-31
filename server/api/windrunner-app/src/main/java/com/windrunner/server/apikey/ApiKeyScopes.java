@@ -10,7 +10,6 @@ public final class ApiKeyScopes {
     public static final String TEAM_MEMBERS_READ = "team_members:read";
     public static final String TEAM_MEMBERS_WRITE = "team_members:write";
     public static final String TEAM_PROJECTS_READ = "team_projects:read";
-    public static final String TEAM_PROJECTS_WRITE = "team_projects:write";
     public static final String USERS_READ = "users:read";
     public static final String PROJECTS_READ = "projects:read";
     public static final String PROJECTS_WRITE = "projects:write";
@@ -30,7 +29,6 @@ public final class ApiKeyScopes {
             TEAM_MEMBERS_READ,
             TEAM_MEMBERS_WRITE,
             TEAM_PROJECTS_READ,
-            TEAM_PROJECTS_WRITE,
             USERS_READ,
             PROJECTS_READ,
             PROJECTS_WRITE,

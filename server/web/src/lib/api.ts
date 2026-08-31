@@ -17,7 +17,6 @@ export type ApiKeyScope =
   | 'team_members:read'
   | 'team_members:write'
   | 'team_projects:read'
-  | 'team_projects:write'
   | 'users:read'
   | 'projects:read'
   | 'projects:write'

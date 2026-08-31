@@ -57,7 +57,10 @@ class ExternalProjectContentControllerTest {
 
     @Test
     void searchBlankQueryReturnsEmptyResultWithoutTouchingSearchService() {
-        when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ)).thenReturn(actor());
+        when(externalAccessService.requireScopes(request,
+                ApiKeyScopes.WORK_ITEMS_READ,
+                ApiKeyScopes.ENTRIES_READ,
+                ApiKeyScopes.RELATIONSHIPS_READ)).thenReturn(actor());
 
         ApiResponse<ExternalSearchResultResponse> response = controller().search(PROJECT_ID, "   ", null, request);
 
@@ -69,20 +72,29 @@ class ExternalProjectContentControllerTest {
 
     @Test
     void searchDelegatesToServiceAndRequiresViewer() {
-        when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ)).thenReturn(actor());
+        when(externalAccessService.requireScopes(request,
+                ApiKeyScopes.WORK_ITEMS_READ,
+                ApiKeyScopes.ENTRIES_READ,
+                ApiKeyScopes.RELATIONSHIPS_READ)).thenReturn(actor());
         ProjectSearchResult result = new ProjectSearchResult(
                 List.of(new WorkItem()), List.of(new Entry()), List.of(new Relationship()));
         when(searchService.search(PROJECT_ID, "deploy", 20)).thenReturn(result);
 
         ApiResponse<ExternalSearchResultResponse> response = controller().search(PROJECT_ID, "deploy", 20, request);
 
+        verify(externalAccessService).requireScopes(request,
+                ApiKeyScopes.WORK_ITEMS_READ,
+                ApiKeyScopes.ENTRIES_READ,
+                ApiKeyScopes.RELATIONSHIPS_READ);
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.VIEWER);
         assertThat(response.data()).isEqualTo(ExternalSearchResultResponse.from(result));
     }
 
     @Test
     void reorderRejectsNullBodyAndNullItems() {
-        when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_WRITE)).thenReturn(actor());
+        when(externalAccessService.requireScopes(request,
+                ApiKeyScopes.WORK_ITEMS_WRITE,
+                ApiKeyScopes.ENTRIES_WRITE)).thenReturn(actor());
 
         assertThatThrownBy(() -> controller().reorder(PROJECT_ID, null, request))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -96,7 +108,9 @@ class ExternalProjectContentControllerTest {
 
     @Test
     void reorderRequiresEditorAndDelegatesToContentOrderService() {
-        when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_WRITE)).thenReturn(actor());
+        when(externalAccessService.requireScopes(request,
+                ApiKeyScopes.WORK_ITEMS_WRITE,
+                ApiKeyScopes.ENTRIES_WRITE)).thenReturn(actor());
         List<ContentOrderItemRef> requestedOrder = List.of(new ContentOrderItemRef("WORK_ITEM", "witm-2"));
         List<ContentOrderItem> reordered = List.of(new ContentOrderItem("WORK_ITEM", "witm-2", 0));
         when(contentOrderService.reorder(eq(PROJECT_ID), eq("parent-1"), eq(requestedOrder))).thenReturn(reordered);
@@ -105,6 +119,9 @@ class ExternalProjectContentControllerTest {
                 PROJECT_ID, new ContentReorderRequest("parent-1", requestedOrder), request);
 
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.EDITOR);
+        verify(externalAccessService).requireScopes(request,
+                ApiKeyScopes.WORK_ITEMS_WRITE,
+                ApiKeyScopes.ENTRIES_WRITE);
         assertThat(response.data()).isEqualTo(reordered);
     }
 

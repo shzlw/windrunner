@@ -43,4 +43,8 @@ public interface ChatSessionContextRepository extends CrudRepository<ChatSession
     @Modifying
     @Query("DELETE FROM chat_session_context WHERE chat_session_id = :sessionId")
     int deleteBySessionId(@Param("sessionId") String sessionId);
+
+    @Modifying
+    @Query("DELETE FROM chat_session_context WHERE entity_type = :entityType AND entity_id = :entityId")
+    int deleteByEntity(@Param("entityType") String entityType, @Param("entityId") String entityId);
 }

@@ -61,4 +61,8 @@ public interface UserNotificationRepository extends CrudRepository<UserNotificat
     @Modifying
     @Query("UPDATE user_notification SET read_at = NOW() WHERE recipient_user_id = :userId AND read_at IS NULL")
     int markAllRead(@Param("userId") String userId);
+
+    @Modifying
+    @Query("DELETE FROM user_notification WHERE project_id = :projectId")
+    int deleteByProjectId(@Param("projectId") String projectId);
 }

@@ -15,11 +15,13 @@ import com.windrunner.server.external.auth.ExternalAccessService;
 import com.windrunner.server.external.v1.dto.ExternalProjectResponse;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.project.ProjectAccessService;
+import com.windrunner.server.project.ProjectContentDeletionService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.api.CreateProjectRequest;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.project.persistence.ProjectRepository;
+import com.windrunner.server.team.domain.ProjectTeam;
 import com.windrunner.server.team.persistence.ProjectTeamRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.user.domain.AppUser;
@@ -56,6 +58,8 @@ class ExternalProjectControllerTest {
     private AuditLogService auditLogService;
     @Mock
     private ExternalAccessService externalAccessService;
+    @Mock
+    private ProjectContentDeletionService projectContentDeletionService;
     @Mock
     private HttpServletRequest request;
 
@@ -136,6 +140,41 @@ class ExternalProjectControllerTest {
         assertThat(response.data().createdByUserId()).isEqualTo("someone-else");
     }
 
+    @Test
+    void nestedProjectCollectionsArePaged() {
+        when(externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_READ)).thenReturn(actor());
+        when(projectRepository.findById("proj-1")).thenReturn(Optional.of(persistedProject()));
+        when(projectTeamRepository.findPageByProjectId("proj-1", 100, 100L)).thenReturn(List.of(new ProjectTeam()));
+        when(projectTeamRepository.countByProjectId("proj-1")).thenReturn(101L);
+        when(projectMemberRepository.findPageByProjectId("proj-1", 100, 100L)).thenReturn(List.of(new com.windrunner.server.project.domain.ProjectMember()));
+        when(projectMemberRepository.countByProjectId("proj-1")).thenReturn(101L);
+
+        ApiResponse<List<com.windrunner.server.external.v1.dto.ExternalProjectTeamResponse>> teams =
+                controller().listProjectTeams("proj-1", 1, 500, request);
+        ApiResponse<List<com.windrunner.server.external.v1.dto.ExternalProjectMemberResponse>> members =
+                controller().listProjectMembers("proj-1", 1, 500, request);
+
+        assertThat(teams.meta().page()).isEqualTo(1);
+        assertThat(teams.meta().size()).isEqualTo(100);
+        assertThat(teams.meta().totalItems()).isEqualTo(101L);
+        assertThat(members.meta().page()).isEqualTo(1);
+        assertThat(members.meta().size()).isEqualTo(100);
+        assertThat(members.meta().totalItems()).isEqualTo(101L);
+    }
+
+    @Test
+    void deleteRemovesProjectOwnedContentBeforeDeletingProject() {
+        when(externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_WRITE)).thenReturn(actor());
+        when(projectRepository.findById("proj-1")).thenReturn(Optional.of(persistedProject()));
+
+        controller().deleteProject("proj-1", request);
+
+        verify(projectContentDeletionService).deleteProjectContent("proj-1");
+        verify(projectTeamRepository).deleteByProjectId("proj-1");
+        verify(projectMemberRepository).deleteByProjectId("proj-1");
+        verify(projectRepository).deleteById("proj-1");
+    }
+
     private ExternalProjectController controller() {
         return new ExternalProjectController(
                 projectRepository,
@@ -146,6 +185,7 @@ class ExternalProjectControllerTest {
                 projectAccessService,
                 auditLogService,
                 externalAccessService,
-                new EntityIdGenerator());
+                new EntityIdGenerator(),
+                projectContentDeletionService);
     }
 }

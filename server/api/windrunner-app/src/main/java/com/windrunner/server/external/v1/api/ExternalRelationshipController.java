@@ -64,6 +64,10 @@ public class ExternalRelationshipController {
         if (relationship == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Relationship is required");
         }
+        ExternalInputValidation.requireMaxLength(relationship.getReason(), "Relationship reason", ExternalInputValidation.MAX_CONTENT_LENGTH);
+        ExternalInputValidation.requireMaxLength(relationship.getFromEntityId(), "From entity id", ExternalInputValidation.MAX_ID_LENGTH);
+        ExternalInputValidation.requireMaxLength(relationship.getToEntityId(), "To entity id", ExternalInputValidation.MAX_ID_LENGTH);
+        ExternalInputValidation.requireMaxLength(relationship.getSourceEntryId(), "Source entry id", ExternalInputValidation.MAX_ID_LENGTH);
         return ApiResponse.success(ExternalRelationshipResponse.from(relationships.create(projectId, relationship, actor.getId())));
     }
 
@@ -77,8 +81,12 @@ public class ExternalRelationshipController {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.RELATIONSHIPS_WRITE);
         Relationship current = requireRelationship(id);
         projectAccessService.requireProjectRole(current.getProjectId(), actor, ProjectRoles.EDITOR);
+        if (body == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
+        }
+        ExternalInputValidation.requireMaxLength(body.reason(), "Relationship reason", ExternalInputValidation.MAX_CONTENT_LENGTH);
         return ApiResponse.success(ExternalRelationshipResponse.from(relationships.updateReason(
-                current.getProjectId(), id, body == null ? null : body.reason(), actor.getId())));
+                current.getProjectId(), id, body.reason(), actor.getId())));
     }
 
     @DeleteMapping("/relationships/{id}")

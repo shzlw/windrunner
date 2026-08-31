@@ -24,6 +24,20 @@ public interface ProjectMemberRepository extends CrudRepository<ProjectMember, S
     @Query("""
             SELECT project_id, user_id, role, created_at
             FROM project_member
+            WHERE project_id = :projectId
+            ORDER BY role ASC, user_id ASC
+            LIMIT :limit OFFSET :offset
+            """)
+    List<ProjectMember> findPageByProjectId(@Param("projectId") String projectId,
+                                            @Param("limit") int limit,
+                                            @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM project_member WHERE project_id = :projectId")
+    long countByProjectId(@Param("projectId") String projectId);
+
+    @Query("""
+            SELECT project_id, user_id, role, created_at
+            FROM project_member
             WHERE project_id IN (:projectIds)
               AND role = 'OWNER'
             ORDER BY project_id ASC, user_id ASC

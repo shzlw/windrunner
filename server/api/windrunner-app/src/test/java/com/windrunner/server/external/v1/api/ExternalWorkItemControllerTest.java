@@ -27,6 +27,7 @@ import com.windrunner.server.work.persistence.WorkItemRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -82,7 +83,7 @@ class ExternalWorkItemControllerTest {
         List<WorkItemAssignee> assignees = List.of(new WorkItemAssignee());
         when(workItemRepository.findPageForProject(PROJECT_ID, null, null, null, null, 25, 0L)).thenReturn(List.of(item));
         when(workItemRepository.countForProject(PROJECT_ID, null, null, null, null)).thenReturn(42L);
-        when(workItems.assignees("witm-1")).thenReturn(assignees);
+        when(workItems.assigneesByWorkItemIds(List.of("witm-1"))).thenReturn(Map.of("witm-1", assignees));
 
         ApiResponse<List<ExternalWorkItemResponse>> response = controller().list(
                 PROJECT_ID, 0, 25, null, null, null, null, request);
@@ -115,7 +116,9 @@ class ExternalWorkItemControllerTest {
         when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_WRITE)).thenReturn(actor());
         WorkItem requested = workItem(null, PROJECT_ID, "OPEN");
         WorkItem saved = workItem("witm-new", PROJECT_ID, "OPEN");
-        List<WorkItemAssignee> assignees = List.of(new WorkItemAssignee());
+        WorkItemAssignee requestedAssignee = new WorkItemAssignee();
+        requestedAssignee.setAssigneeId("user-1");
+        List<WorkItemAssignee> assignees = List.of(requestedAssignee);
         when(workItems.create(PROJECT_ID, requested, assignees, ACTOR_ID)).thenReturn(saved);
         when(workItems.assignees("witm-new")).thenReturn(assignees);
 

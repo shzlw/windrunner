@@ -12,6 +12,7 @@ import com.windrunner.server.work.api.WorkItemMoveRequest;
 import com.windrunner.server.work.api.WorkItemRequest;
 import com.windrunner.server.work.api.WorkItemView;
 import com.windrunner.server.work.domain.WorkItem;
+import com.windrunner.server.work.domain.WorkItemAssignee;
 import com.windrunner.server.work.persistence.WorkItemRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -50,8 +52,11 @@ public class ExternalWorkItemController {
         int normalizedSize = Math.max(1, Math.min(size, 100));
         List<WorkItem> items = workItemsPage(projectId, normalizedSize, (long) normalizedPage * normalizedSize, status, type, priority, updatedAfter);
         long totalItems = workItemsCount(projectId, status, type, priority, updatedAfter);
+        Map<String, List<com.windrunner.server.work.domain.WorkItemAssignee>> assigneesByWorkItemId =
+                workItems.assigneesByWorkItemIds(items.stream().map(WorkItem::getId).toList());
         return ApiResponse.page(
-                items.stream().map(item -> ExternalWorkItemResponse.from(item, workItems.assignees(item.getId()))).toList(),
+                items.stream().map(item -> ExternalWorkItemResponse.from(item,
+                        assigneesByWorkItemId.getOrDefault(item.getId(), List.of()))).toList(),
                 normalizedPage,
                 normalizedSize,
                 totalItems,
@@ -98,6 +103,8 @@ public class ExternalWorkItemController {
         if (body == null || body.workItem() == null) {
             throw badRequest("Work item is required");
         }
+        ExternalInputValidation.requireMaxLength(body.workItem().getTitle(), "Work item title", ExternalInputValidation.MAX_TITLE_LENGTH);
+        validateAssignees(body.assignees());
         WorkItem created = workItems.create(projectId, body.workItem(), body.assignees(), actor.getId());
         return ApiResponse.success(ExternalWorkItemResponse.from(created, workItems.assignees(created.getId())));
     }
@@ -121,6 +128,8 @@ public class ExternalWorkItemController {
         if (body == null || body.workItem() == null) {
             throw badRequest("Work item is required");
         }
+        ExternalInputValidation.requireMaxLength(body.workItem().getTitle(), "Work item title", ExternalInputValidation.MAX_TITLE_LENGTH);
+        validateAssignees(body.assignees());
         WorkItem updated = workItems.update(current.getProjectId(), id, body.workItem(), body.assignees(), actor.getId());
         return ApiResponse.success(ExternalWorkItemResponse.from(updated, workItems.assignees(updated.getId())));
     }
@@ -154,5 +163,19 @@ public class ExternalWorkItemController {
 
     private static ResponseStatusException badRequest(String message) {
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+    }
+
+    private void validateAssignees(List<WorkItemAssignee> assignees) {
+        ExternalInputValidation.requireMaxSize(assignees, "Assignees", ExternalInputValidation.MAX_ID_LIST_SIZE);
+        if (assignees == null) {
+            return;
+        }
+        for (WorkItemAssignee assignee : assignees) {
+            if (assignee == null) {
+                throw badRequest("Assignee is invalid");
+            }
+            ExternalInputValidation.requiredText(assignee.getAssigneeId(), "Assignee id",
+                    ExternalInputValidation.MAX_ID_LENGTH);
+        }
     }
 }

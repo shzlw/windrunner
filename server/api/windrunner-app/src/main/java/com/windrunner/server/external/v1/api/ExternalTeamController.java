@@ -56,6 +56,7 @@ public class ExternalTeamController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<ExternalTeamResponse> createTeam(@RequestBody CreateTeamRequest createRequest, HttpServletRequest request) {
+        validateTeamInput(createRequest);
         return ApiResponse.success(ExternalTeamResponse.from(teamService.createTeam(
                 createRequest,
                 externalAccessService.requireAdminScope(request, ApiKeyScopes.TEAMS_WRITE))));
@@ -65,6 +66,7 @@ public class ExternalTeamController {
     public ApiResponse<ExternalTeamResponse> updateTeam(@PathVariable("id") String id,
                                         @RequestBody Team team,
                                         HttpServletRequest request) {
+        validateTeamInput(team);
         return ApiResponse.success(ExternalTeamResponse.from(teamService.updateTeam(
                 id,
                 team,
@@ -78,11 +80,19 @@ public class ExternalTeamController {
     }
 
     @GetMapping("/{id}/members")
-    public ApiResponse<List<ExternalTeamMemberResponse>> listMembers(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<List<ExternalTeamMemberResponse>> listMembers(@PathVariable("id") String id,
+                                                                     @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                     @RequestParam(name = "size", defaultValue = "50") int size,
+                                                                     HttpServletRequest request) {
         externalAccessService.requireScope(request, ApiKeyScopes.TEAM_MEMBERS_READ);
-        return ApiResponse.success(teamService.listMembers(id).stream()
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        long totalItems = teamService.countMembers(id);
+        return ApiResponse.page(teamService.listMembersPage(id, normalizedSize,
+                        (long) normalizedPage * normalizedSize).stream()
                 .map(ExternalTeamMemberResponse::from)
-                .toList());
+                .toList(), normalizedPage, normalizedSize, totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @PostMapping("/{id}/members")
@@ -90,6 +100,7 @@ public class ExternalTeamController {
     public ApiResponse<ExternalTeamMemberResponse> addMember(@PathVariable("id") String id,
                                              @RequestBody TeamLinkRequest linkRequest,
                                              HttpServletRequest request) {
+        validateMemberLink(linkRequest);
         return ApiResponse.success(ExternalTeamMemberResponse.from(teamService.addMember(
                 id,
                 linkRequest,
@@ -105,29 +116,50 @@ public class ExternalTeamController {
     }
 
     @GetMapping("/{id}/projects")
-    public ApiResponse<List<ExternalProjectTeamResponse>> listProjects(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<List<ExternalProjectTeamResponse>> listProjects(@PathVariable("id") String id,
+                                                                        @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                        @RequestParam(name = "size", defaultValue = "50") int size,
+                                                                        HttpServletRequest request) {
         externalAccessService.requireScope(request, ApiKeyScopes.TEAM_PROJECTS_READ);
-        return ApiResponse.success(teamService.listProjects(id).stream()
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        long totalItems = teamService.countProjects(id);
+        return ApiResponse.page(teamService.listProjectsPage(id, normalizedSize,
+                        (long) normalizedPage * normalizedSize).stream()
                 .map(ExternalProjectTeamResponse::from)
-                .toList());
+                .toList(), normalizedPage, normalizedSize, totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
-    @PostMapping("/{id}/projects")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<ExternalProjectTeamResponse> addProject(@PathVariable("id") String id,
-                                               @RequestBody TeamLinkRequest linkRequest,
-                                               HttpServletRequest request) {
-        return ApiResponse.success(ExternalProjectTeamResponse.from(teamService.addProject(
-                id,
-                linkRequest,
-                externalAccessService.requireScope(request, ApiKeyScopes.TEAM_PROJECTS_WRITE))));
+    private void validateTeamInput(CreateTeamRequest request) {
+        if (request == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Request body is required");
+        }
+        ExternalInputValidation.requireMaxLength(request.name(), "Team name", ExternalInputValidation.MAX_NAME_LENGTH);
+        ExternalInputValidation.requireMaxLength(request.description(), "Team description", ExternalInputValidation.MAX_DESCRIPTION_LENGTH);
+        ExternalInputValidation.requireMaxSize(request.ownerUserIds(), "Owner ids", ExternalInputValidation.MAX_ID_LIST_SIZE);
+        if (request.ownerUserIds() != null) {
+            request.ownerUserIds().forEach(ownerId -> ExternalInputValidation.requiredText(
+                    ownerId, "Team owner user id", ExternalInputValidation.MAX_ID_LENGTH));
+        }
     }
 
-    @DeleteMapping("/{id}/projects/{projectId}")
-    public ApiResponse<Void> removeProject(@PathVariable("id") String id,
-                                           @PathVariable("projectId") String projectId,
-                                           HttpServletRequest request) {
-        teamService.removeProject(id, projectId, externalAccessService.requireScope(request, ApiKeyScopes.TEAM_PROJECTS_WRITE));
-        return ApiResponse.success();
+    private void validateTeamInput(Team team) {
+        if (team == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Request body is required");
+        }
+        ExternalInputValidation.requireMaxLength(team.getName(), "Team name", ExternalInputValidation.MAX_NAME_LENGTH);
+        ExternalInputValidation.requireMaxLength(team.getDescription(), "Team description", ExternalInputValidation.MAX_DESCRIPTION_LENGTH);
     }
+
+    private void validateMemberLink(TeamLinkRequest request) {
+        if (request == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Request body is required");
+        }
+        ExternalInputValidation.requiredText(request.userId(), "User id", ExternalInputValidation.MAX_ID_LENGTH);
+    }
+
 }

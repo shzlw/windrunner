@@ -189,6 +189,10 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
     @Query("DELETE FROM work_item WHERE id = :id AND project_id = :projectId")
     int deleteInProject(@Param("id") String id, @Param("projectId") String projectId);
 
+    @Modifying
+    @Query("DELETE FROM work_item WHERE project_id = :projectId")
+    int deleteByProjectId(@Param("projectId") String projectId);
+
     record AssignedRow(
             String projectId,
             String projectName,

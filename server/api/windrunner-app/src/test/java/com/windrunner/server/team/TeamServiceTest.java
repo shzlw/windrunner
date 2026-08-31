@@ -13,6 +13,7 @@ import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.team.api.CreateTeamRequest;
 import com.windrunner.server.team.domain.Team;
+import com.windrunner.server.team.domain.TeamMember;
 import com.windrunner.server.team.persistence.ProjectTeamRepository;
 import com.windrunner.server.team.persistence.TeamJoinRequestRepository;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
@@ -66,7 +67,6 @@ class TeamServiceTest {
                 auditLogService,
                 new EntityIdGenerator(),
                 workItemAssigneeRepository);
-        when(teamRepository.findByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
     }
 
     @Test
@@ -82,6 +82,7 @@ class TeamServiceTest {
 
     @Test
     void createTeamAssignsEverySelectedOwner() {
+        when(teamRepository.findByNameIgnoreCase(anyString())).thenReturn(Optional.empty());
         when(appUserRepository.findById("owner-1")).thenReturn(Optional.of(user("owner-1")));
         when(appUserRepository.findById("owner-2")).thenReturn(Optional.of(user("owner-2")));
 
@@ -96,6 +97,52 @@ class TeamServiceTest {
         verify(teamMemberRepository).insert(teamId.getValue(), "owner-2", TeamRoles.TEAM_OWNER);
     }
 
+    @Test
+    void removeMemberRejectsMissingMembership() {
+        when(teamRepository.findById("team-1")).thenReturn(Optional.of(team("team-1")));
+        when(teamMemberRepository.findByTeamIdAndUserId("team-1", "user-1")).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = org.junit.jupiter.api.Assertions.assertThrows(
+                ResponseStatusException.class,
+                () -> teamService.removeMember("team-1", "user-1", actor()));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void removeMemberRejectsLastOwner() {
+        when(teamRepository.findById("team-1")).thenReturn(Optional.of(team("team-1")));
+        TeamMember owner = new TeamMember();
+        owner.setTeamId("team-1");
+        owner.setUserId("user-1");
+        owner.setRole(TeamRoles.TEAM_OWNER);
+        when(teamMemberRepository.findByTeamIdAndUserId("team-1", "user-1")).thenReturn(Optional.of(owner));
+        when(teamMemberRepository.countOwners("team-1")).thenReturn(1L);
+
+        ResponseStatusException exception = org.junit.jupiter.api.Assertions.assertThrows(
+                ResponseStatusException.class,
+                () -> teamService.removeMember("team-1", "user-1", actor()));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(auditLogService);
+    }
+
+    @Test
+    void removeMemberUsesConditionalDeleteWhenAnotherOwnerExists() {
+        when(teamRepository.findById("team-1")).thenReturn(Optional.of(team("team-1")));
+        TeamMember owner = new TeamMember();
+        owner.setTeamId("team-1");
+        owner.setUserId("user-1");
+        owner.setRole(TeamRoles.TEAM_OWNER);
+        when(teamMemberRepository.findByTeamIdAndUserId("team-1", "user-1")).thenReturn(Optional.of(owner));
+        when(teamMemberRepository.countOwners("team-1")).thenReturn(2L);
+        when(teamMemberRepository.deleteIfNotLastOwner("team-1", "user-1")).thenReturn(1);
+
+        teamService.removeMember("team-1", "user-1", actor());
+
+        verify(teamMemberRepository).deleteIfNotLastOwner("team-1", "user-1");
+    }
+
     private AppUser actor() {
         AppUser actor = new AppUser();
         actor.setId("admin-1");
@@ -107,5 +154,12 @@ class TeamServiceTest {
         user.setId(id);
         user.setGlobalRole("USER");
         return user;
+    }
+
+    private Team team(String id) {
+        Team team = new Team();
+        team.setId(id);
+        team.setName("Platform");
+        return team;
     }
 }

@@ -80,8 +80,8 @@ class ExternalEntryControllerTest {
         when(workItems.findById(WORK_ITEM_ID)).thenReturn(Optional.of(workItem()));
         List<Entry> items = List.of(entry("entr-1", PROJECT_ID, WORK_ITEM_ID));
         OffsetDateTime after = OffsetDateTime.parse("2026-01-01T00:00:00Z");
-        when(entryRepository.findPageByWorkItemId(WORK_ITEM_ID, after, 25, 0L)).thenReturn(items);
-        when(entryRepository.countByWorkItemId(WORK_ITEM_ID, after)).thenReturn(1L);
+        when(entryRepository.findExternalPageByProjectIdAndWorkItemId(PROJECT_ID, WORK_ITEM_ID, after, 25, 0L)).thenReturn(items);
+        when(entryRepository.countExternalByProjectIdAndWorkItemId(PROJECT_ID, WORK_ITEM_ID, after)).thenReturn(1L);
 
         ApiResponse<List<ExternalEntryResponse>> response = controller().list(WORK_ITEM_ID, 0, 25, after, request);
 

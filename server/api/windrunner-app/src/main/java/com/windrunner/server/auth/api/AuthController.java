@@ -15,7 +15,8 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ApiResponse<AuthUserResponse> login(@RequestBody LoginRequest request, HttpServletResponse response) {
+    public ApiResponse<AuthUserResponse> login(@RequestBody LoginRequest request,
+                                               HttpServletResponse response) {
         return ApiResponse.success(authService.login(request, response));
     }
 

@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TeamMemberRepository extends CrudRepository<TeamMember, String> {
@@ -33,6 +34,13 @@ public interface TeamMemberRepository extends CrudRepository<TeamMember, String>
 
     @Query("SELECT COUNT(*) FROM team_member WHERE team_id = :teamId")
     long countByTeamId(@Param("teamId") String teamId);
+
+    @Query("SELECT team_id, user_id, role, created_at FROM team_member WHERE team_id = :teamId AND user_id = :userId")
+    Optional<TeamMember> findByTeamIdAndUserId(@Param("teamId") String teamId,
+                                               @Param("userId") String userId);
+
+    @Query("SELECT COUNT(*) FROM team_member WHERE team_id = :teamId AND role = 'TEAM_OWNER'")
+    long countOwners(@Param("teamId") String teamId);
 
     @Query("""
             SELECT team_id, user_id, role, created_at
@@ -89,6 +97,19 @@ public interface TeamMemberRepository extends CrudRepository<TeamMember, String>
             """)
     int delete(@Param("teamId") String teamId,
                @Param("userId") String userId);
+
+    @Modifying
+    @Query("""
+            DELETE FROM team_member
+            WHERE team_id = :teamId
+              AND user_id = :userId
+              AND (
+                    role <> 'TEAM_OWNER'
+                    OR (SELECT COUNT(*) FROM team_member WHERE team_id = :teamId AND role = 'TEAM_OWNER') > 1
+              )
+            """)
+    int deleteIfNotLastOwner(@Param("teamId") String teamId,
+                             @Param("userId") String userId);
 
     @Modifying
     @Query("""

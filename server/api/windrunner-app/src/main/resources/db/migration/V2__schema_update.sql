@@ -44,6 +44,9 @@ CREATE INDEX IF NOT EXISTS work_item_project_updated_idx
 CREATE INDEX IF NOT EXISTS entry_project_created_idx
     ON entry (project_id, created_at DESC, id);
 
+CREATE INDEX IF NOT EXISTS entry_work_item_updated_idx
+    ON entry (work_item_id, updated_at DESC, id);
+
 CREATE INDEX IF NOT EXISTS relationship_project_created_idx
     ON relationship (project_id, created_at DESC, id);
 
@@ -52,3 +55,12 @@ CREATE INDEX IF NOT EXISTS relationship_project_blocked_by_idx
     WHERE type = 'BLOCKED_BY'
       AND from_entity_type = 'WORK_ITEM'
       AND to_entity_type = 'WORK_ITEM';
+
+CREATE INDEX IF NOT EXISTS project_member_project_role_idx
+    ON project_member (project_id, role, user_id);
+
+CREATE INDEX IF NOT EXISTS work_item_subscription_project_idx
+    ON work_item_subscription (project_id, work_item_id);
+
+CREATE INDEX IF NOT EXISTS user_notification_project_idx
+    ON user_notification (project_id, created_at DESC, id DESC);

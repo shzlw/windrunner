@@ -41,6 +41,10 @@ public interface SubscriptionRepository extends CrudRepository<WorkItemSubscript
     @Query("DELETE FROM work_item_subscription WHERE user_id = :userId AND work_item_id = :workItemId")
     int delete(@Param("userId") String userId, @Param("workItemId") String workItemId);
 
+    @Modifying
+    @Query("DELETE FROM work_item_subscription WHERE project_id = :projectId")
+    int deleteByProjectId(@Param("projectId") String projectId);
+
     @Query("SELECT EXISTS(SELECT 1 FROM work_item_subscription WHERE user_id = :userId AND work_item_id = :workItemId)")
     boolean exists(@Param("userId") String userId, @Param("workItemId") String workItemId);
 

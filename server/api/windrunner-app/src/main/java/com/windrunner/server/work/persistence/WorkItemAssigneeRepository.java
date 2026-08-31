@@ -45,6 +45,10 @@ public interface WorkItemAssigneeRepository extends CrudRepository<WorkItemAssig
     int deleteByWorkItemId(@Param("workItemId") String workItemId);
 
     @Modifying
+    @Query("DELETE FROM work_item_assignee WHERE work_item_id IN (SELECT id FROM work_item WHERE project_id = :projectId)")
+    int deleteByProjectId(@Param("projectId") String projectId);
+
+    @Modifying
     @Query("DELETE FROM work_item_assignee WHERE assignee_type = :assigneeType AND assignee_id = :assigneeId")
     int deleteByAssignee(@Param("assigneeType") String assigneeType, @Param("assigneeId") String assigneeId);
 }

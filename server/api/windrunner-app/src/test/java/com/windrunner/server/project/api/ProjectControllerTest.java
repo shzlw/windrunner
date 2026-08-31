@@ -10,6 +10,7 @@ import com.windrunner.server.audit.AuditLogService;
 import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.project.ProjectAccessService;
+import com.windrunner.server.project.ProjectContentDeletionService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
@@ -48,6 +49,8 @@ class ProjectControllerTest {
     private AuditLogService auditLogService;
     @Mock
     private AuthService authService;
+    @Mock
+    private ProjectContentDeletionService projectContentDeletionService;
     @Mock
     private HttpServletRequest request;
 
@@ -98,7 +101,8 @@ class ProjectControllerTest {
                 projectAccessService,
                 auditLogService,
                 authService,
-                new EntityIdGenerator());
+                new EntityIdGenerator(),
+                projectContentDeletionService);
     }
 
     private AppUser actor() {

@@ -44,8 +44,9 @@ public class ExternalEntryController {
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.max(1, Math.min(size, 100));
-        List<Entry> items = entryRepository.findPageByWorkItemId(workItemId, updatedAfter, normalizedSize, (long) normalizedPage * normalizedSize);
-        long totalItems = entryRepository.countByWorkItemId(workItemId, updatedAfter);
+        List<Entry> items = entryRepository.findExternalPageByProjectIdAndWorkItemId(
+                projectId, workItemId, updatedAfter, normalizedSize, (long) normalizedPage * normalizedSize);
+        long totalItems = entryRepository.countExternalByProjectIdAndWorkItemId(projectId, workItemId, updatedAfter);
         return ApiResponse.page(
                 items.stream().map(ExternalEntryResponse::from).toList(),
                 normalizedPage,
@@ -65,6 +66,7 @@ public class ExternalEntryController {
         if (entry == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Entry is required");
         }
+        ExternalInputValidation.requireMaxLength(entry.getBody(), "Entry body", ExternalInputValidation.MAX_CONTENT_LENGTH);
         entry.setWorkItemId(workItemId);
         return ApiResponse.success(ExternalEntryResponse.from(entries.create(projectId, entry, actor.getId())));
     }
@@ -88,6 +90,8 @@ public class ExternalEntryController {
         if (entry == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Entry is required");
         }
+        ExternalInputValidation.requireMaxLength(entry.getBody(), "Entry body", ExternalInputValidation.MAX_CONTENT_LENGTH);
+        entry.setWorkItemId(current.getWorkItemId());
         return ApiResponse.success(ExternalEntryResponse.from(entries.update(current.getProjectId(), id, entry, actor.getId())));
     }
 

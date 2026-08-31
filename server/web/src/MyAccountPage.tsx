@@ -70,7 +70,6 @@ const API_KEY_SCOPE_GROUPS: Array<{
       { value: 'team_members:read', label: 'Read members', description: 'Read team membership lists.' },
       { value: 'team_members:write', label: 'Write members', description: 'Add and remove team members.' },
       { value: 'team_projects:read', label: 'Read projects', description: 'Read projects linked to teams.' },
-      { value: 'team_projects:write', label: 'Write projects', description: 'Link and unlink teams from projects.' },
     ],
   },
   {

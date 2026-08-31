@@ -55,6 +55,20 @@ public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, Strin
             SELECT project_id, team_id, role, created_at
             FROM project_team
             WHERE project_id = :projectId
+            ORDER BY team_id ASC
+            LIMIT :limit OFFSET :offset
+            """)
+    List<ProjectTeam> findPageByProjectId(@Param("projectId") String projectId,
+                                          @Param("limit") int limit,
+                                          @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM project_team WHERE project_id = :projectId")
+    long countByProjectId(@Param("projectId") String projectId);
+
+    @Query("""
+            SELECT project_id, team_id, role, created_at
+            FROM project_team
+            WHERE project_id = :projectId
               AND team_id = :teamId
             """)
     Optional<ProjectTeam> findByProjectIdAndTeamId(@Param("projectId") String projectId,

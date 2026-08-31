@@ -13,6 +13,7 @@ import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.user.UserStatuses;
+import com.windrunner.server.user.PasswordPolicy;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.utils.DateUtils;
@@ -44,6 +45,7 @@ public class AuthService {
     private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
     private static final String DEFAULT_TIMEZONE = "UTC";
     private static final Duration AUTH_SESSION_TTL = Duration.ofDays(7);
+    private static final int MAX_LOGIN_LENGTH = 320;
 
     private final AppUserRepository appUserRepository;
     private final AuthSessionRepository authSessionRepository;
@@ -60,6 +62,10 @@ public class AuthService {
             if (request == null || !StringUtils.hasText(request.getLogin()) || !StringUtils.hasText(request.getPassword())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Login and password are required");
             }
+            if (request.getLogin().length() > MAX_LOGIN_LENGTH) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Login is too long");
+            }
+            PasswordPolicy.assertMaxLength(request.getPassword());
 
             AppUser user = resolveLoginUser(request);
 

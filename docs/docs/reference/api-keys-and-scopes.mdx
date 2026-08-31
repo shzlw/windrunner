@@ -20,7 +20,7 @@ Authorization: Bearer <key>
 | --- | --- |
 | `teams:read` / `teams:write` | Read or manage teams. |
 | `team_members:read` / `team_members:write` | Read or manage team membership. |
-| `team_projects:read` / `team_projects:write` | Read or manage team project links. |
+| `team_projects:read` | Read projects linked to a team. |
 | `users:read` | Resolve limited user identity information. |
 | `projects:read` / `projects:write` | Read or manage projects. |
 | `project_access:read` / `project_access:write` | Read or manage project members and teams. |
@@ -31,5 +31,45 @@ Authorization: Bearer <key>
 
 Project access still applies: a key can only read or change projects available
 to its owner. MCP project content and summary tools check both the requested
-scope and the key owner's project access. Revoke a key from My Account when it
-should stop working.
+scope and the key owner's project access. Team and team-project directory
+endpoints are organization-wide and are controlled by their team scopes. Team
+creation, team updates, team deletion, and team membership changes additionally
+require the API-key owner to be an administrator or superadministrator. Audit
+log endpoints also require an administrator or superadministrator.
+
+## Pagination and search
+
+Collection endpoints use zero-based `page` and `size` query parameters. The
+default size is endpoint-specific; the maximum is 100. Successful paginated
+responses include `page`, `size`, `totalItems`, and `totalPages` in `meta`.
+Nested project and team collections are paginated too:
+
+- `GET /api/v1/projects/{projectId}/members`
+- `GET /api/v1/projects/{projectId}/teams`
+- `GET /api/v1/teams/{teamId}/members`
+- `GET /api/v1/teams/{teamId}/projects`
+
+`GET /api/v1/projects/{projectId}/search` returns work items, entries, and
+relationships together. It requires all three corresponding read scopes and
+accepts a `limit` from 1 to 100.
+
+All successful and error responses use the standard `data`, `errors`, and
+`meta` envelope. Invalid JSON, invalid query parameters, and oversized input
+are reported as `400 BAD_REQUEST` responses. Revoke a key from My Account when
+it should stop working.
+
+## Endpoint access
+
+| Endpoint group | Required scope | Additional rule |
+| --- | --- | --- |
+| `/api/v1/projects` | `projects:read` / `projects:write` | Project reads require viewer access; updates and deletion require owner access. |
+| `/api/v1/projects/{projectId}/members` and `/teams` | `project_access:read` / `project_access:write` | Reads require viewer access; changes require project-owner access. |
+| `/api/v1/projects/{projectId}/work-items` | `work_items:read` / `work_items:write` | Project viewer or editor access, respectively. |
+| `/api/v1/work-items/{workItemId}/entries` | `entries:read` / `entries:write` | Access is checked through the work item’s project. |
+| `/api/v1/projects/{projectId}/relationships` | `relationships:read` / `relationships:write` | Project viewer or editor access, respectively. |
+| `/api/v1/projects/{projectId}/search` | `work_items:read`, `entries:read`, and `relationships:read` | Project viewer access; all three scopes are required because one response contains all three resource types. |
+| `/api/v1/projects/{projectId}/content-order` | `work_items:write` and `entries:write` | Project editor access; ordering can update both work-item and entry positions. |
+| `/api/v1/teams` and team members | `teams:*`, `team_members:*` | Team creation, updates, deletion, and membership changes require an admin-like key owner. |
+| `/api/v1/teams/{teamId}/projects` | `team_projects:read` | Reverse lookup only. Manage links from the project-side endpoints with `project_access:write`. |
+| `/api/v1/users/{userId}` | `users:read` | Returns active, limited identity fields only. |
+| `/api/v1/audit-logs` and project audit logs | `audit_logs:read` | Admin or superadmin key owner only. |

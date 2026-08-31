@@ -186,6 +186,16 @@ public class WorkItemService {
         return assignees.findByWorkItemId(workItemId);
     }
 
+    public Map<String, List<WorkItemAssignee>> assigneesByWorkItemIds(Collection<String> workItemIds) {
+        if (workItemIds == null || workItemIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<WorkItemAssignee>> result = new HashMap<>();
+        assignees.findByWorkItemIds(workItemIds).forEach(assignee ->
+                result.computeIfAbsent(assignee.getWorkItemId(), ignored -> new ArrayList<>()).add(assignee));
+        return result;
+    }
+
     private void normalize(WorkItem item, WorkItem current) {
         if (item == null || blank(item.getTitle())) throw bad("Work item title is required");
         item.setType(enumValue(item.getType() == null ? "TASK" : item.getType(), WorkTypes.WORK_ITEM_TYPES, "Work item type"));

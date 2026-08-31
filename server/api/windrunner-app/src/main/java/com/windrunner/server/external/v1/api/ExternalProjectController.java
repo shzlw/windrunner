@@ -11,6 +11,7 @@ import com.windrunner.server.external.v1.dto.ExternalProjectTeamResponse;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.project.ProjectAccessService;
+import com.windrunner.server.project.ProjectContentDeletionService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.api.CreateProjectRequest;
 import com.windrunner.server.project.domain.Project;
@@ -48,6 +49,7 @@ public class ExternalProjectController {
     private final AuditLogService auditLogService;
     private final ExternalAccessService externalAccessService;
     private final EntityIdGenerator idGenerator;
+    private final ProjectContentDeletionService projectContentDeletionService;
 
     @GetMapping
     public ApiResponse<List<ExternalProjectResponse>> listProjects(@RequestParam(name = "page", defaultValue = "0") int page,
@@ -88,7 +90,8 @@ public class ExternalProjectController {
         if (createRequest == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
         }
-        String name = requireText(createRequest.name(), "Project name is required");
+        String name = ExternalInputValidation.requiredText(createRequest.name(), "Project name",
+                ExternalInputValidation.MAX_NAME_LENGTH);
         List<String> ownerUserIds = normalizeIds(createRequest.ownerUserIds(), "Owner user id is required");
         List<String> ownerTeamIds = normalizeIds(createRequest.ownerTeamIds(), "Owner team id is required");
         if (ownerUserIds.isEmpty() && ownerTeamIds.isEmpty()) {
@@ -170,6 +173,7 @@ public class ExternalProjectController {
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
         Project project = requireProject(id);
         Map<String, Object> before = projectSnapshot(project);
+        projectContentDeletionService.deleteProjectContent(id);
         projectTeamRepository.deleteByProjectId(id);
         projectMemberRepository.deleteByProjectId(id);
         projectRepository.deleteById(id);
@@ -189,23 +193,39 @@ public class ExternalProjectController {
     }
 
     @GetMapping("/{id}/teams")
-    public ApiResponse<List<ExternalProjectTeamResponse>> listProjectTeams(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<List<ExternalProjectTeamResponse>> listProjectTeams(@PathVariable("id") String id,
+                                                                            @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                            @RequestParam(name = "size", defaultValue = "50") int size,
+                                                                            HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_READ);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.VIEWER);
         requireProject(id);
-        return ApiResponse.success(projectTeamRepository.findByProjectId(id).stream()
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        long totalItems = projectTeamRepository.countByProjectId(id);
+        return ApiResponse.page(projectTeamRepository.findPageByProjectId(id, normalizedSize,
+                        (long) normalizedPage * normalizedSize).stream()
                 .map(ExternalProjectTeamResponse::from)
-                .toList());
+                .toList(), normalizedPage, normalizedSize, totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @GetMapping("/{id}/members")
-    public ApiResponse<List<ExternalProjectMemberResponse>> listProjectMembers(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<List<ExternalProjectMemberResponse>> listProjectMembers(@PathVariable("id") String id,
+                                                                                @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                                @RequestParam(name = "size", defaultValue = "50") int size,
+                                                                                HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_READ);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.VIEWER);
         requireProject(id);
-        return ApiResponse.success(projectMemberRepository.findByProjectId(id).stream()
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        long totalItems = projectMemberRepository.countByProjectId(id);
+        return ApiResponse.page(projectMemberRepository.findPageByProjectId(id, normalizedSize,
+                        (long) normalizedPage * normalizedSize).stream()
                 .map(ExternalProjectMemberResponse::from)
-                .toList());
+                .toList(), normalizedPage, normalizedSize, totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @PostMapping("/{id}/members")
@@ -341,10 +361,11 @@ public class ExternalProjectController {
     }
 
     private void validateName(Project project) {
-        if (project == null || project.getName() == null || project.getName().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project name is required");
+        if (project == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
         }
-        project.setName(project.getName().trim());
+        project.setName(ExternalInputValidation.requiredText(project.getName(), "Project name",
+                ExternalInputValidation.MAX_NAME_LENGTH));
     }
 
     private Map<String, Object> projectSnapshot(Project project) {
@@ -362,22 +383,21 @@ public class ExternalProjectController {
     }
 
     private String requireText(String value, String message) {
-        if (value == null || value.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
-        }
-        return value.trim();
+        return ExternalInputValidation.requiredText(value, message, ExternalInputValidation.MAX_ID_LENGTH);
     }
 
     private List<String> normalizeIds(List<String> values, String blankMessage) {
         if (values == null || values.isEmpty()) {
             return List.of();
         }
+        ExternalInputValidation.requireMaxSize(values, "Owner ids", ExternalInputValidation.MAX_ID_LIST_SIZE);
         Set<String> normalized = new LinkedHashSet<>();
         for (String value : values) {
             if (value == null || value.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, blankMessage);
             }
-            normalized.add(value.trim());
+            normalized.add(ExternalInputValidation.requiredText(value, blankMessage,
+                    ExternalInputValidation.MAX_ID_LENGTH));
         }
         return List.copyOf(normalized);
     }

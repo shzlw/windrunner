@@ -150,7 +150,7 @@ public interface RelationshipRepository extends CrudRepository<Relationship, Str
             FROM relationship r
             WHERE r.project_id = :projectId
               AND (:type IS NULL OR r.type = :type)
-              AND (:createdAfter IS NULL OR r.created_at > :createdAfter)
+              AND (CAST(:createdAfter AS TIMESTAMPTZ) IS NULL OR r.created_at > CAST(:createdAfter AS TIMESTAMPTZ))
             ORDER BY r.created_at DESC, r.id
             LIMIT :limit OFFSET :offset
             """)
@@ -165,7 +165,7 @@ public interface RelationshipRepository extends CrudRepository<Relationship, Str
             FROM relationship r
             WHERE r.project_id = :projectId
               AND (:type IS NULL OR r.type = :type)
-              AND (:createdAfter IS NULL OR r.created_at > :createdAfter)
+              AND (CAST(:createdAfter AS TIMESTAMPTZ) IS NULL OR r.created_at > CAST(:createdAfter AS TIMESTAMPTZ))
             """)
     long countByProjectId(@Param("projectId") String projectId,
                           @Param("type") String type,
@@ -203,4 +203,8 @@ public interface RelationshipRepository extends CrudRepository<Relationship, Str
     @Modifying
     @Query("DELETE FROM relationship WHERE project_id = :projectId AND ((from_entity_type = :entityType AND from_entity_id = :entityId) OR (to_entity_type = :entityType AND to_entity_id = :entityId) OR source_entry_id = :entityId)")
     int deleteForEntity(@Param("projectId") String projectId, @Param("entityType") String entityType, @Param("entityId") String entityId);
+
+    @Modifying
+    @Query("DELETE FROM relationship WHERE project_id = :projectId")
+    int deleteByProjectId(@Param("projectId") String projectId);
 }
