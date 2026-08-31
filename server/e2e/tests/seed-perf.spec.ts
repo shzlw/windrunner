@@ -1,144 +1,148 @@
-import { test, expect } from '@playwright/test';
-import type { APIResponse } from '@playwright/test';
+import {expect, test} from '@playwright/test';
+import type {APIResponse} from '@playwright/test';
+import {
+  PERSON_FIRST_NAMES,
+  PERSON_LAST_NAMES,
+  SEED_SCENARIOS,
+  SEED_TEAMS,
+  type SeedScenario,
+  type SeedTeam,
+  type SeedWorkstream,
+} from './seed-scenarios';
 
 /**
- * Performance/realism seeding: 2 projects with ~2000 work items each
- * (hierarchy + entries + relationships), plus 50 users and 20 teams.
+ * Scenario-driven performance seeding. It creates a coherent workspace that is
+ * useful for demos and Ask AI while retaining enough volume for pagination and
+ * performance testing.
  *
  * Opt-in — never runs in a normal pass:
  *   SEED_PERF=1 E2E_LOGIN=... E2E_PASSWORD=... npx playwright test --project=api -g "Seed"
  *
- * Tunables: SEED_ITEMS (2000), SEED_USERS (50), SEED_TEAMS (20),
- *           SEED_PROJECTS (2), SEED_CONCURRENCY (4), SEED_RUN_ID (timestamp)
- *
- * Data choices are deterministic; each run gets a unique namespace by default
- * so a failed run can be safely retried without colliding with old data.
+ * Visible records use stable, human names. Reset the database before a normal
+ * run. Set SEED_NAME_SUFFIX explicitly only when multiple seed sets must coexist.
  */
 
 test.skip(process.env.SEED_PERF !== '1', 'Set SEED_PERF=1 to run performance seeding');
 
 function positiveInteger(name: string, fallback: number) {
   const value = Number(process.env[name] ?? fallback);
-  if (!Number.isInteger(value) || value < 1) {
-    throw new Error(`${name} must be a positive integer`);
-  }
+  if (!Number.isInteger(value) || value < 1) throw new Error(`${name} must be a positive integer`);
   return value;
 }
 
 const PROJECT_COUNT = positiveInteger('SEED_PROJECTS', 2);
 const WORK_ITEMS_PER_PROJECT = positiveInteger('SEED_ITEMS', 2000);
 const USER_COUNT = positiveInteger('SEED_USERS', 50);
-const FUNCTION_TEAMS = [
-  {name: 'SRE', description: 'Owns reliability, observability, incident response, and platform operations.'},
-  {name: 'Development', description: 'Builds and maintains the product and shared engineering systems.'},
-  {name: 'Product', description: 'Owns product direction, discovery, prioritization, and customer outcomes.'},
-  {name: 'Sales', description: 'Builds customer relationships and supports growth and commercial opportunities.'},
-  {name: 'Support', description: 'Helps customers resolve issues and turns feedback into product improvements.'},
-] as const;
-const TEAM_COUNT = Math.max(positiveInteger('SEED_TEAMS', 20), FUNCTION_TEAMS.length);
-// The API uses a Hikari pool of 10 connections by default, and audited writes
-// can briefly need a second connection. Keep the default below that limit;
-// increase it only when the server's datasource pool is configured accordingly.
+const REQUESTED_TEAM_COUNT = positiveInteger('SEED_TEAMS', 20);
 const CONCURRENCY = positiveInteger('SEED_CONCURRENCY', 4);
+const NAME_SUFFIX = (process.env.SEED_NAME_SUFFIX ?? '').trim();
 
-// ---------- deterministic RNG ----------
-function mulberry32(seed: number) {
-  let a = seed;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-let rng = mulberry32(42);
+const TASK_VERBS = ['Implement', 'Validate', 'Document', 'Harden', 'Test', 'Prepare', 'Reconcile', 'Automate'] as const;
+const TITLE_SCOPES = [
+  'ahead of the planned rollout', 'to confirm delivery readiness', 'as part of the operating runbook',
+  'to support production adoption', 'before the next release', 'for stakeholder validation',
+] as const;
+const PRIORITIES = ['MEDIUM', 'HIGH', 'MEDIUM', 'LOW', 'HIGH', 'URGENT'] as const;
 
-const pick = <T>(items: readonly T[]): T => items[Math.floor(rng() * items.length)];
-const chance = (probability: number) => rng() < probability;
-function weighted<T extends readonly string[]>(items: T, weights: readonly number[]): T[number] {
-  const total = weights.reduce((sum, w) => sum + w, 0);
-  let roll = rng() * total;
-  for (let i = 0; i < items.length; i++) {
-    roll -= weights[i];
-    if (roll <= 0) return items[i];
-  }
-  return items[items.length - 1];
-}
+type WorkItemType = 'TASK' | 'QUESTION' | 'APPROVAL' | 'REVIEW' | 'DECISION';
+type WorkItemStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'ANSWERED' | 'PENDING' | 'APPROVED';
+type Assignee = {assigneeType: 'USER' | 'TEAM'; assigneeId: string};
+type CreatedItem = {
+  id: string;
+  title: string;
+  type: WorkItemType;
+  status: WorkItemStatus;
+  streamIndex: number;
+  sequence: number;
+  depth: number;
+};
+type PlannedItem = Omit<CreatedItem, 'id'> & {
+  parentId: string;
+  priority: string;
+  dueDate: string | null;
+  assignees: Assignee[];
+};
 
-// ---------- realistic data pools ----------
-const TYPES = ['TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'] as const;
-const TYPE_WEIGHTS = [7, 3, 1, 1, 1];
-const STATUSES = ['OPEN', 'IN_PROGRESS', 'DONE', 'BLOCKED'] as const;
-const STATUS_WEIGHTS = [4, 2, 2, 1];
-const PRIORITIES = ['MEDIUM', 'MEDIUM', 'HIGH', 'LOW', 'URGENT'] as const;
-const ENTRY_TYPES = ['COMMENT', 'COMMENT', 'INFORMATION', 'EVIDENCE', 'ANSWER', 'RESOLUTION'] as const;
-const RELATIONSHIP_TYPES = ['BLOCKED_BY', 'DEPENDS_ON', 'RELATED_TO'] as const;
-
-const FEATURES = [
-  'login flow', 'billing export', 'search ranking', 'notification digest',
-  'audit retention', 'team invitations', 'API rate limits', 'dashboard filters',
-  'file attachments', 'mobile layout', 'data migration', 'SSO integration',
-  'webhook delivery', 'report scheduling', 'permission matrix', 'cache warming',
-];
-const OBJECTS = [
-  'service', 'endpoint', 'page', 'worker', 'migration', 'policy',
-  'pipeline', 'component', 'query', 'integration',
-];
-const VERBS = ['Implement', 'Refactor', 'Investigate', 'Fix', 'Document', 'Ship', 'Harden'];
-const TITLES = [
-  'Product manager', 'Engineering manager', 'Backend engineer', 'Frontend engineer',
-  'QA engineer', 'UX designer', 'Data analyst', 'Security engineer',
-];
-const USER_BIOS = [
-  'Helps teams turn customer problems into practical improvements.',
-  'Builds reliable systems and keeps delivery moving through clear technical decisions.',
-  'Focuses on making complex workflows simple for the people who use them.',
-  'Partners with teams to improve quality, observability, and operational readiness.',
-];
-const TEAM_RESPONSIBILITIES = [
-  'Owns platform reliability and shared engineering services.',
-  'Builds customer-facing workflows and improves the product experience.',
-  'Maintains data quality, reporting, and operational insights.',
-  'Supports secure delivery, access control, and compliance readiness.',
-  'Coordinates planning, prioritization, and cross-team delivery.',
-];
-
-function workItemTitle() {
-  if (chance(0.15)) {
-    return `${pick(['Should we', 'Can we', 'Do we need to'])} ${pick(['support SSO', 'migrate the cache', 'split the service', 'deprecate v1'])}?`;
-  }
-  return `${pick(VERBS)} ${pick(FEATURES)} ${pick(OBJECTS)}`;
+function visibleName(name: string) {
+  return NAME_SUFFIX ? `${name} — ${NAME_SUFFIX}` : name;
 }
 
-function entryBody(itemTitle: string) {
-  const templates = [
-    `Looked into "${itemTitle}" today. The initial approach works but needs review before we commit.`,
-    'Added reproduction steps and linked the failing pipeline. Root cause is still unclear.',
-    'Discussed in sync — we agree on scope, waiting on security sign-off.',
-    'Benchmark results attached separately: latency is acceptable at current volume.',
-    'Blocked until upstream dependency ships; revisit next sprint.',
-    'Verified the fix in staging. Ready for approval.',
-  ];
-  return pick(templates);
+function identifierSuffix() {
+  if (!NAME_SUFFIX) return '';
+  const normalized = NAME_SUFFIX.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '');
+  return normalized ? `.${normalized}` : '';
 }
 
 function isoDate(daysFromNow: number) {
   const date = new Date();
-  date.setDate(date.getDate() + daysFromNow);
+  date.setUTCHours(12, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() + daysFromNow);
   return date.toISOString().slice(0, 10);
 }
 
-function randomDueDate() {
-  // Spread across -30..+90 days; ~15% overdue.
-  return isoDate(Math.floor((rng() * 120) - 30));
+function workItemType(sequence: number): WorkItemType {
+  if (sequence % 19 === 0) return 'DECISION';
+  if (sequence % 13 === 0) return 'APPROVAL';
+  if (sequence % 11 === 0) return 'REVIEW';
+  if (sequence % 7 === 0) return 'QUESTION';
+  return 'TASK';
 }
 
-async function mapPool<T, R>(
-  items: T[],
-  size: number,
-  worker: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
+function workItemStatus(type: WorkItemType, sequence: number): WorkItemStatus {
+  if (type === 'QUESTION') return sequence % 2 === 0 ? 'ANSWERED' : 'OPEN';
+  if (type === 'APPROVAL') return sequence % 3 === 0 ? 'APPROVED' : 'PENDING';
+  if (type === 'DECISION') return sequence % 4 === 0 ? 'APPROVED' : 'PENDING';
+  if (type === 'REVIEW') return sequence % 4 === 0 ? 'DONE' : sequence % 3 === 0 ? 'IN_PROGRESS' : 'OPEN';
+  if (sequence % 17 === 0) return 'BLOCKED';
+  if (sequence % 5 === 0) return 'DONE';
+  if (sequence % 3 === 0) return 'IN_PROGRESS';
+  return 'OPEN';
+}
+
+function workItemTitle(stream: SeedWorkstream, type: WorkItemType, sequence: number) {
+  const subject = stream.subjects[sequence % stream.subjects.length];
+  const context = stream.contexts[Math.floor(sequence / stream.subjects.length) % stream.contexts.length];
+  const scope = TITLE_SCOPES[Math.floor(sequence / (stream.subjects.length * stream.contexts.length)) % TITLE_SCOPES.length];
+  if (type === 'QUESTION') return `Confirm whether ${subject} is ready for ${context} ${scope}`;
+  if (type === 'APPROVAL') return `Approve ${subject} for ${context} ${scope}`;
+  if (type === 'REVIEW') return `Review ${subject} in ${context} ${scope}`;
+  if (type === 'DECISION') return `Decide the ${subject} approach for ${context} ${scope}`;
+  return `${TASK_VERBS[sequence % TASK_VERBS.length]} ${subject} for ${context} ${scope}`;
+}
+
+function dueDate(status: WorkItemStatus, sequence: number) {
+  if (sequence % 4 === 1 && !['BLOCKED', 'PENDING'].includes(status)) return null;
+  if (['DONE', 'ANSWERED', 'APPROVED'].includes(status)) return isoDate(-1 - (sequence % 45));
+  if (status === 'BLOCKED') return isoDate(-1 - (sequence % 20));
+  return isoDate(3 + (sequence % 75));
+}
+
+function entryFor(item: CreatedItem, stream: SeedWorkstream) {
+  const subject = stream.subjects[item.sequence % stream.subjects.length];
+  if (item.status === 'BLOCKED') {
+    return {type: 'COMMENT', body: `Delivery is paused because ${stream.blockerReasons[item.sequence % stream.blockerReasons.length].toLowerCase()}. The ${stream.team} team is coordinating the next step.`};
+  }
+  if (item.status === 'DONE') {
+    return {type: 'RESOLUTION', body: `Completed the ${subject} work and verified the expected behavior in the target environment. No follow-up defects remain open.`};
+  }
+  if (item.status === 'ANSWERED') {
+    return {type: 'ANSWER', body: `Confirmed the expected behavior with ${stream.team}. The current approach meets the program requirement and can proceed as documented.`};
+  }
+  if (item.type === 'APPROVAL' || item.type === 'DECISION') {
+    return item.status === 'APPROVED'
+      ? {type: 'RESOLUTION', body: 'Approved after reviewing scope, operational impact, and rollback expectations. Record the outcome in the decision log.'}
+      : {type: 'PROPOSAL', body: 'Recommendation is ready for review. The proposal covers customer impact, operating ownership, and rollback expectations.'};
+  }
+  if (item.type === 'REVIEW') {
+    return {type: 'EVIDENCE', body: `Review evidence includes the latest test results, owner checklist, and unresolved findings for ${subject}.`};
+  }
+  if (item.status === 'IN_PROGRESS') {
+    return {type: 'COMMENT', body: 'Implementation is underway. The primary path is working; remaining effort is focused on edge cases, observability, and handoff documentation.'};
+  }
+  return {type: 'INFORMATION', body: `${stream.objective} This item is scoped and ready for an owner to begin.`};
+}
+
+async function mapPool<T, R>(items: T[], size: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let cursor = 0;
   async function lane() {
@@ -153,241 +157,248 @@ async function mapPool<T, R>(
 
 async function responseData<T>(response: APIResponse, operation: string): Promise<T> {
   const body = await response.json() as {data?: T | null; errors?: unknown};
-  if (body.data == null) {
-    throw new Error(`${operation} returned no data: ${JSON.stringify(body.errors ?? body)}`);
-  }
+  if (body.data == null) throw new Error(`${operation} returned no data: ${JSON.stringify(body.errors ?? body)}`);
   return body.data;
 }
 
 async function assertSuccessful(response: APIResponse, operation: string): Promise<APIResponse> {
-  if (!response.ok()) {
-    throw new Error(`${operation} failed with HTTP ${response.status()}: ${await response.text()}`);
-  }
+  if (!response.ok()) throw new Error(`${operation} failed with HTTP ${response.status()}: ${await response.text()}`);
   return response;
+}
+
+function selectedTeams(scenarios: readonly SeedScenario[]): SeedTeam[] {
+  const required = new Set(scenarios.flatMap(scenario => scenario.teamAccess.map(access => access.team)));
+  const requiredProfiles = SEED_TEAMS.filter(team => required.has(team.name));
+  const targetCount = Math.max(REQUESTED_TEAM_COUNT, requiredProfiles.length);
+  return [
+    ...requiredProfiles,
+    ...SEED_TEAMS.filter(team => !required.has(team.name)).slice(0, targetCount - requiredProfiles.length),
+  ];
 }
 
 test('Seed Windrunner with realistic multi-project data', async ({request}) => {
   test.setTimeout(15 * 60 * 1000);
   const startedAt = Date.now();
-  rng = mulberry32(42);
-  const runId = (process.env.SEED_RUN_ID ?? Date.now().toString()).replace(/[^a-zA-Z0-9_-]/g, '') || 'run';
+  if (PROJECT_COUNT > SEED_SCENARIOS.length) {
+    throw new Error(`SEED_PROJECTS cannot exceed the ${SEED_SCENARIOS.length} defined real-world scenarios`);
+  }
+  if (USER_COUNT > PERSON_FIRST_NAMES.length * PERSON_LAST_NAMES.length) {
+    throw new Error('SEED_USERS exceeds the available unique realistic names');
+  }
+  const scenarios = SEED_SCENARIOS.slice(0, PROJECT_COUNT);
+  if (REQUESTED_TEAM_COUNT > SEED_TEAMS.length) {
+    throw new Error(`SEED_TEAMS cannot exceed the ${SEED_TEAMS.length} defined team profiles`);
+  }
+  const teamProfiles = selectedTeams(scenarios);
   const created = {users: 0, teams: 0, projects: 0, workItems: 0, entries: 0, relationships: 0};
 
-  // ---------- login ----------
   const login = process.env.E2E_LOGIN;
   const password = process.env.E2E_PASSWORD;
   test.skip(!login || !password, 'Set E2E_LOGIN/E2E_PASSWORD');
-  const loginResponse = await request.post('/api/v1/auth/login', {
-    data: {login, password},
-  });
-  await assertSuccessful(loginResponse, 'POST /api/v1/auth/login');
-  const currentUser = await responseData<{globalRole?: string}>(await request.get('/api/v1/auth/me'), 'GET /api/v1/auth/me');
-  if (!['ADMIN', 'SUPERADMIN'].includes(currentUser.globalRole?.toUpperCase() ?? '')) {
+  await assertSuccessful(await request.post('/api/v1/auth/login', {data: {login, password}}), 'POST /api/v1/auth/login');
+  const currentUser = await responseData<{id: string; globalRole?: string}>(
+    await request.get('/api/v1/auth/me'), 'GET /api/v1/auth/me');
+  if (!currentUser.id || !['ADMIN', 'SUPERADMIN'].includes(currentUser.globalRole?.toUpperCase() ?? '')) {
     throw new Error('Performance seeding requires an ADMIN or SUPERADMIN account');
   }
 
-  let csrfToken: string | undefined;
   const state = await request.storageState();
-  csrfToken = state.cookies.find(cookie => cookie.name === 'XSRF-TOKEN')?.value;
+  const csrfToken = state.cookies.find(cookie => cookie.name === 'XSRF-TOKEN')?.value;
+  const headers = (): Record<string, string> => (csrfToken ? {'X-CSRF-Token': csrfToken} : {});
+  const post = async (url: string, data: unknown) =>
+    assertSuccessful(await request.post(url, {data, headers: headers()}), `POST ${url}`);
 
-  const headers = (): Record<string, string> => (csrfToken ? { 'X-CSRF-Token': csrfToken } : {});
-  const post = async (url: string, data: unknown) => {
-    const response = await request.post(url, {data, headers: headers()});
-    return assertSuccessful(response, `POST ${url}`);
-  };
-  // ---------- users ----------
-  const FIRST = ['Ana', 'Ben', 'Chen', 'Dana', 'Elif', 'Finn', 'Gita', 'Hugo', 'Ines', 'Jonas'];
-  const LAST = ['Kim', 'Reyes', 'Okafor', 'Silva', 'Novak', 'Weber', 'Tanaka', 'Costa'];
-  const userBodies = Array.from({length: USER_COUNT}, (_, i) => ({
-    username: `e2e_${runId}_${FIRST[i % FIRST.length].toLowerCase()}.${LAST[Math.floor(i / FIRST.length)].toLowerCase()}${i}`,
-    displayName: `${FIRST[i % FIRST.length]} ${LAST[Math.floor(i / FIRST.length)]} ${i}`,
-    email: `e2e_${runId}_user${i}@example.com`,
-    title: TITLES[i % TITLES.length],
-    bio: USER_BIOS[i % USER_BIOS.length],
-    password: `e2e-pass-${1000 + i}`,
-    timezone: 'UTC',
+  const userProfiles = Array.from({length: USER_COUNT}, (_, index) => {
+    const firstName = PERSON_FIRST_NAMES[index % PERSON_FIRST_NAMES.length];
+    const lastName = PERSON_LAST_NAMES[Math.floor(index / PERSON_FIRST_NAMES.length)];
+    const team = teamProfiles[index % teamProfiles.length];
+    return {
+      firstName, lastName, teamName: team.name,
+      title: team.titles[Math.floor(index / teamProfiles.length) % team.titles.length],
+    };
+  });
+  const suffix = identifierSuffix();
+  const userBodies = userProfiles.map(profile => ({
+    username: `${profile.firstName}.${profile.lastName}${suffix}`.toLowerCase(),
+    displayName: `${profile.firstName} ${profile.lastName}`,
+    email: `${profile.firstName}.${profile.lastName}${suffix}@northstar.example`.toLowerCase(),
+    title: profile.title,
+    bio: `${profile.title} on ${profile.teamName}, focused on dependable delivery and clear cross-team decisions.`,
+    password: 'WindrunnerSeed!2026',
+    timezone: 'America/Chicago',
     status: 'ACTIVE',
     globalRole: 'USER',
   }));
-  const userResponses = await mapPool(userBodies, CONCURRENCY,
-    body => post('/internal-api/v1/users', body));
+  const userResponses = await mapPool(userBodies, CONCURRENCY, body => post('/internal-api/v1/users', body));
   const userIds = await Promise.all(userResponses.map((response, index) =>
     responseData<{id: string}>(response, `Create seeded user ${index + 1}`).then(body => body.id)));
   created.users = userIds.length;
-  const ownerUserId = userIds[0];
 
-  // ---------- teams ----------
-  const teamIds: string[] = [];
-  for (let i = 0; i < TEAM_COUNT; i++) {
-    const functionTeam = FUNCTION_TEAMS[i];
+  const userIdsByTeam = new Map<string, string[]>();
+  userProfiles.forEach((profile, index) => {
+    const members = userIdsByTeam.get(profile.teamName) ?? [];
+    members.push(userIds[index]);
+    userIdsByTeam.set(profile.teamName, members);
+  });
+
+  const teamIdsByName = new Map<string, string>();
+  for (const [index, team] of teamProfiles.entries()) {
+    const teamMembers = userIdsByTeam.get(team.name) ?? [];
+    const ownerUserId = teamMembers[0] ?? userIds[index % userIds.length];
     const response = await post('/internal-api/v1/teams', {
-      name: functionTeam
-        ? `e2e ${runId} ${functionTeam.name}`
-        : `e2e Team ${runId} ${String.fromCharCode(65 + (i % 26))}${Math.floor(i / 26) || ''} — ${pick(FEATURES)} guild`,
-      description: functionTeam?.description ?? TEAM_RESPONSIBILITIES[i % TEAM_RESPONSIBILITIES.length],
-      ownerUserIds: [userIds[i % userIds.length]],
+      name: visibleName(team.name), description: team.description, ownerUserIds: [ownerUserId],
     });
-    teamIds.push((await responseData<{id: string}>(response, `Create seeded team ${i + 1}`)).id);
+    teamIdsByName.set(team.name, (await responseData<{id: string}>(response, `Create ${team.name}`)).id);
   }
-  created.teams = teamIds.length;
+  created.teams = teamIdsByName.size;
 
-  // each team gets 3–8 members
-  await mapPool(teamIds, CONCURRENCY, async (teamId, teamIndex) => {
-    const functionTeam = FUNCTION_TEAMS[teamIndex];
-    const teamOwnerId = userIds[teamIndex % userIds.length];
-    const groupedUserIds = functionTeam
-      ? userIds.filter((_, userIndex) => userIndex % FUNCTION_TEAMS.length === teamIndex)
-      : [];
-    const memberCount = Math.min(3 + Math.floor(rng() * 6), Math.max(0, userIds.length - 1));
-    const members = new Set<string>();
-    if (functionTeam) {
-      groupedUserIds.forEach(userId => {
-        if (userId !== teamOwnerId) members.add(userId);
-      });
-    } else {
-      while (members.size < memberCount) {
-        const userId = pick(userIds);
-        if (userId !== teamOwnerId) members.add(userId);
-      }
-    }
-    for (const userId of members) {
-      await post(`/internal-api/v1/teams/${teamId}/members`, {userId});
-    }
+  await mapPool([...teamIdsByName.entries()], CONCURRENCY, async ([teamName, teamId]) => {
+    const members = userIdsByTeam.get(teamName) ?? [];
+    for (const userId of members.slice(1)) await post(`/internal-api/v1/teams/${teamId}/members`, {userId});
   });
 
-  // ---------- projects ----------
-  const projectIds: string[] = [];
-  const projectMemberIds = new Map<string, string[]>();
-  for (let i = 0; i < PROJECT_COUNT; i++) {
+  const projects: {id: string; scenario: SeedScenario}[] = [];
+  for (const scenario of scenarios) {
+    const ownerTeamId = teamIdsByName.get(scenario.ownerTeam);
+    if (!ownerTeamId) throw new Error(`No seeded team for ${scenario.ownerTeam}`);
     const response = await post('/internal-api/v1/projects', {
-      name: `e2e ${runId} ${['Atlas', 'Beacon'][i % 2]} — ${pick(FEATURES)} program`,
-      ownerUserIds: [ownerUserId],
-      ownerTeamIds: [teamIds[i % TEAM_COUNT]],
+      name: visibleName(scenario.name), ownerUserIds: [currentUser.id], ownerTeamIds: [ownerTeamId],
     });
-    const projectId = (await responseData<{id: string}>(response, `Create seeded project ${i + 1}`)).id;
-    projectIds.push(projectId);
-  }
-  created.projects = projectIds.length;
+    const projectId = (await responseData<{id: string}>(response, `Create ${scenario.name}`)).id;
+    projects.push({id: projectId, scenario});
 
-  // link a handful of users to each project directly
-  await mapPool(projectIds, CONCURRENCY, async projectId => {
-    const members = new Set<string>([ownerUserId]);
-    while (members.size < Math.min(10, userIds.length)) {
-      const userId = pick(userIds);
-      if (userId !== ownerUserId) members.add(userId);
+    for (const access of scenario.teamAccess) {
+      if (access.team === scenario.ownerTeam) continue;
+      const teamId = teamIdsByName.get(access.team);
+      if (!teamId) throw new Error(`No seeded team for ${access.team}`);
+      await post(`/internal-api/v1/projects/${projectId}/teams`, {teamId, role: access.role});
     }
-    const memberIds = [...members];
-    projectMemberIds.set(projectId, memberIds);
-    for (const userId of memberIds.slice(1)) {
+    const directMembers = userIds.filter((_, index) => index % PROJECT_COUNT === projects.length - 1).slice(0, 8);
+    for (const [index, userId] of directMembers.entries()) {
       await post(`/internal-api/v1/projects/${projectId}/members`, {
-        userId,
-        role: chance(0.8) ? 'EDITOR' : 'VIEWER',
+        userId, role: index === directMembers.length - 1 ? 'VIEWER' : 'EDITOR',
       });
     }
-  });
+  }
+  created.projects = projects.length;
 
-  // ---------- work items (hierarchy) ----------
-  type Created = {id: string; title: string; status: string};
-  const allByProject = new Map<string, Created[]>();
-
-  for (const projectId of projectIds) {
+  const allByProject = new Map<string, CreatedItem[]>();
+  for (const {id: projectId, scenario} of projects) {
     const base = `/internal-api/v1/projects/${projectId}/work-items`;
-    const createdItems: Created[] = [];
-
-    // Level 0: roots (~5% of total)
-    const rootCount = Math.min(WORK_ITEMS_PER_PROJECT, Math.max(1, Math.round(WORK_ITEMS_PER_PROJECT * 0.04)));
-    const roots = await mapPool(Array.from({length: rootCount}), CONCURRENCY, async (_, i) => {
+    const roots: CreatedItem[] = await mapPool(scenario.workstreams.slice(0, WORK_ITEMS_PER_PROJECT), CONCURRENCY, async (stream, streamIndex) => {
+      const teamId = teamIdsByName.get(stream.team);
+      if (!teamId) throw new Error(`No seeded team for ${stream.team}`);
       const response = await post(base, {
-        workItem: {
-          title: `${pick(FEATURES)} program phase ${i + 1}`,
-          type: i % 5 === 0 ? 'DECISION' : 'TASK',
-          status: 'OPEN',
-          priority: pick(PRIORITIES),
-        },
-        assignees: [],
+        workItem: {title: stream.name, type: 'TASK', status: 'IN_PROGRESS', priority: 'HIGH', dueDate: isoDate(45 + (streamIndex * 7))},
+        assignees: [{assigneeType: 'TEAM', assigneeId: teamId}],
       });
-      const data = await responseData<{workItem: Created}>(response, `Create root work item ${i + 1}`);
-      return data.workItem;
+      const result = await responseData<{workItem: {id: string}}>(response, `Create ${stream.name}`);
+      return {id: result.workItem.id, title: stream.name, type: 'TASK' as const, status: 'IN_PROGRESS' as const, streamIndex, sequence: streamIndex, depth: 0};
     });
-    createdItems.push(...roots);
 
-    // Descendants: BFS until target reached, depth ≤ 3, 2–6 children per node
+    const items: CreatedItem[] = [...roots];
     let frontier = [...roots];
-    while (createdItems.length < WORK_ITEMS_PER_PROJECT && frontier.length > 0) {
-      const remaining = WORK_ITEMS_PER_PROJECT - createdItems.length;
-      const parents = frontier.splice(0, Math.min(frontier.length, remaining));
-      const batches = await mapPool(parents, CONCURRENCY, async parent => {
-        const childTarget = Math.min(
-          remaining,
-          2 + Math.floor(rng() * 5),
-        );
-        const children: Created[] = [];
-        for (let c = 0; c < childTarget && createdItems.length + children.length < WORK_ITEMS_PER_PROJECT; c++) {
-          const type = weighted(TYPES, TYPE_WEIGHTS);
-          const status = weighted(STATUSES, STATUS_WEIGHTS);
-          const assignees = chance(0.35)
-            ? [{assigneeType: 'USER', assigneeId: pick(projectMemberIds.get(projectId) ?? [])}]
-            : [];
-          const body = {
-            workItem: {
-              title: workItemTitle(),
-              type,
-              status,
-              priority: pick(PRIORITIES),
-              dueDate: chance(0.55) ? randomDueDate() : null,
-              parentWorkItemId: parent.id,
-            },
+    let sequence = roots.length;
+    for (let depth = 1; items.length < WORK_ITEMS_PER_PROJECT && depth <= 3; depth++) {
+      const plans: PlannedItem[] = [];
+      for (const parent of frontier) {
+        for (let child = 0; child < 8 && items.length + plans.length < WORK_ITEMS_PER_PROJECT; child++) {
+          const stream = scenario.workstreams[parent.streamIndex];
+          const itemSequence = sequence++;
+          const type = workItemType(itemSequence);
+          const status = workItemStatus(type, itemSequence);
+          const teamId = teamIdsByName.get(stream.team);
+          if (!teamId) throw new Error(`No seeded team for ${stream.team}`);
+          const teamUsers = userIdsByTeam.get(stream.team) ?? [];
+          let assignees: Assignee[];
+          if (itemSequence % 23 === 0) assignees = [{assigneeType: 'USER', assigneeId: currentUser.id}];
+          else if (itemSequence % 3 === 0 || teamUsers.length === 0) assignees = [{assigneeType: 'TEAM', assigneeId: teamId}];
+          else assignees = [{assigneeType: 'USER', assigneeId: teamUsers[itemSequence % teamUsers.length]}];
+          plans.push({
+            parentId: parent.id,
+            title: workItemTitle(stream, type, itemSequence),
+            type, status, streamIndex: parent.streamIndex, sequence: itemSequence, depth,
+            priority: status === 'BLOCKED' ? 'URGENT' : PRIORITIES[itemSequence % PRIORITIES.length],
+            dueDate: dueDate(status, itemSequence),
             assignees,
-          };
-          const response = await post(base, body);
-          const data = await responseData<{workItem: Created}>(response, `Create child work item under ${parent.id}`);
-          children.push(data.workItem);
+          });
         }
-        return children;
+      }
+      const next = await mapPool(plans, CONCURRENCY, async plan => {
+        const response = await post(base, {
+          workItem: {
+            title: plan.title, type: plan.type, status: plan.status, priority: plan.priority,
+            dueDate: plan.dueDate, parentWorkItemId: plan.parentId,
+          },
+          assignees: plan.assignees,
+        });
+        const result = await responseData<{workItem: {id: string}}>(response, `Create ${plan.title}`);
+        return {...plan, id: result.workItem.id};
       });
-      for (const batch of batches) createdItems.push(...batch);
-      frontier = batches.flat();
+      items.push(...next);
+      frontier = next;
     }
-
-    allByProject.set(projectId, createdItems);
-    created.workItems += createdItems.length;
+    if (items.length !== WORK_ITEMS_PER_PROJECT) {
+      throw new Error(`Scenario hierarchy produced ${items.length} of ${WORK_ITEMS_PER_PROJECT} requested work items`);
+    }
+    allByProject.set(projectId, items);
+    created.workItems += items.length;
   }
 
-  // ---------- entries ----------
-  for (const [projectId, items] of allByProject) {
-    const entryTargets = items.filter(() => chance(0.5)).flatMap(item =>
-      Array.from({length: 1 + Math.floor(rng() * 3)}, () => item));
-    await mapPool(entryTargets, CONCURRENCY, target =>
-      post(`/internal-api/v1/projects/${projectId}/entries`, {
-        workItemId: target.id,
-        type: pick(ENTRY_TYPES),
-        body: entryBody(target.title),
-      }));
+  for (const {id: projectId, scenario} of projects) {
+    const items = allByProject.get(projectId) ?? [];
+    const entryTargets = items.filter(item => item.depth === 0 || item.sequence % 2 === 0);
+    await mapPool(entryTargets, CONCURRENCY, item => {
+      const entry = entryFor(item, scenario.workstreams[item.streamIndex]);
+      return post(`/internal-api/v1/projects/${projectId}/entries`, {workItemId: item.id, type: entry.type, body: entry.body});
+    });
     created.entries += entryTargets.length;
   }
 
-  // ---------- relationships ----------
-  for (const [projectId, items] of allByProject) {
-    const relationshipCount = Math.round(items.length * 0.15);
-    const pairs = Array.from({length: relationshipCount}, () => {
-      const from = pick(items);
-      const to = pick(items);
-      return {from, to};
-    }).filter(({from, to}) => from.id !== to.id);
+  for (const {id: projectId, scenario} of projects) {
+    const items = allByProject.get(projectId) ?? [];
+    const itemsByStream = scenario.workstreams.map((_, streamIndex) => items.filter(item => item.streamIndex === streamIndex));
+    const relationships: {from: CreatedItem; to: CreatedItem; type: string; reason: string}[] = [];
+    const relationshipKeys = new Set<string>();
+    const addRelationship = (from: CreatedItem, to: CreatedItem, type: string, reason: string) => {
+      const key = `${from.id}:${to.id}:${type}`;
+      if (from.id !== to.id && !relationshipKeys.has(key)) {
+        relationshipKeys.add(key);
+        relationships.push({from, to, type, reason});
+      }
+    };
 
-    await mapPool(pairs, CONCURRENCY, ({from, to}) =>
+    for (const [streamIndex, streamItems] of itemsByStream.entries()) {
+      const stream = scenario.workstreams[streamIndex];
+      const active = streamItems.filter(item => !['DONE', 'ANSWERED', 'APPROVED', 'BLOCKED'].includes(item.status));
+      for (const item of streamItems) {
+        if (item.status === 'BLOCKED') {
+          const blocker = active[item.sequence % active.length] ?? streamItems[0];
+          addRelationship(item, blocker, 'BLOCKED_BY', stream.blockerReasons[item.sequence % stream.blockerReasons.length]);
+        } else if (item.depth > 0 && item.sequence % 12 === 0) {
+          const dependency = streamItems[Math.max(0, streamItems.indexOf(item) - 1)];
+          addRelationship(item, dependency, 'DEPENDS_ON', `${dependency.title} must be completed first.`);
+        }
+      }
+    }
+    for (let index = 0; index < items.length; index += 50) {
+      const from = items[index];
+      const candidates = itemsByStream[(from.streamIndex + 1) % scenario.workstreams.length];
+      const to = candidates[Math.floor(index / 50) % candidates.length];
+      if (to) addRelationship(from, to, 'RELATED_TO', 'The workstreams share delivery readiness and operating dependencies.');
+    }
+
+    await mapPool(relationships, CONCURRENCY, relationship =>
       post(`/internal-api/v1/projects/${projectId}/relationships`, {
-        fromEntityType: 'WORK_ITEM',
-        fromEntityId: from.id,
-        toEntityType: 'WORK_ITEM',
-        toEntityId: to.id,
-        type: pick(RELATIONSHIP_TYPES),
-        reason: chance(0.6) ? 'Discovered during planning' : null,
-      }).then(r => r.status()));
-    created.relationships += pairs.length;
+        fromEntityType: 'WORK_ITEM', fromEntityId: relationship.from.id,
+        toEntityType: 'WORK_ITEM', toEntityId: relationship.to.id,
+        type: relationship.type, reason: relationship.reason,
+      }));
+    created.relationships += relationships.length;
   }
 
   const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-  console.log(`Seeded in ${seconds}s →`, JSON.stringify(created));
-  expect(created.workItems).toBeGreaterThanOrEqual(WORK_ITEMS_PER_PROJECT * PROJECT_COUNT - PROJECT_COUNT);
+  console.log(`Seeded real-world scenarios in ${seconds}s →`, JSON.stringify(created));
+  expect(created.workItems).toBe(WORK_ITEMS_PER_PROJECT * PROJECT_COUNT);
+  if (WORK_ITEMS_PER_PROJECT > 1) expect(created.relationships).toBeGreaterThan(0);
 });

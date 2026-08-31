@@ -35,25 +35,47 @@ Run a single spec:
 npx playwright test --project=api -g "projects"
 ```
 
-## Performance seeding
+## Scenario and performance seeding
 
-Seeds two projects with ~2000 work items each (hierarchy, entries,
-relationships), 50 users, and 20 teams (including SRE, Development, Product,
-Sales, and Support) — useful for testing search,
-pagination, and UI behavior at realistic volume. Data choices are deterministic
-and the run namespace is unique by default; it takes several minutes.
+Seeds coherent, real-world programs rather than synthetic `e2e` records. The
+default run creates **Enterprise SSO Launch** and **Billing Accuracy and Invoice
+Recovery**, with ~2000 work items each. Additional scenarios cover notification
+reliability and SOC 2 audit readiness.
+
+The scenario catalog defines professional teams, workstreams, objectives,
+domain-specific work, and blocker reasons. The performance seed expands that
+backbone deterministically, keeping these fields consistent:
+
+- Work item type, status, priority, and due date
+- Team or user assignment and project access
+- Blocked status and `BLOCKED_BY` relationships
+- Resolution, answer, proposal, evidence, and progress entries
+- Dependencies within a workstream and limited cross-workstream links
+
+The logged-in seed operator becomes a project owner and receives a deterministic
+share of assignments. This makes My Work, notifications, and subscriptions useful
+immediately after seeding. With `kc` as `E2E_LOGIN`, for example, the generated
+workspace includes work assigned directly to `kc`.
 
 ```bash
 SEED_PERF=1 E2E_LOGIN=<you> E2E_PASSWORD=<pass> \
   npx playwright test --project=api -g "Seed"
 ```
 
-Use an `ADMIN` or `SUPERADMIN` account for the seed login.
+Use an `ADMIN` or `SUPERADMIN` account for the seed login. The default visible
+names are stable and contain no test prefix or generated run ID, so reset the
+database before reseeding.
 
 Tunables: `SEED_PROJECTS` (2), `SEED_ITEMS` (2000), `SEED_USERS` (50),
-`SEED_TEAMS` (20, minimum 5), `SEED_CONCURRENCY` (4), and `SEED_RUN_ID` (a unique
-timestamp by default). The run id namespaces generated users, teams, and
-projects so rerunning after a partial failure does not collide with old data.
+`SEED_TEAMS` (20), and `SEED_CONCURRENCY` (4). `SEED_PROJECTS` can select up to
+the four scenarios defined in `tests/seed-scenarios.ts`. A scenario may require
+more teams than a lower `SEED_TEAMS` value; required teams are always included.
+
+When multiple seed sets must coexist, provide an intentional label such as
+`SEED_NAME_SUFFIX="Demo Blue"`. The suffix is added to team and project names
+and normalized for usernames and email addresses. It is never generated
+automatically.
+
 The default concurrency is sized for the server's default Hikari pool of 10;
 if you raise it, also raise `SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` on the
 server (allowing for audited writes that may briefly use a second connection).
