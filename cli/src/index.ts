@@ -217,7 +217,7 @@ const program = new Command();
 program
   .name("windrunner")
   .description("Command-line interface for Windrunner")
-  .version("1.0.0")
+  .version("1.1.0")
   .option("--url <url>", "Windrunner server URL", process.env.WINDRUNNER_URL || "http://localhost:8080")
   .option("--json", "Print compact JSON output")
   .option("--dry-run", "Preview mutations without sending them")
