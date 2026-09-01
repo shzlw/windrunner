@@ -40,12 +40,17 @@ services:
       # Set to true when serving over HTTPS behind a reverse proxy.
       WINDRUNNER_AUTH_COOKIE_SECURE: ${WINDRUNNER_AUTH_COOKIE_SECURE:-false}
 
-      # Optional AI features. Pick one provider, supply its API key, and
-      # restart. Without these, everything except AI features still works.
-      # WINDRUNNER_LLM_PROVIDER: ${WINDRUNNER_LLM_PROVIDER:-}   # openai | gemini | claude
-      # OPENAI_API_KEY:
-      # GEMINI_API_KEY:
-      # CLAUDE_API_KEY:
+      # Optional AI features. Pick one provider, supply its API key, and restart.
+      WINDRUNNER_LLM_PROVIDER: ${WINDRUNNER_LLM_PROVIDER:-none}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.1-flash-lite}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
+      CLAUDE_BASE_URL: ${CLAUDE_BASE_URL:-https://api.anthropic.com/v1}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-sonnet-5}
 
     ports:
       - "${APP_PORT:-8066}:8066"
