@@ -4,10 +4,24 @@ title: Internationalization
 description: Add a new web-interface language to Windrunner by extending the frontend locale files.
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 # Internationalization
 
 This is a developer guide for adding a web-interface language. English and
 Simplified Chinese are currently registered.
+
+Windrunner currently supports two web-interface languages:
+
+- English
+- Simplified Chinese (简体中文)
+
+<figure className="wr-doc-screenshot">
+  <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-i18n.png')} target="_blank" rel="noreferrer" title="Open full-size Chinese interface screenshot in a new tab">
+    <img src={useBaseUrl('/img/windrunner-i18n.png')} alt="Windrunner Home page displayed in Simplified Chinese" loading="lazy" decoding="async" />
+  </a>
+  <figcaption>The Windrunner web interface displayed in Simplified Chinese.</figcaption>
+</figure>
 
 ## Add a language
 

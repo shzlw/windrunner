@@ -5,7 +5,6 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 import Layout from '@theme/Layout';
 import {
   Bot,
-  Braces,
   KeyRound,
   ListTodo,
   ListTree,
@@ -16,94 +15,105 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-const features = [
+const collaborationFeatures = [
+  {
+    icon: ListTree,
+    title: 'Shared project workspace',
+    description:
+      'Keep work items, decisions, answers, blockers, and supporting context together in one shared workspace.',
+    to: '/docs/core-concepts/projects-workspace',
+    accent: 'accent-violet',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Progress at a glance',
+    description:
+      'See status, priority, due dates, assignments, blockers, and activity without losing the project context behind them.',
+    to: '/docs/core-concepts/projects-workspace',
+    accent: 'accent-cyan',
+  },
   {
     icon: MessageSquareText,
-    title: 'AI that understands your work',
+    title: 'AI that understands the project',
     description:
-      "Ask what's next, what's blocked, or how work is progressing — with project context built in.",
+      "Ask what's next, what's blocked, or how work is progressing with the relevant project context built in.",
     to: '/docs/guides/ai-assistance',
     accent: 'accent-blue',
   },
   {
-    icon: ListTree,
-    title: 'Structured project graph',
-    description:
-      'Work items, entries, and typed relationships connect tasks, decisions, answers, blockers, and supporting context.',
-    to: '/docs/core-concepts/relationships',
-    accent: 'accent-violet',
-  },
-  {
     icon: Bot,
-    title: 'AI review with approval',
+    title: 'Reviewable AI updates',
     description:
-      'Let AI suggest updates to work items and entries. Suggested changes stay visible until a person accepts or rejects them.',
+      'AI can suggest updates to work items and entries, while people stay in control of what gets accepted.',
     to: '/docs/guides/ai-assistance',
     accent: 'accent-amber',
   },
   {
-    icon: TrendingUp,
-    title: 'AI metrics with ROI',
-    description:
-      'Measure token usage, acceptance rates, and estimated time saved by project, provider, and feature.',
-    to: '/docs/guides/ai-assistance',
-    accent: 'accent-cyan',
-  },
-  {
     icon: ListTodo,
-    title: 'Human-controlled workspace',
+    title: 'Stay aligned',
     description:
-      'Create, organize, assign, search, filter, and follow work directly whenever you want.',
+      'Create, organize, assign, search, filter, and follow work so everyone knows what needs attention.',
     to: '/docs/guides/following-work',
     accent: 'accent-emerald',
   },
   {
     icon: KeyRound,
-    title: 'Multiple LLM providers',
+    title: 'Teams and access',
     description:
-      'Use OpenAI, Gemini, or Claude with your own credentials and configurable models and limits.',
+      'Give the right people access to projects and keep collaboration focused on the work that matters.',
+    to: '/docs/guides/users-and-teams',
+    accent: 'accent-indigo',
+  },
+];
+
+const stackFeatures = [
+  {
+    icon: Bot,
+    title: 'Bring your own AI provider',
+    description:
+      'Use supported providers with your own credentials, models, and limits.',
     to: '/docs/reference/configuration',
     accent: 'accent-indigo',
   },
   {
+    icon: TrendingUp,
+    title: 'Measure AI impact',
+    description:
+      'Track usage, acceptance rates, and estimated time saved by project, provider, and feature.',
+    to: '/docs/guides/ai-assistance',
+    accent: 'accent-cyan',
+  },
+  {
+    icon: Plug,
+    title: 'Connect agents through MCP',
+    description:
+      'Let Codex, Claude Desktop, Cursor, and other agents search work, read context, record findings, and update status.',
+    to: '/docs/reference/mcp',
+    accent: 'accent-violet',
+  },
+  {
+    icon: Terminal,
+    title: 'Automate with API and CLI',
+    description:
+      'Connect existing tools and automate projects, work items, entries, and search with REST and the CLI.',
+    to: '/api',
+    accent: 'accent-blue',
+  },
+  {
     icon: Server,
-    title: 'Self-hosted',
+    title: 'Self-host your workspace',
     description:
       'Deploy with Docker Compose and PostgreSQL, keeping project data in your infrastructure.',
     to: '/docs/getting-started/installation',
     accent: 'accent-slate',
   },
-  {
-    icon: Braces,
-    title: 'REST API',
-    description:
-      'Use scoped API keys and the versioned API to connect existing tools and automations.',
-    to: '/api',
-    accent: 'accent-violet',
-  },
-  {
-    icon: Plug,
-    title: 'MCP server for AI agents',
-    description:
-      'Connect Codex, Claude Desktop, or Cursor natively. Let agents search work, read context, record findings, and update status.',
-    to: '/docs/reference/mcp',
-    accent: 'accent-cyan',
-  },
-  {
-    icon: Terminal,
-    title: 'CLI for automation',
-    description:
-      'Install the Windrunner CLI to work with projects, work items, entries, and search from a terminal or automation.',
-    to: '/docs/reference/cli',
-    accent: 'accent-blue',
-  },
 ];
 
-type Feature = (typeof features)[number];
+type Feature = (typeof collaborationFeatures)[number] | (typeof stackFeatures)[number];
 
 const websiteUrl = 'https://shzlw.github.io/windrunner/';
 const websiteDescription =
-  'AI-powered work management for teams, with connected project context, reviewable AI updates, and support for agents through MCP.';
+  'An AI-powered project workspace where teams coordinate work, track progress, and review contextual AI updates in one place.';
 
 const websiteStructuredData = {
   '@context': 'https://schema.org',
@@ -189,13 +199,12 @@ export default function Home(): ReactNode {
         <header className="home-hero">
           <div className="container home-hero-grid">
             <div className="home-hero-copy">
-              <p className="home-hero-eyebrow">AI-powered work management for teams</p>
-              <h1 className="hero__title">Manage the work. Ask the project.</h1>
+              <p className="home-hero-eyebrow">AI-powered project collaboration</p>
+              <h1 className="hero__title">Work with your team and AI. Keep every project moving.</h1>
               <p className="hero__subtitle">
-                Windrunner brings work items, decisions, blockers, and evidence
-                together in one place. Teams can manage work directly, ask AI
-                what’s next, review proposed updates, and connect AI agents
-                through MCP.
+                Windrunner brings work items, decisions, blockers, evidence, and
+                progress into one shared workspace — so teams can coordinate work,
+                ask questions in context, and review AI-proposed updates.
               </p>
               <div className="home-hero-actions">
                 <Link
@@ -206,9 +215,9 @@ export default function Home(): ReactNode {
                 </Link>
                 <Link
                   className="button button--secondary button--lg"
-                  to="/api"
+                  to="/docs/core-concepts/projects-workspace"
                 >
-                  API reference
+                  Explore the workspace
                 </Link>
               </div>
             </div>
@@ -217,9 +226,22 @@ export default function Home(): ReactNode {
         </header>
 
         <section className="container home-features">
-          <h2 className="home-features-title">Everything teams need to move work forward</h2>
+          <h2 className="home-features-title">One workspace for people, progress, and AI</h2>
           <div className="row">
-            {features.map((feature) => (
+            {collaborationFeatures.map((feature) => (
+              <div
+                key={feature.title}
+                className="col col--3 margin-bottom--lg"
+              >
+                <FeatureCard {...feature} />
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="container home-features home-features--secondary">
+          <h2 className="home-features-title">Built to fit your stack</h2>
+          <div className="row">
+            {stackFeatures.map((feature) => (
               <div
                 key={feature.title}
                 className="col col--3 margin-bottom--lg"
