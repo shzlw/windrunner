@@ -1,6 +1,6 @@
 import {spawn} from 'node:child_process';
 import {resolve} from 'node:path';
-import {expect, test} from './helpers';
+import {expect, test} from '../support/helpers';
 
 const cliPath = resolve(__dirname, '../../../cli/dist/index.js');
 const serverUrl = (process.env.WINDRUNNER_BASE_URL ?? 'http://localhost:8066').replace(/\/+$/, '');

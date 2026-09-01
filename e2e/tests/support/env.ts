@@ -2,11 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * Loads `server/e2e/.env.local` (git-ignored) into process.env without
+ * Loads `e2e/.env.local` (git-ignored) into process.env without
  * overriding anything already set. Called once at module load from
- * playwright.config.ts and tests/helpers.ts.
+ * playwright.config.ts and tests/support/helpers.ts.
  */
-export function loadEnvLocal(dir: string = __dirname): void {
+export function loadEnvLocal(dir: string = path.resolve(__dirname, '../..')): void {
   const file = path.join(dir, '.env.local');
   if (!fs.existsSync(file)) return;
 

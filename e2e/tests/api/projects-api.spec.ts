@@ -1,4 +1,4 @@
-import { test, expect, bearer } from './helpers';
+import { test, expect, bearer } from '../support/helpers';
 
 test.describe('External API: projects', () => {
   test('lists visible projects with the standard envelope', async ({ authenticated }) => {

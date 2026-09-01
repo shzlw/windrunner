@@ -1,5 +1,5 @@
 import type { APIResponse } from '@playwright/test';
-import { bearer, csrfHeaders, expect, test, type E2EContext } from './helpers';
+import { bearer, csrfHeaders, expect, test, type E2EContext } from '../support/helpers';
 
 type Project = {
   id: string;

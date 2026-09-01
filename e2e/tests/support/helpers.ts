@@ -1,7 +1,7 @@
 import { APIRequestContext, test as base, expect } from '@playwright/test';
 import { loadEnvLocal } from './env';
 
-loadEnvLocal(__dirname);
+loadEnvLocal();
 
 /**
  * Shared e2e fixtures. Two auth modes:
@@ -83,7 +83,7 @@ export const test = base.extend<{ authenticated: E2EContext }>({
       if (!login || !password) {
         throw new Error(
           'No credentials configured. Put E2E_API_KEY (or E2E_LOGIN + E2E_PASSWORD) ' +
-            'in server/e2e/.env.local or the environment.',
+            'in e2e/.env.local or the environment.',
         );
       }
 
@@ -107,6 +107,7 @@ export const test = base.extend<{ authenticated: E2EContext }>({
 
       // 3. Mint a scoped API key.
       const keyResponse = await request.post('/internal-api/v1/me/api-keys', {
+        headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
         data: {
           name: `e2e-${Date.now()}`,
           scopes: [...EXTERNAL_API_SCOPES],

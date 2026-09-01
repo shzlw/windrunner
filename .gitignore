@@ -91,6 +91,7 @@ application-local.yml
 *.env
 .env
 .env.*
+!e2e/.env.example
 
 # Slack credentials specifically
 slack-credentials.properties

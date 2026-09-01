@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { loadEnvLocal } from './tests/env';
+import { loadEnvLocal } from './tests/support/env';
 
 loadEnvLocal(__dirname);
 
@@ -8,7 +8,7 @@ loadEnvLocal(__dirname);
  *
  * Targets a running Windrunner server. No browsers required.
  *
- * Credentials come from `server/e2e/.env.local` (git-ignored) or the
+ * Credentials come from `e2e/.env.local` (git-ignored) or the
  * environment. Two mutually exclusive auth modes:
  *
  *   E2E_API_KEY           – pre-existing API key (skips login entirely);
@@ -32,11 +32,12 @@ export default defineConfig({
   projects: [
     {
       name: 'api',
+      testMatch: /api[\\/].*\.spec\.ts$/,
       use: {},
     },
     {
       name: 'cli',
-      testMatch: /cli\.spec\.ts/,
+      testMatch: /cli[\\/].*\.spec\.ts$/,
       use: {},
     },
   ],

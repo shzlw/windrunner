@@ -4,7 +4,7 @@
 
 ```bash
 npm install
-cp .env.local.example .env.local   # then fill in credentials
+cp .env.example .env.local   # then fill in credentials
 ```
 
 `.env.local` is git-ignored. Two mutually exclusive auth modes:
@@ -29,8 +29,8 @@ a pre-existing key).
 
 ## Run the tests
 
-The server must be running (`./start-local.sh` from the repo's `server/`
-folder works well):
+The server must be running (`../server/start-local.sh` from the repository's
+`e2e/` folder works well):
 
 ```bash
 npx playwright test --project=api
@@ -52,7 +52,7 @@ above.
 npm run test:cli
 ```
 
-This command must be run from `server/e2e`. Set `WINDRUNNER_BASE_URL` in
+This command must be run from `e2e`. Set `WINDRUNNER_BASE_URL` in
 `.env.local` when the server is not at `http://localhost:8066`.
 
 To run the CLI suite without rebuilding it:
@@ -61,8 +61,8 @@ To run the CLI suite without rebuilding it:
 npx playwright test --project=cli
 ```
 
-The server is not started by Playwright; start it first with `./start-local.sh`
-from the repository's `server/` folder.
+The server is not started by Playwright; start it first with
+`../server/start-local.sh` from the repository root's `e2e/` folder.
 
 ## Scenario and performance seeding
 
@@ -97,7 +97,7 @@ database before reseeding.
 
 Tunables: `SEED_PROJECTS` (2), `SEED_ITEMS` (2000), `SEED_USERS` (50),
 `SEED_TEAMS` (20), and `SEED_CONCURRENCY` (4). `SEED_PROJECTS` can select up to
-the four scenarios defined in `tests/seed-scenarios.ts`. A scenario may require
+the four scenarios defined in `tests/support/seed-scenarios.ts`. A scenario may require
 more teams than a lower `SEED_TEAMS` value; required teams are always included.
 
 When multiple seed sets must coexist, provide an intentional label such as
@@ -113,7 +113,8 @@ For Docker Compose, set the pool size before starting the app, for example:
 
 ## Writing new specs
 
-- Put specs in `tests/*.spec.ts`; shared fixtures live in `tests/helpers.ts`.
+- Put API specs in `tests/api`, CLI specs in `tests/cli`, and shared fixtures in
+  `tests/support`.
 - The `authenticated` fixture provides `{ api, apiKey, userId }` — use it for
   anything that needs authorization.
 - Tests create real data on the target server; failed tests leave their data

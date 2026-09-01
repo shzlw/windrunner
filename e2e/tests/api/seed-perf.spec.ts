@@ -8,7 +8,7 @@ import {
   type SeedScenario,
   type SeedTeam,
   type SeedWorkstream,
-} from './seed-scenarios';
+} from '../support/seed-scenarios';
 
 /**
  * Scenario-driven performance seeding. It creates a coherent workspace that is
