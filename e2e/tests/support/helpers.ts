@@ -23,6 +23,8 @@ export type E2EContext = {
   userId?: string;
   /** Present when known; used for admin-only external API coverage. */
   globalRole?: string;
+  /** Another active user for membership mutation coverage. */
+  secondUserId?: string;
   isAdminLike: boolean;
   /**
    * Session-login mode only: mutating internal-API requests must echo this
@@ -74,6 +76,7 @@ export const test = base.extend<{ authenticated: E2EContext }>({
           userId: process.env.E2E_USER_ID,
           globalRole: process.env.E2E_GLOBAL_ROLE?.toUpperCase(),
           isAdminLike: ['ADMIN', 'SUPERADMIN'].includes((process.env.E2E_GLOBAL_ROLE ?? '').toUpperCase()),
+          secondUserId: process.env.E2E_SECOND_USER_ID,
         });
         return;
       }
@@ -101,6 +104,19 @@ export const test = base.extend<{ authenticated: E2EContext }>({
       const globalRole = String(meBody.data.globalRole ?? '').toUpperCase();
       expect(userId).toBeTruthy();
 
+      // Session login can discover a second user without requiring a raw id
+      // in the local test configuration.
+      let secondUserId: string | undefined;
+      const usersResponse = await request.get('/internal-api/v1/users?page=0&size=100');
+      if (usersResponse.status() === 200) {
+        const usersBody = await usersResponse.json();
+        const activeUser = (usersBody.data ?? []).find(
+          (user: { id?: string; status?: string; globalRole?: string }) =>
+            user.id && user.id !== userId && user.status === 'ACTIVE' && user.globalRole !== 'SUPERADMIN',
+        );
+        secondUserId = activeUser?.id;
+      }
+
       // Capture the CSRF token cookie for subsequent mutations.
       const state = await request.storageState();
       const csrfToken = state.cookies.find(cookie => cookie.name === 'XSRF-TOKEN')?.value;
@@ -119,7 +135,7 @@ export const test = base.extend<{ authenticated: E2EContext }>({
       const apiKeyId = keyBody.data.id;
       expect(apiKey).toBeTruthy();
 
-      await use({ api: request, apiKey, apiKeyId, userId, globalRole, isAdminLike: ['ADMIN', 'SUPERADMIN'].includes(globalRole), csrfToken });
+      await use({ api: request, apiKey, apiKeyId, userId, globalRole, secondUserId, isAdminLike: ['ADMIN', 'SUPERADMIN'].includes(globalRole), csrfToken });
 
       // 4. Cleanup: revoke the key. Created projects are left behind on
       //    purpose when a test fails so they can be inspected.

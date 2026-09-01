@@ -55,6 +55,10 @@ npm run test:cli
 This command must be run from `e2e`. Set `WINDRUNNER_BASE_URL` in
 `.env.local` when the server is not at `http://localhost:8066`.
 
+The suite exercises every CLI command. With session-login mode, the test
+automatically selects another active user for membership coverage. With a
+pre-existing API key, set `E2E_SECOND_USER_ID` and use an admin-like key owner.
+
 To run the CLI suite without rebuilding it:
 
 ```bash
