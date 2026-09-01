@@ -20,6 +20,13 @@ Other settings:
 |---|---|
 | `WINDRUNNER_BASE_URL` | `http://localhost:8066` |
 
+The complete external API suite uses every public API scope. Session-login
+mode mints a key with those scopes automatically. For pre-existing key mode,
+create the key with all external scopes and set `E2E_USER_ID`; set
+`E2E_SECOND_USER_ID` for membership mutation coverage. Team write and audit-log
+tests require an admin or superadmin owner (`E2E_GLOBAL_ROLE=ADMIN` when using
+a pre-existing key).
+
 ## Run the tests
 
 The server must be running (`./start-local.sh` from the repo's `server/`

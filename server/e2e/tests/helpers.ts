@@ -21,6 +21,9 @@ export type E2EContext = {
   apiKeyId?: string;
   /** Present when known; required by tests that create owned resources. */
   userId?: string;
+  /** Present when known; used for admin-only external API coverage. */
+  globalRole?: string;
+  isAdminLike: boolean;
   /**
    * Session-login mode only: mutating internal-API requests must echo this
    * in the X-CSRF-Token header (the server double-submits against the
@@ -28,6 +31,27 @@ export type E2EContext = {
    */
   csrfToken?: string;
 };
+
+/** All scopes used by the public v1 REST API. */
+export const EXTERNAL_API_SCOPES = [
+  'teams:read',
+  'teams:write',
+  'team_members:read',
+  'team_members:write',
+  'team_projects:read',
+  'users:read',
+  'projects:read',
+  'projects:write',
+  'project_access:read',
+  'project_access:write',
+  'work_items:read',
+  'work_items:write',
+  'entries:read',
+  'entries:write',
+  'relationships:read',
+  'relationships:write',
+  'audit_logs:read',
+] as const;
 
 /** Headers for calling the external API with the key under test. */
 export function bearer(ctx: E2EContext): Record<string, string> {
@@ -48,6 +72,8 @@ export const test = base.extend<{ authenticated: E2EContext }>({
           api: request,
           apiKey: envKey,
           userId: process.env.E2E_USER_ID,
+          globalRole: process.env.E2E_GLOBAL_ROLE?.toUpperCase(),
+          isAdminLike: ['ADMIN', 'SUPERADMIN'].includes((process.env.E2E_GLOBAL_ROLE ?? '').toUpperCase()),
         });
         return;
       }
@@ -72,6 +98,7 @@ export const test = base.extend<{ authenticated: E2EContext }>({
       expect(me.status()).toBe(200);
       const meBody = await me.json();
       const userId = meBody.data.id;
+      const globalRole = String(meBody.data.globalRole ?? '').toUpperCase();
       expect(userId).toBeTruthy();
 
       // Capture the CSRF token cookie for subsequent mutations.
@@ -82,7 +109,7 @@ export const test = base.extend<{ authenticated: E2EContext }>({
       const keyResponse = await request.post('/internal-api/v1/me/api-keys', {
         data: {
           name: `e2e-${Date.now()}`,
-          scopes: ['projects:read', 'projects:write'],
+          scopes: [...EXTERNAL_API_SCOPES],
         },
       });
       expect(keyResponse.status(), 'api key created').toBe(200);
@@ -91,12 +118,12 @@ export const test = base.extend<{ authenticated: E2EContext }>({
       const apiKeyId = keyBody.data.id;
       expect(apiKey).toBeTruthy();
 
-      await use({ api: request, apiKey, apiKeyId, userId, csrfToken });
+      await use({ api: request, apiKey, apiKeyId, userId, globalRole, isAdminLike: ['ADMIN', 'SUPERADMIN'].includes(globalRole), csrfToken });
 
       // 4. Cleanup: revoke the key. Created projects are left behind on
       //    purpose when a test fails so they can be inspected.
       if (apiKeyId) {
-        await request.delete(`/internal-api/v1/me/api-keys/${apiKeyId}`);
+        await request.delete(`/internal-api/v1/me/api-keys/${apiKeyId}`, { headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {} });
       }
     },
     { scope: 'test' },
