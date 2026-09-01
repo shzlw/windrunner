@@ -42,6 +42,28 @@ Run a single spec:
 npx playwright test --project=api -g "projects"
 ```
 
+## CLI E2E tests
+
+The CLI tests build the current CLI and execute it against the same running
+server. They use the same `E2E_API_KEY` or session-login credentials described
+above.
+
+```bash
+npm run test:cli
+```
+
+This command must be run from `server/e2e`. Set `WINDRUNNER_BASE_URL` in
+`.env.local` when the server is not at `http://localhost:8066`.
+
+To run the CLI suite without rebuilding it:
+
+```bash
+npx playwright test --project=cli
+```
+
+The server is not started by Playwright; start it first with `./start-local.sh`
+from the repository's `server/` folder.
+
 ## Scenario and performance seeding
 
 Seeds coherent, real-world programs rather than synthetic `e2e` records. The

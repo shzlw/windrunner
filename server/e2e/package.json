@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:cli": "npm --prefix ../../cli run build && playwright test --project=cli"
   },
   "keywords": [],
   "author": "",

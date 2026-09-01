@@ -34,5 +34,10 @@ export default defineConfig({
       name: 'api',
       use: {},
     },
+    {
+      name: 'cli',
+      testMatch: /cli\.spec\.ts/,
+      use: {},
+    },
   ],
 });
