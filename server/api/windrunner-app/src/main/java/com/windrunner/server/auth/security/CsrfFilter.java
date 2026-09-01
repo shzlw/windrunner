@@ -21,6 +21,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class CsrfFilter extends OncePerRequestFilter {
 
+    private static final String EXTERNAL_API_PATH = "/api/v1";
+    private static final String SESSION_AUTH_PATH = "/api/v1/auth";
+
     private static final Set<String> SAFE_METHODS = Set.of(
             HttpMethod.GET.name(),
             HttpMethod.HEAD.name(),
@@ -34,7 +37,7 @@ public class CsrfFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (SAFE_METHODS.contains(request.getMethod())) {
+        if (SAFE_METHODS.contains(request.getMethod()) || isExternalBearerRequest(request)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -51,5 +54,19 @@ public class CsrfFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isExternalBearerRequest(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        boolean externalApiPath = EXTERNAL_API_PATH.equals(path)
+                || path.startsWith(EXTERNAL_API_PATH + "/");
+        boolean sessionAuthPath = SESSION_AUTH_PATH.equals(path)
+                || path.startsWith(SESSION_AUTH_PATH + "/");
+        return externalApiPath && !sessionAuthPath && hasBearerAuthorization(request);
+    }
+
+    private boolean hasBearerAuthorization(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        return StringUtils.hasText(authorization) && authorization.regionMatches(true, 0, "Bearer ", 0, 7);
     }
 }

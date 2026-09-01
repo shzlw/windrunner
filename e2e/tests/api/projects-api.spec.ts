@@ -32,8 +32,9 @@ test.describe('External API: projects', () => {
         ownerTeamIds: [],
       },
     });
-    expect(createResponse.status()).toBe(201);
-    const created = await createResponse.json();
+    const createResponseText = await createResponse.text();
+    expect(createResponse.status(), `${createResponse.url()}\n${createResponseText}`).toBe(201);
+    const created = JSON.parse(createResponseText);
     expect(created.data.name).toBe(projectName);
     expect(created.data.id).toBeTruthy();
 

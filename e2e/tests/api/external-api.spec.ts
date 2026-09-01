@@ -91,8 +91,9 @@ function uniqueName(prefix: string) {
 }
 
 async function readBody<T>(response: APIResponse, status: number): Promise<ApiBody<T>> {
-  expect(response.status()).toBe(status);
-  const body = await response.json() as ApiBody<T>;
+  const responseText = await response.text();
+  expect(response.status(), `${response.url()}\n${responseText}`).toBe(status);
+  const body = JSON.parse(responseText) as ApiBody<T>;
   if (status >= 200 && status < 300) {
     expect(body.errors ?? []).toEqual([]);
   }
