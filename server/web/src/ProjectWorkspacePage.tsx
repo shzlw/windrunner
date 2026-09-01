@@ -1238,7 +1238,7 @@ function WorkItemEntries({
         const review = reviewByEntryId.get(entry.id)
         const isAcceptedAnswer = entry.id === acceptedAnswerEntryId
         return (
-          <div key={entry.id} className={cn('group relative flex items-center gap-2 rounded-md border border-border/50 bg-muted/15 px-2 py-1.5 transition-colors hover:bg-muted/35', selectedEntryId === entry.id && 'border-primary/40 bg-primary/5 ring-1 ring-inset ring-primary/25')} onClick={() => onSelect(entry)}>
+          <div key={entry.id} className={cn('group/entry-row relative flex min-h-[50px] min-w-0 items-center gap-2 rounded-md border border-border/50 bg-muted/15 px-2 py-1 transition-colors hover:bg-muted/35', selectedEntryId === entry.id && 'border-primary/40 bg-primary/5 ring-1 ring-inset ring-primary/25')} onClick={() => onSelect(entry)}>
             <span className={cn('absolute top-1/2 -left-3 h-px w-3', highlightConnectors ? 'bg-primary/50' : 'bg-border')} aria-hidden="true" />
             <span className="grid h-7 w-7 shrink-0 place-items-center text-muted-foreground" aria-hidden="true"><MessageSquareText className="h-3.5 w-3.5" /></span>
             {isEditing ? (
@@ -1275,47 +1275,78 @@ function WorkItemEntries({
                 <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => setEditingEntryId(null)} aria-label="Cancel update edit" title="Cancel"><X /></Button>
               </div>
             ) : (
-              <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  {isAcceptedAnswer ? <Badge className="shrink-0"><Check className="h-3 w-3" /> Accepted answer</Badge> : null}
-                  <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', entryTypeBadgeClass(entry.type))}>{entry.type}</Badge>
-                  <p className="min-w-0 flex-1 truncate text-sm text-foreground" title={entry.body}>{entry.body}</p>
-                </div>
+              <>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-start">
+                    <div className="min-w-0 flex-1">
+                      <p className="min-w-0 truncate text-sm leading-5 text-foreground" title={entry.body}>{entry.body}</p>
+                      <div className="mt-0.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
+                        <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', entryTypeBadgeClass(entry.type))}>{entry.type}</Badge>
+                        {isAcceptedAnswer ? (
+                          <span className="flex shrink-0 items-center gap-1 text-primary">
+                            <Check className="h-3 w-3" /> Accepted
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
                 {!review ? (
-                  <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                    {canReorder && contentIndex > 0 ? (
-                      <Button type="button" size="icon-xs" variant="ghost" onClick={(event) => { event.stopPropagation(); void onMoveContent('ENTRY', entry.id, -1) }} aria-label="Move update up" title="Move up"><ArrowUp /></Button>
-                    ) : null}
-                    {canReorder && contentIndex < content.length - 1 ? (
-                      <Button type="button" size="icon-xs" variant="ghost" onClick={(event) => { event.stopPropagation(); void onMoveContent('ENTRY', entry.id, 1) }} aria-label="Move update down" title="Move down"><ArrowDown /></Button>
-                    ) : null}
-                    {isQuestion && !isAcceptedAnswer ? (
-                      <Button type="button" size="xs" variant="ghost" disabled={acceptingAnswerEntryId !== null} onClick={async (event) => {
-                        event.stopPropagation()
-                        setAcceptingAnswerEntryId(entry.id)
-                        try {
-                          await onAcceptAnswer(entry.id)
-                        } catch (error) {
-                          toast.error(error instanceof Error ? error.message : 'Failed to accept answer.')
-                        } finally {
-                          setAcceptingAnswerEntryId(null)
-                        }
-                      }}>
-                        {acceptingAnswerEntryId === entry.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                        Accept answer
-                      </Button>
-                    ) : null}
-                    <Button type="button" size="icon-xs" variant="ghost" onClick={(event) => { event.stopPropagation(); setEditingEntryId(entry.id); setEditType(entry.type); setEditBody(entry.body) }} aria-label="Edit update"><Pencil /></Button>
-                    <DeleteConfirmPopover
-                      title="Delete update?"
-                      description="This update will be permanently deleted."
-                      trigger={<Button type="button" size="icon-xs" variant="ghost" onClick={(event) => event.stopPropagation()} aria-label="Delete update"><Trash2 /></Button>}
-                      onConfirm={() => onDelete(entry.id)}
-                    />
+                  <div className="ml-auto flex w-7 shrink-0 items-center justify-end opacity-0 transition-opacity group-hover/entry-row:opacity-100 group-focus-within/entry-row:opacity-100 group-hover/entry-row:pointer-events-auto group-focus-within/entry-row:pointer-events-auto pointer-events-none">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={(
+                          <Button type="button" size="icon-xs" variant="ghost" aria-label="Update actions" title="Update actions">
+                            <MoreHorizontal />
+                          </Button>
+                        )}
+                      />
+                      <DropdownMenuContent align="end" className="w-44">
+                        {canReorder && contentIndex > 0 ? (
+                          <DropdownMenuItem onClick={(event) => { event.stopPropagation(); void onMoveContent('ENTRY', entry.id, -1) }}>
+                            <ArrowUp className="h-4 w-4" /> Move up
+                          </DropdownMenuItem>
+                        ) : null}
+                        {canReorder && contentIndex < content.length - 1 ? (
+                          <DropdownMenuItem onClick={(event) => { event.stopPropagation(); void onMoveContent('ENTRY', entry.id, 1) }}>
+                            <ArrowDown className="h-4 w-4" /> Move down
+                          </DropdownMenuItem>
+                        ) : null}
+                        {isQuestion && !isAcceptedAnswer ? (
+                          <DropdownMenuItem
+                            disabled={acceptingAnswerEntryId !== null}
+                            onClick={async (event) => {
+                              event.stopPropagation()
+                              setAcceptingAnswerEntryId(entry.id)
+                              try {
+                                await onAcceptAnswer(entry.id)
+                              } catch (error) {
+                                toast.error(error instanceof Error ? error.message : 'Failed to accept answer.')
+                              } finally {
+                                setAcceptingAnswerEntryId(null)
+                              }
+                            }}
+                          >
+                            {acceptingAnswerEntryId === entry.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                            Accept answer
+                          </DropdownMenuItem>
+                        ) : null}
+                        <DropdownMenuItem onClick={(event) => { event.stopPropagation(); setEditingEntryId(entry.id); setEditType(entry.type); setEditBody(entry.body) }}>
+                          <Pencil className="h-4 w-4" /> Edit update
+                        </DropdownMenuItem>
+                        <DeleteConfirmPopover
+                          title="Delete update?"
+                          description="This update will be permanently deleted."
+                          trigger={(
+                            <DropdownMenuItem variant="destructive" onClick={(event) => event.stopPropagation()}>
+                              <Trash2 className="h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          )}
+                          onConfirm={() => onDelete(entry.id)}
+                        />
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ) : null}
-              </div>
+                </div>
               {review ? (
                 <div className="mt-2 ml-4 flex min-w-0 items-start gap-3 rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
                   <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
@@ -1395,7 +1426,8 @@ function WorkItemEntries({
                   </div>
                 </div>
               ) : null}
-              </div>
+                </div>
+              </>
             )}
           </div>
         )
@@ -1898,7 +1930,7 @@ function TreeRowContent({
     <div className="space-y-1">
       <div
         className={cn(
-          'group flex min-h-9 items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground',
+          'group/work-item-row flex min-h-[50px] min-w-0 items-start gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground',
           isSelected ? 'bg-primary/5 text-foreground ring-1 ring-inset ring-primary/35' : null,
           isChatHighlighted ? 'bg-primary/10 text-foreground ring-2 ring-primary/50' : null,
           isDimmed ? 'opacity-50' : null,
@@ -1909,7 +1941,7 @@ function TreeRowContent({
       >
         <button
           type="button"
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-sm hover:bg-background"
+          className="mt-0.5 grid h-5 w-7 shrink-0 place-items-center rounded-sm hover:bg-background"
           onClick={() => onToggle(node.id)}
           disabled={!canExpand}
           aria-label={isExpanded ? 'Collapse item' : 'Expand item'}
@@ -1924,172 +1956,248 @@ function TreeRowContent({
         </button>
         {isEditingTitle ? (
           <form
-            className="flex min-w-0 flex-1 items-center gap-2.5"
+            className="min-w-0 flex-1"
             onSubmit={(event) => {
               event.preventDefault()
               void saveTitle()
             }}
           >
-            <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', workItemTypeBadgeClass(node.type))}>
-              {node.type}
-            </Badge>
-            <Input
-              autoFocus
-              className="h-7 min-w-0 flex-1 bg-white text-[15px] font-medium"
-              value={draftTitle}
-              onChange={(event) => setDraftTitle(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault()
-                  setIsEditingTitle(false)
-                }
-              }}
-              disabled={isSavingTitle}
-              aria-label="Item title"
-            />
-            <Button type="submit" size="icon-xs" variant="ghost" disabled={isSavingTitle} aria-label="Save title" title="Save title">
-              {isSavingTitle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
-            </Button>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              disabled={isSavingTitle}
-              onClick={() => setIsEditingTitle(false)}
-              aria-label="Cancel title edit"
-              title="Cancel"
-            >
-              <X />
-            </Button>
-          </form>
-        ) : (
-          <button
-            type="button"
-            className="min-w-0 flex-1 text-left"
-            onClick={() => onSelect(node)}
-            onDoubleClick={() => {
-              if (!proposal && !isSaving) {
-                beginTitleEdit()
-              }
-            }}
-            title={node.title}
-          >
-            <div className="flex min-w-0 items-center gap-2.5">
-            <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', workItemTypeBadgeClass(node.type))}>
-              {node.type}
-            </Badge>
-            <span
-              className={cn(
-                'min-w-0 truncate text-[15px] font-medium text-foreground',
-                proposal?.action === 'DELETE' ? 'line-through decoration-destructive decoration-2' : null,
-              )}
-            >
-              {node.title}
-            </span>
-            <div
-              className={cn(
-                'hidden min-w-0 items-center gap-2',
-                isSelected ? 'flex' : 'group-focus-within:flex group-hover:flex',
-              )}
-            >
+            <div className="flex min-w-0 items-center gap-1.5">
+              <div className="h-5 min-w-0 flex-1 rounded-md border bg-background px-1 transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20">
+                <Input
+                  autoFocus
+                  className="h-5 w-full border-0 bg-transparent px-1 text-sm font-medium shadow-none focus-visible:border-0 focus-visible:ring-0"
+                  value={draftTitle}
+                  onChange={(event) => setDraftTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      event.preventDefault()
+                      setIsEditingTitle(false)
+                    }
+                  }}
+                  disabled={isSavingTitle}
+                  aria-label="Item title"
+                />
+              </div>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <Button type="submit" size="icon-xs" variant="ghost" className="h-5 w-5" disabled={isSavingTitle} aria-label="Save title" title="Save title">
+                  {isSavingTitle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  className="h-5 w-5"
+                  disabled={isSavingTitle}
+                  onClick={() => setIsEditingTitle(false)}
+                  aria-label="Cancel title edit"
+                  title="Cancel"
+                >
+                  <X />
+                </Button>
+              </div>
+            </div>
+            <div className="mt-0.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
+              <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', workItemTypeBadgeClass(node.type))}>
+                {node.type}
+              </Badge>
               {!isDefaultWorkItemStatus(status) ? (
-                <Badge variant="secondary" className="shrink-0 font-normal">
+                <Badge variant="secondary" className="h-5 shrink-0 px-1.5 text-[10px] font-medium">
                   {String(status).replaceAll('_', ' ')}
                 </Badge>
               ) : null}
               {dueDate ? (
                 <Badge
                   variant={dueDate.isOverdue ? 'destructive' : dueDate.isDueSoon ? 'default' : 'outline'}
-                  className="shrink-0 font-normal"
+                  className="h-5 shrink-0 px-1.5 text-[10px] font-medium"
                   title={`Due ${dueDate.title}`}
                 >
                   Due {dueDate.label}
                 </Badge>
               ) : null}
               {priority === 'HIGH' || priority === 'URGENT' ? (
-                <Badge variant={priority === 'URGENT' ? 'destructive' : 'default'} className="shrink-0 font-normal">
+                <Badge variant={priority === 'URGENT' ? 'destructive' : 'default'} className="h-5 shrink-0 px-1.5 text-[10px] font-medium">
                   {priority[0]}{priority.slice(1).toLowerCase()}
                 </Badge>
               ) : null}
               {assigneeIds.length > 0 ? (
-                <div className="shrink-0 -space-x-1.5 md:flex" aria-label="Assignees">
+                <div className="flex shrink-0 -space-x-1" aria-label="Assignees">
                   {assigneeIds.slice(0, 3).map((assignee) => (
                     <span
                       key={`${assignee.type}-${assignee.id}`}
-                      className="grid size-5 place-items-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground"
+                      className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground"
                       title={`${assignee.label} (${assignee.type})`}
                     >
                       {avatarInitials(assignee.label)}
                     </span>
                   ))}
                   {assigneeIds.length > 3 ? (
-                    <span className="grid size-5 place-items-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground" title={`${assigneeIds.length - 3} more assignees`}>
+                    <span className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground" title={`${assigneeIds.length - 3} more assignees`}>
                       +{assigneeIds.length - 3}
                     </span>
                   ) : null}
                 </div>
               ) : null}
-            </div>
-            </div>
-            {proposal ? (
-              <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-primary">
-                <Bot className="h-3.5 w-3.5 shrink-0" />
-                <span className="shrink-0 font-medium">AI proposed</span>
-                {proposal ? (
-                  <>
-                    <Badge
-                      variant={proposal.action === 'DELETE' ? 'destructive' : proposal.action === 'UPDATE' ? 'secondary' : 'default'}
-                      className="h-5 shrink-0 px-1.5 text-[10px]"
+              {entryCount > 0 ? (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  className={cn('h-5 shrink-0 gap-1 px-1 text-[11px]', showEntries ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                  onClick={() => {
+                    if (!showEntries && !isExpanded) {
+                      onToggle(node.id)
+                    }
+                    setShowEntries((current) => !current)
+                  }}
+                  aria-expanded={showEntries}
+                  aria-label={`${showEntries ? 'Hide' : 'Show'} ${entryCount} updates for ${node.title}`}
+                  title={`${showEntries ? 'Hide' : 'Show'} updates (${entryCount})`}
+                >
+                  <MessageSquareText className="h-3 w-3" />
+                  <span>{entryCount}</span>
+                </Button>
+              ) : null}
+              {blockerCount > 0 ? (
+                <BlockerPopover
+                  nodeId={node.id}
+                  blockerUi={blockerUi}
+                  trigger={(
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      className="h-5 shrink-0 gap-1 border-destructive/40 px-1 text-[11px] font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`View and manage ${blockerCount} blocker${blockerCount === 1 ? '' : 's'}`}
+                      title="View and manage blockers"
                     >
-                      {proposal.action}
-                    </Badge>
-                    <span className="min-w-0 truncate text-muted-foreground" title={proposal.summary}>{proposal.summary}</span>
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-          </button>
-        )}
-        {entryCount > 0 && !isEditingTitle ? (
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost"
-            className={cn('h-6 shrink-0 gap-1 px-2 text-xs', showEntries ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
-            onClick={() => {
-              if (!showEntries && !isExpanded) {
-                onToggle(node.id)
-              }
-              setShowEntries((current) => !current)
-            }}
-            aria-expanded={showEntries}
-            aria-label={`${showEntries ? 'Hide' : 'Show'} ${entryCount} updates for ${node.title}`}
-            title={`${showEntries ? 'Hide' : 'Show'} updates`}
-          >
-            <MessageSquareText className="h-3.5 w-3.5" />
-            Updates {entryCount}
-          </Button>
-        ) : null}
-        {blockerCount > 0 && !isEditingTitle ? (
-          <BlockerPopover
-            nodeId={node.id}
-            blockerUi={blockerUi}
-            trigger={(
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                className="h-6 shrink-0 gap-1 border-destructive/40 px-2 text-xs font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
-                title="View and manage blockers"
+                      <OctagonAlert className="h-3 w-3" />
+                      <span>{blockerCount}</span>
+                    </Button>
+                  )}
+                />
+              ) : null}
+            </div>
+          </form>
+        ) : (
+          <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              className="flex min-w-0 w-full items-center text-left leading-5"
+              onClick={() => onSelect(node)}
+              onDoubleClick={() => {
+                if (!proposal && !isSaving) {
+                  beginTitleEdit()
+                }
+              }}
+              title={node.title}
+            >
+              <span
+                className={cn(
+                  'min-w-0 truncate text-sm font-medium text-foreground',
+                  proposal?.action === 'DELETE' ? 'line-through decoration-destructive decoration-2' : null,
+                )}
               >
-                <OctagonAlert className="h-3.5 w-3.5" />
-                Blocked by {blockerCount}
-              </Button>
-            )}
-          />
-        ) : null}
+                {node.title}
+              </span>
+            </button>
+            <div className="mt-0.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
+              <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', workItemTypeBadgeClass(node.type))}>
+                {node.type}
+              </Badge>
+              {!isDefaultWorkItemStatus(status) ? (
+                <Badge variant="secondary" className="h-5 shrink-0 px-1.5 text-[10px] font-medium">
+                  {String(status).replaceAll('_', ' ')}
+                </Badge>
+              ) : null}
+              {dueDate ? (
+                <Badge
+                  variant={dueDate.isOverdue ? 'destructive' : dueDate.isDueSoon ? 'default' : 'outline'}
+                  className="h-5 shrink-0 px-1.5 text-[10px] font-medium"
+                  title={`Due ${dueDate.title}`}
+                >
+                  Due {dueDate.label}
+                </Badge>
+              ) : null}
+              {priority === 'HIGH' || priority === 'URGENT' ? (
+                <Badge variant={priority === 'URGENT' ? 'destructive' : 'default'} className="h-5 shrink-0 px-1.5 text-[10px] font-medium">
+                  {priority[0]}{priority.slice(1).toLowerCase()}
+                </Badge>
+              ) : null}
+              {assigneeIds.length > 0 ? (
+                <div className="flex shrink-0 -space-x-1" aria-label="Assignees">
+                  {assigneeIds.slice(0, 3).map((assignee) => (
+                    <span
+                      key={`${assignee.type}-${assignee.id}`}
+                      className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground"
+                      title={`${assignee.label} (${assignee.type})`}
+                    >
+                      {avatarInitials(assignee.label)}
+                    </span>
+                  ))}
+                  {assigneeIds.length > 3 ? (
+                    <span className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground" title={`${assigneeIds.length - 3} more assignees`}>
+                      +{assigneeIds.length - 3}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+              {entryCount > 0 ? (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  className={cn('h-5 shrink-0 gap-1 px-1 text-[11px]', showEntries ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                  onClick={() => {
+                    if (!showEntries && !isExpanded) {
+                      onToggle(node.id)
+                    }
+                    setShowEntries((current) => !current)
+                  }}
+                  aria-expanded={showEntries}
+                  aria-label={`${showEntries ? 'Hide' : 'Show'} ${entryCount} updates for ${node.title}`}
+                  title={`${showEntries ? 'Hide' : 'Show'} updates (${entryCount})`}
+                >
+                  <MessageSquareText className="h-3 w-3" />
+                  <span>{entryCount}</span>
+                </Button>
+              ) : null}
+              {blockerCount > 0 ? (
+                <BlockerPopover
+                  nodeId={node.id}
+                  blockerUi={blockerUi}
+                  trigger={(
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      className="h-5 shrink-0 gap-1 border-destructive/40 px-1 text-[11px] font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`View and manage ${blockerCount} blocker${blockerCount === 1 ? '' : 's'}`}
+                      title="View and manage blockers"
+                    >
+                      <OctagonAlert className="h-3 w-3" />
+                      <span>{blockerCount}</span>
+                    </Button>
+                  )}
+                />
+              ) : null}
+              {proposal ? (
+                <span className="flex shrink-0 items-center gap-1 text-primary" title={proposal.summary}>
+                  <Bot className="h-3 w-3" />
+                  <span className="font-medium">AI</span>
+                  <Badge
+                    variant={proposal.action === 'DELETE' ? 'destructive' : proposal.action === 'UPDATE' ? 'secondary' : 'default'}
+                    className="h-5 px-1.5 text-[10px]"
+                  >
+                    {proposal.action}
+                  </Badge>
+                </span>
+              ) : null}
+            </div>
+          </div>
+        )}
         {proposal ? (
-          <>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             {proposal.action === 'DELETE' ? (
               <DeleteConfirmPopover
                 title="Apply permanent deletion?"
@@ -2123,72 +2231,70 @@ function TreeRowContent({
             >
               <X />
             </Button>
-          </>
+          </div>
         ) : !isEditingTitle ? (
           <div
             className={cn(
-              'ml-auto flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100',
-              isSelected ? 'opacity-100' : 'pointer-events-none group-focus-within:pointer-events-auto group-hover:pointer-events-auto',
+              'ml-auto flex w-7 shrink-0 items-center justify-end opacity-0 transition-opacity group-focus-within/work-item-row:opacity-100 group-hover/work-item-row:opacity-100',
+              isSelected ? 'opacity-100' : 'pointer-events-none group-focus-within/work-item-row:pointer-events-auto group-hover/work-item-row:pointer-events-auto',
             )}
           >
-            {canReorder && canMoveUp ? (
-              <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => onMoveInContentOrder(-1)} aria-label="Move item up" title="Move up"><ArrowUp /></Button>
-            ) : null}
-            {canReorder && canMoveDown ? (
-              <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => onMoveInContentOrder(1)} aria-label="Move item down" title="Move down"><ArrowDown /></Button>
-            ) : null}
-            <BlockerPopover
-              nodeId={node.id}
-              blockerUi={blockerUi}
-              trigger={(
-                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} aria-label="Add blocker" title="Add blocker">
-                  <OctagonAlert />
-                </Button>
-              )}
-            />
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              disabled={isSaving}
-              onClick={beginTitleEdit}
-              aria-label="Edit item title"
-              title="Edit title"
-            >
-              <Pencil />
-            </Button>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              disabled={isSaving}
-              onClick={() => onFocus(node)}
-              aria-label="Focus item"
-              title="Focus"
-            >
-              <Focus />
-            </Button>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              disabled={isSaving}
-              onClick={() => onMove(node)}
-              aria-label="Move item"
-              title="Move"
-            >
-              <MoveRight />
-            </Button>
-            <DeleteConfirmPopover
-              title="Delete item?"
-              description="Sub-items will be deleted with this item."
-              trigger={(
-                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} aria-label="Delete item">
-                  <Trash2 />
-                </Button>
-              )}
-              onConfirm={() => onDelete(node.id)}
-            />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={(
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    disabled={isSaving}
+                    aria-label={`Actions for ${node.title}`}
+                    title="Item actions"
+                  >
+                    <MoreHorizontal />
+                  </Button>
+                )}
+              />
+              <DropdownMenuContent align="end" className="w-48">
+                {canReorder && canMoveUp ? (
+                  <DropdownMenuItem onClick={() => onMoveInContentOrder(-1)}>
+                    <ArrowUp className="h-4 w-4" /> Move up
+                  </DropdownMenuItem>
+                ) : null}
+                {canReorder && canMoveDown ? (
+                  <DropdownMenuItem onClick={() => onMoveInContentOrder(1)}>
+                    <ArrowDown className="h-4 w-4" /> Move down
+                  </DropdownMenuItem>
+                ) : null}
+                <BlockerPopover
+                  nodeId={node.id}
+                  blockerUi={blockerUi}
+                  trigger={(
+                    <DropdownMenuItem>
+                      <OctagonAlert className="h-4 w-4" /> {blockerCount > 0 ? 'Manage blockers' : 'Add blocker'}
+                    </DropdownMenuItem>
+                  )}
+                />
+                <DropdownMenuItem onClick={beginTitleEdit}>
+                  <Pencil className="h-4 w-4" /> Edit title
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFocus(node)}>
+                  <Focus className="h-4 w-4" /> Focus
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onMove(node)}>
+                  <MoveRight className="h-4 w-4" /> Move
+                </DropdownMenuItem>
+                <DeleteConfirmPopover
+                  title="Delete item?"
+                  description="Sub-items will be deleted with this item."
+                  trigger={(
+                    <DropdownMenuItem variant="destructive" onClick={(event) => event.stopPropagation()}>
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </DropdownMenuItem>
+                  )}
+                  onConfirm={() => onDelete(node.id)}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         ) : null}
       </div>
@@ -4984,91 +5090,76 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
 
                 </div>
 
-                <div className="z-10 mt-auto flex shrink-0 items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur">
-                  <div className="flex items-center gap-2">
-                    <Button type="submit" className="gap-2" disabled={isSaving || Boolean(selectedNode.proposal) || !hasUnsavedWorkItemChanges}>
-                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Save changes
-                    </Button>
-                    <span className={cn('flex items-center gap-1.5 text-xs', hasUnsavedWorkItemChanges ? 'font-medium text-amber-700' : 'text-muted-foreground')}>
-                      {hasUnsavedWorkItemChanges ? <CircleAlert className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-                      {hasUnsavedWorkItemChanges ? 'Unsaved changes' : 'All changes saved'}
-                    </span>
-                    {isLlmAvailable ? (
-                      <Button type="button" variant="outline" className="gap-2" disabled={isSaving || Boolean(selectedNode.proposal)} onClick={() => void handleReviewWorkItemWithAi()}>
-                        <Bot className="h-4 w-4" />
-                        AI Review
+                <div className="z-10 mt-auto flex shrink-0 flex-col gap-1.5 border-t bg-background/95 px-4 py-2.5 backdrop-blur">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Button type="submit" className="shrink-0 gap-2" disabled={isSaving || Boolean(selectedNode.proposal) || !hasUnsavedWorkItemChanges} aria-label="Save" title="Save">
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        Save
                       </Button>
-                    ) : null}
-                    <div className="flex items-center rounded-md border bg-background">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={isSaving || Boolean(selectedNode.proposal) || !canReorderSelectedContent}
-                        onClick={() => void handleMoveSelectedNodeByOffset(-1)}
-                        aria-label="Move item up"
-                        title="Move up"
-                        className="rounded-r-none"
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <div className="h-5 w-px bg-border" />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={isSaving || Boolean(selectedNode.proposal) || !canReorderSelectedContent}
-                        onClick={() => void handleMoveSelectedNodeByOffset(1)}
-                        aria-label="Move item down"
-                        title="Move down"
-                        className="rounded-l-none"
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
+                      {isLlmAvailable ? (
+                        <Button type="button" variant="outline" className="shrink-0 gap-2" disabled={isSaving || Boolean(selectedNode.proposal)} onClick={() => void handleReviewWorkItemWithAi()}>
+                          <Bot className="h-4 w-4" />
+                          AI review
+                        </Button>
+                      ) : null}
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={(
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            disabled={isSaving || Boolean(selectedNode.proposal)}
-                            aria-label="Item actions"
-                            title="Actions"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={(
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              disabled={isSaving || Boolean(selectedNode.proposal)}
+                              aria-label="Item actions"
+                              title="Actions"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          )}
+                        />
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem disabled={!canReorderSelectedContent} onClick={() => void handleMoveSelectedNodeByOffset(-1)}>
+                            <ArrowUp className="h-4 w-4" />
+                            Move up
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={!canReorderSelectedContent} onClick={() => void handleMoveSelectedNodeByOffset(1)}>
+                            <ArrowDown className="h-4 w-4" />
+                            Move down
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => void handleCreateNode(selectedNode.id)}>
+                            <Plus className="h-4 w-4" />
+                            Add sub-item
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openMoveDialog()}>
+                            <MoveRight className="h-4 w-4" />
+                            Move
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => focusNode(selectedNode)}>
+                            <Focus className="h-4 w-4" />
+                            Focus
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <DeleteConfirmPopover
+                        title="Delete item?"
+                        description="Sub-items will be deleted with this item."
+                        disabled={isSaving || Boolean(selectedNode.proposal)}
+                        trigger={(
+                          <Button type="button" variant="destructive" size="icon-sm" disabled={isSaving || Boolean(selectedNode.proposal)} aria-label="Delete item">
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
+                        onConfirm={() => handleDeleteNode(selectedNode.id)}
                       />
-                      <DropdownMenuContent align="start" className="w-44">
-                        <DropdownMenuItem onClick={() => void handleCreateNode(selectedNode.id)}>
-                          <Plus className="h-4 w-4" />
-                          Add sub-item
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openMoveDialog()}>
-                          <MoveRight className="h-4 w-4" />
-                          Move
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => focusNode(selectedNode)}>
-                          <Focus className="h-4 w-4" />
-                          Focus
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    </div>
                   </div>
-                  <DeleteConfirmPopover
-                    title="Delete item?"
-                    description="Sub-items will be deleted with this item."
-                    disabled={isSaving || Boolean(selectedNode.proposal)}
-                    trigger={(
-                      <Button type="button" variant="destructive" size="icon-sm" disabled={isSaving || Boolean(selectedNode.proposal)} aria-label="Delete item">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                    onConfirm={() => handleDeleteNode(selectedNode.id)}
-                  />
+                  <div className={cn('flex items-center gap-1.5 text-xs', hasUnsavedWorkItemChanges ? 'font-medium text-amber-700' : 'text-muted-foreground')} aria-live="polite">
+                    {hasUnsavedWorkItemChanges ? <CircleAlert className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                    <span>{hasUnsavedWorkItemChanges ? 'Unsaved' : 'Saved'}</span>
+                  </div>
                 </div>
               </form>
               ) : null}
