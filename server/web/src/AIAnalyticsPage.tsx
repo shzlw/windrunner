@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Bot, CheckCircle2, Cpu, Info, Loader2, RefreshCw, Timer, TrendingUp, XCircle, type LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -66,16 +68,16 @@ const TIME_ASSUMPTIONS = {
 }
 
 const TIME_ASSUMPTION_ROWS: Array<[string, number]> = [
-  ['Node add', TIME_ASSUMPTIONS.nodeAddMinutes],
-  ['Node update', TIME_ASSUMPTIONS.nodeUpdateMinutes],
-  ['Node delete', TIME_ASSUMPTIONS.nodeDeleteMinutes],
-  ['Edge add', TIME_ASSUMPTIONS.edgeAddMinutes],
-  ['Edge update', TIME_ASSUMPTIONS.edgeUpdateMinutes],
-  ['Edge delete', TIME_ASSUMPTIONS.edgeDeleteMinutes],
+  ['nodeAdd', TIME_ASSUMPTIONS.nodeAddMinutes],
+  ['nodeUpdate', TIME_ASSUMPTIONS.nodeUpdateMinutes],
+  ['nodeDelete', TIME_ASSUMPTIONS.nodeDeleteMinutes],
+  ['edgeAdd', TIME_ASSUMPTIONS.edgeAddMinutes],
+  ['edgeUpdate', TIME_ASSUMPTIONS.edgeUpdateMinutes],
+  ['edgeDelete', TIME_ASSUMPTIONS.edgeDeleteMinutes],
 ]
 
-function formatProjectTitle(project: Project) {
-  return project.title?.trim() || project.name?.trim() || 'Untitled project'
+function formatProjectTitle(project: Project, fallback: string) {
+  return project.title?.trim() || project.name?.trim() || fallback
 }
 
 function formatNumber(value: number) {
@@ -265,12 +267,13 @@ function sumImpacts(impacts: ProjectImpact[]): ProjectImpact {
   })
 }
 
-function formatFeatureName(feature: string) {
-  return feature
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+function formatFeatureName(feature: string, t: TFunction) {
+  const key = {
+    CHAT: 'analytics.featureChat',
+    ENTRY_AI_REVIEW: 'analytics.featureEntryAiReview',
+    WORK_ITEM_AI_REVIEW: 'analytics.featureWorkItemAiReview',
+  }[feature]
+  return key ? t(key) : feature.toLowerCase().split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 }
 
 function MetricCard({ label, value, description, icon: Icon }: {
@@ -292,12 +295,13 @@ function MetricCard({ label, value, description, icon: Icon }: {
 }
 
 function FeatureUsageTable({ usage }: { usage: LlmUsageSummary | null }) {
+  const { t } = useTranslation()
   if (!usage || usage.byFeature.length === 0) {
     return (
       <Empty className="min-h-32 border-0">
         <EmptyHeader>
           <EmptyMedia variant="icon"><Bot /></EmptyMedia>
-          <EmptyTitle>No feature usage yet</EmptyTitle>
+          <EmptyTitle>{t('analytics.noFeatureUsage')}</EmptyTitle>
         </EmptyHeader>
       </Empty>
     )
@@ -307,17 +311,17 @@ function FeatureUsageTable({ usage }: { usage: LlmUsageSummary | null }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Feature</TableHead>
-          <TableHead className="text-right">Tokens</TableHead>
-          <TableHead className="text-right">Requests</TableHead>
-          <TableHead className="text-right">Failures</TableHead>
-          <TableHead className="text-right">Success rate</TableHead>
+          <TableHead>{t('analytics.feature')}</TableHead>
+          <TableHead className="text-right">{t('common.tokens')}</TableHead>
+          <TableHead className="text-right">{t('common.requests')}</TableHead>
+          <TableHead className="text-right">{t('common.failures')}</TableHead>
+          <TableHead className="text-right">{t('common.successRate')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {usage.byFeature.map((row) => (
           <TableRow key={row.feature}>
-            <TableCell className="font-medium">{formatFeatureName(row.feature)}</TableCell>
+            <TableCell className="font-medium">{formatFeatureName(row.feature, t)}</TableCell>
             <TableCell className="text-right">{formatCompact(row.inputTokens + row.outputTokens)}</TableCell>
             <TableCell className="text-right">{formatNumber(row.requests)}</TableCell>
             <TableCell className="text-right">{formatNumber(row.failures)}</TableCell>
@@ -330,6 +334,7 @@ function FeatureUsageTable({ usage }: { usage: LlmUsageSummary | null }) {
 }
 
 export default function AIAnalyticsPage() {
+  const { t } = useTranslation()
   const [projectReports, setProjectReports] = useState<ProjectProposalReport[]>([])
   const [llmStatus, setLlmStatus] = useState<LlmStatus | null>(null)
   const [usage, setUsage] = useState<LlmUsageSummary | null>(null)
@@ -345,7 +350,7 @@ export default function AIAnalyticsPage() {
       const days = DATE_RANGE_OPTIONS.find((option) => option.value === dateRange)?.days ?? undefined
       setUsage(await getLlmUsage(selectedProjectId === 'all' ? undefined : selectedProjectId, days))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load token usage.')
+      toast.error(error instanceof Error ? error.message : t('analytics.failedLoadTokens'))
     } finally {
       setIsUsageLoading(false)
     }
@@ -374,7 +379,7 @@ export default function AIAnalyticsPage() {
       setLlmStatus(nextLlmStatus)
       setProjectReports(projectProposals)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load AI analytics report.')
+      toast.error(error instanceof Error ? error.message : t('analytics.failedLoadReport'))
     } finally {
       setIsLoading(false)
     }
@@ -401,7 +406,7 @@ export default function AIAnalyticsPage() {
   const projectOptions = useMemo(() => (
     [...projectReports]
       .map((report) => report.project)
-      .sort((left, right) => formatProjectTitle(left).localeCompare(formatProjectTitle(right)))
+      .sort((left, right) => formatProjectTitle(left, t('common.untitledProject')).localeCompare(formatProjectTitle(right, t('common.untitledProject'))))
   ), [projectReports])
 
   const impacts = useMemo(() => (
@@ -424,90 +429,90 @@ export default function AIAnalyticsPage() {
     [...filteredImpacts].sort((left, right) => (
       right.estimatedMinutesSaved - left.estimatedMinutesSaved
       || right.changesAccepted - left.changesAccepted
-      || formatProjectTitle(left.project).localeCompare(formatProjectTitle(right.project))
+      || formatProjectTitle(left.project, t('common.untitledProject')).localeCompare(formatProjectTitle(right.project, t('common.untitledProject')))
     ))
   ), [filteredImpacts])
 
   const projectTitleById = useMemo(() => {
     const titles = new Map<string, string>()
-    projectReports.forEach(({ project }) => titles.set(project.id, formatProjectTitle(project)))
+    projectReports.forEach(({ project }) => titles.set(project.id, formatProjectTitle(project, t('common.untitledProject'))))
     return titles
   }, [projectReports])
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center gap-2 border-b px-4 py-3 md:px-6">
-        <h1 className="text-xl font-semibold leading-none tracking-normal">AI Analytics</h1>
+        <h1 className="text-xl font-semibold leading-none tracking-normal">{t('analytics.pageTitle')}</h1>
       </div>
 
       <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
         <div className="flex flex-col gap-2 sm:flex-row lg:items-center">
           <NativeSelect className="w-full sm:w-56" value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>
-            <NativeSelectOption value="all">All projects</NativeSelectOption>
+            <NativeSelectOption value="all">{t('analytics.allProjects')}</NativeSelectOption>
             {projectOptions.map((project) => (
               <NativeSelectOption key={project.id} value={project.id}>
-                {formatProjectTitle(project)}
+                {formatProjectTitle(project, t('common.untitledProject'))}
               </NativeSelectOption>
             ))}
           </NativeSelect>
           <NativeSelect className="w-full sm:w-40" value={dateRange} onChange={(event) => setDateRange(event.target.value as DateRangeKey)}>
             {DATE_RANGE_OPTIONS.map((option) => (
               <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
+                {option.value === 'all' ? t('analytics.allTime') : t('analytics.lastDays', { count: option.days })}
               </NativeSelectOption>
             ))}
           </NativeSelect>
           <Button type="button" variant="outline" className="gap-2" onClick={() => { void loadImpact(); void loadUsage() }} disabled={isLoading || isUsageLoading}>
             {isLoading || isUsageLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Refresh
+            {t('analytics.refresh')}
           </Button>
         </div>
 
         {llmStatus && !llmStatus.available ? (
           <div className="flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>AI provider unavailable. Historical analytics remain available.</span>
+            <span>{t('analytics.unavailable')}</span>
           </div>
         ) : null}
 
         <Tabs defaultValue="overview" className="gap-4">
           <TabsList variant="line" className="justify-start overflow-x-auto overflow-y-hidden border-b">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="usage">Usage &amp; reliability</TabsTrigger>
-            <TabsTrigger value="outcomes">ROI &amp; outcomes</TabsTrigger>
+            <TabsTrigger value="overview">{t('analytics.overview')}</TabsTrigger>
+            <TabsTrigger value="usage">{t('analytics.usageReliability')}</TabsTrigger>
+            <TabsTrigger value="outcomes">{t('analytics.roiOutcomes')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-0 space-y-3">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
-                label="AI requests"
+                label={t('analytics.aiRequests')}
                 value={usage ? formatNumber(usage.totals.requests) : '—'}
-                description={usage ? `${formatNumber(usage.totals.failures)} failed` : 'Loading usage'}
+                description={usage ? t('analytics.failed', { count: formatNumber(usage.totals.failures) }) : t('analytics.loadingUsage')}
                 icon={Bot}
               />
               <MetricCard
-                label="Total tokens"
+                label={t('analytics.totalTokens')}
                 value={usage ? formatCompact(usage.totals.inputTokens + usage.totals.outputTokens) : '—'}
-                description="input + output"
+                description={t('analytics.inputOutput')}
                 icon={Cpu}
               />
               <MetricCard
-                label="Accepted changes"
+                label={t('analytics.changesAccepted')}
                 value={isLoading ? '—' : formatNumber(totals.changesAccepted)}
-                description={isLoading ? 'Loading outcomes' : `${totals.nodeChangesAccepted} nodes, ${totals.edgeChangesAccepted} edges`}
+                description={isLoading ? t('analytics.loadingOutcomes') : t('analytics.nodesEdges', { nodes: totals.nodeChangesAccepted, edges: totals.edgeChangesAccepted })}
                 icon={CheckCircle2}
               />
               <MetricCard
-                label="Acceptance rate"
+                label={t('analytics.acceptanceRate')}
                 value={isLoading ? '—' : formatPercent(totals.acceptanceRate)}
-                description={isLoading ? 'Loading outcomes' : `${totals.decidedChanges} decided changes`}
+                description={isLoading ? t('analytics.loadingOutcomes') : t('analytics.decidedChanges', { count: totals.decidedChanges })}
                 icon={TrendingUp}
               />
             </div>
 
             <div className="rounded-md border bg-background p-4">
               <div className="mb-4 flex items-center gap-2">
-                <h2 className="text-sm font-semibold tracking-normal">AI usage by feature</h2>
+                <h2 className="text-sm font-semibold tracking-normal">{t('analytics.usageByFeature')}</h2>
                 {isUsageLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
               </div>
               {isUsageLoading ? (
@@ -525,7 +530,7 @@ export default function AIAnalyticsPage() {
           <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-md border px-3 py-2">
               <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                Estimated time saved
+                {t('analytics.estimatedTimeSaved')}
                 <Popover>
                   <PopoverTrigger
                     render={(
@@ -534,7 +539,7 @@ export default function AIAnalyticsPage() {
                         variant="ghost"
                         size="icon-xs"
                         className="-mr-1 text-muted-foreground"
-                        aria-label="How time saved is estimated"
+                        aria-label={t('analytics.timeSavedEstimate')}
                       >
                         <Info className="h-4 w-4" />
                       </Button>
@@ -542,14 +547,14 @@ export default function AIAnalyticsPage() {
                   />
                   <PopoverContent align="end" side="top" className="w-72">
                     <PopoverHeader>
-                      <PopoverTitle>Time saved assumptions</PopoverTitle>
-                      <PopoverDescription>Estimated minutes saved per accepted change.</PopoverDescription>
+                      <PopoverTitle>{t('analytics.timeSavedAssumptions')}</PopoverTitle>
+                      <PopoverDescription>{t('analytics.estimatedMinutes')}</PopoverDescription>
                     </PopoverHeader>
                     <div className="grid gap-1.5 text-sm">
                       {TIME_ASSUMPTION_ROWS.map(([label, minutes]) => (
                         <div key={label} className="flex items-center justify-between gap-3">
-                          <span className="text-muted-foreground">{label}</span>
-                          <span className="font-medium">{formatNumber(minutes)} min</span>
+                          <span className="text-muted-foreground">{t(`analytics.${label}`)}</span>
+                          <span className="font-medium">{t('analytics.minutes', { value: formatNumber(minutes) })}</span>
                         </div>
                       ))}
                     </div>
@@ -557,34 +562,34 @@ export default function AIAnalyticsPage() {
                 </Popover>
               </div>
               <div className="mt-2 text-2xl font-semibold">{formatHours(totals.estimatedMinutesSaved)}</div>
-              <div className="mt-1 text-sm text-muted-foreground">across {formatNumber(totals.changesAccepted)} accepted changes</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t('analytics.acrossAccepted', { count: formatNumber(totals.changesAccepted) })}</div>
             </div>
 
             <div className="rounded-md border px-3 py-2">
               <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                Accepted changes
+                {t('analytics.changesAccepted')}
                 <CheckCircle2 className="h-4 w-4" />
               </div>
               <div className="mt-2 text-2xl font-semibold">{totals.changesAccepted}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{totals.nodeChangesAccepted} nodes, {totals.edgeChangesAccepted} edges</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t('analytics.nodesEdges', { nodes: totals.nodeChangesAccepted, edges: totals.edgeChangesAccepted })}</div>
             </div>
 
             <div className="rounded-md border px-3 py-2">
               <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                Acceptance rate
+                {t('analytics.acceptanceRate')}
                 <TrendingUp className="h-4 w-4" />
               </div>
               <div className="mt-2 text-2xl font-semibold">{formatPercent(totals.acceptanceRate)}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{totals.decidedChanges} decided changes</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t('analytics.decidedChanges', { count: totals.decidedChanges })}</div>
             </div>
 
             <div className="rounded-md border px-3 py-2">
               <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                Rework requested
+                {t('analytics.reworkRequested')}
                 <XCircle className="h-4 w-4" />
               </div>
               <div className="mt-2 text-2xl font-semibold">{totals.changesRejected + totals.changesNeedsUpdate}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{totals.changesRejected} rejected, {totals.changesNeedsUpdate} needs update</div>
+              <div className="mt-1 text-sm text-muted-foreground">{t('analytics.rejectedNeedsUpdate', { rejected: totals.changesRejected, needsUpdate: totals.changesNeedsUpdate })}</div>
             </div>
           </div>
 
@@ -598,19 +603,19 @@ export default function AIAnalyticsPage() {
                 <EmptyMedia variant="icon">
                   <Bot />
                 </EmptyMedia>
-                <EmptyTitle>No AI impact yet</EmptyTitle>
+                <EmptyTitle>{t('analytics.noImpact')}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead className="text-right">Saved</TableHead>
-                  <TableHead className="text-right">Accepted</TableHead>
-                  <TableHead className="text-right">Rework</TableHead>
-                  <TableHead className="text-right">Pending</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
+                  <TableHead>{t('common.project')}</TableHead>
+                  <TableHead className="text-right">{t('analytics.saved')}</TableHead>
+                  <TableHead className="text-right">{t('analytics.accepted')}</TableHead>
+                  <TableHead className="text-right">{t('analytics.rework')}</TableHead>
+                  <TableHead className="text-right">{t('analytics.pending')}</TableHead>
+                  <TableHead className="text-right">{t('analytics.rate')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -619,7 +624,7 @@ export default function AIAnalyticsPage() {
                     <TableCell>
                       <div className="min-w-0">
                         <NavLink to={`/app/projects/${impact.project.id}`} className="font-medium hover:underline">
-                          {formatProjectTitle(impact.project)}
+                          {formatProjectTitle(impact.project, t('common.untitledProject'))}
                         </NavLink>
                       </div>
                     </TableCell>
@@ -639,7 +644,7 @@ export default function AIAnalyticsPage() {
         <TabsContent value="usage" className="mt-0 space-y-3">
         <div className="rounded-md border bg-background p-4">
           <div className="mb-4 flex items-center gap-2">
-            <h2 className="text-sm font-semibold tracking-normal">Token usage</h2>
+            <h2 className="text-sm font-semibold tracking-normal">{t('analytics.tokenUsage')}</h2>
             {isUsageLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
           </div>
 
@@ -647,42 +652,42 @@ export default function AIAnalyticsPage() {
             <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-md border px-3 py-2">
                 <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                  Total tokens
+                  {t('analytics.totalTokens')}
                   <Cpu className="h-4 w-4" />
                 </div>
                 <div className="mt-2 text-2xl font-semibold">
                   {formatCompact(usage.totals.inputTokens + usage.totals.outputTokens)}
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">
-                  input {formatCompact(usage.totals.inputTokens)} · output {formatCompact(usage.totals.outputTokens)}
+                  {t('analytics.inputOutputValues', { input: formatCompact(usage.totals.inputTokens), output: formatCompact(usage.totals.outputTokens) })}
                 </div>
               </div>
 
               <div className="rounded-md border px-3 py-2">
                 <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                  Requests
+                  {t('common.requests')}
                   <Bot className="h-4 w-4" />
                 </div>
                 <div className="mt-2 text-2xl font-semibold">{formatNumber(usage.totals.requests)}</div>
-                <div className="mt-1 text-sm text-muted-foreground">{usage.totals.failures} failed</div>
+                <div className="mt-1 text-sm text-muted-foreground">{t('analytics.failed', { count: usage.totals.failures })}</div>
               </div>
 
               <div className="rounded-md border px-3 py-2">
                 <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                  Success rate
+                  {t('common.successRate')}
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
                 <div className="mt-2 text-2xl font-semibold">{formatPercent(usage.totals.successRate)}</div>
-                <div className="mt-1 text-sm text-muted-foreground">of {formatNumber(usage.totals.requests)} requests</div>
+                <div className="mt-1 text-sm text-muted-foreground">{t('analytics.ofRequests', { count: formatNumber(usage.totals.requests) })}</div>
               </div>
 
               <div className="rounded-md border px-3 py-2">
                 <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                  Avg latency
+                  {t('analytics.avgLatency')}
                   <Timer className="h-4 w-4" />
                 </div>
                 <div className="mt-2 text-2xl font-semibold">{formatDuration(usage.totals.avgDurationMs)}</div>
-                <div className="mt-1 text-sm text-muted-foreground">per request</div>
+                <div className="mt-1 text-sm text-muted-foreground">{t('analytics.perRequest')}</div>
               </div>
             </div>
           ) : null}
@@ -697,18 +702,18 @@ export default function AIAnalyticsPage() {
                 <EmptyMedia variant="icon">
                   <Cpu />
                 </EmptyMedia>
-                <EmptyTitle>No token usage yet</EmptyTitle>
+                <EmptyTitle>{t('analytics.noTokenUsage')}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead className="text-right">Tokens</TableHead>
-                  <TableHead className="text-right">Requests</TableHead>
-                  <TableHead className="text-right">Success rate</TableHead>
-                  <TableHead className="text-right">Avg latency</TableHead>
+                  <TableHead>{t('common.project')}</TableHead>
+                  <TableHead className="text-right">{t('common.tokens')}</TableHead>
+                  <TableHead className="text-right">{t('common.requests')}</TableHead>
+                  <TableHead className="text-right">{t('common.successRate')}</TableHead>
+                  <TableHead className="text-right">{t('analytics.avgLatency')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -718,10 +723,10 @@ export default function AIAnalyticsPage() {
                       <div className="min-w-0">
                         {row.projectId ? (
                           <NavLink to={`/app/projects/${row.projectId}`} className="font-medium hover:underline">
-                            {projectTitleById.get(row.projectId) ?? 'Unknown project'}
+                            {projectTitleById.get(row.projectId) ?? t('analytics.unknownProject')}
                           </NavLink>
                         ) : (
-                          <span className="font-medium">Unknown project</span>
+                          <span className="font-medium">{t('analytics.unknownProject')}</span>
                         )}
                       </div>
                     </TableCell>
@@ -741,17 +746,17 @@ export default function AIAnalyticsPage() {
         {usage && usage.byProviderModel.length > 0 ? (
           <div className="rounded-md border bg-background p-4">
             <div className="mb-4 flex items-center gap-2">
-              <h2 className="text-sm font-semibold tracking-normal">Models</h2>
+              <h2 className="text-sm font-semibold tracking-normal">{t('analytics.models')}</h2>
               {isUsageLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
             </div>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Provider</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead className="text-right">Tokens</TableHead>
-                  <TableHead className="text-right">Requests</TableHead>
-                  <TableHead className="text-right">Success rate</TableHead>
+                  <TableHead>{t('analytics.provider')}</TableHead>
+                  <TableHead>{t('analytics.model')}</TableHead>
+                  <TableHead className="text-right">{t('common.tokens')}</TableHead>
+                  <TableHead className="text-right">{t('common.requests')}</TableHead>
+                  <TableHead className="text-right">{t('common.successRate')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

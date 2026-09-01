@@ -3,6 +3,7 @@ import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import {
   Sidebar,
@@ -82,35 +83,35 @@ function authRedirectPath(user: AuthUser | null) {
   return user.mustChangePassword ? '/change-password' : '/app/home'
 }
 
-function formatRelativeAge(timestamp?: string) {
+function formatRelativeAge(timestamp: string | undefined, t: TFunction) {
   if (!timestamp) {
-    return 'now'
+    return t('chat.justNow')
   }
   const createdAt = new Date(timestamp).getTime()
   if (!Number.isFinite(createdAt)) {
-    return 'now'
+    return t('chat.justNow')
   }
   const elapsedMilliseconds = Math.max(0, Date.now() - createdAt)
   const minutes = Math.floor(elapsedMilliseconds / 60000)
   if (minutes < 1) {
-    return 'now'
+    return t('chat.justNow')
   }
   if (minutes < 60) {
-    return `${minutes}m`
+    return t('chat.minutesAgo', { count: minutes })
   }
   const hours = Math.floor(minutes / 60)
   if (hours < 24) {
-    return `${hours}h`
+    return t('chat.hoursAgo', { count: hours })
   }
   const days = Math.floor(hours / 24)
   if (days < 30) {
-    return `${days}d`
+    return t('chat.daysAgo', { count: days })
   }
   const months = Math.floor(days / 30)
   if (months < 12) {
-    return `${months}mo`
+    return t('chat.monthsAgo', { count: months })
   }
-  return `${Math.floor(months / 12)}y`
+  return t('chat.yearsAgo', { count: Math.floor(months / 12) })
 }
 
 function AskSessionsSidebar({
@@ -132,6 +133,7 @@ function AskSessionsSidebar({
   onRenameSession: (sessionId: string, title: string) => Promise<void>
   onDeleteSession: (sessionId: string) => Promise<void>
 }) {
+  const { t } = useTranslation()
   const [openActionSessionId, setOpenActionSessionId] = useState<string | null>(null)
   const [actionMode, setActionMode] = useState<'actions' | 'rename' | 'delete'>('actions')
   const [renameValue, setRenameValue] = useState('')
@@ -151,7 +153,7 @@ function AskSessionsSidebar({
       setOpenActionSessionId(null)
       setActionMode('actions')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to rename chat session.')
+      toast.error(error instanceof Error ? error.message : t('chat.failedRename'))
     } finally {
       setIsRenaming(false)
     }
@@ -168,7 +170,7 @@ function AskSessionsSidebar({
       setOpenActionSessionId(null)
       setActionMode('actions')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete chat session.')
+      toast.error(error instanceof Error ? error.message : t('chat.failedDelete'))
     } finally {
       setIsDeleting(false)
     }
@@ -184,7 +186,7 @@ function AskSessionsSidebar({
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-2 py-8 text-center text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">
             <MessageSquareText className="h-5 w-5 text-muted-foreground/70" aria-hidden="true" />
-            <span>No conversations yet</span>
+            <span>{t('chat.noConversations')}</span>
           </div>
         ) : (
           <SidebarMenu>
@@ -204,7 +206,7 @@ function AskSessionsSidebar({
                     <MessageSquareText className={isSelected ? 'text-primary' : 'text-muted-foreground'} />
                     <span className="min-w-0 flex-1 truncate text-sm group-data-[collapsible=icon]:hidden">{session.title}</span>
                     <span className={['shrink-0 text-xs leading-none text-muted-foreground transition-opacity group-hover/session-row:opacity-0 group-data-[collapsible=icon]:hidden', openActionSessionId === session.id ? 'opacity-0' : ''].join(' ')}>
-                      {formatRelativeAge(session.createdAt)}
+                      {formatRelativeAge(session.createdAt, t)}
                     </span>
                   </SidebarMenuButton>
                   <div className="absolute inset-y-0 right-1 flex w-8 items-center group-data-[collapsible=icon]:hidden">
@@ -227,8 +229,8 @@ function AskSessionsSidebar({
                             size="icon-xs"
                             variant="ghost"
                             className="h-7 w-8 bg-sidebar p-0 opacity-0 transition-opacity group-hover/session-row:bg-sidebar-accent group-hover/session-row:opacity-100 focus-visible:bg-sidebar-accent focus-visible:opacity-100 data-popup-open:bg-sidebar-accent data-popup-open:opacity-100"
-                            aria-label={`More actions for ${session.title}`}
-                            title="More actions"
+                            aria-label={t('chat.moreActionsFor', { title: session.title })}
+                            title={t('chat.moreActions')}
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
@@ -247,7 +249,7 @@ function AskSessionsSidebar({
                               }}
                             >
                               <Pencil className="h-4 w-4" />
-                              Rename
+                              {t('chat.rename')}
                             </Button>
                             <Button
                               type="button"
@@ -256,13 +258,13 @@ function AskSessionsSidebar({
                               onClick={() => setActionMode('delete')}
                             >
                               <Trash2 className="h-4 w-4" />
-                              Delete
+                              {t('common.delete')}
                             </Button>
                           </div>
                         ) : actionMode === 'rename' ? (
                           <>
                             <PopoverHeader>
-                              <PopoverTitle>Rename session</PopoverTitle>
+                              <PopoverTitle>{t('chat.renameSession')}</PopoverTitle>
                             </PopoverHeader>
                             <form className="space-y-3" onSubmit={(event) => void handleRename(event, session.id)}>
                               <Input
@@ -270,13 +272,13 @@ function AskSessionsSidebar({
                                 onChange={(event) => setRenameValue(event.target.value)}
                                 maxLength={120}
                                 autoFocus
-                                aria-label="Session name"
+                                aria-label={t('chat.sessionName')}
                               />
                               <div className="flex justify-end gap-2">
-                                <Button type="button" size="sm" variant="ghost" onClick={() => setOpenActionSessionId(null)} disabled={isRenaming}>Cancel</Button>
+                                <Button type="button" size="sm" variant="ghost" onClick={() => setOpenActionSessionId(null)} disabled={isRenaming}>{t('common.cancel')}</Button>
                                 <Button type="submit" size="sm" disabled={isRenaming || !renameValue.trim()}>
                                   {isRenaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
-                                  Save
+                                  {t('common.save')}
                                 </Button>
                               </div>
                             </form>
@@ -284,14 +286,14 @@ function AskSessionsSidebar({
                         ) : (
                           <>
                             <PopoverHeader>
-                              <PopoverTitle>Delete session?</PopoverTitle>
-                              <p className="text-muted-foreground">This permanently deletes the conversation and its messages.</p>
+                              <PopoverTitle>{t('chat.deleteSession')}</PopoverTitle>
+                              <p className="text-muted-foreground">{t('chat.deleteSessionDescription')}</p>
                             </PopoverHeader>
                             <div className="flex justify-end gap-2">
-                              <Button type="button" size="sm" variant="outline" onClick={() => setActionMode('actions')} disabled={isDeleting}>Cancel</Button>
+                              <Button type="button" size="sm" variant="outline" onClick={() => setActionMode('actions')} disabled={isDeleting}>{t('common.cancel')}</Button>
                               <Button type="button" size="sm" variant="destructive" onClick={() => void handleDelete(session.id)} disabled={isDeleting}>
                                 {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                Delete
+                                {t('common.delete')}
                               </Button>
                             </div>
                           </>
@@ -317,7 +319,7 @@ function AskSessionsSidebar({
             disabled={isLoading}
           >
             {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            {isLoading ? 'Loading…' : 'Load more'}
+            {isLoading ? t('common.loading') : t('common.loadMore')}
           </Button>
         </div>
       ) : null}
@@ -390,7 +392,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
       })
       .catch((error) => {
         if (isMounted) {
-          toast.error(error instanceof Error ? error.message : 'Failed to load chat sessions.')
+          toast.error(error instanceof Error ? error.message : t('chat.failedLoadSessions'))
         }
       })
       .finally(() => {
@@ -410,7 +412,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
       await refreshChatSessions(session.id)
       return session
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to start a new chat session.')
+      toast.error(error instanceof Error ? error.message : t('chat.failedStartSession'))
       return null
     } finally {
       setIsStartingSession(false)
@@ -681,6 +683,7 @@ function LoginPage({
   currentUser: AuthUser | null
   onLogin: (user: AuthUser) => void
 }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const [loginValue, setLoginValue] = useState('')
@@ -707,7 +710,7 @@ function LoginPage({
       onLogin(user)
       navigate(user.mustChangePassword ? '/change-password' : fromPath, { replace: true })
     } catch (submitError) {
-      setErrorMessage(submitError instanceof Error ? submitError.message : 'Failed to sign in.')
+      setErrorMessage(submitError instanceof Error ? submitError.message : t('auth.failedSignIn'))
     } finally {
       setIsSubmitting(false)
     }
@@ -725,7 +728,7 @@ function LoginPage({
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <label className="block text-sm font-semibold">Username or email</label>
+              <label className="block text-sm font-semibold">{t('auth.usernameOrEmail')}</label>
               <Input
                 value={loginValue}
                 onChange={(event) => setLoginValue(event.target.value)}
@@ -735,17 +738,17 @@ function LoginPage({
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold">Password</label>
+                <label className="block text-sm font-semibold">{t('common.password')}</label>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="-mr-2 gap-1.5 px-2 text-muted-foreground"
                   onClick={() => setShowPassword((current) => !current)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  {showPassword ? 'Hide' : 'Show'}
+                  {showPassword ? t('common.hide') : t('common.show')}
                 </Button>
               </div>
               <Input
@@ -766,7 +769,7 @@ function LoginPage({
               disabled={isSubmitting}
               className="w-full"
             >
-              {isSubmitting ? 'Signing in...' : 'Sign in'}
+              {isSubmitting ? t('auth.signingIn') : t('auth.signIn')}
             </Button>
           </form>
         </CardContent>
@@ -782,6 +785,7 @@ function ChangePasswordPage({
   currentUser: AuthUser | null
   onUserChange: (user: AuthUser) => void
 }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -798,17 +802,17 @@ function ChangePasswordPage({
     event.preventDefault()
 
     if (!newPassword.trim()) {
-      setErrorMessage('New password is required.')
+      setErrorMessage(t('auth.requiredNewPassword'))
       return
     }
 
     if (newPassword.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.')
+      setErrorMessage(t('auth.passwordMinLength'))
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setErrorMessage('Passwords do not match.')
+      setErrorMessage(t('auth.passwordsMismatch'))
       return
     }
 
@@ -820,7 +824,7 @@ function ChangePasswordPage({
       onUserChange(user)
       navigate('/app/home', { replace: true })
     } catch (submitError) {
-      setErrorMessage(submitError instanceof Error ? submitError.message : 'Failed to update password.')
+      setErrorMessage(submitError instanceof Error ? submitError.message : t('auth.failedUpdatePassword'))
     } finally {
       setIsSubmitting(false)
     }
@@ -835,24 +839,24 @@ function ChangePasswordPage({
               <Wind className="size-5 text-sky-600" strokeWidth={2.6} />
               <CardTitle className="text-2xl font-semibold leading-none">Windrunner</CardTitle>
             </div>
-            <p className="text-sm text-muted-foreground">Change your password</p>
+            <p className="text-sm text-muted-foreground">{t('auth.changePassword')}</p>
           </div>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold">New password</label>
+                <label className="block text-sm font-semibold">{t('auth.newPassword')}</label>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="-mr-2 gap-1.5 px-2 text-muted-foreground"
                   onClick={() => setShowNewPassword((current) => !current)}
-                  aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showNewPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                 >
                   {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  {showNewPassword ? 'Hide' : 'Show'}
+                  {showNewPassword ? t('common.hide') : t('common.show')}
                 </Button>
               </div>
               <Input
@@ -865,17 +869,17 @@ function ChangePasswordPage({
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold">Confirm password</label>
+                <label className="block text-sm font-semibold">{t('auth.confirmPassword')}</label>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="-mr-2 gap-1.5 px-2 text-muted-foreground"
                   onClick={() => setShowConfirmPassword((current) => !current)}
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showConfirmPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                 >
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  {showConfirmPassword ? 'Hide' : 'Show'}
+                  {showConfirmPassword ? t('common.hide') : t('common.show')}
                 </Button>
               </div>
               <Input
@@ -897,7 +901,7 @@ function ChangePasswordPage({
               className="w-full gap-2"
             >
               <KeyRound className="h-4 w-4" />
-              {isSubmitting ? 'Updating...' : 'Update password'}
+              {isSubmitting ? t('auth.updating') : t('auth.updatePassword')}
             </Button>
           </form>
         </CardContent>
@@ -907,6 +911,7 @@ function ChangePasswordPage({
 }
 
 function App() {
+  const { t } = useTranslation()
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
   const [isAuthLoading, setIsAuthLoading] = useState(true)
 
@@ -941,7 +946,7 @@ function App() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-muted/20 p-6">
         <Card>
-          <CardContent className="py-8 text-sm text-muted-foreground">Loading session...</CardContent>
+          <CardContent className="py-8 text-sm text-muted-foreground">{t('auth.loadingSession')}</CardContent>
         </Card>
       </main>
     )

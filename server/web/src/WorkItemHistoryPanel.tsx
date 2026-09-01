@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, FileClock, History, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { listWorkItemAuditLogs, type AuditLog } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { translateAuditAction } from '@/i18n/labels'
 
 type ChangeMap = Record<string, { from?: unknown; to?: unknown }>
 
-const entityTypeLabels: Record<string, string> = {
-  WORK_ITEM: 'Work item',
-  ENTRY: 'Entry',
-  RELATIONSHIP: 'Relationship',
+const entityTypeKeys: Record<string, string> = {
+  WORK_ITEM: 'common.workItem',
+  ENTRY: 'common.entry',
+  RELATIONSHIP: 'common.relationship',
 }
 
 function actionDotClass(action: string) {
@@ -25,15 +28,15 @@ function actionDotClass(action: string) {
   return 'bg-sky-500'
 }
 
-function timeAgo(value: string) {
+function timeAgo(value: string, t: TFunction) {
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000))
-  if (seconds < 60) return 'just now'
+  if (seconds < 60) return t('history.justNow')
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 60) return t('history.minutesAgo', { count: minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return t('history.hoursAgo', { count: hours })
   const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
+  if (days < 30) return t('history.daysAgo', { count: days })
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
 }
 
@@ -44,9 +47,9 @@ function formatTimestamp(value: string) {
   }).format(new Date(value))
 }
 
-function formatChangeValue(value: unknown) {
+function formatChangeValue(value: unknown, t: TFunction) {
   if (value === null || value === undefined || value === '') {
-    return 'Not set'
+    return t('common.notSet')
   }
   if (typeof value === 'object') {
     return JSON.stringify(value)
@@ -93,6 +96,7 @@ export default function WorkItemHistoryPanel({
   workItemId: string
   userLabels: Map<string, string>
 }) {
+  const { t } = useTranslation()
   const [items, setItems] = useState<AuditLog[]>([])
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -114,7 +118,7 @@ export default function WorkItemHistoryPanel({
         setPage(data.page)
         setTotalPages(data.totalPages)
       } catch (loadError) {
-        toast.error(loadError instanceof Error ? loadError.message : 'Failed to load history.')
+        toast.error(loadError instanceof Error ? loadError.message : t('history.failedLoad'))
         if (!append) {
           setItems([])
           setTotalPages(0)
@@ -147,13 +151,13 @@ export default function WorkItemHistoryPanel({
 
   function actorLabel(entry: AuditLog) {
     if (!entry.actorUserId) {
-      return 'System'
+      return t('audit.system')
     }
     return entry.actorDisplayName?.trim() || userLabels.get(entry.actorUserId) || entry.actorUserId
   }
 
   function entityLabel(entry: AuditLog) {
-    return entityTypeLabels[entry.entityType] ?? entry.entityType
+    return entityTypeKeys[entry.entityType] ? t(entityTypeKeys[entry.entityType]) : entry.entityType
   }
 
   return (
@@ -169,7 +173,7 @@ export default function WorkItemHistoryPanel({
               <EmptyMedia variant="icon">
                 <FileClock />
               </EmptyMedia>
-              <EmptyTitle>No history yet</EmptyTitle>
+              <EmptyTitle>{t('history.noHistory')}</EmptyTitle>
             </EmptyHeader>
           </Empty>
         ) : (
@@ -183,7 +187,7 @@ export default function WorkItemHistoryPanel({
                   <li key={entry.id} className="relative">
                     <span
                       className={cn('absolute top-[7px] -left-[21px] h-2 w-2 rounded-full border border-background', actionDotClass(entry.action))}
-                      title={`${entry.action} · ${entityLabel(entry)}`}
+                      title={`${translateAuditAction(entry.action, t)} · ${entityLabel(entry)}`}
                     />
                     <div
                       className={cn('group flex items-baseline justify-between gap-2 rounded-sm py-1', hasDetails && 'cursor-pointer')}
@@ -204,7 +208,7 @@ export default function WorkItemHistoryPanel({
                         className="shrink-0 text-xs whitespace-nowrap text-muted-foreground"
                         title={formatTimestamp(entry.occurredAt)}
                       >
-                        {timeAgo(entry.occurredAt)}
+                        {timeAgo(entry.occurredAt, t)}
                       </time>
                     </div>
                     {hasDetails && isExpanded ? (
@@ -215,16 +219,16 @@ export default function WorkItemHistoryPanel({
                               <div key={field} className="text-xs">
                                 <span className="font-medium">{field}</span>{' '}
                                 <span className="text-muted-foreground">
-                                  {formatChangeValue(change.from)} → {formatChangeValue(change.to)}
+                                  {formatChangeValue(change.from, t)} → {formatChangeValue(change.to, t)}
                                 </span>
                               </div>
                             ))}
                           </div>
                         ) : null}
                         {[
-                          ['Metadata', formatJson(entry.metadataJson)],
-                          ['Before', formatJson(entry.beforeJson)],
-                          ['After', formatJson(entry.afterJson)],
+                          [t('history.metadata'), formatJson(entry.metadataJson)],
+                          [t('history.before'), formatJson(entry.beforeJson)],
+                          [t('history.after'), formatJson(entry.afterJson)],
                         ]
                           .filter((section): section is [string, string] => Boolean(section[1]))
                           .map(([label, json]) => (
@@ -249,7 +253,7 @@ export default function WorkItemHistoryPanel({
                   onClick={() => void loadPage(page + 1, true)}
                 >
                   {isLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : <History className="h-4 w-4" />}
-                  Load more
+                  {t('common.loadMore')}
                 </Button>
               </div>
             ) : null}

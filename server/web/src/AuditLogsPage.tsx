@@ -16,20 +16,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ChevronLeft, ChevronRight, FileClock, Loader2, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import { listAuditLogs, type AuditLog } from '@/lib/api'
-
-const entityTypeLabels: Record<string, string> = {
-  AUTH: 'Authentication',
-  API_KEY: 'API key',
-  PROJECT: 'Project',
-  TEAM: 'Team',
-  TEAM_JOIN_REQUEST: 'Team join request',
-  USER: 'User',
-  WORK_ITEM: 'Work item',
-  ENTRY: 'Entry',
-  RELATIONSHIP: 'Relationship',
-}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -38,26 +28,37 @@ function formatDate(value: string) {
   }).format(new Date(value))
 }
 
-function entityTypeLabel(entityType: string) {
-  return entityTypeLabels[entityType] ?? entityType
+function entityTypeLabel(entityType: string, t: TFunction) {
+  const key = {
+    AUTH: 'audit.authentication',
+    API_KEY: 'audit.apiKey',
+    PROJECT: 'common.project',
+    TEAM: 'common.team',
+    TEAM_JOIN_REQUEST: 'audit.teamJoinRequest',
+    USER: 'common.user',
+    WORK_ITEM: 'common.workItem',
+    ENTRY: 'common.entry',
+    RELATIONSHIP: 'common.relationship',
+  }[entityType]
+  return key ? t(key) : entityType
 }
 
-function entityDisplayName(auditLog: AuditLog) {
+function entityDisplayName(auditLog: AuditLog, t: TFunction) {
   if (auditLog.entityDisplayName?.trim()) {
     return auditLog.entityDisplayName.trim()
   }
   if (!auditLog.entityId) {
-    return entityTypeLabel(auditLog.entityType)
+    return entityTypeLabel(auditLog.entityType, t)
   }
-  return 'Unavailable record'
+  return t('audit.unavailableRecord')
 }
 
-function projectDisplayName(auditLog: AuditLog) {
-  return auditLog.projectName?.trim() || (auditLog.projectId ? 'Unavailable project' : 'Not set')
+function projectDisplayName(auditLog: AuditLog, t: TFunction) {
+  return auditLog.projectName?.trim() || (auditLog.projectId ? t('audit.unavailableProject') : t('common.notSet'))
 }
 
-function actorDisplayName(auditLog: AuditLog) {
-  return auditLog.actorDisplayName?.trim() || (auditLog.actorUserId ? 'Unavailable user' : 'System')
+function actorDisplayName(auditLog: AuditLog, t: TFunction) {
+  return auditLog.actorDisplayName?.trim() || (auditLog.actorUserId ? t('audit.unavailableUser') : t('audit.system'))
 }
 
 function formatJson(value: string | null) {
@@ -82,7 +83,25 @@ function actionVariant(action: string) {
   return 'outline' as const
 }
 
+function actionLabel(action: string, t: TFunction) {
+  const key = {
+    CREATE: 'audit.actionCreate',
+    UPDATE: 'audit.actionUpdate',
+    DELETE: 'audit.actionDelete',
+    LOGIN_SUCCESS: 'audit.actionLoginSuccess',
+    LOGIN_FAILURE: 'audit.actionLoginFailure',
+  }[action]
+  return key ? t(key) : action
+}
+
+function outcomeLabel(outcome: string, t: TFunction) {
+  if (outcome === 'SUCCESS') return t('audit.success')
+  if (outcome === 'FAILURE') return t('audit.failure')
+  return outcome
+}
+
 export default function AuditLogsPage() {
+  const { t } = useTranslation()
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [selectedAuditLogId, setSelectedAuditLogId] = useState<string | null>(null)
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null)
@@ -114,7 +133,7 @@ export default function AuditLogsPage() {
         setIsSheetOpen(false)
       }
     } catch (loadError) {
-      toast.error(loadError instanceof Error ? loadError.message : 'Failed to load audit logs.')
+      toast.error(loadError instanceof Error ? loadError.message : t('audit.failedLoad'))
       setAuditLogs([])
       setTotalPages(0)
       setSelectedAuditLogId(null)
@@ -162,17 +181,17 @@ export default function AuditLogsPage() {
 
   const jsonSections = selectedAuditLog
     ? [
-        ['Metadata', formatJson(selectedAuditLog.metadataJson)],
-        ['Before', formatJson(selectedAuditLog.beforeJson)],
-        ['After', formatJson(selectedAuditLog.afterJson)],
-        ['Changes', formatJson(selectedAuditLog.changesJson)],
+        [t('history.metadata'), formatJson(selectedAuditLog.metadataJson)],
+        [t('history.before'), formatJson(selectedAuditLog.beforeJson)],
+        [t('history.after'), formatJson(selectedAuditLog.afterJson)],
+        [t('audit.changes'), formatJson(selectedAuditLog.changesJson)],
       ].filter((section): section is [string, string] => Boolean(section[1]))
     : []
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-        <h1 className="text-xl font-semibold leading-none tracking-normal">Audit Logs</h1>
+        <h1 className="text-xl font-semibold leading-none tracking-normal">{t('audit.pageTitle')}</h1>
       </div>
 
       <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
@@ -182,7 +201,7 @@ export default function AuditLogsPage() {
             className="pl-10"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search"
+            placeholder={t('common.search')}
           />
         </div>
 
@@ -197,7 +216,7 @@ export default function AuditLogsPage() {
                 <EmptyMedia variant="icon">
                   <FileClock />
                 </EmptyMedia>
-                <EmptyTitle>No audit logs found</EmptyTitle>
+                <EmptyTitle>{t('audit.noLogs')}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
@@ -205,13 +224,13 @@ export default function AuditLogsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Entity</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Actor</TableHead>
-                    <TableHead>Outcome</TableHead>
-                    <TableHead>Summary</TableHead>
+                    <TableHead>{t('audit.time')}</TableHead>
+                    <TableHead>{t('audit.action')}</TableHead>
+                    <TableHead>{t('audit.entity')}</TableHead>
+                    <TableHead>{t('common.project')}</TableHead>
+                    <TableHead>{t('audit.actor')}</TableHead>
+                    <TableHead>{t('audit.outcome')}</TableHead>
+                    <TableHead>{t('audit.summary')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -226,16 +245,16 @@ export default function AuditLogsPage() {
                       >
                         <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(auditLog.occurredAt)}</TableCell>
                         <TableCell>
-                          <Badge variant={actionVariant(auditLog.action)}>{auditLog.action}</Badge>
+                          <Badge variant={actionVariant(auditLog.action)}>{actionLabel(auditLog.action, t)}</Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{entityTypeLabel(auditLog.entityType)}</div>
-                          <div className="max-w-[200px] truncate text-xs text-muted-foreground">{entityDisplayName(auditLog)}</div>
+                          <div className="font-medium">{entityTypeLabel(auditLog.entityType, t)}</div>
+                          <div className="max-w-[200px] truncate text-xs text-muted-foreground">{entityDisplayName(auditLog, t)}</div>
                         </TableCell>
-                        <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">{projectDisplayName(auditLog)}</TableCell>
-                        <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">{actorDisplayName(auditLog)}</TableCell>
+                        <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">{projectDisplayName(auditLog, t)}</TableCell>
+                        <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">{actorDisplayName(auditLog, t)}</TableCell>
                         <TableCell>
-                          <Badge variant={auditLog.outcome === 'SUCCESS' ? 'outline' : 'destructive'}>{auditLog.outcome}</Badge>
+                          <Badge variant={auditLog.outcome === 'SUCCESS' ? 'outline' : 'destructive'}>{outcomeLabel(auditLog.outcome, t)}</Badge>
                         </TableCell>
                         <TableCell className="max-w-[360px] truncate">{auditLog.summary}</TableCell>
                       </TableRow>
@@ -253,7 +272,7 @@ export default function AuditLogsPage() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm text-muted-foreground">Page {page + 1} of {Math.max(totalPages, 1)}</span>
+                  <span className="text-sm text-muted-foreground">{t('common.pageOf', { page: page + 1, total: Math.max(totalPages, 1) })}</span>
                   <Button
                     variant="outline"
                     size="icon-sm"
@@ -271,7 +290,7 @@ export default function AuditLogsPage() {
                         setPage(0)
                       }}
                       disabled={isListLoading}
-                      aria-label="Page size"
+                      aria-label={t('common.pageSize')}
                     >
                       <NativeSelectOption value="25">25</NativeSelectOption>
                       <NativeSelectOption value="50">50</NativeSelectOption>
@@ -288,8 +307,8 @@ export default function AuditLogsPage() {
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent side="right" className="!w-full overflow-y-auto p-0 sm:!max-w-2xl" showCloseButton={false}>
           <SheetHeader className="flex min-h-12 flex-row items-center justify-between gap-3 border-b px-4 py-2">
-            <SheetTitle className="text-xl">Audit log details</SheetTitle>
-            <SheetClose render={<Button variant="ghost" size="icon-sm" className="-mr-2" />} aria-label="Close">
+            <SheetTitle className="text-xl">{t('audit.details')}</SheetTitle>
+            <SheetClose render={<Button variant="ghost" size="icon-sm" className="-mr-2" />} aria-label={t('common.close')}>
               <X className="h-4 w-4" />
             </SheetClose>
           </SheetHeader>
@@ -307,14 +326,14 @@ export default function AuditLogsPage() {
               <div className="space-y-6">
                 <dl className="space-y-4">
                   {[
-                    ['Time', formatDate(selectedAuditLog.occurredAt)],
-                    ['Action', selectedAuditLog.action],
-                    ['Entity', `${entityTypeLabel(selectedAuditLog.entityType)} · ${entityDisplayName(selectedAuditLog)}`],
-                    ['Project', projectDisplayName(selectedAuditLog)],
-                    ['Actor', actorDisplayName(selectedAuditLog)],
-                    ['Outcome', selectedAuditLog.outcome],
-                    ['Summary', selectedAuditLog.summary],
-                    ['Audit ID', selectedAuditLog.id],
+                    [t('audit.time'), formatDate(selectedAuditLog.occurredAt)],
+                    [t('audit.action'), actionLabel(selectedAuditLog.action, t)],
+                    [t('audit.entity'), `${entityTypeLabel(selectedAuditLog.entityType, t)} · ${entityDisplayName(selectedAuditLog, t)}`],
+                    [t('common.project'), projectDisplayName(selectedAuditLog, t)],
+                    [t('audit.actor'), actorDisplayName(selectedAuditLog, t)],
+                    [t('audit.outcome'), outcomeLabel(selectedAuditLog.outcome, t)],
+                    [t('audit.summary'), selectedAuditLog.summary],
+                    [t('audit.auditId'), selectedAuditLog.id],
                   ].map(([label, value]) => (
                     <div key={label} className="border-b pb-3 last:border-b-0">
                       <dt className="text-sm font-medium">{label}</dt>
@@ -333,7 +352,7 @@ export default function AuditLogsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Select an audit log to inspect it.</p>
+              <p className="text-sm text-muted-foreground">{t('audit.inspect')}</p>
             )}
           </div>
         </SheetContent>

@@ -4,6 +4,8 @@ import { NavLink, Navigate, useLocation, useOutletContext, useParams, useSearchP
 import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, PanelRightClose, PanelRightOpen, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { usePanelRef } from 'react-resizable-panels'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import { Badge } from '@/components/ui/badge'
@@ -84,6 +86,7 @@ import {
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { entryTypeBadgeClass, workItemTypeBadgeClass } from '@/lib/typeBadges'
+import { translateEntryType, translatePriority, translateProposalAction, translateRelationshipType, translateStatus, translateWorkItemType } from '@/i18n/labels'
 import WorkItemHistoryPanel from '@/WorkItemHistoryPanel'
 
 type TreeNode = ProjectNode & {
@@ -160,10 +163,6 @@ type OrderedWorkItemContent =
 const relationType = 'contains'
 const workItemRelationshipTypes = ['BLOCKED_BY', 'DEPENDS_ON', 'RELATED_TO', 'ANSWERS', 'SUPPORTS', 'CONTRADICTS', 'RESOLVES', 'SUPERSEDES'] as const
 
-function relationshipTypeLabel(type: string) {
-  return type.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase())
-}
-
 function relationshipTypeBadgeClass(type: string) {
   switch (type) {
     case 'BLOCKED_BY': return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300'
@@ -215,7 +214,6 @@ function readWorkspaceInspectorCollapsed() {
   }
 }
 
-const untitledWorkItemTitle = 'Untitled item'
 const workItemTypeOptions = ['TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'] as const
 const entryTypeOptions = ['COMMENT', 'INFORMATION', 'ANSWER', 'EVIDENCE', 'PROPOSAL', 'RESOLUTION'] as const
 const workItemStatusOptions: Record<string, { value: string; label: string }[]> = {
@@ -262,8 +260,22 @@ function defaultStatusForType(type: string) {
   return type.trim().toUpperCase() === 'APPROVAL' ? 'PENDING' : 'OPEN'
 }
 
-function statusOptionsForType(type: string) {
-  return workItemStatusOptions[type.trim().toUpperCase()] ?? workItemStatusOptions.TASK
+function statusOptionsForType(type: string, t: TFunction) {
+  const normalizedType = type.trim().toUpperCase()
+  const options = workItemStatusOptions[normalizedType] ?? workItemStatusOptions.TASK
+  const statusKeys: Record<string, string> = {
+    OPEN: 'status.open',
+    'IN PROGRESS': 'status.inProgress',
+    BLOCKED: 'status.blocked',
+    DONE: normalizedType === 'DECISION' ? 'status.decided' : 'status.done',
+    CANCELLED: 'status.cancelled',
+    WAITING: 'status.waiting',
+    ANSWERED: 'status.answered',
+    PENDING: 'status.pending',
+    APPROVED: 'status.approved',
+    REJECTED: 'status.rejected',
+  }
+  return options.map((option) => ({ ...option, label: t(statusKeys[option.value] ?? option.label) }))
 }
 
 function normalizedStatus(value: unknown) {
@@ -329,8 +341,8 @@ function createDraftId() {
   return `field-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function formatProjectTitle(project: Project) {
-  return project.title?.trim() ? project.title : 'Untitled project'
+function formatProjectTitle(project: Project, fallback: string) {
+  return project.title?.trim() ? project.title : fallback
 }
 
 function formatActivityDate(value: string) {
@@ -359,16 +371,16 @@ function normalizeFieldValueForForm(
   }
 }
 
-function formatProposalValue(value: unknown) {
+function formatProposalValue(value: unknown, t: TFunction) {
   if (value === null || value === undefined || value === '') {
-    return 'Empty'
+    return t('workspace.empty')
   }
 
   if (typeof value === 'boolean') {
-    return value ? 'Yes' : 'No'
+    return value ? t('common.yes') : t('common.no')
   }
   if (Array.isArray(value)) {
-    return value.length === 0 ? 'Empty' : `${value.length} selected`
+    return value.length === 0 ? t('workspace.empty') : t('common.selected', { count: value.length })
   }
 
   return String(value)
@@ -496,7 +508,7 @@ function fieldValueKey(field: ProjectNodeField | undefined) {
   })
 }
 
-function buildProposalFieldDiffs(previousFields: ProjectNodeField[], nextFields: ProjectNodeField[]): ProposalFieldDiff[] {
+function buildProposalFieldDiffs(previousFields: ProjectNodeField[], nextFields: ProjectNodeField[], t: TFunction): ProposalFieldDiff[] {
   const previousByKey = new Map(previousFields.map((field) => [fieldKey(field), field]))
   const nextByKey = new Map(nextFields.map((field) => [fieldKey(field), field]))
   const keys = [...new Set([
@@ -519,8 +531,8 @@ function buildProposalFieldDiffs(previousFields: ProjectNodeField[], nextFields:
       name: key,
       label: nextField?.label || previousField?.label || key,
       status,
-      previousValue: previousField ? formatProposalValue(previousField.value) : '-',
-      nextValue: nextField ? formatProposalValue(nextField.value) : '-',
+      previousValue: previousField ? formatProposalValue(previousField.value, t) : '-',
+      nextValue: nextField ? formatProposalValue(nextField.value, t) : '-',
     }
   }).filter((diff) => diff.status !== 'unchanged')
 }
@@ -663,13 +675,13 @@ function displayNodeForProposalChange(change: GraphChangeProposalChange) {
   return change.previousNode ?? change.node ?? null
 }
 
-function placementReasonForProposalChange(change: GraphChangeProposalChange) {
+function placementReasonForProposalChange(change: GraphChangeProposalChange, t: TFunction) {
   if (change.action === 'ADD') {
     const parentNodeId = change.node?.parentNodeId ?? null
-    return parentNodeId ? 'Parent item is outside the loaded tree' : 'Top-level item proposal is outside the loaded tree'
+    return parentNodeId ? t('workspace.parentOutsideTree') : t('workspace.topLevelOutsideTree')
   }
 
-  return 'Target item is outside the loaded tree'
+  return t('workspace.targetOutsideTree')
 }
 
 function mergeProposalNodes(nodes: ProjectNode[], proposals: GraphChangeProposal[]) {
@@ -725,7 +737,7 @@ function mergeProposalNodes(nodes: ProjectNode[], proposals: GraphChangeProposal
   return mergedNodes
 }
 
-function pendingProposalNodes(nodes: ProjectNode[], proposals: GraphChangeProposal[]): PendingProposalNode[] {
+function pendingProposalNodes(nodes: ProjectNode[], proposals: GraphChangeProposal[], t: TFunction): PendingProposalNode[] {
   const loadedNodeIds = new Set(nodes.map((node) => node.id))
 
   return openNodeProposalChanges(proposals)
@@ -741,7 +753,7 @@ function pendingProposalNodes(nodes: ProjectNode[], proposals: GraphChangePropos
         id: change.targetId,
         children: [],
         proposal: proposalForChange(proposal, change, change.previousNode ?? displayNode),
-        placementReason: placementReasonForProposalChange(change),
+        placementReason: placementReasonForProposalChange(change, t),
       }
       return pendingNode
     })
@@ -1066,8 +1078,8 @@ function referenceTeamLabel(team: Team) {
   return team.name || 'Unnamed team'
 }
 
-function entryAuthorLabel(entry: Entry, userLabels: Map<string, string>) {
-  return entry.authorDisplayName?.trim() || userLabels.get(entry.authorUserId) || 'Unknown user'
+function entryAuthorLabel(entry: Entry, userLabels: Map<string, string>, fallback: string) {
+  return entry.authorDisplayName?.trim() || userLabels.get(entry.authorUserId) || fallback
 }
 
 function WorkItemEntries({
@@ -1123,6 +1135,7 @@ function WorkItemEntries({
   onMoveContent: (entityType: 'WORK_ITEM' | 'ENTRY', entityId: string, offset: number) => Promise<void>
   onDelete: (entryId: string) => Promise<void>
 }) {
+  const { t } = useTranslation()
   const [isAdding, setIsAdding] = useState(false)
   const [newType, setNewType] = useState(defaultType)
   const [newBody, setNewBody] = useState('')
@@ -1147,7 +1160,7 @@ function WorkItemEntries({
 
   async function reviewNewEntry() {
     if (!newBody.trim()) {
-      toast.error('Update text is required.')
+      toast.error(t('workspace.updateRequired'))
       return
     }
     setIsSaving(true)
@@ -1156,7 +1169,7 @@ function WorkItemEntries({
       setNewEntryReview({ ...review, entryType: newType })
       setIsAdding(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to review update.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedReviewUpdate'))
     } finally {
       setIsSaving(false)
     }
@@ -1164,7 +1177,7 @@ function WorkItemEntries({
 
   async function reviewEditedEntry(entry: Entry) {
     if (!editBody.trim()) {
-      toast.error('Update text is required.')
+      toast.error(t('workspace.updateRequired'))
       return
     }
     setIsSaving(true)
@@ -1173,7 +1186,7 @@ function WorkItemEntries({
       setReviewByEntryId((current) => new Map(current).set(entry.id, { ...review, entryType: editType }))
       setEditingEntryId(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to review update.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedReviewUpdate'))
     } finally {
       setIsSaving(false)
     }
@@ -1181,7 +1194,7 @@ function WorkItemEntries({
 
   async function saveNewEntry() {
     if (!newBody.trim()) {
-      toast.error('Update text is required.')
+      toast.error(t('workspace.updateRequired'))
       return
     }
     setIsSaving(true)
@@ -1190,7 +1203,7 @@ function WorkItemEntries({
       setNewBody('')
       setIsAdding(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add update.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedAddUpdate'))
     } finally {
       setIsSaving(false)
     }
@@ -1198,7 +1211,7 @@ function WorkItemEntries({
 
   async function saveEditedEntry(entry: Entry) {
     if (!editBody.trim()) {
-      toast.error('Update text is required.')
+      toast.error(t('workspace.updateRequired'))
       return
     }
     setIsSaving(true)
@@ -1206,7 +1219,7 @@ function WorkItemEntries({
       await onUpdate(entry, editType, editBody.trim())
       setEditingEntryId(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to save update.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedSaveUpdate'))
     } finally {
       setIsSaving(false)
     }
@@ -1244,7 +1257,7 @@ function WorkItemEntries({
             {isEditing ? (
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <NativeSelect className="w-32 shrink-0" value={editType} onChange={(event) => setEditType(event.target.value)} disabled={isSaving}>
-                  {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{type}</NativeSelectOption>)}
+                  {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{translateEntryType(type, t)}</NativeSelectOption>)}
                 </NativeSelect>
                 <Input
                   autoFocus
@@ -1262,17 +1275,17 @@ function WorkItemEntries({
                     }
                   }}
                   disabled={isSaving}
-                  aria-label="Update content"
+                  aria-label={t('workspace.updateContent')}
                 />
                 {isAiReviewAvailable ? (
                   <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={() => void reviewEditedEntry(entry)}>
-                    <Bot className="h-3.5 w-3.5" /> AI Review
+                    <Bot className="h-3.5 w-3.5" /> {t('workspace.aiReview')}
                   </Button>
                 ) : null}
-                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveEditedEntry(entry)} aria-label="Save update" title="Save update">
+                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveEditedEntry(entry)} aria-label={t('workspace.updateSaved')} title={t('workspace.updateSaved')}>
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
                 </Button>
-                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => setEditingEntryId(null)} aria-label="Cancel update edit" title="Cancel"><X /></Button>
+                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => setEditingEntryId(null)} aria-label={t('common.cancel')} title={t('common.cancel')}><X /></Button>
               </div>
             ) : (
               <>
@@ -1281,7 +1294,7 @@ function WorkItemEntries({
                     <div className="min-w-0 flex-1">
                       <p className="min-w-0 truncate text-sm leading-5 text-foreground" title={entry.body}>{entry.body}</p>
                       <div className="mt-0.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
-                        <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', entryTypeBadgeClass(entry.type))}>{entry.type}</Badge>
+                        <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', entryTypeBadgeClass(entry.type))}>{translateEntryType(entry.type, t)}</Badge>
                         {isAcceptedAnswer ? (
                           <span className="flex shrink-0 items-center gap-1 text-primary">
                             <Check className="h-3 w-3" /> Accepted
@@ -1294,7 +1307,7 @@ function WorkItemEntries({
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={(
-                          <Button type="button" size="icon-xs" variant="ghost" aria-label="Update actions" title="Update actions">
+                          <Button type="button" size="icon-xs" variant="ghost" aria-label={t('workspace.updateActions')} title={t('workspace.updateActions')}>
                             <MoreHorizontal />
                           </Button>
                         )}
@@ -1302,12 +1315,12 @@ function WorkItemEntries({
                       <DropdownMenuContent align="end" className="w-44">
                         {canReorder && contentIndex > 0 ? (
                           <DropdownMenuItem onClick={(event) => { event.stopPropagation(); void onMoveContent('ENTRY', entry.id, -1) }}>
-                            <ArrowUp className="h-4 w-4" /> Move up
+                            <ArrowUp className="h-4 w-4" /> {t('workspace.moveUp')}
                           </DropdownMenuItem>
                         ) : null}
                         {canReorder && contentIndex < content.length - 1 ? (
                           <DropdownMenuItem onClick={(event) => { event.stopPropagation(); void onMoveContent('ENTRY', entry.id, 1) }}>
-                            <ArrowDown className="h-4 w-4" /> Move down
+                            <ArrowDown className="h-4 w-4" /> {t('workspace.moveDown')}
                           </DropdownMenuItem>
                         ) : null}
                         {isQuestion && !isAcceptedAnswer ? (
@@ -1319,25 +1332,25 @@ function WorkItemEntries({
                               try {
                                 await onAcceptAnswer(entry.id)
                               } catch (error) {
-                                toast.error(error instanceof Error ? error.message : 'Failed to accept answer.')
+                                toast.error(error instanceof Error ? error.message : t('workspace.failedAcceptAnswer'))
                               } finally {
                                 setAcceptingAnswerEntryId(null)
                               }
                             }}
                           >
                             {acceptingAnswerEntryId === entry.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                            Accept answer
+                            {t('workspace.acceptAnswer')}
                           </DropdownMenuItem>
                         ) : null}
                         <DropdownMenuItem onClick={(event) => { event.stopPropagation(); setEditingEntryId(entry.id); setEditType(entry.type); setEditBody(entry.body) }}>
-                          <Pencil className="h-4 w-4" /> Edit update
+                          <Pencil className="h-4 w-4" /> {t('workspace.editUpdate')}
                         </DropdownMenuItem>
                         <DeleteConfirmPopover
-                          title="Delete update?"
-                          description="This update will be permanently deleted."
+                          title={t('workspace.deleteUpdate')}
+                          description={t('workspace.deleteUpdateDescription')}
                           trigger={(
                             <DropdownMenuItem variant="destructive" onClick={(event) => event.stopPropagation()}>
-                              <Trash2 className="h-4 w-4" /> Delete
+                              <Trash2 className="h-4 w-4" /> {t('common.delete')}
                             </DropdownMenuItem>
                           )}
                           onConfirm={() => onDelete(entry.id)}
@@ -1351,12 +1364,12 @@ function WorkItemEntries({
                 <div className="mt-2 ml-4 flex min-w-0 items-start gap-3 rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
                   <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-muted-foreground">Your draft</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t('workspace.yourDraft')}</p>
                     <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground line-through">{review.originalBody}</p>
-                    <p className="mt-2 text-xs font-medium text-primary">Suggested</p>
+                    <p className="mt-2 text-xs font-medium text-primary">{t('workspace.suggested')}</p>
                     <p className="whitespace-pre-wrap break-words text-sm">{review.proposedBody}</p>
                     {review.proposedType && review.proposedType !== (review.entryType ?? entry.type) ? (
-                      <p className="mt-2 text-xs text-primary">Classification: {review.entryType ?? entry.type} → {review.proposedType}</p>
+                      <p className="mt-2 text-xs text-primary">{t('workspace.classification')}: {translateEntryType(review.entryType ?? entry.type, t)} → {translateEntryType(review.proposedType, t)}</p>
                     ) : null}
                     {review.rationale ? <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{review.rationale}</p> : null}
                     <div className="mt-2 flex gap-2">
@@ -1364,7 +1377,7 @@ function WorkItemEntries({
                         className="h-7 bg-white text-xs"
                         value={reviewFeedbackByEntryId.get(entry.id) ?? ''}
                         onChange={(event) => setReviewFeedbackByEntryId((current) => new Map(current).set(entry.id, event.target.value))}
-                        placeholder="Tell AI what to change…"
+                        placeholder={t('workspace.tellAi')}
                         disabled={isSaving}
                       />
                       <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={async () => {
@@ -1374,11 +1387,11 @@ function WorkItemEntries({
                           setReviewByEntryId((current) => new Map(current).set(entry.id, { ...nextReview, entryType: review.proposedType ?? review.entryType ?? entry.type }))
                           setReviewFeedbackByEntryId((current) => { const next = new Map(current); next.delete(entry.id); return next })
                         } catch (error) {
-                          toast.error(error instanceof Error ? error.message : 'Failed to update AI suggestion.')
+                          toast.error(error instanceof Error ? error.message : t('workspace.failedSuggestionUpdate'))
                         } finally {
                           setIsSaving(false)
                         }
-                      }}>Ask again</Button>
+                      }}>{t('workspace.askAgain')}</Button>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1 pt-0.5">
@@ -1392,11 +1405,11 @@ function WorkItemEntries({
                         return next
                       })
                     } catch (error) {
-                      toast.error(error instanceof Error ? error.message : 'Failed to accept AI suggestion.')
+                      toast.error(error instanceof Error ? error.message : t('workspace.failedAcceptSuggestion'))
                     } finally {
                       setIsSaving(false)
                     }
-                  }} aria-label="Accept AI suggestion" title="Accept AI suggestion">
+                  }} aria-label={t('workspace.acceptSuggestion')} title={t('workspace.acceptSuggestion')}>
                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
                   </Button>
                   <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={() => {
@@ -1404,7 +1417,7 @@ function WorkItemEntries({
                     setEditType(review.proposedType ?? review.entryType ?? entry.type)
                     setEditBody(review.proposedBody)
                     setReviewByEntryId((current) => { const next = new Map(current); next.delete(entry.id); return next })
-                  }} aria-label="Keep editing AI suggestion" title="Keep editing"><Pencil /></Button>
+                  }} aria-label={t('workspace.keepEditingSuggestion')} title={t('workspace.keepEditing')}><Pencil /></Button>
                   <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
                     setIsSaving(true)
                     try {
@@ -1418,11 +1431,11 @@ function WorkItemEntries({
                       setEditType(review.entryType ?? entry.type)
                       setEditBody(review.originalBody)
                     } catch (error) {
-                      toast.error(error instanceof Error ? error.message : 'Failed to reject AI suggestion.')
+                      toast.error(error instanceof Error ? error.message : t('workspace.failedRejectSuggestion'))
                     } finally {
                       setIsSaving(false)
                     }
-                  }} aria-label="Reject AI suggestion" title="Reject AI suggestion"><X /></Button>
+                  }} aria-label={t('workspace.rejectSuggestion')} title={t('workspace.rejectSuggestion')}><X /></Button>
                   </div>
                 </div>
               ) : null}
@@ -1435,8 +1448,8 @@ function WorkItemEntries({
       {isAdding ? (
         <div className="relative flex min-w-0 items-center gap-2 rounded-sm py-2 pl-3">
           <span className="absolute top-1/2 left-0 size-1.5 -translate-x-[3px] -translate-y-1/2 rounded-full bg-primary/60" aria-hidden="true" />
-          <NativeSelect className="w-32 shrink-0" value={newType} onChange={(event) => setNewType(event.target.value)} disabled={isSaving} aria-label="Update classification">
-            {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{type}</NativeSelectOption>)}
+          <NativeSelect className="w-32 shrink-0" value={newType} onChange={(event) => setNewType(event.target.value)} disabled={isSaving} aria-label={t('workspace.updateClassification')}>
+            {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{translateEntryType(type, t)}</NativeSelectOption>)}
           </NativeSelect>
           <Input
             autoFocus
@@ -1459,29 +1472,29 @@ function WorkItemEntries({
           />
           {isAiReviewAvailable ? (
             <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={() => void reviewNewEntry()}>
-              <Bot className="h-3.5 w-3.5" /> AI Review
+              <Bot className="h-3.5 w-3.5" /> {t('workspace.aiReview')}
             </Button>
           ) : null}
-          <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveNewEntry()} aria-label="Add update" title="Add update">
+          <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveNewEntry()} aria-label={t('workspace.addUpdate')} title={t('workspace.addUpdate')}>
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
           </Button>
-          <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => setIsAdding(false)} aria-label="Cancel new update" title="Cancel"><X /></Button>
+          <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => setIsAdding(false)} aria-label={t('workspace.cancelNewUpdate')} title={t('common.cancel')}><X /></Button>
         </div>
       ) : null}
       {newEntryReview ? (
         <div className="relative mt-2 ml-3 flex min-w-0 items-start gap-3 rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
           <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted-foreground">Your draft</p>
+            <p className="text-xs font-medium text-muted-foreground">{t('workspace.yourDraft')}</p>
             <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground line-through">{newEntryReview.originalBody}</p>
-            <p className="mt-2 text-xs font-medium text-primary">Suggested</p>
+            <p className="mt-2 text-xs font-medium text-primary">{t('workspace.suggested')}</p>
             <p className="whitespace-pre-wrap break-words text-sm">{newEntryReview.proposedBody}</p>
             {newEntryReview.proposedType && newEntryReview.proposedType !== (newEntryReview.entryType ?? newType) ? (
-              <p className="mt-2 text-xs text-primary">Classification: {newEntryReview.entryType ?? newType} → {newEntryReview.proposedType}</p>
+              <p className="mt-2 text-xs text-primary">{t('workspace.classification')}: {translateEntryType(newEntryReview.entryType ?? newType, t)} → {translateEntryType(newEntryReview.proposedType, t)}</p>
             ) : null}
             {newEntryReview.rationale ? <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{newEntryReview.rationale}</p> : null}
             <div className="mt-2 flex gap-2">
-              <Input className="h-7 bg-white text-xs" value={newReviewFeedback} onChange={(event) => setNewReviewFeedback(event.target.value)} placeholder="Tell AI what to change…" disabled={isSaving} />
+              <Input className="h-7 bg-white text-xs" value={newReviewFeedback} onChange={(event) => setNewReviewFeedback(event.target.value)} placeholder={t('workspace.tellAi')} disabled={isSaving} />
               <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={async () => {
                 setIsSaving(true)
                 try {
@@ -1489,11 +1502,11 @@ function WorkItemEntries({
                   setNewEntryReview({ ...nextReview, entryType: newEntryReview.proposedType ?? newEntryReview.entryType ?? newType })
                   setNewReviewFeedback('')
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Failed to update AI suggestion.')
+                  toast.error(error instanceof Error ? error.message : t('workspace.failedSuggestionUpdate'))
                 } finally {
                   setIsSaving(false)
                 }
-              }}>Ask again</Button>
+              }}>{t('workspace.askAgain')}</Button>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1 pt-0.5">
@@ -1504,11 +1517,11 @@ function WorkItemEntries({
               setNewEntryReview(null)
               setNewBody('')
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : 'Failed to accept AI suggestion.')
+              toast.error(error instanceof Error ? error.message : t('workspace.failedAcceptSuggestion'))
             } finally {
               setIsSaving(false)
             }
-          }} aria-label="Accept AI suggestion" title="Accept AI suggestion">
+          }} aria-label={t('workspace.acceptSuggestion')} title={t('workspace.acceptSuggestion')}>
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
           </Button>
           <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={() => {
@@ -1516,7 +1529,7 @@ function WorkItemEntries({
             setNewBody(newEntryReview.proposedBody)
             setNewEntryReview(null)
             setIsAdding(true)
-          }} aria-label="Keep editing AI suggestion" title="Keep editing"><Pencil /></Button>
+          }} aria-label={t('workspace.keepEditingSuggestion')} title={t('workspace.keepEditing')}><Pencil /></Button>
           <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
             setIsSaving(true)
             try {
@@ -1526,11 +1539,11 @@ function WorkItemEntries({
               setNewBody(newEntryReview.originalBody)
               setIsAdding(true)
             } catch (error) {
-              toast.error(error instanceof Error ? error.message : 'Failed to reject AI suggestion.')
+              toast.error(error instanceof Error ? error.message : t('workspace.failedRejectSuggestion'))
             } finally {
               setIsSaving(false)
             }
-          }} aria-label="Reject AI suggestion" title="Reject AI suggestion"><X /></Button>
+          }} aria-label={t('workspace.rejectSuggestion')} title={t('workspace.rejectSuggestion')}><X /></Button>
           </div>
         </div>
       ) : null}
@@ -1550,6 +1563,7 @@ type BlockerUi = {
 }
 
 function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigger: ReactElement; blockerUi: BlockerUi }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [addingId, setAddingId] = useState<string | null>(null)
@@ -1591,7 +1605,7 @@ function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigge
       <PopoverTrigger render={trigger} />
       <PopoverContent align="start" className="w-96 gap-0 p-0">
         <PopoverHeader className="border-b px-4 py-3">
-          <PopoverTitle>Blocked by</PopoverTitle>
+          <PopoverTitle>{t('workspace.blockedBy')}</PopoverTitle>
         </PopoverHeader>
 
         {blockers.length > 0 ? (
@@ -1615,7 +1629,7 @@ function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigge
                           }
                         }}
                       />
-                      <Button type="button" size="icon-sm" variant="ghost" disabled={blockerUi.isSaving} onClick={() => void saveReason(relationship.id)} aria-label="Save blocker reason"><Check /></Button>
+                      <Button type="button" size="icon-sm" variant="ghost" disabled={blockerUi.isSaving} onClick={() => void saveReason(relationship.id)} aria-label={t('common.save')}><Check /></Button>
                     </div>
                   ) : (
                     <button
@@ -1626,7 +1640,7 @@ function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigge
                         setReasonDraft(relationship.reason ?? '')
                       }}
                     >
-                      {relationship.reason || 'Add reason'}
+                      {relationship.reason || t('workspace.addReason')}
                     </button>
                   )}
                 </div>
@@ -1636,8 +1650,8 @@ function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigge
                   variant="ghost"
                   disabled={blockerUi.isSaving}
                   onClick={() => void blockerUi.onRemove(relationship.id)}
-                  aria-label="Remove blocker"
-                  title="Remove blocker"
+                  aria-label={t('workspace.removeBlocker')}
+                  title={t('workspace.removeBlocker')}
                 >
                   <X />
                 </Button>
@@ -1648,12 +1662,12 @@ function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigge
 
         <div className="space-y-4 p-4">
           <div className="space-y-2">
-            <label htmlFor={`blocker-search-${nodeId}`} className="block text-sm font-semibold">Search work items</label>
-            <Input id={`blocker-search-${nodeId}`} autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search" />
+            <label htmlFor={`blocker-search-${nodeId}`} className="block text-sm font-semibold">{t('workspace.searchWorkItems')}</label>
+            <Input id={`blocker-search-${nodeId}`} autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('common.search')} />
           </div>
           <div className="max-h-52 overflow-auto">
             {options.length === 0 ? (
-              <div className="px-2 py-5 text-center text-sm text-muted-foreground">No available work items</div>
+              <div className="px-2 py-5 text-center text-sm text-muted-foreground">{t('workspace.noAvailableWorkItems')}</div>
             ) : options.map((item) => (
               <button
                 key={item.id}
@@ -1680,6 +1694,7 @@ type WorkItemRelationshipUi = {
 }
 
 function WorkItemRelationshipPopover({ nodeId, trigger, relationshipUi }: { nodeId: string; trigger: ReactElement; relationshipUi: WorkItemRelationshipUi }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [type, setType] = useState<string>(workItemRelationshipTypes[0])
   const [direction, setDirection] = useState<'OUTGOING' | 'INCOMING'>('OUTGOING')
@@ -1715,33 +1730,33 @@ function WorkItemRelationshipPopover({ nodeId, trigger, relationshipUi }: { node
       <PopoverTrigger render={trigger} />
       <PopoverContent align="start" className="w-96 gap-0 p-0">
         <PopoverHeader className="border-b px-4 py-3">
-          <PopoverTitle>Add relationship</PopoverTitle>
+          <PopoverTitle>{t('workspace.addRelationship')}</PopoverTitle>
         </PopoverHeader>
         <div className="space-y-4 p-4">
           <div className="space-y-2">
-            <label htmlFor={`relationship-type-${nodeId}`} className="block text-sm font-semibold">Type</label>
+            <label htmlFor={`relationship-type-${nodeId}`} className="block text-sm font-semibold">{t('common.type')}</label>
             <NativeSelect id={`relationship-type-${nodeId}`} value={type} onChange={(event) => setType(event.target.value)}>
-              {workItemRelationshipTypes.map((option) => <NativeSelectOption key={option} value={option}>{relationshipTypeLabel(option)}</NativeSelectOption>)}
+              {workItemRelationshipTypes.map((option) => <NativeSelectOption key={option} value={option}>{translateRelationshipType(option, t)}</NativeSelectOption>)}
             </NativeSelect>
           </div>
           <div className="space-y-2">
-            <label htmlFor={`relationship-direction-${nodeId}`} className="block text-sm font-semibold">Direction</label>
+            <label htmlFor={`relationship-direction-${nodeId}`} className="block text-sm font-semibold">{t('workspace.direction')}</label>
             <NativeSelect id={`relationship-direction-${nodeId}`} value={direction} onChange={(event) => setDirection(event.target.value as 'OUTGOING' | 'INCOMING')}>
-              <NativeSelectOption value="OUTGOING">This item → selected item</NativeSelectOption>
-              <NativeSelectOption value="INCOMING">Selected item → this item</NativeSelectOption>
+              <NativeSelectOption value="OUTGOING">{t('workspace.thisItemToSelected')}</NativeSelectOption>
+              <NativeSelectOption value="INCOMING">{t('workspace.selectedToThisItem')}</NativeSelectOption>
             </NativeSelect>
           </div>
           <div className="space-y-2">
-            <label htmlFor={`relationship-reason-${nodeId}`} className="block text-sm font-semibold">Reason <span className="font-normal text-muted-foreground">(optional)</span></label>
+            <label htmlFor={`relationship-reason-${nodeId}`} className="block text-sm font-semibold">{t('workspace.reason')} <span className="font-normal text-muted-foreground">({t('workspace.optional')})</span></label>
             <Input id={`relationship-reason-${nodeId}`} value={reason} onChange={(event) => setReason(event.target.value)} />
           </div>
           <div className="space-y-2">
-            <label htmlFor={`relationship-search-${nodeId}`} className="block text-sm font-semibold">Work item</label>
-            <Input id={`relationship-search-${nodeId}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search" />
+            <label htmlFor={`relationship-search-${nodeId}`} className="block text-sm font-semibold">{t('common.workItem')}</label>
+            <Input id={`relationship-search-${nodeId}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('common.search')} />
           </div>
           <div className="max-h-52 overflow-auto">
             {options.length === 0 ? (
-              <div className="px-2 py-5 text-center text-sm text-muted-foreground">No available work items</div>
+              <div className="px-2 py-5 text-center text-sm text-muted-foreground">{t('workspace.noAvailableWorkItems')}</div>
             ) : options.map((item) => (
               <button
                 key={item.id}
@@ -1858,6 +1873,7 @@ function TreeRowContent({
   onAutoEditTitleStarted: () => void
   onDecideProposal: (proposal: TreeNodeProposal, decision: 'ACCEPT' | 'REJECT') => void
 }) {
+  const { t } = useTranslation()
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [draftTitle, setDraftTitle] = useState(node.title)
   const [isSavingTitle, setIsSavingTitle] = useState(false)
@@ -1880,8 +1896,8 @@ function TreeRowContent({
   const dueDate = formatWorkItemDueDate(nodeFieldValue(node, 'dueDate'))
   const priority = String(nodeFieldValue(node, 'priority') ?? '').trim().toUpperCase()
   const assigneeIds = [
-    ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')).map((id) => ({ id, label: userLabels.get(id) ?? 'Unknown user', type: 'user' })),
-    ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')).map((id) => ({ id, label: teamLabels.get(id) ?? 'Unknown team', type: 'team' })),
+    ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')).map((id) => ({ id, label: userLabels.get(id) ?? t('common.unknownUser'), type: 'user' })),
+    ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')).map((id) => ({ id, label: teamLabels.get(id) ?? t('common.unknownTeam'), type: 'team' })),
   ]
   const blockerCount = blockerUi.relationshipsByNodeId.get(node.id)?.length ?? 0
   const entryCount = entriesByWorkItemId.get(node.id)?.length ?? 0
@@ -1907,7 +1923,7 @@ function TreeRowContent({
   async function saveTitle() {
     const title = draftTitle.trim()
     if (!title) {
-      toast.error('Item title is required.')
+      toast.error(t('workspace.itemTitleRequired'))
       return
     }
     if (title === node.title) {
@@ -1920,7 +1936,7 @@ function TreeRowContent({
       await onEditTitle(node, title)
       setIsEditingTitle(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update item title.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedUpdateTitle'))
     } finally {
       setIsSavingTitle(false)
     }
@@ -1944,7 +1960,7 @@ function TreeRowContent({
           className="mt-0.5 grid h-5 w-7 shrink-0 place-items-center rounded-sm hover:bg-background"
           onClick={() => onToggle(node.id)}
           disabled={!canExpand}
-          aria-label={isExpanded ? 'Collapse item' : 'Expand item'}
+          aria-label={isExpanded ? t('workspace.collapseItem') : t('workspace.expandItem')}
         >
           {isLoadingChildren ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1976,11 +1992,11 @@ function TreeRowContent({
                     }
                   }}
                   disabled={isSavingTitle}
-                  aria-label="Item title"
+                  aria-label={t('common.title')}
                 />
               </div>
               <div className="flex shrink-0 items-center gap-0.5">
-                <Button type="submit" size="icon-xs" variant="ghost" className="h-5 w-5" disabled={isSavingTitle} aria-label="Save title" title="Save title">
+                <Button type="submit" size="icon-xs" variant="ghost" className="h-5 w-5" disabled={isSavingTitle} aria-label={t('workspace.saveTitle')} title={t('workspace.saveTitle')}>
                   {isSavingTitle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
                 </Button>
                 <Button
@@ -1990,8 +2006,8 @@ function TreeRowContent({
                   className="h-5 w-5"
                   disabled={isSavingTitle}
                   onClick={() => setIsEditingTitle(false)}
-                  aria-label="Cancel title edit"
-                  title="Cancel"
+                  aria-label={t('workspace.cancelTitleEdit')}
+                  title={t('common.cancel')}
                 >
                   <X />
                 </Button>
@@ -1999,29 +2015,29 @@ function TreeRowContent({
             </div>
             <div className="mt-0.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
               <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', workItemTypeBadgeClass(node.type))}>
-                {node.type}
+                {translateWorkItemType(node.type, t)}
               </Badge>
               {!isDefaultWorkItemStatus(status) ? (
                 <Badge variant="secondary" className="h-5 shrink-0 px-1.5 text-[10px] font-medium">
-                  {String(status).replaceAll('_', ' ')}
+                  {translateStatus(String(status), t)}
                 </Badge>
               ) : null}
               {dueDate ? (
                 <Badge
                   variant={dueDate.isOverdue ? 'destructive' : dueDate.isDueSoon ? 'default' : 'outline'}
                   className="h-5 shrink-0 px-1.5 text-[10px] font-medium"
-                  title={`Due ${dueDate.title}`}
+                  title={t('workspace.due', { date: dueDate.title })}
                 >
-                  Due {dueDate.label}
+                  {t('workspace.due', { date: dueDate.label })}
                 </Badge>
               ) : null}
               {priority === 'HIGH' || priority === 'URGENT' ? (
                 <Badge variant={priority === 'URGENT' ? 'destructive' : 'default'} className="h-5 shrink-0 px-1.5 text-[10px] font-medium">
-                  {priority[0]}{priority.slice(1).toLowerCase()}
+                  {translatePriority(priority, t)}
                 </Badge>
               ) : null}
               {assigneeIds.length > 0 ? (
-                <div className="flex shrink-0 -space-x-1" aria-label="Assignees">
+                <div className="flex shrink-0 -space-x-1" aria-label={t('common.assignees')}>
                   {assigneeIds.slice(0, 3).map((assignee) => (
                     <span
                       key={`${assignee.type}-${assignee.id}`}
@@ -2032,7 +2048,7 @@ function TreeRowContent({
                     </span>
                   ))}
                   {assigneeIds.length > 3 ? (
-                    <span className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground" title={`${assigneeIds.length - 3} more assignees`}>
+                    <span className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground" title={t('workspace.moreAssignees', { count: assigneeIds.length - 3 })}>
                       +{assigneeIds.length - 3}
                     </span>
                   ) : null}
@@ -2051,8 +2067,8 @@ function TreeRowContent({
                     setShowEntries((current) => !current)
                   }}
                   aria-expanded={showEntries}
-                  aria-label={`${showEntries ? 'Hide' : 'Show'} ${entryCount} updates for ${node.title}`}
-                  title={`${showEntries ? 'Hide' : 'Show'} updates (${entryCount})`}
+                  aria-label={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
+                  title={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
                 >
                   <MessageSquareText className="h-3 w-3" />
                   <span>{entryCount}</span>
@@ -2068,8 +2084,8 @@ function TreeRowContent({
                       size="xs"
                       variant="outline"
                       className="h-5 shrink-0 gap-1 border-destructive/40 px-1 text-[11px] font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={`View and manage ${blockerCount} blocker${blockerCount === 1 ? '' : 's'}`}
-                      title="View and manage blockers"
+                      aria-label={t('workspace.blockersCount', { count: blockerCount })}
+                      title={t('workspace.viewBlockers')}
                     >
                       <OctagonAlert className="h-3 w-3" />
                       <span>{blockerCount}</span>
@@ -2103,29 +2119,29 @@ function TreeRowContent({
             </button>
             <div className="mt-0.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
               <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', workItemTypeBadgeClass(node.type))}>
-                {node.type}
+                {translateWorkItemType(node.type, t)}
               </Badge>
               {!isDefaultWorkItemStatus(status) ? (
                 <Badge variant="secondary" className="h-5 shrink-0 px-1.5 text-[10px] font-medium">
-                  {String(status).replaceAll('_', ' ')}
+                  {translateStatus(String(status), t)}
                 </Badge>
               ) : null}
               {dueDate ? (
                 <Badge
                   variant={dueDate.isOverdue ? 'destructive' : dueDate.isDueSoon ? 'default' : 'outline'}
                   className="h-5 shrink-0 px-1.5 text-[10px] font-medium"
-                  title={`Due ${dueDate.title}`}
+                  title={t('workspace.due', { date: dueDate.title })}
                 >
-                  Due {dueDate.label}
+                  {t('workspace.due', { date: dueDate.label })}
                 </Badge>
               ) : null}
               {priority === 'HIGH' || priority === 'URGENT' ? (
                 <Badge variant={priority === 'URGENT' ? 'destructive' : 'default'} className="h-5 shrink-0 px-1.5 text-[10px] font-medium">
-                  {priority[0]}{priority.slice(1).toLowerCase()}
+                  {translatePriority(priority, t)}
                 </Badge>
               ) : null}
               {assigneeIds.length > 0 ? (
-                <div className="flex shrink-0 -space-x-1" aria-label="Assignees">
+                <div className="flex shrink-0 -space-x-1" aria-label={t('common.assignees')}>
                   {assigneeIds.slice(0, 3).map((assignee) => (
                     <span
                       key={`${assignee.type}-${assignee.id}`}
@@ -2136,7 +2152,7 @@ function TreeRowContent({
                     </span>
                   ))}
                   {assigneeIds.length > 3 ? (
-                    <span className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground" title={`${assigneeIds.length - 3} more assignees`}>
+                    <span className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground" title={t('workspace.moreAssignees', { count: assigneeIds.length - 3 })}>
                       +{assigneeIds.length - 3}
                     </span>
                   ) : null}
@@ -2155,8 +2171,8 @@ function TreeRowContent({
                     setShowEntries((current) => !current)
                   }}
                   aria-expanded={showEntries}
-                  aria-label={`${showEntries ? 'Hide' : 'Show'} ${entryCount} updates for ${node.title}`}
-                  title={`${showEntries ? 'Hide' : 'Show'} updates (${entryCount})`}
+                  aria-label={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
+                  title={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
                 >
                   <MessageSquareText className="h-3 w-3" />
                   <span>{entryCount}</span>
@@ -2172,8 +2188,8 @@ function TreeRowContent({
                       size="xs"
                       variant="outline"
                       className="h-5 shrink-0 gap-1 border-destructive/40 px-1 text-[11px] font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={`View and manage ${blockerCount} blocker${blockerCount === 1 ? '' : 's'}`}
-                      title="View and manage blockers"
+                      aria-label={t('workspace.blockersCount', { count: blockerCount })}
+                      title={t('workspace.viewBlockers')}
                     >
                       <OctagonAlert className="h-3 w-3" />
                       <span>{blockerCount}</span>
@@ -2189,7 +2205,7 @@ function TreeRowContent({
                     variant={proposal.action === 'DELETE' ? 'destructive' : proposal.action === 'UPDATE' ? 'secondary' : 'default'}
                     className="h-5 px-1.5 text-[10px]"
                   >
-                    {proposal.action}
+                    {translateProposalAction(proposal.action, t)}
                   </Badge>
                 </span>
               ) : null}
@@ -2200,10 +2216,10 @@ function TreeRowContent({
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {proposal.action === 'DELETE' ? (
               <DeleteConfirmPopover
-                title="Apply permanent deletion?"
-                description="This AI suggestion permanently deletes this item and its sub-items."
+                title={t('workspace.applyPermanentDeletion')}
+                description={t('workspace.deleteSuggestionDescription')}
                 disabled={isDecidingProposal}
-                trigger={<Button type="button" size="icon-xs" variant="ghost" disabled={isDecidingProposal} aria-label="Accept delete proposal" title="Accept delete proposal"><Check /></Button>}
+                trigger={<Button type="button" size="icon-xs" variant="ghost" disabled={isDecidingProposal} aria-label={t('workspace.acceptDeleteProposal')} title={t('workspace.acceptDeleteProposal')}><Check /></Button>}
                 onConfirm={() => onDecideProposal(proposal, 'ACCEPT')}
               />
             ) : (
@@ -2213,8 +2229,8 @@ function TreeRowContent({
                 variant="ghost"
                 onClick={() => onDecideProposal(proposal, 'ACCEPT')}
                 disabled={isDecidingProposal}
-                aria-label="Accept proposal"
-                title="Accept proposal"
+                aria-label={t('workspace.acceptProposal')}
+                title={t('workspace.acceptProposal')}
               >
                 {isDecidingProposal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
               </Button>
@@ -2225,8 +2241,8 @@ function TreeRowContent({
               variant="ghost"
               onClick={() => onDecideProposal(proposal, 'REJECT')}
               disabled={isDecidingProposal}
-              aria-label="Reject proposal"
-              title="Reject proposal"
+              aria-label={t('workspace.rejectProposal')}
+              title={t('workspace.rejectProposal')}
               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
               <X />
@@ -2247,8 +2263,8 @@ function TreeRowContent({
                     size="icon-xs"
                     variant="ghost"
                     disabled={isSaving}
-                    aria-label={`Actions for ${node.title}`}
-                    title="Item actions"
+                    aria-label={t('workspace.actionsFor', { title: node.title })}
+                    title={t('workspace.itemActions')}
                   >
                     <MoreHorizontal />
                   </Button>
@@ -2257,12 +2273,12 @@ function TreeRowContent({
               <DropdownMenuContent align="end" className="w-48">
                 {canReorder && canMoveUp ? (
                   <DropdownMenuItem onClick={() => onMoveInContentOrder(-1)}>
-                    <ArrowUp className="h-4 w-4" /> Move up
+                    <ArrowUp className="h-4 w-4" /> {t('workspace.moveUp')}
                   </DropdownMenuItem>
                 ) : null}
                 {canReorder && canMoveDown ? (
                   <DropdownMenuItem onClick={() => onMoveInContentOrder(1)}>
-                    <ArrowDown className="h-4 w-4" /> Move down
+                    <ArrowDown className="h-4 w-4" /> {t('workspace.moveDown')}
                   </DropdownMenuItem>
                 ) : null}
                 <BlockerPopover
@@ -2270,25 +2286,25 @@ function TreeRowContent({
                   blockerUi={blockerUi}
                   trigger={(
                     <DropdownMenuItem>
-                      <OctagonAlert className="h-4 w-4" /> {blockerCount > 0 ? 'Manage blockers' : 'Add blocker'}
+                      <OctagonAlert className="h-4 w-4" /> {blockerCount > 0 ? t('workspace.manageBlockers') : t('workspace.addBlocker')}
                     </DropdownMenuItem>
                   )}
                 />
                 <DropdownMenuItem onClick={beginTitleEdit}>
-                  <Pencil className="h-4 w-4" /> Edit title
+                  <Pencil className="h-4 w-4" /> {t('workspace.editTitle')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onFocus(node)}>
-                  <Focus className="h-4 w-4" /> Focus
+                  <Focus className="h-4 w-4" /> {t('workspace.focus')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onMove(node)}>
-                  <MoveRight className="h-4 w-4" /> Move
+                  <MoveRight className="h-4 w-4" /> {t('workspace.move')}
                 </DropdownMenuItem>
                 <DeleteConfirmPopover
-                  title="Delete item?"
-                  description="Sub-items will be deleted with this item."
+                  title={t('workspace.deleteItem')}
+                  description={t('workspace.deleteItemDescription')}
                   trigger={(
                     <DropdownMenuItem variant="destructive" onClick={(event) => event.stopPropagation()}>
-                      <Trash2 className="h-4 w-4" /> Delete
+                      <Trash2 className="h-4 w-4" /> {t('common.delete')}
                     </DropdownMenuItem>
                   )}
                   onConfirm={() => onDelete(node.id)}
@@ -2310,7 +2326,7 @@ function TreeRowContent({
           {!hasLoadedChildren && isLoadingChildren ? (
             <div className="flex min-h-10 items-center gap-2 px-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading sub-items
+              {t('workspace.loadingSubItems')}
             </div>
           ) : null}
           <WorkItemEntries
@@ -2373,7 +2389,7 @@ function TreeRowContent({
             selectedEntryId={selectedEntryId}
             startAdding={entryComposerRequested}
             defaultType={node.type.toUpperCase() === 'QUESTION' ? 'ANSWER' : 'COMMENT'}
-            composerPlaceholder={node.type.toUpperCase() === 'QUESTION' ? 'Write an answer…' : 'Write an update…'}
+            composerPlaceholder={node.type.toUpperCase() === 'QUESTION' ? t('workspace.writeAnswer') : t('workspace.writeUpdate')}
             isQuestion={node.type.toUpperCase() === 'QUESTION'}
             acceptedAnswerEntryId={acceptedAnswerByQuestionId.get(node.id) ?? null}
             isAiReviewAvailable={isAiReviewAvailable}
@@ -2401,7 +2417,7 @@ function TreeRowContent({
                 disabled={isLoadingChildren}
               >
                 {isLoadingChildren ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                Load more
+                {t('workspace.loadMoreSubItems')}
               </Button>
             </div>
           ) : null}
@@ -2422,16 +2438,16 @@ function TreeRowContent({
                   setShowEntries(true)
                   setEntryComposerRequested(true)
                 }}>
-                  <MessageSquarePlus className="h-4 w-4" /> {node.type.toUpperCase() === 'QUESTION' ? 'Write an answer' : 'Write an update'}
+                    <MessageSquarePlus className="h-4 w-4" /> {node.type.toUpperCase() === 'QUESTION' ? t('workspace.writeAnswer') : t('workspace.writeUpdate')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onAddChild(node.id, 'TASK')}>
-                  <ListTodo className="h-4 w-4" /> Add task
+                  <ListTodo className="h-4 w-4" /> {t('workspace.addTask')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onAddChild(node.id, 'QUESTION')}>
-                  <CircleHelp className="h-4 w-4" /> Ask a question
+                  <CircleHelp className="h-4 w-4" /> {t('workspace.askQuestion')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onAddChild(node.id, 'APPROVAL')}>
-                  <ClipboardCheck className="h-4 w-4" /> Request approval
+                  <ClipboardCheck className="h-4 w-4" /> {t('workspace.requestApproval')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -2457,6 +2473,7 @@ function PendingProposalNodeRow({
   onSelect: (node: ProjectNode) => void
   onDecideProposal: (proposal: TreeNodeProposal, decision: 'ACCEPT' | 'REJECT') => void
 }) {
+  const { t } = useTranslation()
   const isSelected = selectedNodeId === node.id
   const isDecidingProposal = decidingProposalChangeId === node.proposal.changeId
 
@@ -2471,7 +2488,7 @@ function PendingProposalNodeRow({
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onSelect(node)} title={node.title}>
         <div className="flex min-w-0 items-center gap-2">
           <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', workItemTypeBadgeClass(node.type))}>
-            {node.type}
+            {translateWorkItemType(node.type, t)}
           </Badge>
           <span
             className={cn(
@@ -2484,12 +2501,12 @@ function PendingProposalNodeRow({
         </div>
         <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-primary">
           <Bot className="h-3.5 w-3.5 shrink-0" />
-          <span className="shrink-0 font-medium">AI proposed</span>
+          <span className="shrink-0 font-medium">{t('workspace.aiProposed')}</span>
           <Badge
             variant={node.proposal.action === 'DELETE' ? 'destructive' : node.proposal.action === 'UPDATE' ? 'secondary' : 'default'}
             className="h-5 shrink-0 px-1.5 text-[10px]"
           >
-            {node.proposal.action}
+            {translateProposalAction(node.proposal.action, t)}
           </Badge>
           <span className="min-w-0 truncate text-muted-foreground" title={node.proposal.summary}>{node.proposal.summary}</span>
         </div>
@@ -2499,10 +2516,10 @@ function PendingProposalNodeRow({
       </button>
       {node.proposal.action === 'DELETE' ? (
         <DeleteConfirmPopover
-          title="Apply permanent deletion?"
-          description="This AI suggestion permanently deletes this item and its sub-items."
+          title={t('workspace.applyPermanentDeletion')}
+          description={t('workspace.deleteSuggestionDescription')}
           disabled={isDecidingProposal}
-          trigger={<Button type="button" size="icon-xs" variant="ghost" disabled={isDecidingProposal} aria-label="Accept delete proposal" title="Accept delete proposal"><Check /></Button>}
+          trigger={<Button type="button" size="icon-xs" variant="ghost" disabled={isDecidingProposal} aria-label={t('workspace.acceptDeleteProposal')} title={t('workspace.acceptDeleteProposal')}><Check /></Button>}
           onConfirm={() => onDecideProposal(node.proposal, 'ACCEPT')}
         />
       ) : (
@@ -2512,8 +2529,8 @@ function PendingProposalNodeRow({
           variant="ghost"
           onClick={() => onDecideProposal(node.proposal, 'ACCEPT')}
           disabled={isDecidingProposal}
-          aria-label="Accept proposal"
-          title="Accept proposal"
+          aria-label={t('workspace.acceptProposal')}
+          title={t('workspace.acceptProposal')}
         >
           {isDecidingProposal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
         </Button>
@@ -2524,8 +2541,8 @@ function PendingProposalNodeRow({
         variant="ghost"
         onClick={() => onDecideProposal(node.proposal, 'REJECT')}
         disabled={isDecidingProposal}
-        aria-label="Reject proposal"
-        title="Reject proposal"
+        aria-label={t('workspace.rejectProposal')}
+        title={t('workspace.rejectProposal')}
         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
       >
         <X />
@@ -2535,6 +2552,7 @@ function PendingProposalNodeRow({
 }
 
 function ProposalUpdateDiff({ node }: { node: TreeNode }) {
+  const { t } = useTranslation()
   if (node.proposal?.action !== 'UPDATE') {
     return null
   }
@@ -2547,29 +2565,29 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
       <div className="rounded-md border bg-muted/20 p-3">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-medium">Proposed update</p>
-            <p className="text-xs text-muted-foreground">New values are not available for this proposal.</p>
+            <p className="text-sm font-medium">{t('workspace.proposedUpdate')}</p>
+            <p className="text-xs text-muted-foreground">{t('workspace.proposedValuesUnavailable')}</p>
           </div>
-          <Badge variant="secondary">UPDATE</Badge>
+          <Badge variant="secondary">{t('workspace.updateAction')}</Badge>
         </div>
       </div>
     )
   }
 
-  const fieldDiffs = buildProposalFieldDiffs(previousNode.fields ?? [], proposedNode.fields ?? [])
+  const fieldDiffs = buildProposalFieldDiffs(previousNode.fields ?? [], proposedNode.fields ?? [], t)
   const parentChanged = (previousNode.parentNodeId ?? null) !== (proposedNode.parentNodeId ?? null)
   const summaryRows = [
     previousNode.type !== proposedNode.type
-      ? { label: 'Type', previousValue: previousNode.type, nextValue: proposedNode.type }
+      ? { label: t('common.type'), previousValue: translateWorkItemType(previousNode.type, t), nextValue: translateWorkItemType(proposedNode.type, t) }
       : null,
     previousNode.title !== proposedNode.title
-      ? { label: 'Title', previousValue: previousNode.title, nextValue: proposedNode.title }
+      ? { label: t('common.title'), previousValue: previousNode.title, nextValue: proposedNode.title }
       : null,
     parentChanged
       ? {
-        label: 'Parent',
-        previousValue: previousNode.parentNodeId ? 'Nested item' : 'Project level',
-        nextValue: proposedNode.parentNodeId ? 'Nested item' : 'Project level',
+        label: t('workspace.parent'),
+        previousValue: previousNode.parentNodeId ? t('workspace.nestedItem') : t('workspace.projectLevel'),
+        nextValue: proposedNode.parentNodeId ? t('workspace.nestedItem') : t('workspace.projectLevel'),
       }
       : null,
   ].filter((row): row is { label: string; previousValue: string; nextValue: string } => Boolean(row))
@@ -2578,10 +2596,10 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
     <div className="rounded-md border bg-muted/20 p-3">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-medium">Proposed update</p>
-          <p className="text-xs text-muted-foreground">Review old and new values before accepting.</p>
+          <p className="text-sm font-medium">{t('workspace.proposedUpdate')}</p>
+          <p className="text-xs text-muted-foreground">{t('workspace.reviewOldNewValues')}</p>
         </div>
-        <Badge variant="secondary">UPDATE</Badge>
+        <Badge variant="secondary">{t('workspace.updateAction')}</Badge>
       </div>
 
       {summaryRows.length > 0 ? (
@@ -2590,11 +2608,11 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
             <div key={row.label} className="grid gap-2 rounded-md border bg-background p-2 text-sm sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
               <div className="font-medium text-muted-foreground">{row.label}</div>
               <div className="min-w-0">
-                <div className="text-xs text-muted-foreground">Old</div>
+                <div className="text-xs text-muted-foreground">{t('workspace.old')}</div>
                 <div className="break-words">{row.previousValue}</div>
               </div>
               <div className="min-w-0">
-                <div className="text-xs text-muted-foreground">New</div>
+                <div className="text-xs text-muted-foreground">{t('workspace.new')}</div>
                 <div className="break-words font-medium text-foreground">{row.nextValue}</div>
               </div>
             </div>
@@ -2604,7 +2622,7 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
 
       {fieldDiffs.length > 0 ? (
         <div className="mt-3 space-y-2">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Fields</p>
+          <p className="text-xs font-medium uppercase text-muted-foreground">{t('workspace.fields')}</p>
           {fieldDiffs.map((diff) => (
             <div key={diff.name} className="grid gap-2 rounded-md border bg-background p-2 text-sm sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
               <div className="min-w-0">
@@ -2613,15 +2631,15 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
                   variant={diff.status === 'removed' ? 'destructive' : diff.status === 'added' ? 'default' : 'secondary'}
                   className="mt-1"
                 >
-                  {diff.status}
+                  {diff.status === 'added' ? t('workspace.added') : diff.status === 'removed' ? t('workspace.removed') : t('workspace.changed')}
                 </Badge>
               </div>
               <div className="min-w-0">
-                <div className="text-xs text-muted-foreground">Old</div>
+                <div className="text-xs text-muted-foreground">{t('workspace.old')}</div>
                 <div className="break-words">{diff.previousValue}</div>
               </div>
               <div className="min-w-0">
-                <div className="text-xs text-muted-foreground">New</div>
+                <div className="text-xs text-muted-foreground">{t('workspace.new')}</div>
                 <div className="break-words font-medium text-foreground">{diff.nextValue}</div>
               </div>
             </div>
@@ -2629,7 +2647,7 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
         </div>
       ) : (
         <div className="mt-3 rounded-md border bg-background p-2 text-sm text-muted-foreground">
-          No changed fields detected.
+          {t('workspace.noChangedFields')}
         </div>
       )}
     </div>
@@ -2637,24 +2655,25 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
 }
 
 function ProposalAddDetails({ node, nodeTitleById }: { node: TreeNode; nodeTitleById: Map<string, string> }) {
+  const { t } = useTranslation()
   const rows = [
-    { label: 'Title', value: node.title },
-    { label: 'Type', value: node.type },
-    { label: 'Status', value: formatProposalValue(nodeFieldValue(node, 'status')) },
-    { label: 'Due date', value: formatProposalValue(nodeFieldValue(node, 'dueDate')) },
-    { label: 'Priority', value: formatProposalValue(nodeFieldValue(node, 'priority')) },
-    { label: 'Assignees', value: formatProposalValue([
+    { label: t('common.title'), value: node.title },
+    { label: t('common.type'), value: translateWorkItemType(node.type, t) },
+    { label: t('common.status'), value: nodeFieldValue(node, 'status') ? translateStatus(String(nodeFieldValue(node, 'status')), t) : t('common.notSet') },
+    { label: t('common.dueDate'), value: formatProposalValue(nodeFieldValue(node, 'dueDate'), t) },
+    { label: t('common.priority'), value: nodeFieldValue(node, 'priority') ? translatePriority(String(nodeFieldValue(node, 'priority')), t) : t('common.notSet') },
+    { label: t('common.assignees'), value: formatProposalValue([
       ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')),
       ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')),
-    ]) },
-    { label: 'Parent', value: node.parentNodeId ? nodeTitleById.get(node.parentNodeId) ?? 'Existing work item' : 'Project root' },
+    ], t) },
+    { label: t('workspace.parent'), value: node.parentNodeId ? nodeTitleById.get(node.parentNodeId) ?? t('workspace.existingWorkItem') : t('workspace.projectRoot') },
   ]
 
   return (
     <div className="rounded-md border bg-muted/20 p-3">
       <div className="mb-3">
-        <p className="text-sm font-medium">Proposed new work item</p>
-        <p className="text-xs text-muted-foreground">Review the details before adding it to the workspace.</p>
+        <p className="text-sm font-medium">{t('workspace.proposedNewWorkItem')}</p>
+        <p className="text-xs text-muted-foreground">{t('workspace.reviewDetailsBeforeAdding')}</p>
       </div>
       <div className="grid gap-2 text-sm sm:grid-cols-2">
         {rows.map((row) => (
@@ -2681,6 +2700,7 @@ function WorkspaceProposalPanel({
   nodeTitleById: Map<string, string>
   onDecide: (changes: Array<{ proposalId: string; change: GraphChangeProposalChange }>, decision: 'ACCEPT' | 'REJECT') => void
 }) {
+  const { t } = useTranslation()
   if (changes.length === 0) return null
   const entryChanges = changes.filter(({ change }) => change.entityType === 'ENTRY')
   const relationshipChanges = changes.filter(({ change }) => change.entityType === 'EDGE')
@@ -2689,15 +2709,15 @@ function WorkspaceProposalPanel({
   const acceptButton = (
     <Button type="button" size="sm" disabled={isDeciding} onClick={containsDelete ? undefined : () => onDecide(changes, 'ACCEPT')}>
       {isDeciding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-      Accept suggestion
+      {t('workspace.acceptSuggestionButton')}
     </Button>
   )
 
   return (
     <section className="space-y-3 border-b bg-primary/5 px-4 py-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> AI suggestion</div>
-        <Badge variant="secondary">{changes.length} {changes.length === 1 ? 'change' : 'changes'}</Badge>
+        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> {t('workspace.aiSuggestion')}</div>
+        <Badge variant="secondary">{changes.length} {changes.length === 1 ? t('workspace.change') : t('workspace.changes', { count: changes.length })}</Badge>
       </div>
 
       {node.proposal?.action === 'ADD' ? <ProposalAddDetails node={node} nodeTitleById={nodeTitleById} /> : null}
@@ -2705,21 +2725,21 @@ function WorkspaceProposalPanel({
 
       {otherNodeChanges.map(({ change }) => (
         <div key={change.id} className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm">
-          <Badge variant={change.action === 'DELETE' ? 'destructive' : 'default'}>{change.action}</Badge>
+          <Badge variant={change.action === 'DELETE' ? 'destructive' : 'default'}>{translateProposalAction(change.action, t)}</Badge>
           <span className={cn('break-words', change.action === 'DELETE' && 'line-through')}>{change.summary}</span>
         </div>
       ))}
 
       {entryChanges.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Entries</p>
+          <p className="text-xs font-medium uppercase text-muted-foreground">{t('workspace.entries')}</p>
           {entryChanges.map(({ change }) => (
             <div key={change.id} className="space-y-2 rounded-md border bg-background p-2 text-sm">
-              <div className="flex items-center gap-2"><Badge variant={change.action === 'DELETE' ? 'destructive' : 'secondary'}>{change.action}</Badge><span>{change.summary}</span></div>
+              <div className="flex items-center gap-2"><Badge variant={change.action === 'DELETE' ? 'destructive' : 'secondary'}>{translateProposalAction(change.action, t)}</Badge><span>{change.summary}</span></div>
               {change.previousEntry && change.action === 'UPDATE' ? (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <div><div className="text-xs text-muted-foreground">Old</div><p className="whitespace-pre-wrap break-words">{change.previousEntry.body}</p></div>
-                  <div><div className="text-xs text-muted-foreground">New</div><p className="whitespace-pre-wrap break-words font-medium">{change.entry?.body}</p></div>
+                  <div><div className="text-xs text-muted-foreground">{t('workspace.old')}</div><p className="whitespace-pre-wrap break-words">{change.previousEntry.body}</p></div>
+                  <div><div className="text-xs text-muted-foreground">{t('workspace.new')}</div><p className="whitespace-pre-wrap break-words font-medium">{change.entry?.body}</p></div>
                 </div>
               ) : <p className="whitespace-pre-wrap break-words">{(change.entry ?? change.previousEntry)?.body}</p>}
             </div>
@@ -2729,16 +2749,16 @@ function WorkspaceProposalPanel({
 
       {relationshipChanges.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-xs font-medium uppercase text-muted-foreground">Relationships</p>
+          <p className="text-xs font-medium uppercase text-muted-foreground">{t('common.relationship')}</p>
           {relationshipChanges.map(({ change }) => {
             const relationship = change.relationship ?? change.previousRelationship
-            const endpointLabel = (type: string, id: string) => type === 'WORK_ITEM' ? (nodeTitleById.get(id) ?? 'Work item') : 'Entry'
+            const endpointLabel = (type: string, id: string) => type === 'WORK_ITEM' ? (nodeTitleById.get(id) ?? t('common.workItem')) : t('common.entry')
             return (
               <div key={change.id} className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm">
-                <Badge variant={change.action === 'DELETE' ? 'destructive' : 'secondary'}>{change.action}</Badge>
+                <Badge variant={change.action === 'DELETE' ? 'destructive' : 'secondary'}>{translateProposalAction(change.action, t)}</Badge>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {relationship ? <Badge variant="outline" className={cn('font-medium', relationshipTypeBadgeClass(relationship.type))}>{relationshipTypeLabel(relationship.type)}</Badge> : null}
+                    {relationship ? <Badge variant="outline" className={cn('font-medium', relationshipTypeBadgeClass(relationship.type))}>{translateRelationshipType(relationship.type, t)}</Badge> : null}
                     <span className="break-words font-medium">{change.summary}</span>
                   </div>
                   {relationship ? <div className="mt-1 break-words text-xs text-muted-foreground">{endpointLabel(relationship.fromEntityType, relationship.fromEntityId)} → {endpointLabel(relationship.toEntityType, relationship.toEntityId)}</div> : null}
@@ -2753,14 +2773,14 @@ function WorkspaceProposalPanel({
       <div className="flex gap-2">
         {containsDelete ? (
           <DeleteConfirmPopover
-            title="Apply permanent deletion?"
-            description="This AI suggestion permanently deletes one or more records."
+            title={t('workspace.applyPermanentDeletion')}
+            description={t('workspace.deleteSuggestionRecords')}
             disabled={isDeciding}
             trigger={acceptButton}
             onConfirm={() => onDecide(changes, 'ACCEPT')}
           />
         ) : acceptButton}
-        <Button type="button" size="sm" variant="outline" disabled={isDeciding} onClick={() => onDecide(changes, 'REJECT')}>Reject</Button>
+        <Button type="button" size="sm" variant="outline" disabled={isDeciding} onClick={() => onDecide(changes, 'REJECT')}>{t('workspace.rejectSuggestion')}</Button>
       </div>
     </section>
   )
@@ -2771,6 +2791,7 @@ type ProjectWorkspacePageProps = {
 }
 
 export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePageProps) {
+  const { t } = useTranslation()
   const location = useLocation()
   const { projectId } = useParams()
   const [searchParams] = useSearchParams()
@@ -2863,7 +2884,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
   }, [chatHighlightedNodeId])
 
   const displayedNodes = useMemo(() => mergeProposalNodes(nodes, graphChangeProposals), [nodes, graphChangeProposals])
-  const pendingProposalItems = useMemo(() => pendingProposalNodes(nodes, graphChangeProposals), [nodes, graphChangeProposals])
+  const pendingProposalItems = useMemo(() => pendingProposalNodes(nodes, graphChangeProposals, t), [nodes, graphChangeProposals, t])
   const contentOrderByParent = useMemo(() => groupContentOrderByParent(displayedNodes, entries), [displayedNodes, entries])
   const tree = useMemo(() => {
     const builtTree = buildTree(displayedNodes, createdSortDirection)
@@ -3001,10 +3022,10 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     const normalizedQuery = moveQuery.trim().toLowerCase()
     const workItems = flattenedTree
       .filter((node) => !invalidMoveDestinationIds.has(node.id))
-      .map((node) => ({ entityType: 'WORK_ITEM' as const, entityId: node.id, parentWorkItemId: node.parentNodeId ?? null, label: node.title, detail: node.type, depth: node.depth }))
+      .map((node) => ({ entityType: 'WORK_ITEM' as const, entityId: node.id, parentWorkItemId: node.parentNodeId ?? null, label: node.title, detail: translateWorkItemType(node.type, t), depth: node.depth }))
     const updates = entries
       .filter((entry) => !invalidMoveDestinationIds.has(entry.workItemId))
-      .map((entry) => ({ entityType: 'ENTRY' as const, entityId: entry.id, parentWorkItemId: entry.workItemId, label: entry.body.trim().replace(/\s+/g, ' ').slice(0, 100) || 'Untitled update', detail: 'Update', depth: (flattenedTree.find((node) => node.id === entry.workItemId)?.depth ?? 0) + 1 }))
+      .map((entry) => ({ entityType: 'ENTRY' as const, entityId: entry.id, parentWorkItemId: entry.workItemId, label: entry.body.trim().replace(/\s+/g, ' ').slice(0, 100) || t('workspace.untitledUpdate'), detail: t('workspace.update'), depth: (flattenedTree.find((node) => node.id === entry.workItemId)?.depth ?? 0) + 1 }))
     return [...workItems, ...updates].filter((item) => !normalizedQuery || [item.label, item.detail, item.entityId].some((value) => value.toLowerCase().includes(normalizedQuery)))
   }, [entries, flattenedTree, invalidMoveDestinationIds, moveQuery])
   const handleInlineTitleUpdate = useCallback(async (node: ProjectNode, title: string) => {
@@ -3102,7 +3123,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         }
       })
     }
-    toast.success('Accepted answer updated.')
+    toast.success(t('workspace.acceptedAnswerUpdated'))
   }, [projectId, selectedNodeId])
   const refreshBlockers = useCallback(() => {
     if (!projectId) return
@@ -3111,7 +3132,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         setBlockerWorkItems(workspace.workItems.map((item) => item.workItem))
         setRelationships(workspace.relationships)
       })
-      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to refresh blockers.'))
+      .catch((error) => toast.error(error instanceof Error ? error.message : t('workspace.failedRefreshBlockers')))
   }, [projectId])
   const handleAddBlocker = useCallback(async (nodeId: string, blockerId: string) => {
     if (!projectId) return
@@ -3127,9 +3148,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         sourceEntryId: null,
       })
       setRelationships((current) => [...current, blocker])
-      toast.success('Blocker added.')
+      toast.success(t('workspace.blockerAdded'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add blocker.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedAddBlocker'))
     } finally {
       setIsSavingBlocker(false)
     }
@@ -3140,9 +3161,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     try {
       await deleteRelationship(projectId, relationshipId)
       setRelationships((current) => current.filter((relationship) => relationship.id !== relationshipId))
-      toast.success('Blocker removed.')
+      toast.success(t('workspace.blockerRemoved'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove blocker.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedRemoveBlocker'))
     } finally {
       setIsSavingBlocker(false)
     }
@@ -3153,9 +3174,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     try {
       const updated = await updateRelationshipReason(projectId, relationshipId, reason)
       setRelationships((current) => current.map((relationship) => relationship.id === updated.id ? updated : relationship))
-      toast.success(reason ? 'Blocker reason updated.' : 'Blocker reason removed.')
+      toast.success(reason ? t('workspace.blockerReasonUpdated') : t('workspace.blockerReasonRemoved'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update blocker reason.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedUpdateBlockerReason'))
     } finally {
       setIsSavingBlocker(false)
     }
@@ -3190,9 +3211,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         sourceEntryId: null,
       })
       setRelationships((current) => [...current, relationship])
-      toast.success('Relationship added.')
+      toast.success(t('workspace.relationshipAdded'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add relationship.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedAddRelationship'))
     } finally {
       setIsSavingBlocker(false)
     }
@@ -3203,9 +3224,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     try {
       await deleteRelationship(projectId, relationshipId)
       setRelationships((current) => current.filter((relationship) => relationship.id !== relationshipId))
-      toast.success('Relationship removed.')
+      toast.success(t('workspace.relationshipRemoved'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove relationship.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedRemoveRelationship'))
     } finally {
       setIsSavingBlocker(false)
     }
@@ -3219,16 +3240,16 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     if (!projectId || !selectedEntry) return
     const body = entryInspectorBody.trim()
     if (!body) {
-      toast.error('Update text is required.')
+      toast.error(t('workspace.updateRequired'))
       return
     }
     setIsSaving(true)
     try {
       const updated = await updateEntry(projectId, selectedEntry.id, { workItemId: selectedEntry.workItemId, type: entryInspectorType, body })
       setEntries((current) => current.map((entry) => entry.id === updated.id ? updated : entry))
-      toast.success('Update saved.')
+      toast.success(t('workspace.updateSaved'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to save update.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedSaveUpdate'))
     } finally {
       setIsSaving(false)
     }
@@ -3237,7 +3258,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     if (!projectId || !selectedEntry) return
     const body = entryInspectorBody.trim()
     if (!body) {
-      toast.error('Update text is required.')
+      toast.error(t('workspace.updateRequired'))
       return
     }
     setIsSaving(true)
@@ -3246,7 +3267,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setEntryInspectorReview({ ...review, entryType: entryInspectorType })
       setEntryInspectorReviewFeedback('')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to review update.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedReviewUpdate'))
     } finally {
       setIsSaving(false)
     }
@@ -3259,9 +3280,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setEntries((current) => current.map((entry) => entry.id === updated.id ? updated : entry))
       setEntryInspectorReview(null)
       setEntryInspectorReviewFeedback('')
-      toast.success('AI suggestion accepted.')
+      toast.success(t('workspace.suggestionAccepted'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to accept AI suggestion.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedAcceptSuggestion'))
     } finally {
       setIsSaving(false)
     }
@@ -3273,9 +3294,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       await rejectEntryAiReview(projectId, selectedEntry.id, entryInspectorReview.originalBody, entryInspectorReview.proposedBody)
       setEntryInspectorReview(null)
       setEntryInspectorReviewFeedback('')
-      toast.success('AI suggestion rejected.')
+      toast.success(t('workspace.suggestionRejected'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to reject AI suggestion.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedRejectSuggestion'))
     } finally {
       setIsSaving(false)
     }
@@ -3294,7 +3315,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setEntryInspectorReview({ ...nextReview, entryType: entryInspectorReview.proposedType ?? entryInspectorReview.entryType ?? entryInspectorType })
       setEntryInspectorReviewFeedback('')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update AI suggestion.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedSuggestionUpdate'))
     } finally {
       setIsSaving(false)
     }
@@ -3342,7 +3363,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setAppliedWorkItemFilterConditions(workItemFilterConditions)
       setAppliedWorkItemSearchQuery(searchQuery)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to run work item filters.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedRunFilters'))
     } finally {
       setIsRunningWorkItemFilters(false)
     }
@@ -3361,7 +3382,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setWorkItemFilterConditions([])
       setAppliedWorkItemFilterConditions([])
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to clear work item filters.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedClearFilters'))
     } finally {
       setIsRunningWorkItemFilters(false)
     }
@@ -3378,7 +3399,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setLoadedChildrenParentIds(new Set(allProjectNodes.filter((node) => node.childrenCount).map((node) => node.id)))
       setCreatedSortDirection(nextDirection)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to sort work items.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedSort'))
     } finally {
       setIsRunningCreatedSort(false)
     }
@@ -3616,7 +3637,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
           }
           return next
         })
-        toast.success('Unsubscribed from this work item.')
+        toast.success(t('workspace.unsubscribed'))
       } else {
         const status = await subscribeWorkItem(projectId, selectedNodeId)
         setSubscribedWorkItemIds((current) => {
@@ -3628,10 +3649,10 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
           }
           return next
         })
-        toast.success('Subscribed to this work item.')
+        toast.success(t('workspace.subscribed'))
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update subscription.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedUpdateSubscription'))
     }
   }
 
@@ -3696,7 +3717,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
           next.delete(nodeId)
           return next
         })
-        toast.error(error instanceof Error ? error.message : 'Failed to load sub-items.')
+        toast.error(error instanceof Error ? error.message : t('workspace.failedLoadSubItems'))
       }
     }
   }
@@ -3738,10 +3759,10 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       })
       setExpandedNodeIds((current) => new Set([...current, ...loadedParentIds]))
       if (response.truncated) {
-        toast.info(`Expanded the first ${treeSubtreeMaxItems.toLocaleString()} nested items. Collapse and reopen a branch to load more.`)
+        toast.info(t('workspace.expandedFirst', { count: treeSubtreeMaxItems.toLocaleString() }))
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to expand sub-items.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedExpandSubItems'))
     } finally {
       setIsExpandingSelectedSubtree(false)
     }
@@ -3765,7 +3786,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     try {
       await loadRootNodes(rootPageInfo.page + 1, true)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load more items.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedLoadMore'))
     } finally {
       setIsLoadingMoreRoots(false)
     }
@@ -3780,7 +3801,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     try {
       await loadChildren(parentNodeId, pageInfo.page + 1, true)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load more sub-items.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedLoadMoreSubItems'))
     }
   }
 
@@ -3824,7 +3845,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     }
 
     void reloadGraphChangeProposals().catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to refresh AI suggestions.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedRefreshSuggestions'))
     })
   }, [artifactRefreshKey, projectId, reloadGraphChangeProposals])
 
@@ -3895,7 +3916,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
   function handleTypeChange(nextType: string) {
     setForm((current) => {
       const currentStatus = normalizedStatus(formFieldValue(current.fields, 'status'))
-      const allowedStatuses = statusOptionsForType(nextType)
+      const allowedStatuses = statusOptionsForType(nextType, t)
       const nextStatus = allowedStatuses.some((option) => option.value === currentStatus)
         ? currentStatus
         : defaultStatusForType(nextType)
@@ -3935,7 +3956,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         projectId,
         parentNodeId: parentId ?? null,
         type,
-        title: untitledWorkItemTitle,
+        title: t('workspace.untitledItem'),
         fields: [{ name: 'status', label: 'Status', dataType: 'text', value: defaultStatusForType(type), visibleInTree: true }],
       })
       if (parentId) {
@@ -3974,9 +3995,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setForm(createFormState(created))
       setInspectorMode('task')
       setAutoEditTitleNodeId(created.id)
-      toast.success(parentId ? 'Sub-item created.' : 'Item created.')
+      toast.success(parentId ? t('workspace.subItemCreated') : t('workspace.itemCreated'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create item.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedCreateItem'))
     } finally {
       setIsSaving(false)
     }
@@ -3990,14 +4011,14 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     }
 
     if (selectedNode.proposal) {
-      toast.error('Accept or reject this proposal from the tree row.')
+      toast.error(t('workspace.acceptRejectFromRow'))
       return
     }
 
     const type = form.type.trim()
     const title = form.title.trim()
     if (!type || !title) {
-      toast.error('Item type and title are required.')
+      toast.error(t('workspace.titleRequired'))
       return
     }
 
@@ -4005,13 +4026,13 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     for (const field of form.fields) {
       const normalizedName = field.name.trim()
       if (!normalizedName) {
-        toast.error('Every field needs a name.')
+        toast.error(t('workspace.fieldNameRequired'))
         return
       }
 
       const normalizedKey = normalizedName.toLowerCase()
       if (fieldNames.has(normalizedKey)) {
-        toast.error('Field names must be unique.')
+        toast.error(t('workspace.uniqueFieldNames'))
         return
       }
       fieldNames.add(normalizedKey)
@@ -4019,7 +4040,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       if (field.dataType === 'number') {
         const rawValue = String(field.value ?? '').trim()
         if (rawValue && Number.isNaN(Number(rawValue))) {
-          toast.error(`Field "${field.label || field.name}" must be a valid number.`)
+          toast.error(t('workspace.invalidNumber', { field: field.label || field.name }))
           return
         }
       }
@@ -4041,9 +4062,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       )))
       setSelectedNodeId(updated.id)
       setForm(createFormState(updated))
-      toast.success('Item updated.')
+      toast.success(t('workspace.itemUpdated'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update item.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedUpdateItem'))
     } finally {
       setIsSaving(false)
     }
@@ -4054,7 +4075,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     const title = form.title.trim()
     const type = form.type.trim()
     if (!title || !type) {
-      toast.error('Item type and title are required.')
+      toast.error(t('workspace.titleRequired'))
       return
     }
     setIsSaving(true)
@@ -4073,7 +4094,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setWorkItemInspectorReview(review)
       setWorkItemInspectorReviewFeedback('')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to get an AI suggestion.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedSuggestion'))
     } finally {
       setIsSaving(false)
     }
@@ -4096,7 +4117,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     })
     setWorkItemInspectorReview(null)
     setWorkItemInspectorReviewFeedback('')
-    toast.success('AI suggestion applied to draft. Save changes to update the work item.')
+    toast.success(t('workspace.saveSuggestion'))
   }
 
   async function handleAddSuggestedBlockers(review: WorkItemAiReview) {
@@ -4120,9 +4141,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       }
       setRelationships((current) => [...current, ...added])
       setWorkItemInspectorReview((current) => current ? { ...current, proposedBlockers: current.proposedBlockers.filter((blocker) => !suggestions.some((suggestion) => suggestion.workItemId === blocker.workItemId)) } : null)
-      toast.success(`${added.length} blocker${added.length === 1 ? '' : 's'} added.`)
+      toast.success(t('workspace.blockersAdded', { count: added.length }))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add suggested blockers.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedAddSuggestedBlockers'))
     } finally {
       setIsSaving(false)
     }
@@ -4144,7 +4165,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setWorkItemInspectorReview(nextReview)
       setWorkItemInspectorReviewFeedback('')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update AI suggestion.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedSuggestionUpdate'))
     } finally {
       setIsSaving(false)
     }
@@ -4203,9 +4224,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       if (selectedNodeId && deleteSet.has(selectedNodeId)) {
         clearSelectedNode()
       }
-      toast.success('Item deleted.')
+      toast.success(t('workspace.itemDeleted'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete item.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedDeleteItem'))
     } finally {
       setIsSaving(false)
     }
@@ -4243,9 +4264,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       setSelectedNodeId(moved.id)
       setForm(createFormState(moved))
       setIsMoveDialogOpen(false)
-      toast.success(target ? 'Item moved.' : 'Item moved to the end of the project level.')
+      toast.success(target ? t('workspace.itemMoved') : t('workspace.itemMovedToEnd'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to move item.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedMoveItem'))
     } finally {
       setIsSaving(false)
     }
@@ -4279,7 +4300,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         return sortIndex == null ? entry : { ...entry, sortIndex }
       }))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to reorder content.')
+      toast.error(error instanceof Error ? error.message : t('workspace.failedReorder'))
     } finally {
       setIsSaving(false)
     }
@@ -4302,7 +4323,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     const related = openWorkspaceChangesForNode(graphChangeProposals, proposal.targetId)
     const selectedChange = graphChangeProposals.flatMap((item) => item.changes).find((change) => change.id === proposal.changeId)
     if (related.length === 0 && !selectedChange) {
-      toast.error('Proposal change is no longer available.')
+      toast.error(t('workspace.proposalUnavailable'))
       return
     }
     await handleDecideWorkspaceChanges(
@@ -4385,7 +4406,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       return weight(left.change) - weight(right.change) || left.change.sortIndex - right.change.sortIndex
     })
     if (ordered.length === 0) {
-      toast.info('Accept the proposed work items before accepting this relationship.')
+      toast.info(t('workspace.acceptItemsFirst'))
       return
     }
     setDecidingProposalChangeId(ordered[0].change.id)
@@ -4396,11 +4417,11 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       await reloadTreeAndProposals(selectedNodeId ?? undefined)
       toast.success(decision === 'ACCEPT'
         ? deferredCount > 0
-          ? 'Available changes accepted. Relationships waiting for other proposed items remain pending.'
-          : 'AI suggestion accepted.'
-        : 'AI suggestion rejected.')
+          ? t('workspace.changesAcceptedWithPending')
+          : t('workspace.suggestionAccepted')
+        : t('workspace.suggestionRejected'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : `Failed to ${decision.toLowerCase()} AI suggestion.`)
+      toast.error(error instanceof Error ? error.message : t('workspace.proposalDecisionFailed', { decision: decision.toLowerCase() }))
     } finally {
       setDecidingProposalChangeId(null)
     }
@@ -4410,7 +4431,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-          <h1 className="text-xl font-semibold leading-none tracking-normal">Projects</h1>
+          <h1 className="text-xl font-semibold leading-none tracking-normal">{t('workspace.pageTitle')}</h1>
         </div>
         <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto p-6">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -4423,7 +4444,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-          <h1 className="text-xl font-semibold leading-none tracking-normal">Projects</h1>
+          <h1 className="text-xl font-semibold leading-none tracking-normal">{t('workspace.pageTitle')}</h1>
         </div>
         <div className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
           <div className="rounded-md border bg-background">
@@ -4432,11 +4453,11 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                 <EmptyMedia variant="icon">
                   <FolderOpen />
                 </EmptyMedia>
-                <EmptyTitle>Project not found</EmptyTitle>
+                <EmptyTitle>{t('workspace.projectNotFound')}</EmptyTitle>
               </EmptyHeader>
               <div className="flex justify-center">
                 <NavLink to={workspaceDestination('/app/projects')} className={buttonVariants()}>
-                  Back to projects
+                  {t('workspace.backToProjects')}
                 </NavLink>
               </div>
             </Empty>
@@ -4451,15 +4472,15 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 md:px-6">
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold leading-none tracking-normal">
           <NavLink to={workspaceDestination('/app/projects')} className="shrink-0 text-muted-foreground hover:text-foreground">
-            Projects
+            {t('workspace.pageTitle')}
           </NavLink>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="flex min-w-0 items-center gap-1.5">
             <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="truncate">{formatProjectTitle(project)}</span>
+            <span className="truncate">{formatProjectTitle(project, t('common.untitledProject'))}</span>
           </span>
         </h1>
-        <Button render={<NavLink to={workspaceDestination(`/app/projects/${project.id}/settings`)} />} variant="ghost" size="icon-sm" aria-label="Project settings">
+        <Button render={<NavLink to={workspaceDestination(`/app/projects/${project.id}/settings`)} />} variant="ghost" size="icon-sm" aria-label={t('workspace.projectSettings')}>
           <Settings className="h-4 w-4" />
         </Button>
       </div>
@@ -4487,36 +4508,36 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                 render={(
                   <Button type="button" size="sm" variant={hasActiveWorkItemFilters ? 'default' : 'outline'} className="gap-2">
                     <Filter className="h-4 w-4" />
-                    Filters{hasActiveWorkItemFilters ? ` (${appliedWorkItemFilterConditions.length + (appliedWorkItemSearchQuery ? 1 : 0)})` : ''}
+                    {t('workspace.filters')}{hasActiveWorkItemFilters ? ` (${appliedWorkItemFilterConditions.length + (appliedWorkItemSearchQuery ? 1 : 0)})` : ''}
                   </Button>
                 )}
               />
               <PopoverContent align="start" className="w-[34rem] gap-0 p-0">
-                <PopoverHeader className="border-b px-4 py-3"><PopoverTitle>Filter work items</PopoverTitle></PopoverHeader>
+                <PopoverHeader className="border-b px-4 py-3"><PopoverTitle>{t('workspace.filterWorkItems')}</PopoverTitle></PopoverHeader>
                 <div className="space-y-5 px-4 py-4">
                   <div className="space-y-2">
-                    <label htmlFor="work-item-filter-search" className="block text-sm font-semibold">Search</label>
+                    <label htmlFor="work-item-filter-search" className="block text-sm font-semibold">{t('common.search')}</label>
                     <div className="relative">
                       <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="work-item-filter-search" className="h-9 pl-10" value={workItemSearchQuery} onChange={(event) => setWorkItemSearchQuery(event.target.value)} placeholder="Search" />
+                      <Input id="work-item-filter-search" className="h-9 pl-10" value={workItemSearchQuery} onChange={(event) => setWorkItemSearchQuery(event.target.value)} placeholder={t('common.search')} />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-sm font-semibold">Conditions</label>
+                    <label className="block text-sm font-semibold">{t('workspace.conditions')}</label>
                     <div className="space-y-2">
                       {workItemFilterConditions.map((condition, index) => (
                         <div key={condition.id} className="flex min-h-9 items-center gap-2">
                           {index === 0 ? (
-                            <span className="w-14 shrink-0 text-xs font-medium text-muted-foreground">Where</span>
+                            <span className="w-14 shrink-0 text-xs font-medium text-muted-foreground">{t('workspace.where')}</span>
                           ) : (
                             <NativeSelect
                               className="h-9 w-14 shrink-0"
                               value={condition.operator}
                               onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, operator: event.target.value as WorkItemFilterOperator } : item))}
-                              aria-label="Condition operator"
+                              aria-label={t('workspace.conditionOperator')}
                             >
-                              <NativeSelectOption value="AND">AND</NativeSelectOption>
-                              <NativeSelectOption value="OR">OR</NativeSelectOption>
+                              <NativeSelectOption value="AND">{t('workspace.and')}</NativeSelectOption>
+                              <NativeSelectOption value="OR">{t('workspace.or')}</NativeSelectOption>
                             </NativeSelect>
                           )}
                           <NativeSelect
@@ -4528,10 +4549,10 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                               setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, field, value } : item))
                             }}
                           >
-                            <NativeSelectOption value="STATUS">Status</NativeSelectOption>
-                            <NativeSelectOption value="PRIORITY">Priority</NativeSelectOption>
-                            <NativeSelectOption value="DUE_DATE">Due date</NativeSelectOption>
-                            <NativeSelectOption value="ASSIGNEE">Assignee</NativeSelectOption>
+                            <NativeSelectOption value="STATUS">{t('common.status')}</NativeSelectOption>
+                            <NativeSelectOption value="PRIORITY">{t('common.priority')}</NativeSelectOption>
+                            <NativeSelectOption value="DUE_DATE">{t('common.dueDate')}</NativeSelectOption>
+                            <NativeSelectOption value="ASSIGNEE">{t('workspace.assignee')}</NativeSelectOption>
                           </NativeSelect>
                           {condition.field === 'STATUS' ? (
                             <NativeSelect className="h-9 min-w-0 flex-1" value={condition.value} onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, value: event.target.value } : item))}>
@@ -4539,20 +4560,20 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                             </NativeSelect>
                           ) : condition.field === 'PRIORITY' ? (
                             <NativeSelect className="h-9 min-w-0 flex-1" value={condition.value} onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, value: event.target.value } : item))}>
-                              {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => <NativeSelectOption key={priority} value={priority}>{priority[0]}{priority.slice(1).toLowerCase()}</NativeSelectOption>)}
+                              {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((priority) => <NativeSelectOption key={priority} value={priority}>{translatePriority(priority, t)}</NativeSelectOption>)}
                             </NativeSelect>
                           ) : condition.field === 'DUE_DATE' ? (
                             <NativeSelect className="h-9 min-w-0 flex-1" value={condition.value} onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, value: event.target.value } : item))}>
-                              <NativeSelectOption value="OVERDUE">Overdue</NativeSelectOption><NativeSelectOption value="TODAY">Due today</NativeSelectOption><NativeSelectOption value="NEXT_7_DAYS">Next 7 days</NativeSelectOption><NativeSelectOption value="NONE">No due date</NativeSelectOption>
+                              <NativeSelectOption value="OVERDUE">{t('workspace.overdue')}</NativeSelectOption><NativeSelectOption value="TODAY">{t('workspace.dueToday')}</NativeSelectOption><NativeSelectOption value="NEXT_7_DAYS">{t('workspace.next7Days')}</NativeSelectOption><NativeSelectOption value="NONE">{t('common.noDueDate')}</NativeSelectOption>
                             </NativeSelect>
                           ) : (
                             <NativeSelect className="h-9 min-w-0 flex-1" value={condition.value} onChange={(event) => setWorkItemFilterConditions((current) => current.map((item) => item.id === condition.id ? { ...item, value: event.target.value } : item))}>
-                              <NativeSelectOption value="">Select assignee</NativeSelectOption>
+                              <NativeSelectOption value="">{t('workspace.selectAssignee')}</NativeSelectOption>
                               {assigneeUserOptions.map((user) => <NativeSelectOption key={`user-${user.id}`} value={`USER:${user.id}`}>{user.label}</NativeSelectOption>)}
                               {assigneeTeamOptions.map((team) => <NativeSelectOption key={`team-${team.id}`} value={`TEAM:${team.id}`}>{team.label} (team)</NativeSelectOption>)}
                             </NativeSelect>
                           )}
-                          <Button type="button" variant="ghost" size="icon-xs" onClick={() => setWorkItemFilterConditions((current) => current.filter((item) => item.id !== condition.id))} aria-label="Remove filter condition"><X /></Button>
+                          <Button type="button" variant="ghost" size="icon-xs" onClick={() => setWorkItemFilterConditions((current) => current.filter((item) => item.id !== condition.id))} aria-label={t('workspace.removeCondition')}><X /></Button>
                         </div>
                       ))}
                     </div>
@@ -4560,13 +4581,13 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                 </div>
                 <div className="flex items-center justify-between gap-2 border-t bg-muted/30 px-4 py-3">
                   <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={() => setWorkItemFilterConditions((current) => [...current, { id: `${Date.now()}-${Math.random()}`, field: 'STATUS', value: 'OPEN', operator: 'AND' }])}>
-                    <Plus className="h-3.5 w-3.5" /> Add condition
+                    <Plus className="h-3.5 w-3.5" /> {t('workspace.addCondition')}
                   </Button>
                   <div className="flex items-center gap-1">
-                    {hasDraftWorkItemFilters || hasActiveWorkItemFilters ? <Button type="button" size="sm" variant="ghost" onClick={() => void handleClearWorkItemFilters()} disabled={isRunningWorkItemFilters}>Clear</Button> : null}
+                    {hasDraftWorkItemFilters || hasActiveWorkItemFilters ? <Button type="button" size="sm" variant="ghost" onClick={() => void handleClearWorkItemFilters()} disabled={isRunningWorkItemFilters}>{t('common.clear')}</Button> : null}
                     <Button type="button" size="sm" onClick={() => void handleRunWorkItemFilters()} disabled={isRunningWorkItemFilters}>
                       {isRunningWorkItemFilters ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      Run filters
+                      {t('workspace.runFilters')}
                     </Button>
                   </div>
                 </div>
@@ -4579,10 +4600,10 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
               className="gap-2"
               onClick={() => void handleRunCreatedSort()}
               disabled={isRunningCreatedSort}
-              title={createdSortDirection === 'ASC' ? 'Created time: oldest first' : 'Created time: newest first'}
+              title={createdSortDirection === 'ASC' ? t('workspace.oldestFirst') : t('workspace.newestFirst')}
             >
               {isRunningCreatedSort ? <Loader2 className="h-4 w-4 animate-spin" /> : createdSortDirection === 'ASC' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-              Created
+              {t('workspace.created')}
             </Button>
             <div className="order-first">
             <DropdownMenu>
@@ -4590,19 +4611,19 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                 render={(
                   <Button type="button" size="sm" className="gap-2" disabled={isSaving}>
                     <Plus className="h-4 w-4" />
-                    {focusedNode ? 'Add sub-item' : 'New item'}
+                    {focusedNode ? t('workspace.addSubItem') : t('workspace.newItem')}
                   </Button>
                 )}
               />
               <DropdownMenuContent align="start" className="w-48">
                 <DropdownMenuItem onClick={() => void handleCreateNode(focusedNodeId ?? undefined, 'TASK')}>
-                  <ListTodo className="h-4 w-4" /> Task
+                  <ListTodo className="h-4 w-4" /> {t('workspace.task')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => void handleCreateNode(focusedNodeId ?? undefined, 'QUESTION')}>
-                  <CircleHelp className="h-4 w-4" /> Ask a question
+                  <CircleHelp className="h-4 w-4" /> {t('workspace.askQuestion')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => void handleCreateNode(focusedNodeId ?? undefined, 'APPROVAL')}>
-                  <ClipboardCheck className="h-4 w-4" /> Request approval
+                  <ClipboardCheck className="h-4 w-4" /> {t('workspace.requestApproval')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -4617,13 +4638,13 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                     variant="ghost"
                     className="shrink-0"
                     onClick={toggleInspectorPanel}
-                    aria-label={isInspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+                    aria-label={isInspectorCollapsed ? t('workspace.showInspector') : t('workspace.hideInspector')}
                   />
                 )}
               >
                 {isInspectorCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
               </TooltipTrigger>
-              <TooltipContent>{isInspectorCollapsed ? 'Show inspector' : 'Hide inspector'}</TooltipContent>
+              <TooltipContent>{isInspectorCollapsed ? t('workspace.showInspector') : t('workspace.hideInspector')}</TooltipContent>
             </Tooltip>
           </div>
 
@@ -4631,7 +4652,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
             {focusedNode ? (
               <div className="mb-2 flex min-h-9 flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
                 <div className="flex min-w-0 items-center gap-1 text-sm">
-                  <span className="shrink-0 text-muted-foreground">Focused:</span>
+                  <span className="shrink-0 text-muted-foreground">{t('workspace.focused')}</span>
                   <div className="flex min-w-0 items-center gap-1">
                     {focusedNodePath.map((node, index) => (
                       <span key={node.id} className="flex min-w-0 items-center gap-1">
@@ -4652,7 +4673,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                   </div>
                 </div>
                 <Button type="button" variant="outline" size="xs" onClick={() => setFocusedNodeId(null)}>
-                  Exit focus
+                  {t('workspace.exitFocus')}
                 </Button>
               </div>
             ) : null}
@@ -4662,7 +4683,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                   <EmptyMedia variant="icon">
                     <FolderOpen />
                   </EmptyMedia>
-                  <EmptyTitle>No items</EmptyTitle>
+                  <EmptyTitle>{t('workspace.noItems')}</EmptyTitle>
                 </EmptyHeader>
               </Empty>
             ) : (
@@ -4670,7 +4691,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                 {filteredPendingProposalItems.length > 0 ? (
                   <section className="mb-4 space-y-1">
                     <div className="flex min-h-8 items-center gap-2 px-2 text-xs font-medium uppercase text-muted-foreground">
-                      <span className="truncate">Pending proposals outside loaded tree</span>
+                      <span className="truncate">{t('workspace.pendingProposals')}</span>
                       <Badge variant="outline" className="ml-auto">
                         {filteredPendingProposalItems.length}
                       </Badge>
@@ -4747,7 +4768,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                   <div className="flex justify-center py-2">
                     <Button type="button" size="sm" variant="outline" className="gap-2" onClick={() => void loadMoreRootNodes()} disabled={isLoadingMoreRoots}>
                       {isLoadingMoreRoots ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      Load more roots
+                      {t('workspace.loadMoreRoots')}
                     </Button>
                   </div>
                 ) : null}
@@ -4770,7 +4791,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         >
           <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
             <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b px-3 py-2">
-              <div className="inline-flex rounded-md border bg-background p-0.5" role="group" aria-label="Inspector mode">
+              <div className="inline-flex rounded-md border bg-background p-0.5" role="group" aria-label={t('workspace.inspectorMode')}>
                 <Button
                   type="button"
                   size="sm"
@@ -4780,7 +4801,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                   onClick={() => setInspectorMode('task')}
                 >
                   <FileText className="h-3.5 w-3.5" />
-                  Details
+                  {t('workspace.details')}
                 </Button>
                 <Button
                   type="button"
@@ -4791,7 +4812,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                   onClick={() => setInspectorMode('history')}
                 >
                   <History className="h-3.5 w-3.5" />
-                  History
+                  {t('workspace.history')}
                 </Button>
               </div>
               {selectedNode ? (
@@ -4805,13 +4826,13 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                           variant="outline"
                           disabled={Boolean(selectedNode.proposal) || isExpandingSelectedSubtree}
                           onClick={() => void handleExpandSelectedSubtree()}
-                          aria-label="Expand all"
+                          aria-label={t('workspace.expandAll')}
                         />
                       }
                     >
                       {isExpandingSelectedSubtree ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}
                     </TooltipTrigger>
-                    <TooltipContent>Load and expand every nested sub-item</TooltipContent>
+                    <TooltipContent>{t('workspace.expandAllHelp')}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger
@@ -4822,13 +4843,13 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                           variant="outline"
                           disabled={Boolean(selectedNode.proposal) || isExpandingSelectedSubtree}
                           onClick={handleCollapseSelectedSubtree}
-                          aria-label="Collapse"
+                          aria-label={t('workspace.collapse')}
                         />
                       }
                     >
                       <ChevronRight className="h-4 w-4" />
                     </TooltipTrigger>
-                    <TooltipContent>Collapse this item and all nested sub-items</TooltipContent>
+                    <TooltipContent>{t('workspace.collapseHelp')}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger
@@ -4840,7 +4861,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                           className={cn(isSelectedWorkItemSubscribed && 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100')}
                           disabled={Boolean(selectedNode.proposal)}
                           onClick={() => void handleToggleSelectedWorkItemSubscription()}
-                          aria-label={isSelectedWorkItemSubscribed ? 'Stop receiving updates about this work item' : 'Subscribe to updates about this work item'}
+                          aria-label={isSelectedWorkItemSubscribed ? t('workspace.stopSubscription') : t('workspace.subscribe')}
                         />
                       }
                     >
@@ -4850,7 +4871,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                         <Bookmark className="h-4 w-4" />
                       )}
                     </TooltipTrigger>
-                    <TooltipContent>{isSelectedWorkItemSubscribed ? 'Stop receiving updates about this work item' : 'Subscribe to updates about this work item'}</TooltipContent>
+                    <TooltipContent>{isSelectedWorkItemSubscribed ? t('workspace.stopSubscription') : t('workspace.subscribe')}</TooltipContent>
                   </Tooltip>
                 </div>
               ) : null}
@@ -4870,15 +4891,15 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
 
                   <div className="divide-y border-b">
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">Type</label>
+                      <label className="text-sm font-semibold text-muted-foreground">{t('common.type')}</label>
                       <NativeSelect value={form.type} onChange={(event) => handleTypeChange(event.target.value)} disabled={isSaving || Boolean(selectedNode.proposal)}>
                         {workItemTypeOptions.map((type) => (
-                          <NativeSelectOption key={type} value={type}>{type[0]}{type.slice(1).toLowerCase()}</NativeSelectOption>
+                          <NativeSelectOption key={type} value={type}>{translateWorkItemType(type, t)}</NativeSelectOption>
                         ))}
                       </NativeSelect>
                     </div>
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
-                      <label className="text-sm font-semibold text-muted-foreground">Title</label>
+                      <label className="text-sm font-semibold text-muted-foreground">{t('common.title')}</label>
                       <Textarea
                         rows={3}
                         value={form.title}
@@ -4888,18 +4909,18 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
 
                     {workItemInspectorReview ? (
                       <section className="space-y-3 bg-primary/5 px-4 py-3">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> AI suggestion</div>
+                        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> {t('workspace.aiSuggestion')}</div>
                         <div className="grid gap-1 text-sm">
-                          <span>Title: <s>{workItemInspectorReview.originalTitle}</s> → <strong>{workItemInspectorReview.proposedTitle}</strong></span>
-                          <span>Type: {form.type} → <strong>{workItemInspectorReview.proposedType}</strong></span>
-                          <span>Status: {normalizedStatus(formFieldValue(form.fields, 'status')) || defaultStatusForType(form.type)} → <strong>{workItemInspectorReview.proposedStatus}</strong></span>
-                          <span>Due date: {String(formFieldValue(form.fields, 'dueDate') ?? 'Not set')} → <strong>{workItemInspectorReview.proposedDueDate ?? 'Not set'}</strong></span>
-                          <span>Priority: {String(formFieldValue(form.fields, 'priority') ?? 'Not set')} → <strong>{workItemInspectorReview.proposedPriority ?? 'Not set'}</strong></span>
-                          <span>Assignees: <strong>{workItemInspectorReview.proposedAssignees.length || 'None'}</strong></span>
+                          <span>{t('common.title')}: <s>{workItemInspectorReview.originalTitle}</s> → <strong>{workItemInspectorReview.proposedTitle}</strong></span>
+                          <span>{t('common.type')}: {translateWorkItemType(form.type, t)} → <strong>{translateWorkItemType(workItemInspectorReview.proposedType, t)}</strong></span>
+                          <span>{t('common.status')}: {translateStatus(normalizedStatus(formFieldValue(form.fields, 'status')) || defaultStatusForType(form.type), t)} → <strong>{translateStatus(workItemInspectorReview.proposedStatus, t)}</strong></span>
+                          <span>{t('common.dueDate')}: {String(formFieldValue(form.fields, 'dueDate') ?? t('common.notSet'))} → <strong>{workItemInspectorReview.proposedDueDate ?? t('common.notSet')}</strong></span>
+                          <span>{t('common.priority')}: {formFieldValue(form.fields, 'priority') ? translatePriority(String(formFieldValue(form.fields, 'priority')), t) : t('common.notSet')} → <strong>{workItemInspectorReview.proposedPriority ? translatePriority(workItemInspectorReview.proposedPriority, t) : t('common.notSet')}</strong></span>
+                          <span>{t('common.assignees')}: <strong>{workItemInspectorReview.proposedAssignees.length || t('common.none')}</strong></span>
                         </div>
                         {workItemInspectorReview.proposedBlockers.length > 0 ? (
                           <div className="space-y-1.5">
-                            <span className="text-xs font-medium text-muted-foreground">Suggested blockers</span>
+                            <span className="text-xs font-medium text-muted-foreground">{t('workspace.suggestedBlockers')}</span>
                             <div className="grid gap-1.5">
                               {workItemInspectorReview.proposedBlockers.map((blocker) => (
                                 <div key={blocker.workItemId} className="flex items-start gap-2 rounded-md border border-destructive/25 bg-background/70 px-2 py-1.5 text-sm">
@@ -4915,33 +4936,33 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                         ) : null}
                         {workItemInspectorReview.rationale ? <p className="text-xs text-muted-foreground">{workItemInspectorReview.rationale}</p> : null}
                         <div className="flex gap-2">
-                          <Input className="bg-white" value={workItemInspectorReviewFeedback} onChange={(event) => setWorkItemInspectorReviewFeedback(event.target.value)} placeholder="Tell AI what to change…" disabled={isSaving} />
-                          <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRefineWorkItemAiReview()}>Ask again</Button>
+                          <Input className="bg-white" value={workItemInspectorReviewFeedback} onChange={(event) => setWorkItemInspectorReviewFeedback(event.target.value)} placeholder={t('workspace.tellAi')} disabled={isSaving} />
+                          <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRefineWorkItemAiReview()}>{t('workspace.askAgain')}</Button>
                         </div>
                         <div className="flex gap-2">
-                          <Button type="button" disabled={isSaving} onClick={() => applyWorkItemAiReview(workItemInspectorReview)}>Apply to draft</Button>
+                          <Button type="button" disabled={isSaving} onClick={() => applyWorkItemAiReview(workItemInspectorReview)}>{t('workspace.applyToDraft')}</Button>
                           {workItemInspectorReview.proposedBlockers.length > 0 ? (
-                            <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleAddSuggestedBlockers(workItemInspectorReview)}>Add suggested blockers</Button>
+                            <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleAddSuggestedBlockers(workItemInspectorReview)}>{t('workspace.addSuggestedBlockers')}</Button>
                           ) : null}
-                          <Button type="button" variant="outline" disabled={isSaving} onClick={() => { setWorkItemInspectorReview(null); setWorkItemInspectorReviewFeedback('') }}>Reject</Button>
+                          <Button type="button" variant="outline" disabled={isSaving} onClick={() => { setWorkItemInspectorReview(null); setWorkItemInspectorReviewFeedback('') }}>{t('workspace.rejectSuggestion')}</Button>
                         </div>
                       </section>
                     ) : null}
 
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">Status</label>
+                      <label className="text-sm font-semibold text-muted-foreground">{t('common.status')}</label>
                       <NativeSelect
                         value={normalizedStatus(formFieldValue(form.fields, 'status')) || defaultStatusForType(form.type)}
                         onChange={(event) => updateManagedWorkItemField('status', 'Status', 'text', event.target.value, true)}
                       >
-                        {statusOptionsForType(form.type).map((status) => (
+                        {statusOptionsForType(form.type, t).map((status) => (
                           <NativeSelectOption key={status.value} value={status.value}>{status.label}</NativeSelectOption>
                         ))}
                       </NativeSelect>
                     </div>
 
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">Due date</label>
+                      <label className="text-sm font-semibold text-muted-foreground">{t('common.dueDate')}</label>
                       <Input
                         type="date"
                         value={String(formFieldValue(form.fields, 'dueDate') ?? '')}
@@ -4950,21 +4971,21 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                     </div>
 
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">Priority</label>
+                      <label className="text-sm font-semibold text-muted-foreground">{t('common.priority')}</label>
                       <NativeSelect
                         value={String(formFieldValue(form.fields, 'priority') ?? '')}
                         onChange={(event) => updateManagedWorkItemField('priority', 'Priority', 'text', event.target.value, true)}
                       >
-                        <NativeSelectOption value="">No priority</NativeSelectOption>
-                        <NativeSelectOption value="LOW">Low</NativeSelectOption>
-                        <NativeSelectOption value="MEDIUM">Medium</NativeSelectOption>
-                        <NativeSelectOption value="HIGH">High</NativeSelectOption>
-                        <NativeSelectOption value="URGENT">Urgent</NativeSelectOption>
+                        <NativeSelectOption value="">{t('common.noPriority')}</NativeSelectOption>
+                        <NativeSelectOption value="LOW">{t('priority.low')}</NativeSelectOption>
+                        <NativeSelectOption value="MEDIUM">{t('priority.medium')}</NativeSelectOption>
+                        <NativeSelectOption value="HIGH">{t('priority.high')}</NativeSelectOption>
+                        <NativeSelectOption value="URGENT">{t('priority.urgent')}</NativeSelectOption>
                       </NativeSelect>
                     </div>
 
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
-                      <label className="pt-2 text-sm font-semibold text-muted-foreground">Assignees</label>
+                      <label className="pt-2 text-sm font-semibold text-muted-foreground">{t('common.assignees')}</label>
                       <div className="grid gap-3">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                           <NativeSelect
@@ -4975,8 +4996,8 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                               setNewAssigneeId('')
                             }}
                           >
-                            <NativeSelectOption value="USER">User</NativeSelectOption>
-                            <NativeSelectOption value="TEAM">Team</NativeSelectOption>
+                            <NativeSelectOption value="USER">{t('common.user')}</NativeSelectOption>
+                            <NativeSelectOption value="TEAM">{t('common.team')}</NativeSelectOption>
                           </NativeSelect>
                           <NativeSelect
                             className="w-full sm:flex-1"
@@ -4986,8 +5007,8 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                           >
                             <NativeSelectOption value="">
                               {availableAssigneeOptions.length === 0
-                                ? `No ${newAssigneeType === 'USER' ? 'users' : 'teams'} available`
-                                : `Select ${newAssigneeType === 'USER' ? 'user' : 'team'}`}
+                                ? t('workspace.noAssigneesAvailable', { type: newAssigneeType === 'USER' ? t('common.users') : t('common.teams') })
+                                : t('workspace.selectAssigneeType', { type: newAssigneeType === 'USER' ? t('common.user') : t('common.team') })}
                             </NativeSelectOption>
                             {availableAssigneeOptions.map((option) => (
                               <NativeSelectOption key={option.id} value={option.id}>{option.label}</NativeSelectOption>
@@ -4995,21 +5016,21 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                           </NativeSelect>
                           <Button type="button" className="gap-2" disabled={!newAssigneeId} onClick={handleAddAssignee}>
                             <Plus className="h-4 w-4" />
-                            Add
+                            {t('common.add')}
                           </Button>
                         </div>
 
                         {assignedUserIds.length === 0 && assignedTeamIds.length === 0 ? (
-                          <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">No assignees.</div>
+                          <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">{t('workspace.noAssignees')}</div>
                         ) : (
                           <div className="space-y-2">
                             {assignedUserIds.map((userId) => (
                               <div key={`user-${userId}`} className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2">
                                 <div className="flex min-w-0 items-center gap-2">
-                                  <Badge variant="outline" className="shrink-0 border-sky-200 bg-sky-50 font-medium text-sky-700 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300">User</Badge>
+                                  <Badge variant="outline" className="shrink-0 border-sky-200 bg-sky-50 font-medium text-sky-700 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300">{t('common.user')}</Badge>
                                   <span className="truncate text-sm font-medium">{assigneeUserLabelById.get(userId) ?? userId}</span>
                                 </div>
-                                <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('USER', userId)} aria-label="Remove assignee" title="Remove">
+                                <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('USER', userId)} aria-label={t('workspace.removeAssignee')} title={t('common.remove')}>
                                   <X className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -5017,10 +5038,10 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                             {assignedTeamIds.map((teamId) => (
                               <div key={`team-${teamId}`} className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2">
                                 <div className="flex min-w-0 items-center gap-2">
-                                  <Badge variant="outline" className="shrink-0 border-violet-200 bg-violet-50 font-medium text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300">Team</Badge>
+                                  <Badge variant="outline" className="shrink-0 border-violet-200 bg-violet-50 font-medium text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300">{t('common.team')}</Badge>
                                   <span className="truncate text-sm font-medium">{assigneeTeamLabelById.get(teamId) ?? teamId}</span>
                                 </div>
-                                <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('TEAM', teamId)} aria-label="Remove assignee" title="Remove">
+                                <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('TEAM', teamId)} aria-label={t('workspace.removeAssignee')} title={t('common.remove')}>
                                   <X className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -5031,7 +5052,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                     </div>
 
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-start">
-                      <label className="pt-2 text-sm font-semibold text-muted-foreground">Relationships</label>
+                      <label className="pt-2 text-sm font-semibold text-muted-foreground">{t('common.relationship')}</label>
                       <div className="grid min-w-0 gap-2">
                         {(workItemRelationshipsByNodeId.get(selectedNode.id) ?? []).map((relationship) => {
                           const isOutgoing = relationship.fromEntityId === selectedNode.id
@@ -5044,7 +5065,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                                 ? <OctagonAlert className="h-3.5 w-3.5 shrink-0 text-destructive" />
                                 : <MoveRight className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground', !isOutgoing && 'rotate-180')} />}
                               <Badge variant="outline" className={cn('shrink-0 font-medium', relationshipTypeBadgeClass(relationship.type))}>
-                                {relationshipTypeLabel(relationship.type)}
+                                {translateRelationshipType(relationship.type, t)}
                               </Badge>
                               <span className="min-w-0 flex-1 truncate text-muted-foreground" title={relationship.reason ?? undefined}>
                                 {isOutgoing ? '→' : '←'} <span className="font-medium text-foreground">{relatedTitle}</span>
@@ -5056,8 +5077,8 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                                 className="ml-auto"
                                 disabled={isSavingBlocker}
                                 onClick={() => void handleRemoveWorkItemRelationship(relationship.id)}
-                                aria-label={`Remove relationship with ${relatedTitle}`}
-                                title="Remove relationship"
+                                aria-label={t('workspace.removeRelationshipWith', { title: relatedTitle })}
+                                title={t('workspace.removeRelationship')}
                               >
                                 <X />
                               </Button>
@@ -5070,7 +5091,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                             relationshipUi={workItemRelationshipUi}
                             trigger={(
                               <Button type="button" size="sm" className="gap-1" disabled={Boolean(selectedNode.proposal)}>
-                                <Plus className="h-3.5 w-3.5" /> Add relationship
+                                <Plus className="h-3.5 w-3.5" /> {t('workspace.addRelationship')}
                               </Button>
                             )}
                           />
@@ -5079,11 +5100,11 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                     </div>
 
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">Created</span>
+                      <span className="text-sm font-semibold text-muted-foreground">{t('common.created')}</span>
                       <span className="text-sm">{selectedNode.createdAt ? formatActivityDate(selectedNode.createdAt) : '—'}</span>
                     </div>
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">Updated</span>
+                      <span className="text-sm font-semibold text-muted-foreground">{t('common.updated')}</span>
                       <span className="text-sm">{selectedNode.updatedAt ? formatActivityDate(selectedNode.updatedAt) : '—'}</span>
                     </div>
                   </div>
@@ -5093,14 +5114,14 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                 <div className="z-10 mt-auto flex shrink-0 flex-col gap-1.5 border-t bg-background/95 px-4 py-2.5 backdrop-blur">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
-                      <Button type="submit" className="shrink-0 gap-2" disabled={isSaving || Boolean(selectedNode.proposal) || !hasUnsavedWorkItemChanges} aria-label="Save" title="Save">
+                      <Button type="submit" className="shrink-0 gap-2" disabled={isSaving || Boolean(selectedNode.proposal) || !hasUnsavedWorkItemChanges} aria-label={t('common.save')} title={t('common.save')}>
                         {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        Save
+                        {t('common.save')}
                       </Button>
                       {isLlmAvailable ? (
                         <Button type="button" variant="outline" className="shrink-0 gap-2" disabled={isSaving || Boolean(selectedNode.proposal)} onClick={() => void handleReviewWorkItemWithAi()}>
                           <Bot className="h-4 w-4" />
-                          AI review
+                          {t('workspace.aiReview')}
                         </Button>
                       ) : null}
                     </div>
@@ -5113,8 +5134,8 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                               variant="outline"
                               size="icon"
                               disabled={isSaving || Boolean(selectedNode.proposal)}
-                              aria-label="Item actions"
-                              title="Actions"
+                              aria-label={t('workspace.itemActions')}
+                              title={t('common.actions')}
                             >
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
@@ -5123,32 +5144,32 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                         <DropdownMenuContent align="end" className="w-44">
                           <DropdownMenuItem disabled={!canReorderSelectedContent} onClick={() => void handleMoveSelectedNodeByOffset(-1)}>
                             <ArrowUp className="h-4 w-4" />
-                            Move up
+                            {t('workspace.moveUp')}
                           </DropdownMenuItem>
                           <DropdownMenuItem disabled={!canReorderSelectedContent} onClick={() => void handleMoveSelectedNodeByOffset(1)}>
                             <ArrowDown className="h-4 w-4" />
-                            Move down
+                            {t('workspace.moveDown')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => void handleCreateNode(selectedNode.id)}>
                             <Plus className="h-4 w-4" />
-                            Add sub-item
+                            {t('workspace.addSubItem')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openMoveDialog()}>
                             <MoveRight className="h-4 w-4" />
-                            Move
+                            {t('workspace.move')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => focusNode(selectedNode)}>
                             <Focus className="h-4 w-4" />
-                            Focus
+                            {t('workspace.focus')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <DeleteConfirmPopover
-                        title="Delete item?"
-                        description="Sub-items will be deleted with this item."
+                        title={t('workspace.deleteItem')}
+                        description={t('workspace.deleteItemDescription')}
                         disabled={isSaving || Boolean(selectedNode.proposal)}
                         trigger={(
-                          <Button type="button" variant="destructive" size="icon-sm" disabled={isSaving || Boolean(selectedNode.proposal)} aria-label="Delete item">
+                          <Button type="button" variant="destructive" size="icon-sm" disabled={isSaving || Boolean(selectedNode.proposal)} aria-label={t('workspace.deleteItem')}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
@@ -5158,7 +5179,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                   </div>
                   <div className={cn('flex items-center gap-1.5 text-xs', hasUnsavedWorkItemChanges ? 'font-medium text-amber-700' : 'text-muted-foreground')} aria-live="polite">
                     {hasUnsavedWorkItemChanges ? <CircleAlert className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-                    <span>{hasUnsavedWorkItemChanges ? 'Unsaved' : 'Saved'}</span>
+                    <span>{hasUnsavedWorkItemChanges ? t('workspace.unsaved') : t('workspace.saved')}</span>
                   </div>
                 </div>
               </form>
@@ -5173,52 +5194,52 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                   <div className="min-h-0 flex-1 overflow-auto">
                     <div className="divide-y border-b">
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">Type</label>
+                      <label className="text-sm font-semibold text-muted-foreground">{t('common.type')}</label>
                       <NativeSelect value={entryInspectorType} onChange={(event) => setEntryInspectorType(event.target.value)} disabled={isSaving || Boolean(entryInspectorReview)}>
-                        {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{type}</NativeSelectOption>)}
+                        {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{translateEntryType(type, t)}</NativeSelectOption>)}
                       </NativeSelect>
                     </div>
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">Author</span>
-                      <span className="text-sm">{entryAuthorLabel(selectedEntry, userLabels)}</span>
+                      <span className="text-sm font-semibold text-muted-foreground">{t('common.author')}</span>
+                      <span className="text-sm">{entryAuthorLabel(selectedEntry, userLabels, t('common.unknownUser'))}</span>
                     </div>
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
-                      <label className="text-sm font-semibold text-muted-foreground">Content</label>
+                      <label className="text-sm font-semibold text-muted-foreground">{t('common.content')}</label>
                       <Textarea
                         className="min-h-52 resize-y bg-white"
                         value={entryInspectorBody}
                         onChange={(event) => setEntryInspectorBody(event.target.value)}
                         disabled={isSaving || Boolean(entryInspectorReview)}
-                        aria-label="Update content"
+                        aria-label={t('workspace.updateContent')}
                       />
                     </div>
                     {entryInspectorReview ? (
                       <section className="space-y-3 bg-primary/5 px-4 py-3">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> AI suggestion</div>
+                        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> {t('workspace.aiSuggestion')}</div>
                         <div className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">Your draft</p>
+                          <p className="text-xs font-medium text-muted-foreground">{t('workspace.yourDraft')}</p>
                           <p className="whitespace-pre-wrap break-words rounded-sm bg-background/70 p-2 text-sm">{entryInspectorReview.originalBody}</p>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-xs font-medium text-primary">Suggested</p>
+                          <p className="text-xs font-medium text-primary">{t('workspace.suggested')}</p>
                           <p className="whitespace-pre-wrap break-words rounded-sm bg-background/70 p-2 text-sm">{entryInspectorReview.proposedBody}</p>
                         </div>
                         {entryInspectorReview.proposedType && entryInspectorReview.proposedType !== (entryInspectorReview.entryType ?? entryInspectorType) ? (
-                          <p className="text-sm text-primary">Classification: {entryInspectorReview.entryType ?? entryInspectorType} → {entryInspectorReview.proposedType}</p>
+                          <p className="text-sm text-primary">{t('workspace.classification')}: {translateEntryType(entryInspectorReview.entryType ?? entryInspectorType, t)} → {translateEntryType(entryInspectorReview.proposedType, t)}</p>
                         ) : null}
                         {entryInspectorReview.rationale ? <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">{entryInspectorReview.rationale}</p> : null}
                         <div className="flex gap-2">
-                          <Input className="bg-white" value={entryInspectorReviewFeedback} onChange={(event) => setEntryInspectorReviewFeedback(event.target.value)} placeholder="Tell AI what to change…" disabled={isSaving} />
-                          <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRefineInspectorEntryReview()}>Ask again</Button>
+                          <Input className="bg-white" value={entryInspectorReviewFeedback} onChange={(event) => setEntryInspectorReviewFeedback(event.target.value)} placeholder={t('workspace.tellAi')} disabled={isSaving} />
+                          <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRefineInspectorEntryReview()}>{t('workspace.askAgain')}</Button>
                         </div>
                       </section>
                     ) : null}
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">Created</span>
+                      <span className="text-sm font-semibold text-muted-foreground">{t('common.created')}</span>
                       <span className="text-sm">{formatActivityDate(selectedEntry.createdAt)}</span>
                     </div>
                     <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">Updated</span>
+                      <span className="text-sm font-semibold text-muted-foreground">{t('common.updated')}</span>
                       <span className="text-sm">{selectedEntry.updatedAt ? formatActivityDate(selectedEntry.updatedAt) : '—'}</span>
                     </div>
                     </div>
@@ -5227,19 +5248,19 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                     {entryInspectorReview ? (
                       <>
                         <Button type="button" className="gap-2" disabled={isSaving} onClick={() => void handleAcceptInspectorEntryReview()}>
-                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Accept suggestion
+                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {t('workspace.acceptSuggestionButton')}
                         </Button>
-                        <Button type="button" variant="outline" disabled={isSaving} onClick={keepEditingInspectorEntrySuggestion}>Keep editing</Button>
-                        <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRejectInspectorEntryReview()}>Reject</Button>
+                        <Button type="button" variant="outline" disabled={isSaving} onClick={keepEditingInspectorEntrySuggestion}>{t('workspace.keepEditing')}</Button>
+                        <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRejectInspectorEntryReview()}>{t('workspace.rejectSuggestion')}</Button>
                       </>
                     ) : (
                       <div className="flex items-center gap-2">
                         <Button type="button" className="gap-2" disabled={isSaving} onClick={() => void handleSaveInspectorEntry()}>
-                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
+                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {t('common.save')}
                         </Button>
                         {isLlmAvailable ? (
                           <Button type="button" variant="outline" className="gap-2" disabled={isSaving} onClick={() => void handleReviewInspectorEntryWithAi()}>
-                            <Bot className="h-4 w-4" /> AI Review
+                            <Bot className="h-4 w-4" /> {t('workspace.aiReview')}
                           </Button>
                         ) : null}
                       </div>
@@ -5254,7 +5275,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                     <EmptyMedia variant="icon">
                       <FileText />
                     </EmptyMedia>
-                    <EmptyTitle>Select an item or update</EmptyTitle>
+                    <EmptyTitle>{t('workspace.selectItem')}</EmptyTitle>
                   </EmptyHeader>
                 </Empty>
               ) : null}
@@ -5267,14 +5288,14 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       <Dialog open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
         <DialogContent className="min-w-0 sm:max-w-2xl">
           <DialogHeader className="-mx-6 -mt-6 border-b px-6 pt-6 pb-5">
-            <DialogTitle className="text-xl font-semibold">Move item</DialogTitle>
-            <DialogDescription>{selectedNode ? `Choose where to place ${selectedNode.title}.` : 'Choose where to place this item.'}</DialogDescription>
+            <DialogTitle className="text-xl font-semibold">{t('workspace.moveItem')}</DialogTitle>
+            <DialogDescription>{selectedNode ? t('workspace.choosePlacement', { title: selectedNode.title }) : t('workspace.chooseThisPlacement')}</DialogDescription>
           </DialogHeader>
 
           <div className="min-w-0 space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Move before</label>
-              <Input value={moveQuery} onChange={(event) => setMoveQuery(event.target.value)} placeholder="Search" />
+              <label className="text-sm font-medium">{t('workspace.moveBefore')}</label>
+              <Input value={moveQuery} onChange={(event) => setMoveQuery(event.target.value)} placeholder={t('common.search')} />
             </div>
             <div className="min-w-0 w-full max-w-full max-h-80 overflow-x-hidden overflow-y-auto rounded-md border p-1">
               <button
@@ -5286,11 +5307,11 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                 onClick={() => setMoveTargetContentKey('')}
               >
                 <FolderOpen className="h-4 w-4" />
-                End of project level
+                {t('workspace.endOfProjectLevel')}
               </button>
 
               {moveTargetOptions.length === 0 ? (
-                <div className="px-2 py-8 text-center text-sm text-muted-foreground">No valid placement targets</div>
+                <div className="px-2 py-8 text-center text-sm text-muted-foreground">{t('workspace.noPlacementTargets')}</div>
               ) : (
                 moveTargetOptions.map((item) => (
                   <button

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { ArrowRight, Calendar, Clock, FolderOpen, Loader2, Pencil, Plus, Save, Search, Trash2, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +39,7 @@ import {
   type Team,
   type User,
 } from '@/lib/api'
+import { translateRole } from '@/i18n/labels'
 
 type ProjectFormState = {
   title: string
@@ -49,21 +51,21 @@ const emptyForm: ProjectFormState = {
 
 const PROJECT_ROLE_OPTIONS: ProjectTeam['role'][] = ['VIEWER', 'EDITOR', 'OWNER']
 
-function formatProjectTitle(project: Project) {
-  return project.title?.trim() ? project.title : 'Untitled project'
+function formatProjectTitle(project: Project, fallback: string) {
+  return project.title?.trim() ? project.title : fallback
 }
 
-function displayUser(user: User | AuthUser | null | undefined) {
+function displayUser(user: User | AuthUser | null | undefined, fallback: string) {
   if (!user) {
-    return 'Unknown user'
+    return fallback
   }
 
   return user.displayName?.trim() || user.username
 }
 
-function formatOptionalDate(value: string | undefined) {
+function formatOptionalDate(value: string | undefined, fallback: string) {
   if (!value) {
-    return 'Not available'
+    return fallback
   }
 
   return new Intl.DateTimeFormat(undefined, {
@@ -100,6 +102,7 @@ function toFormState(project: Project): ProjectFormState {
 }
 
 export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const [projects, setProjects] = useState<Project[]>([])
@@ -152,7 +155,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
         return null
       })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load projects.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedLoad'))
     } finally {
       setIsLoading(false)
     }
@@ -246,11 +249,11 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
 
     const title = form.title.trim()
     if (!title) {
-      toast.error('Project name is required.')
+      toast.error(t('projects.nameRequired'))
       return
     }
     if (createOwnerUserIds.length === 0 && createOwnerTeamIds.length === 0) {
-      toast.error('At least one project owner is required.')
+      toast.error(t('projects.ownerRequired'))
       return
     }
 
@@ -263,14 +266,14 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
         ownerTeamIds: createOwnerTeamIds,
       })
       setProjects((current) =>
-        [...current, created].sort((left, right) => formatProjectTitle(left).localeCompare(formatProjectTitle(right))),
+        [...current, created].sort((left, right) => formatProjectTitle(left, t('common.untitledProject')).localeCompare(formatProjectTitle(right, t('common.untitledProject')))),
       )
       setSelectedProjectId(created.id)
       setForm(toFormState(created))
       setIsSheetOpen(false)
-      toast.success('Project created.')
+      toast.success(t('projects.projectCreated'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create project.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedCreate'))
     } finally {
       setIsCreating(false)
     }
@@ -285,7 +288,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
 
     const title = form.title.trim()
     if (!title) {
-      toast.error('Project name is required.')
+      toast.error(t('projects.nameRequired'))
       return
     }
 
@@ -296,14 +299,14 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
       setProjects((current) =>
         current
           .map((project) => (project.id === updated.id ? updated : project))
-          .sort((left, right) => formatProjectTitle(left).localeCompare(formatProjectTitle(right))),
+          .sort((left, right) => formatProjectTitle(left, t('common.untitledProject')).localeCompare(formatProjectTitle(right, t('common.untitledProject')))),
       )
       setSelectedProjectId(updated.id)
       setForm(toFormState(updated))
       setIsSheetOpen(false)
-      toast.success('Project updated.')
+      toast.success(t('projects.projectUpdated'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update project.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedUpdate'))
     } finally {
       setIsUpdating(false)
     }
@@ -331,9 +334,9 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
       })
       setIsSheetOpen(false)
 
-      toast.success('Project deleted.')
+      toast.success(t('projects.projectDeleted'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete project.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedDelete'))
     } finally {
       setIsDeleting(false)
     }
@@ -350,7 +353,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
     } catch (error) {
       setProjectMembers([])
       setProjectTeams([])
-      toast.error(error instanceof Error ? error.message : 'Failed to load project access.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedLoadAccess'))
     }
   }
 
@@ -367,9 +370,9 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
       setAssignMemberUserId('')
       setAssignMemberRole('VIEWER')
       await loadProjectRelations(selectedProject.id)
-      toast.success('Project member added.')
+      toast.success(t('projects.memberAdded'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add project member.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedAddMember'))
     } finally {
       setIsAssigningMember(false)
     }
@@ -387,9 +390,9 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
       setProjectMembers((current) => current.map((member) => (
         member.userId === userId ? { ...member, role } : member
       )))
-      toast.success('Project member updated.')
+      toast.success(t('projects.memberUpdated'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update project member.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedUpdateMember'))
       await loadProjectRelations(selectedProject.id)
     } finally {
       setUpdatingMemberUserId(null)
@@ -404,9 +407,9 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
     try {
       await removeProjectMember(selectedProject.id, userId)
       setProjectMembers((current) => current.filter((member) => member.userId !== userId))
-      toast.success('Project member removed.')
+      toast.success(t('projects.memberRemoved'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove project member.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedRemoveMember'))
     }
   }
 
@@ -423,9 +426,9 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
       setAssignTeamId('')
       setAssignTeamRole('VIEWER')
       await loadProjectRelations(selectedProject.id)
-      toast.success('Team assigned.')
+      toast.success(t('projects.teamAssigned'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to assign team.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedAssignTeam'))
     } finally {
       setIsAssigningTeam(false)
     }
@@ -439,9 +442,9 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
     try {
       await unassignProjectTeam(selectedProject.id, teamId)
       setProjectTeams((current) => current.filter((projectTeam) => projectTeam.teamId !== teamId))
-      toast.success('Team removed from project.')
+      toast.success(t('projects.teamRemoved'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove team.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedRemoveTeam'))
     }
   }
 
@@ -482,7 +485,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-        <h1 className="text-xl font-semibold leading-none tracking-normal">Projects</h1>
+        <h1 className="text-xl font-semibold leading-none tracking-normal">{t('projects.pageTitle')}</h1>
       </div>
 
       <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
@@ -493,12 +496,12 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
               className="pl-10"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search"
+              placeholder={t('common.search')}
             />
           </div>
           <Button className="gap-2" onClick={openCreateSheet}>
             <Plus className="h-4 w-4" />
-            New project
+            {t('projects.newProject')}
           </Button>
         </div>
 
@@ -513,17 +516,17 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                 <EmptyMedia variant="icon">
                   <FolderOpen />
                 </EmptyMedia>
-                <EmptyTitle>No projects found</EmptyTitle>
+                <EmptyTitle>{t('projects.noProjects')}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Owners</TableHead>
-                  <TableHead className="text-right">Links</TableHead>
+                  <TableHead>{t('common.name')}</TableHead>
+                  <TableHead>{t('common.created')}</TableHead>
+                  <TableHead>{t('projects.owners')}</TableHead>
+                  <TableHead className="text-right">{t('projects.links')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -531,7 +534,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                 const ownerIds = project.ownerUserIds ?? []
                 const owners = ownerIds.map((ownerId) => ({
                   id: ownerId,
-                  label: project.ownerDisplayNames?.[ownerId] || displayUser(userById.get(ownerId)),
+                  label: project.ownerDisplayNames?.[ownerId] || displayUser(userById.get(ownerId), t('common.unknownUser')),
                 }))
                 return (
                   <TableRow
@@ -541,35 +544,35 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                       onClick={() => handleOpenProject(project.id)}
                     >
                     <TableCell className="max-w-0 font-medium">
-                      <span className="block truncate" title={formatProjectTitle(project)}>{formatProjectTitle(project)}</span>
+                      <span className="block truncate" title={formatProjectTitle(project, t('common.untitledProject'))}>{formatProjectTitle(project, t('common.untitledProject'))}</span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{formatShortDate(project.createdAt)}</TableCell>
                     <TableCell>
                       {owners.length > 0 ? (
-                        <div className="flex -space-x-2" aria-label="Project owners">
+                        <div className="flex -space-x-2" aria-label={t('projects.projectOwners')}>
                           {owners.slice(0, 4).map((owner) => (
                             <span key={owner.id} className="grid size-7 place-items-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground" title={owner.label}>
                               {avatarInitials(owner.label)}
                             </span>
                           ))}
                           {owners.length > 4 ? (
-                            <span className="grid size-7 place-items-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground" title={`${owners.length - 4} more owners`}>
+                            <span className="grid size-7 place-items-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground" title={t('projects.moreOwners', { count: owners.length - 4 })}>
                               +{owners.length - 4}
                             </span>
                           ) : null}
                         </div>
                       ) : (
-                        <span className="text-sm text-muted-foreground">No owners</span>
+                        <span className="text-sm text-muted-foreground">{t('projects.noOwners')}</span>
                       )}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         <Button type="button" variant="ghost" size="sm" className="gap-1.5" onClick={() => handleOpenProject(project.id)}>
-                        Workspace
+                        {t('projects.workspace')}
                           <ArrowRight className="h-3 w-3" />
                         </Button>
                         <Button type="button" variant="ghost" size="sm" onClick={(event) => { event.stopPropagation(); handleOpenProjectSettings(project.id) }}>
-                          Settings
+                          {t('projects.settings')}
                         </Button>
                       </div>
                     </TableCell>
@@ -592,14 +595,14 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
           <SheetHeader className="flex min-h-12 flex-row items-center justify-between gap-3 border-b px-4 py-2">
             <SheetTitle className="text-xl">
               {sheetMode === 'create'
-                ? 'New project'
+                ? t('projects.newProject')
                 : sheetMode === 'edit'
-                  ? 'Edit project'
-                  : selectedProject ? formatProjectTitle(selectedProject) : 'Project workspace'}
+                  ? t('projects.editProject')
+                  : selectedProject ? formatProjectTitle(selectedProject, t('common.untitledProject')) : t('projects.projectWorkspace')}
             </SheetTitle>
             <SheetClose
               render={<Button variant="ghost" size="icon-sm" className="-mr-2" />}
-              aria-label="Close"
+              aria-label={t('common.close')}
             >
               <X className="h-4 w-4" />
             </SheetClose>
@@ -611,60 +614,60 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                 <div className="space-y-6">
                   <dl className="space-y-4">
                     <div className="border-b pb-3">
-                      <dt className="text-sm font-medium">Name</dt>
-                      <dd className="mt-1 break-words text-sm text-muted-foreground">{formatProjectTitle(selectedProject)}</dd>
+                      <dt className="text-sm font-medium">{t('common.name')}</dt>
+                      <dd className="mt-1 break-words text-sm text-muted-foreground">{formatProjectTitle(selectedProject, t('common.untitledProject'))}</dd>
                     </div>
                     <div className="border-b pb-3">
                       <dt className="flex items-center gap-1 text-sm font-medium">
                         <Calendar className="h-3 w-3 text-muted-foreground" />
-                        Created
+                        {t('common.created')}
                       </dt>
-                      <dd className="mt-1 text-sm text-muted-foreground">{formatOptionalDate(selectedProject.createdAt)}</dd>
+                      <dd className="mt-1 text-sm text-muted-foreground">{formatOptionalDate(selectedProject.createdAt, t('common.notAvailable'))}</dd>
                     </div>
                     <div className="border-b pb-3">
                       <dt className="flex items-center gap-1 text-sm font-medium">
                         <Clock className="h-3 w-3 text-muted-foreground" />
-                        Updated
+                        {t('common.updated')}
                       </dt>
-                      <dd className="mt-1 text-sm text-muted-foreground">{formatOptionalDate(selectedProject.updatedAt)}</dd>
+                      <dd className="mt-1 text-sm text-muted-foreground">{formatOptionalDate(selectedProject.updatedAt, t('common.notAvailable'))}</dd>
                     </div>
                   </dl>
 
                   <Button type="button" variant="outline" className="gap-2" onClick={() => handleOpenProject(selectedProject.id)}>
-                    Open project
+                    {t('projects.openProject')}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
 
                   <section className="space-y-3 border-t pt-5">
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold">Project members</h3>
+                      <h3 className="text-sm font-semibold">{t('projects.projectMembers')}</h3>
                       <Badge variant="secondary">{projectMembers.length}</Badge>
                     </div>
 
                     <form className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto]" onSubmit={handleAssignMember}>
                       <NativeSelect className="w-full" value={assignMemberUserId} onChange={(event) => setAssignMemberUserId(event.target.value)} disabled={availableMemberUsers.length === 0}>
-                        <NativeSelectOption value="">Select user</NativeSelectOption>
+                        <NativeSelectOption value="">{t('projects.selectUser')}</NativeSelectOption>
                         {availableMemberUsers.map((user) => (
                           <NativeSelectOption key={user.id} value={user.id}>
-                            {displayUser(user)}
+                            {displayUser(user, t('common.unknownUser'))}
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
                       <NativeSelect className="w-full" value={assignMemberRole} onChange={(event) => setAssignMemberRole(event.target.value as ProjectMember['role'])}>
                         {PROJECT_ROLE_OPTIONS.map((role) => (
                           <NativeSelectOption key={role} value={role}>
-                            {role}
+                            {translateRole(role, t)}
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
                       <Button type="submit" className="gap-2" disabled={isAssigningMember || !assignMemberUserId}>
                         {isAssigningMember ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                        Add
+                        {t('common.add')}
                       </Button>
                     </form>
 
                     {projectMembers.length === 0 ? (
-                      <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">No direct members assigned.</div>
+                      <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">{t('projects.noDirectMembers')}</div>
                     ) : (
                       <div className="space-y-2">
                         {projectMembers.map((member) => {
@@ -672,7 +675,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                           return (
                             <div key={member.userId} className="grid gap-2 rounded-md border px-3 py-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-center">
                               <div className="min-w-0">
-                                <div className="truncate text-sm font-medium">{displayUser(user)}</div>
+                                <div className="truncate text-sm font-medium">{displayUser(user, t('common.unknownUser'))}</div>
                                 <div className="truncate font-mono text-xs text-muted-foreground">{member.userId}</div>
                               </div>
                               <NativeSelect
@@ -683,16 +686,16 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                               >
                                 {PROJECT_ROLE_OPTIONS.map((role) => (
                                   <NativeSelectOption key={role} value={role}>
-                                    {role}
+                                    {translateRole(role, t)}
                                   </NativeSelectOption>
                                 ))}
                               </NativeSelect>
                               <DeleteConfirmPopover
-                                title="Remove project member?"
-                                description="This user will lose direct access granted by this project membership."
-                                confirmLabel="Remove"
+                                title={t('projects.removeMember')}
+                                description={t('projects.removeMemberDescription')}
+                                confirmLabel={t('common.remove')}
                                 trigger={(
-                                  <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove project member">
+                                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t('projects.removeMemberAction')}>
                                     <X className="h-4 w-4" />
                                   </Button>
                                 )}
@@ -707,13 +710,13 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
 
                   <section className="space-y-3 border-t pt-5">
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold">Assigned teams</h3>
+                      <h3 className="text-sm font-semibold">{t('projects.assignedTeams')}</h3>
                       <Badge variant="secondary">{projectTeams.length}</Badge>
                     </div>
 
                     <form className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto]" onSubmit={handleAssignTeam}>
                       <NativeSelect className="w-full" value={assignTeamId} onChange={(event) => setAssignTeamId(event.target.value)} disabled={availableTeams.length === 0}>
-                        <NativeSelectOption value="">Select team</NativeSelectOption>
+                        <NativeSelectOption value="">{t('projects.selectTeam')}</NativeSelectOption>
                         {availableTeams.map((team) => (
                           <NativeSelectOption key={team.id} value={team.id}>
                             {team.name}
@@ -723,18 +726,18 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                       <NativeSelect className="w-full" value={assignTeamRole} onChange={(event) => setAssignTeamRole(event.target.value as ProjectTeam['role'])}>
                         {PROJECT_ROLE_OPTIONS.map((role) => (
                           <NativeSelectOption key={role} value={role}>
-                            {role}
+                            {translateRole(role, t)}
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
                       <Button type="submit" className="gap-2" disabled={isAssigningTeam || !assignTeamId}>
                         {isAssigningTeam ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                        Assign
+                        {t('projects.assign')}
                       </Button>
                     </form>
 
                     {projectTeams.length === 0 ? (
-                      <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">No teams assigned.</div>
+                      <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">{t('projects.noTeams')}</div>
                     ) : (
                       <div className="space-y-2">
                         {projectTeams.map((projectTeam) => {
@@ -742,15 +745,15 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                           return (
                             <div key={projectTeam.teamId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                               <div className="min-w-0">
-                                <div className="truncate text-sm font-medium">{team?.name || 'Unknown team'}</div>
-                                <div className="truncate text-xs text-muted-foreground">{projectTeam.role}</div>
+                                <div className="truncate text-sm font-medium">{team?.name || t('common.unknownTeam')}</div>
+                                <div className="truncate text-xs text-muted-foreground">{translateRole(projectTeam.role, t)}</div>
                               </div>
                               <DeleteConfirmPopover
-                                title="Remove team from project?"
-                                description="Team members will lose the project access granted through this team."
-                                confirmLabel="Remove"
+                                title={t('projects.removeTeam')}
+                                description={t('projects.removeTeamDescription')}
+                                confirmLabel={t('common.remove')}
                                 trigger={(
-                                  <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove team">
+                                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t('projects.removeTeamAction')}>
                                     <X className="h-4 w-4" />
                                   </Button>
                                 )}
@@ -764,7 +767,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                   </section>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Select a project to inspect it.</p>
+                <p className="text-sm text-muted-foreground">{t('projects.selectProject')}</p>
               )
             ) : (
               <form
@@ -772,7 +775,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                 onSubmit={sheetMode === 'create' ? handleCreateProject : handleUpdateProject}
               >
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold">Name</label>
+                  <label className="flex items-center gap-2 text-sm font-semibold">{t('common.name')}</label>
                   <Input
                     value={form.title}
                     onChange={(event) => setForm({ title: event.target.value })}
@@ -782,12 +785,12 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
 
                 {sheetMode === 'create' ? (
                   <section className="space-y-3 border-t pt-5">
-                    <label className="block text-sm font-semibold">Owners</label>
+                    <label className="block text-sm font-semibold">{t('projects.owners')}</label>
 
                     <div className="flex gap-2">
                       <NativeSelect className="w-28 shrink-0" value={createOwnerType} onChange={(event) => setCreateOwnerType(event.target.value as 'USER' | 'TEAM')}>
-                        <NativeSelectOption value="USER">User</NativeSelectOption>
-                        <NativeSelectOption value="TEAM">Team</NativeSelectOption>
+                        <NativeSelectOption value="USER">{t('common.user')}</NativeSelectOption>
+                        <NativeSelectOption value="TEAM">{t('common.team')}</NativeSelectOption>
                       </NativeSelect>
                       <NativeSelect
                         className="min-w-0 flex-1"
@@ -795,19 +798,19 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                         onChange={(event) => createOwnerType === 'USER' ? setCreateOwnerUserId(event.target.value) : setCreateOwnerTeamId(event.target.value)}
                         disabled={createOwnerType === 'USER' ? createOwnerUsers.length === 0 : createOwnerTeams.length === 0}
                       >
-                        <NativeSelectOption value="">Select {createOwnerType === 'USER' ? 'owner' : 'team'}</NativeSelectOption>
+                        <NativeSelectOption value="">{createOwnerType === 'USER' ? t('projects.selectOwner') : t('projects.selectTeam')}</NativeSelectOption>
                         {createOwnerType === 'USER'
-                          ? createOwnerUsers.map((user) => <NativeSelectOption key={user.id} value={user.id}>{displayUser(user)}</NativeSelectOption>)
+                          ? createOwnerUsers.map((user) => <NativeSelectOption key={user.id} value={user.id}>{displayUser(user, t('common.unknownUser'))}</NativeSelectOption>)
                           : createOwnerTeams.map((team) => <NativeSelectOption key={team.id} value={team.id}>{team.name}</NativeSelectOption>)}
                       </NativeSelect>
-                      <Button type="button" variant="outline" size="icon" onClick={handleAddCreateOwner} disabled={createOwnerType === 'USER' ? !createOwnerUserId : !createOwnerTeamId} aria-label="Add project owner">
+                      <Button type="button" variant="outline" size="icon" onClick={handleAddCreateOwner} disabled={createOwnerType === 'USER' ? !createOwnerUserId : !createOwnerTeamId} aria-label={t('projects.addOwner')}>
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
 
                     {createOwnerUserIds.length === 0 && createOwnerTeamIds.length === 0 ? (
                       <div className="rounded-md border border-dashed px-4 py-5 text-sm text-muted-foreground">
-                        No project owners selected.
+                        {t('projects.noOwnersSelected')}
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -816,10 +819,10 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                           return (
                             <div key={userId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                               <div className="min-w-0">
-                                <div className="truncate text-sm font-medium">{displayUser(user)}</div>
+                                <div className="truncate text-sm font-medium">{displayUser(user, t('common.unknownUser'))}</div>
                                 {user?.email ? <div className="truncate text-xs text-muted-foreground">{user.email}</div> : null}
                               </div>
-                              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleRemoveCreateOwnerUser(userId)} aria-label="Remove user owner">
+                              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleRemoveCreateOwnerUser(userId)} aria-label={t('projects.removeUserOwner')}>
                                 <X className="h-4 w-4" />
                               </Button>
                             </div>
@@ -831,10 +834,10 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                           return (
                             <div key={teamId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                               <div className="min-w-0">
-                                <div className="truncate text-sm font-medium">{team?.name || 'Unknown team'}</div>
-                                <div className="truncate text-xs text-muted-foreground">Team owner</div>
+                                <div className="truncate text-sm font-medium">{team?.name || t('common.unknownTeam')}</div>
+                                <div className="truncate text-xs text-muted-foreground">{t('projects.teamOwner')}</div>
                               </div>
-                              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleRemoveCreateOwnerTeam(teamId)} aria-label="Remove team owner">
+                              <Button type="button" variant="ghost" size="icon-sm" onClick={() => handleRemoveCreateOwnerTeam(teamId)} aria-label={t('projects.removeTeamOwner')}>
                                 <X className="h-4 w-4" />
                               </Button>
                             </div>
@@ -852,17 +855,17 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                     className="gap-2"
                   >
                     {isSubmitting ? (
-                      'Saving...'
+                      t('common.saving')
                     ) : (
                       <>
                         <Save className="h-4 w-4" />
-                        {sheetMode === 'create' ? 'Create project' : 'Save changes'}
+                        {sheetMode === 'create' ? t('projects.createProject') : t('common.saveChanges')}
                       </>
                     )}
                   </Button>
                   <Button type="button" variant="outline" className="gap-2" onClick={() => setIsSheetOpen(false)} disabled={isSubmitting}>
                     <X className="h-4 w-4" />
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                 </div>
               </form>
@@ -876,14 +879,14 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                 Edit project
               </Button>
               <DeleteConfirmPopover
-                title="Delete project?"
-                description="This will permanently delete the project workspace."
-                confirmLabel="Delete permanently"
+                title={t('projects.deleteProject')}
+                description={t('projects.deleteProjectDescription')}
+                confirmLabel={t('projects.deletePermanently')}
                 disabled={isDeleting}
                 trigger={(
                   <Button variant="destructive" disabled={isDeleting} className="gap-2">
                     <Trash2 className="h-4 w-4" />
-                    {isDeleting ? 'Deleting...' : 'Delete project'}
+                    {isDeleting ? t('common.deleting') : t('projects.deleteProjectButton')}
                   </Button>
                 )}
                 onConfirm={handleDeleteProject}

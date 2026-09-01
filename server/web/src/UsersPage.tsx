@@ -35,8 +35,10 @@ import {
   ComboboxList,
 } from '@/components/ui/combobox'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { translateRole, translateStatus } from '@/i18n/labels'
 import {
   Field,
   FieldGroup,
@@ -109,6 +111,7 @@ function TimezonePicker({
   value: string
   onValueChange: (value: string) => void
 }) {
+  const { t } = useTranslation()
   return (
     <Combobox
       items={timezoneOptions}
@@ -118,9 +121,9 @@ function TimezonePicker({
       itemToStringValue={(timezone) => timezone}
       autoHighlight
     >
-      <ComboboxInput className="w-full" placeholder="Search" />
+      <ComboboxInput className="w-full" placeholder={t('common.search')} />
       <ComboboxContent>
-        <ComboboxEmpty>No timezone found.</ComboboxEmpty>
+        <ComboboxEmpty>{t('usersPage.noTimezone')}</ComboboxEmpty>
         <ComboboxList>
           {timezoneOptions.map((timezone, index) => (
             <ComboboxItem key={timezone} value={timezone} index={index}>
@@ -140,8 +143,8 @@ function formatDate(value: string) {
   }).format(new Date(value))
 }
 
-function formatValue(value: string | null) {
-  return value && value.trim() ? value : 'Not set'
+function formatValue(value: string | null, fallback: string) {
+  return value && value.trim() ? value : fallback
 }
 
 function isValidOptionalEmail(value: string) {
@@ -150,6 +153,7 @@ function isValidOptionalEmail(value: string) {
 }
 
 export default function UsersPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const isSuperAdmin = currentUser?.globalRole === 'SUPERADMIN'
   const isAdminLike = currentUser?.globalRole === 'ADMIN' || currentUser?.globalRole === 'SUPERADMIN'
@@ -191,7 +195,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
         clearSelection()
       }
     } catch (loadError) {
-      toast.error(loadError instanceof Error ? loadError.message : 'Failed to load users.')
+      toast.error(loadError instanceof Error ? loadError.message : t('usersPage.failedLoad'))
       setUsers([])
       setTotalPages(0)
       clearSelection()
@@ -223,7 +227,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       }
     } catch (loadError) {
       setSelectedUser(null)
-      toast.error(loadError instanceof Error ? loadError.message : 'Failed to load user details.')
+      toast.error(loadError instanceof Error ? loadError.message : t('usersPage.failedLoadDetails'))
     } finally {
       setIsDetailLoading(false)
     }
@@ -283,7 +287,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!isValidOptionalEmail(form.email)) {
-      toast.error('Enter a valid email address.')
+      toast.error(t('usersPage.emailInvalid'))
       return
     }
     setIsSubmitting(true)
@@ -317,9 +321,9 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       await loadPage(page)
       await selectUser(user.id)
       setIsSheetOpen(false)
-      toast.success(sheetMode === 'create' ? 'User created.' : 'User updated.')
+      toast.success(sheetMode === 'create' ? t('usersPage.userCreated') : t('usersPage.userUpdated'))
     } catch (submitError) {
-      toast.error(submitError instanceof Error ? submitError.message : 'Failed to save user.')
+      toast.error(submitError instanceof Error ? submitError.message : t('usersPage.failedSave'))
     } finally {
       setIsSubmitting(false)
     }
@@ -343,9 +347,9 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       } else {
         await loadPage(page)
       }
-      toast.success('User deleted.')
+      toast.success(t('usersPage.userDeleted'))
     } catch (deleteError) {
-      toast.error(deleteError instanceof Error ? deleteError.message : 'Failed to delete user.')
+      toast.error(deleteError instanceof Error ? deleteError.message : t('usersPage.failedDelete'))
     } finally {
       setIsDeleting(false)
     }
@@ -358,7 +362,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
     }
 
     if (!passwordResetValue || passwordResetValue.length < 6) {
-      toast.error('Password must be at least 6 characters.')
+      toast.error(t('auth.passwordMinLength'))
       return
     }
 
@@ -376,9 +380,9 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
       setPasswordResetValue('')
       setForcePasswordChange(updatedUser.mustChangePassword)
       await loadPage(page)
-      toast.success('Password reset successfully.')
+      toast.success(t('usersPage.passwordReset'))
     } catch (submitError) {
-      toast.error(submitError instanceof Error ? submitError.message : 'Failed to reset password.')
+      toast.error(submitError instanceof Error ? submitError.message : t('usersPage.failedReset'))
     } finally {
       setIsResettingPassword(false)
     }
@@ -399,7 +403,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-        <h1 className="text-xl font-semibold leading-none tracking-normal">Users</h1>
+        <h1 className="text-xl font-semibold leading-none tracking-normal">{t('usersPage.pageTitle')}</h1>
       </div>
 
       <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
@@ -410,13 +414,13 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
               className="pl-10"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search"
+              placeholder={t('common.search')}
             />
           </div>
           {isAdminLike ? (
             <Button className="gap-2" onClick={openCreateSheet}>
               <Plus className="h-4 w-4" />
-              New user
+              {t('usersPage.newUser')}
             </Button>
           ) : null}
         </div>
@@ -432,7 +436,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                 <EmptyMedia variant="icon">
                   <UsersRound />
                 </EmptyMedia>
-                <EmptyTitle>No users found</EmptyTitle>
+                <EmptyTitle>{t('usersPage.noUsers')}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
@@ -440,13 +444,13 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Username</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Password</TableHead>
+                    <TableHead>{t('common.name')}</TableHead>
+                    <TableHead>{t('common.title')}</TableHead>
+                    <TableHead>{t('common.email')}</TableHead>
+                    <TableHead>{t('common.username')}</TableHead>
+                    <TableHead>{t('common.status')}</TableHead>
+                    <TableHead>{t('common.role')}</TableHead>
+                    <TableHead>{t('common.password')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -460,19 +464,19 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                         onClick={() => void selectUser(user.id)}
                       >
                         <TableCell className="font-medium">{user.displayName?.trim() || user.username}</TableCell>
-                        <TableCell className="max-w-[220px] truncate text-muted-foreground">{formatValue(user.title)}</TableCell>
-                        <TableCell className="max-w-[280px] truncate text-muted-foreground">{formatValue(user.email)}</TableCell>
+                        <TableCell className="max-w-[220px] truncate text-muted-foreground">{formatValue(user.title, t('common.notSet'))}</TableCell>
+                        <TableCell className="max-w-[280px] truncate text-muted-foreground">{formatValue(user.email, t('common.notSet'))}</TableCell>
                         <TableCell className="font-mono text-[11px] text-muted-foreground">@{user.username}</TableCell>
                         <TableCell>
                           <Badge variant={user.status === 'ACTIVE' ? 'secondary' : 'outline'}>
-                            {formatValue(user.status)}
+                            {user.status ? translateStatus(user.status, t) : t('common.notSet')}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{formatValue(user.globalRole)}</Badge>
+                          <Badge variant="outline">{user.globalRole ? translateRole(user.globalRole, t) : t('common.notSet')}</Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {user.mustChangePassword ? 'Reset required' : 'Ready'}
+                            {user.mustChangePassword ? t('status.resetRequired') : t('status.ready')}
                         </TableCell>
                       </TableRow>
                     )
@@ -516,14 +520,14 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
           <SheetHeader className="flex min-h-12 flex-row items-center justify-between gap-3 border-b px-4 py-2">
             <SheetTitle className="text-xl">
               {sheetMode === 'create'
-                ? 'New user'
+                ? t('usersPage.newUser')
                 : sheetMode === 'edit'
-                  ? 'Edit user'
-                  : selectedUser?.displayName || selectedUser?.username || 'User details'}
+                  ? t('usersPage.editUser')
+                  : selectedUser?.displayName || selectedUser?.username || t('usersPage.userDetails')}
             </SheetTitle>
             <SheetClose
               render={<Button variant="ghost" size="icon-sm" className="-mr-2" />}
-              aria-label="Close"
+              aria-label={t('common.close')}
             >
               <X className="h-4 w-4" />
             </SheetClose>
@@ -543,17 +547,17 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                 <div className="space-y-6">
                   <dl className="space-y-4">
                     {[
-                      ['Display name', formatValue(selectedUser.displayName)],
-                      ['Title', formatValue(selectedUser.title)],
-                      ['Bio', formatValue(selectedUser.bio)],
-                      ['Username', selectedUser.username],
-                      ['Email', formatValue(selectedUser.email)],
-                      ['Timezone', formatValue(selectedUser.timezone)],
-                      ['Status', formatValue(selectedUser.status)],
-                      ['Role', formatValue(selectedUser.globalRole)],
-                      ['Password reset required', selectedUser.mustChangePassword ? 'Yes' : 'No'],
-                      ['Created', formatDate(selectedUser.createdAt)],
-                      ['Updated', formatDate(selectedUser.updatedAt)],
+                      [t('usersPage.displayName'), formatValue(selectedUser.displayName, t('common.notSet'))],
+                      [t('common.title'), formatValue(selectedUser.title, t('common.notSet'))],
+                      [t('usersPage.bio'), formatValue(selectedUser.bio, t('common.notSet'))],
+                      [t('common.username'), selectedUser.username],
+                      [t('common.email'), formatValue(selectedUser.email, t('common.notSet'))],
+                      [t('common.timezone'), formatValue(selectedUser.timezone, t('common.notSet'))],
+                      [t('common.status'), selectedUser.status ? translateStatus(selectedUser.status, t) : t('common.notSet')],
+                      [t('common.role'), selectedUser.globalRole ? translateRole(selectedUser.globalRole, t) : t('common.notSet')],
+                      [t('usersPage.passwordResetRequired'), selectedUser.mustChangePassword ? t('common.yes') : t('common.no')],
+                      [t('common.created'), formatDate(selectedUser.createdAt)],
+                      [t('common.updated'), formatDate(selectedUser.updatedAt)],
                     ].map(([label, value]) => (
                       <div key={label} className="border-b pb-3 last:border-b-0">
                         <dt className="text-sm font-medium">{label}</dt>
@@ -564,18 +568,18 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
 
                   {isAdminLike ? (
                   <form className="space-y-4 border-t pt-5" onSubmit={handlePasswordReset}>
-                    <h3 className="text-sm font-medium">Security</h3>
+                    <h3 className="text-sm font-medium">{t('usersPage.security')}</h3>
                     <FieldGroup className="gap-4">
                       <Field className="gap-2">
                         <div className="flex items-center justify-between gap-3">
-                          <label className="block text-sm font-semibold" htmlFor="reset-password">Temporary password</label>
+                          <label className="block text-sm font-semibold" htmlFor="reset-password">{t('usersPage.temporaryPassword')}</label>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             className="-mr-2 gap-1.5 px-2 text-muted-foreground"
                             onClick={() => setShowPasswordReset((current) => !current)}
-                            aria-label={showPasswordReset ? 'Hide password' : 'Show password'}
+                            aria-label={showPasswordReset ? t('auth.hidePassword') : t('auth.showPassword')}
                           >
                             {showPasswordReset ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
@@ -597,17 +601,17 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                           onCheckedChange={(checked) => setForcePasswordChange(checked === true)}
                         />
                         <label className="block text-sm font-semibold" htmlFor="force-password-change">
-                          Require password update on next sign-in
+                          {t('usersPage.requirePasswordUpdate')}
                         </label>
                       </Field>
                     </FieldGroup>
 
                     <Button type="submit" disabled={isResettingPassword || !passwordResetValue.trim()} className="gap-2">
                       {isResettingPassword ? (
-                        'Resetting...'
+                        t('usersPage.resetting')
                       ) : (
                         <>
-                          <Lock className="h-4 w-4" /> Reset password
+                          <Lock className="h-4 w-4" /> {t('usersPage.resetPassword')}
                         </>
                       )}
                     </Button>
@@ -615,13 +619,13 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   ) : null}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Select a user to inspect it.</p>
+                <p className="text-sm text-muted-foreground">{t('usersPage.selectUser')}</p>
               )
             ) : (
               <form className="space-y-5" onSubmit={handleSubmit}>
                 <FieldGroup className="gap-4">
                   <Field className="gap-2">
-                    <label className="block text-sm font-semibold" htmlFor="user-username">Username</label>
+                    <label className="block text-sm font-semibold" htmlFor="user-username">{t('common.username')}</label>
                     <Input
                       id="user-username"
                       value={form.username}
@@ -631,7 +635,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   </Field>
 
                   <Field className="gap-2">
-                    <label className="block text-sm font-semibold" htmlFor="user-display-name">Display name</label>
+                    <label className="block text-sm font-semibold" htmlFor="user-display-name">{t('usersPage.displayName')}</label>
                     <Input
                       id="user-display-name"
                       value={form.displayName}
@@ -640,7 +644,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   </Field>
 
                   <Field className="gap-2">
-                    <label className="block text-sm font-semibold" htmlFor="user-email">Email</label>
+                    <label className="block text-sm font-semibold" htmlFor="user-email">{t('common.email')}</label>
                     <Input
                       id="user-email"
                       type="email"
@@ -652,7 +656,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   </Field>
 
                   <Field className="gap-2">
-                    <label className="block text-sm font-semibold" htmlFor="user-title">Title</label>
+                    <label className="block text-sm font-semibold" htmlFor="user-title">{t('common.title')}</label>
                     <Input
                       id="user-title"
                       value={form.title}
@@ -661,7 +665,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   </Field>
 
                   <Field className="gap-2">
-                    <label className="block text-sm font-semibold" htmlFor="user-bio">Bio</label>
+                    <label className="block text-sm font-semibold" htmlFor="user-bio">{t('usersPage.bio')}</label>
                     <Textarea
                       id="user-bio"
                       value={form.bio}
@@ -671,7 +675,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   </Field>
 
                   <Field className="gap-2">
-                    <label className="block text-sm font-semibold" htmlFor="user-timezone">Timezone</label>
+                    <label className="block text-sm font-semibold" htmlFor="user-timezone">{t('common.timezone')}</label>
                     <TimezonePicker
                       value={form.timezone}
                       onValueChange={(value) => updateField('timezone', value)}
@@ -679,7 +683,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   </Field>
 
                   <Field className="gap-2">
-                    <label className="block text-sm font-semibold">Status</label>
+                    <label className="block text-sm font-semibold">{t('common.status')}</label>
                     <Select value={form.status} onValueChange={(value) => updateField('status', value ?? 'ACTIVE')}>
                       <SelectTrigger className="w-full">
                         <SelectValue />
@@ -687,7 +691,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                       <SelectContent>
                         {USER_STATUS_OPTIONS.map((status) => (
                           <SelectItem key={status} value={status}>
-                            {status}
+                            {status === 'ACTIVE' ? t('status.active') : t('status.inactive')}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -696,7 +700,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
 
                   {isSuperAdmin ? (
                     <Field className="gap-2">
-                      <label className="block text-sm font-semibold">Role</label>
+                      <label className="block text-sm font-semibold">{t('common.role')}</label>
                       <Select value={form.globalRole} onValueChange={(value) => updateField('globalRole', value ?? 'USER')}>
                         <SelectTrigger className="w-full">
                           <SelectValue />
@@ -704,7 +708,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                         <SelectContent>
                           {USER_ROLE_OPTIONS.map((globalRole) => (
                             <SelectItem key={globalRole} value={globalRole}>
-                              {globalRole}
+                              {globalRole === 'ADMIN' ? t('role.admin') : t('role.user')}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -715,14 +719,14 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   {sheetMode === 'create' ? (
                     <Field className="gap-2">
                       <div className="flex items-center justify-between gap-3">
-                        <label className="block text-sm font-semibold" htmlFor="user-password">Initial password</label>
+                        <label className="block text-sm font-semibold" htmlFor="user-password">{t('usersPage.initialPassword')}</label>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           className="-mr-2 gap-1.5 px-2 text-muted-foreground"
                           onClick={() => setShowInitialPassword((current) => !current)}
-                          aria-label={showInitialPassword ? 'Hide password' : 'Show password'}
+                          aria-label={showInitialPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                         >
                           {showInitialPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
@@ -742,16 +746,16 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                 <div className="flex gap-2">
                   <Button type="submit" disabled={isSubmitting} className="gap-2">
                     {isSubmitting ? (
-                      'Saving...'
+                      t('common.saving')
                     ) : (
                       <>
                         <Save className="h-4 w-4" />
-                        {sheetMode === 'create' ? 'Create user' : 'Save changes'}
+                        {sheetMode === 'create' ? t('usersPage.createUser') : t('common.saveChanges')}
                       </>
                     )}
                   </Button>
                   <Button type="button" variant="outline" className="gap-2" onClick={() => setIsSheetOpen(false)} disabled={isSubmitting}>
-                    <X className="h-4 w-4" /> Cancel
+                    <X className="h-4 w-4" /> {t('common.cancel')}
                   </Button>
                 </div>
               </form>
@@ -762,17 +766,17 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
             isAdminLike ? (
             <div className="flex shrink-0 gap-2 border-t p-6">
               <Button onClick={openEditSheet} className="gap-2">
-                <Edit3 className="h-4 w-4" /> Edit user
+                <Edit3 className="h-4 w-4" /> {t('usersPage.editUser')}
               </Button>
               <DeleteConfirmPopover
-                title="Delete user?"
-                description="This will deactivate the user account, remove their project and team memberships, and sign them out immediately. Their past activity keeps their name."
-                confirmLabel="Delete user"
+                title={t('usersPage.deleteUser')}
+                description={t('usersPage.deleteUserDescription')}
+                confirmLabel={t('usersPage.deleteUserConfirm')}
                 disabled={isDeleting}
                 trigger={(
                   <Button variant="destructive" disabled={isDeleting} className="gap-2">
                     <Trash2 className="h-4 w-4" />
-                    {isDeleting ? 'Deleting...' : 'Delete user'}
+                    {isDeleting ? t('common.deleting') : t('usersPage.deleteUserButton')}
                   </Button>
                 )}
                 onConfirm={handleDelete}

@@ -8,10 +8,12 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Bookmark, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 import { listSubscriptions, unsubscribeWorkItem, type SubscribedWorkItem } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { workItemTypeBadgeClass } from '@/lib/typeBadges'
+import { translateWorkItemType } from '@/i18n/labels'
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -21,6 +23,7 @@ function formatDate(value: string) {
 }
 
 export default function SubscriptionsPage() {
+  const { t } = useTranslation()
   const [items, setItems] = useState<SubscribedWorkItem[]>([])
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -35,7 +38,7 @@ export default function SubscriptionsPage() {
       setItems(data.items)
       setTotalPages(data.totalPages)
     } catch (loadError) {
-      toast.error(loadError instanceof Error ? loadError.message : 'Failed to load subscriptions.')
+      toast.error(loadError instanceof Error ? loadError.message : t('subscriptions.failedLoad'))
       setItems([])
       setTotalPages(0)
     } finally {
@@ -54,9 +57,9 @@ export default function SubscriptionsPage() {
     try {
       await unsubscribeWorkItem(item.projectId, item.workItemId)
       setItems((current) => current.filter((entry) => entry.workItemId !== item.workItemId))
-      toast.success(`Unsubscribed from "${item.workItemTitle}".`)
+      toast.success(t('subscriptions.unsubscribed', { title: item.workItemTitle }))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to unsubscribe.')
+      toast.error(error instanceof Error ? error.message : t('subscriptions.failedUnsubscribe'))
     } finally {
       setUnsubscribingWorkItemIds((current) => {
         const next = new Set(current)
@@ -69,7 +72,7 @@ export default function SubscriptionsPage() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-        <h1 className="text-xl font-semibold leading-none tracking-normal">Subscriptions</h1>
+        <h1 className="text-xl font-semibold leading-none tracking-normal">{t('subscriptions.pageTitle')}</h1>
       </div>
 
       <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
@@ -84,7 +87,7 @@ export default function SubscriptionsPage() {
                 <EmptyMedia variant="icon">
                   <Bookmark />
                 </EmptyMedia>
-                <EmptyTitle>No subscriptions yet</EmptyTitle>
+                <EmptyTitle>{t('subscriptions.empty')}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
@@ -92,10 +95,10 @@ export default function SubscriptionsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Work item</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Subscribed</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead>{t('subscriptions.workItem')}</TableHead>
+                    <TableHead>{t('common.project')}</TableHead>
+                    <TableHead>{t('subscriptions.subscribed')}</TableHead>
+                    <TableHead className="text-right">{t('subscriptions.action')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -107,7 +110,7 @@ export default function SubscriptionsPage() {
                           <div className="min-w-0">
                             <div className="flex min-w-0 items-center gap-2">
                               <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', workItemTypeBadgeClass(item.workItemType))}>
-                                {item.workItemType}
+                                {translateWorkItemType(item.workItemType, t)}
                               </Badge>
                               <NavLink
                                 to={`/app/projects/${item.projectId}?workItemId=${item.workItemId}`}
@@ -118,7 +121,7 @@ export default function SubscriptionsPage() {
                             </div>
                             {item.parentWorkItemId && item.parentWorkItemTitle ? (
                               <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                                under {item.parentWorkItemTitle}
+                                {t('subscriptions.under')} {item.parentWorkItemTitle}
                               </div>
                             ) : null}
                           </div>
@@ -139,7 +142,7 @@ export default function SubscriptionsPage() {
                             onClick={() => void handleUnsubscribe(item)}
                           >
                             {isUnsubscribing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
-                            Unsubscribe
+                            {t('subscriptions.unsubscribe')}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -157,7 +160,7 @@ export default function SubscriptionsPage() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm text-muted-foreground">Page {page + 1} of {Math.max(totalPages, 1)}</span>
+                  <span className="text-sm text-muted-foreground">{t('common.pageOf', { page: page + 1, total: Math.max(totalPages, 1) })}</span>
                   <Button
                     variant="outline"
                     size="icon-sm"
@@ -175,7 +178,7 @@ export default function SubscriptionsPage() {
                         setPage(0)
                       }}
                       disabled={isLoading}
-                      aria-label="Page size"
+                      aria-label={t('common.pageSize')}
                     >
                       <NativeSelectOption value="25">25</NativeSelectOption>
                       <NativeSelectOption value="50">50</NativeSelectOption>

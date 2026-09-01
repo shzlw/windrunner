@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Bot, ChevronLeft } from 'lucide-react'
 import { useGroupRef, usePanelRef } from 'react-resizable-panels'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -36,7 +37,7 @@ function loadDefaultLayout(storageKey: string) {
   return { 'conversation-pane': 35, 'artifact-pane': 65 }
 }
 
-function AssistantLauncher({ onClick, label = 'Open Ask AI' }: { onClick: () => void | Promise<void>; label?: string }) {
+function AssistantLauncher({ onClick, label }: { onClick: () => void | Promise<void>; label: string }) {
   return (
     <Button
       type="button"
@@ -53,6 +54,7 @@ function AssistantLauncher({ onClick, label = 'Open Ask AI' }: { onClick: () => 
 }
 
 export default function PaneLayout({ mode, content, chat, artifact, onOpenAssistant, assistantLabel, className }: PaneLayoutProps) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const location = useLocation()
   const navigate = useNavigate()
@@ -117,7 +119,7 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {artifact}
         </main>
-        <AssistantLauncher onClick={handleOpenAssistant} label={assistantLabel ?? 'Open Ask AI'} />
+        <AssistantLauncher onClick={handleOpenAssistant} label={assistantLabel ?? t('pane.openAskAi')} />
       </div>
     )
   }
@@ -125,7 +127,7 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
   if (isMobile) {
     return (
       <div className={[rootClassName, 'flex-col'].join(' ')} data-layout="chat-artifact">
-        <div className="flex shrink-0 items-center gap-1 border-b bg-background p-1.5" role="tablist" aria-label="Workspace panes">
+        <div className="flex shrink-0 items-center gap-1 border-b bg-background p-1.5" role="tablist" aria-label={t('pane.workspacePanes')}>
           <button
             type="button"
             role="tab"
@@ -133,7 +135,7 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
             className={['flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors', mobilePane === 'chat' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'].join(' ')}
             onClick={() => setMobilePane('chat')}
           >
-            Chat
+            {t('pane.chat')}
           </button>
           <button
             type="button"
@@ -142,7 +144,7 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
             className={['flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors', mobilePane === 'artifact' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'].join(' ')}
             onClick={() => setMobilePane('artifact')}
           >
-            Artifact
+            {t('pane.artifact')}
           </button>
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -193,8 +195,8 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
               variant="ghost"
               className="absolute top-2 right-2 z-10 hidden bg-background/90 shadow-sm md:flex"
               onClick={toggleChatPanel}
-              aria-label="Collapse conversation"
-              title="Collapse conversation"
+              aria-label={t('pane.collapseConversation')}
+              title={t('pane.collapseConversation')}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -204,7 +206,7 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
         <ResizablePanel id="artifact-pane" defaultSize="65%" minSize={320}>
           <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
             {artifact}
-            {isChatCollapsed ? <AssistantLauncher onClick={expandAssistant} label={assistantLabel ?? 'Expand Ask AI'} /> : null}
+            {isChatCollapsed ? <AssistantLauncher onClick={expandAssistant} label={assistantLabel ?? t('pane.expandAskAi')} /> : null}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

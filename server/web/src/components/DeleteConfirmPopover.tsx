@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -28,6 +29,7 @@ export default function DeleteConfirmPopover({
   disabled = false,
   onConfirm,
 }: DeleteConfirmPopoverProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
   function handleConfirm() {
@@ -45,7 +47,7 @@ export default function DeleteConfirmPopover({
         </PopoverHeader>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={handleConfirm}>
             {confirmLabel}

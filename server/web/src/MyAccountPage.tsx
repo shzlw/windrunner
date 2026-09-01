@@ -29,6 +29,7 @@ import {
   type SystemInformation,
   updatePassword,
 } from '@/lib/api'
+import { translateRole, translateStatus } from '@/i18n/labels'
 
 function displayValue(value: string | null | undefined) {
   const trimmed = value?.trim()
@@ -47,9 +48,9 @@ function isAdminLike(user: AuthUser | null) {
   return role === 'ADMIN' || role === 'SUPERADMIN'
 }
 
-function formatDateTime(value: string | null | undefined) {
+function formatDateTime(value: string | null | undefined, emptyLabel: string) {
   if (!value) {
-    return 'Never'
+    return emptyLabel
   }
 
   return new Intl.DateTimeFormat(undefined, {
@@ -120,6 +121,36 @@ const TOTAL_SCOPE_COUNT = API_KEY_SCOPE_GROUPS.reduce((sum, group) => sum + grou
 
 const ALL_SCOPE_VALUES = API_KEY_SCOPE_GROUPS.flatMap((group) => group.options.map((option) => option.value))
 
+const scopeGroupKeys: Record<string, string> = {
+  Teams: 'account.scopeGroups.teams',
+  Users: 'account.scopeGroups.users',
+  Projects: 'account.scopeGroups.projects',
+  'Work items': 'account.scopeGroups.workItems',
+  Entries: 'account.scopeGroups.entries',
+  Relationships: 'account.scopeGroups.relationships',
+  Audit: 'account.scopeGroups.audit',
+}
+
+const scopeOptionKeys: Record<ApiKeyScope, { label: string; description: string }> = {
+  'teams:read': { label: 'account.scopeOptions.teamsReadLabel', description: 'account.scopeOptions.teamsReadDescription' },
+  'teams:write': { label: 'account.scopeOptions.teamsWriteLabel', description: 'account.scopeOptions.teamsWriteDescription' },
+  'team_members:read': { label: 'account.scopeOptions.teamMembersReadLabel', description: 'account.scopeOptions.teamMembersReadDescription' },
+  'team_members:write': { label: 'account.scopeOptions.teamMembersWriteLabel', description: 'account.scopeOptions.teamMembersWriteDescription' },
+  'team_projects:read': { label: 'account.scopeOptions.teamProjectsReadLabel', description: 'account.scopeOptions.teamProjectsReadDescription' },
+  'users:read': { label: 'account.scopeOptions.usersReadLabel', description: 'account.scopeOptions.usersReadDescription' },
+  'projects:read': { label: 'account.scopeOptions.projectsReadLabel', description: 'account.scopeOptions.projectsReadDescription' },
+  'projects:write': { label: 'account.scopeOptions.projectsWriteLabel', description: 'account.scopeOptions.projectsWriteDescription' },
+  'project_access:read': { label: 'account.scopeOptions.projectAccessReadLabel', description: 'account.scopeOptions.projectAccessReadDescription' },
+  'project_access:write': { label: 'account.scopeOptions.projectAccessWriteLabel', description: 'account.scopeOptions.projectAccessWriteDescription' },
+  'work_items:read': { label: 'account.scopeOptions.workItemsReadLabel', description: 'account.scopeOptions.workItemsReadDescription' },
+  'work_items:write': { label: 'account.scopeOptions.workItemsWriteLabel', description: 'account.scopeOptions.workItemsWriteDescription' },
+  'entries:read': { label: 'account.scopeOptions.entriesReadLabel', description: 'account.scopeOptions.entriesReadDescription' },
+  'entries:write': { label: 'account.scopeOptions.entriesWriteLabel', description: 'account.scopeOptions.entriesWriteDescription' },
+  'relationships:read': { label: 'account.scopeOptions.relationshipsReadLabel', description: 'account.scopeOptions.relationshipsReadDescription' },
+  'relationships:write': { label: 'account.scopeOptions.relationshipsWriteLabel', description: 'account.scopeOptions.relationshipsWriteDescription' },
+  'audit_logs:read': { label: 'account.scopeOptions.auditLogsReadLabel', description: 'account.scopeOptions.auditLogsReadDescription' },
+}
+
 type PasswordFieldProps = {
   label: string
   value: string
@@ -139,6 +170,7 @@ function PasswordField({
   autoComplete,
   required = false,
 }: PasswordFieldProps) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -149,10 +181,10 @@ function PasswordField({
           size="sm"
           className="-mr-2 gap-1.5 px-2 text-muted-foreground"
           onClick={onToggleVisibility}
-          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-label={visible ? t('auth.hidePassword') : t('auth.showPassword')}
         >
           {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          {visible ? 'Hide' : 'Show'}
+          {visible ? t('common.hide') : t('common.show')}
         </Button>
       </div>
       <Input
@@ -200,7 +232,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       setApiKeys(nextApiKeys)
     } catch (loadError) {
       setApiKeys([])
-      toast.error(loadError instanceof Error ? loadError.message : 'Failed to load API keys.')
+      toast.error(loadError instanceof Error ? loadError.message : t('account.failedLoadKeys'))
     } finally {
       setIsLoadingApiKeys(false)
     }
@@ -220,7 +252,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
           setSystemInformation(await getSystemInformation())
         } catch (loadError) {
           setSystemInformation(null)
-          toast.error(loadError instanceof Error ? loadError.message : 'Failed to load system information.')
+          toast.error(loadError instanceof Error ? loadError.message : t('account.failedLoadSystem'))
         } finally {
           setIsLoadingSystemInformation(false)
         }
@@ -231,7 +263,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       setUser(null)
       onUserChange(null)
       setApiKeys([])
-      toast.error(loadError instanceof Error ? loadError.message : 'Failed to load user information.')
+      toast.error(loadError instanceof Error ? loadError.message : t('account.failedLoadUser'))
     } finally {
       setIsLoading(false)
     }
@@ -294,11 +326,11 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
     event.preventDefault()
 
     if (!apiKeyName.trim()) {
-      toast.error('API key name is required.')
+      toast.error(t('account.keyNameRequired'))
       return
     }
     if (selectedScopes.length === 0) {
-      toast.error('Select at least one scope.')
+      toast.error(t('account.scopeRequired'))
       return
     }
 
@@ -312,9 +344,9 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       setApiKeyName('')
       setSelectedScopes(['teams:read'])
       await loadApiKeys()
-      toast.success('API key created.')
+      toast.success(t('account.keyCreated'))
     } catch (submitError) {
-      toast.error(submitError instanceof Error ? submitError.message : 'Failed to create API key.')
+      toast.error(submitError instanceof Error ? submitError.message : t('account.failedCreateKey'))
     } finally {
       setIsCreatingApiKey(false)
     }
@@ -326,7 +358,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
     }
 
     await navigator.clipboard.writeText(createdApiKey.rawKey)
-    toast.success('API key copied.')
+    toast.success(t('account.keyCopied'))
   }
 
   async function handleRevokeApiKey(apiKeyId: string) {
@@ -337,9 +369,9 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
         setCreatedApiKey(null)
       }
       await loadApiKeys()
-      toast.success('API key revoked.')
+      toast.success(t('account.keyRevoked'))
     } catch (revokeError) {
-      toast.error(revokeError instanceof Error ? revokeError.message : 'Failed to revoke API key.')
+      toast.error(revokeError instanceof Error ? revokeError.message : t('account.failedRevokeKey'))
     } finally {
       setRevokingApiKeyId(null)
     }
@@ -349,19 +381,19 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
     event.preventDefault()
 
     if (!user?.mustChangePassword && !currentPassword.trim()) {
-      toast.error('Current password is required.')
+      toast.error(t('account.currentPasswordRequired'))
       return
     }
     if (!newPassword.trim()) {
-      toast.error('New password is required.')
+      toast.error(t('account.newPasswordRequired'))
       return
     }
     if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters.')
+      toast.error(t('auth.passwordMinLength'))
       return
     }
     if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match.')
+      toast.error(t('auth.passwordsMismatch'))
       return
     }
 
@@ -376,9 +408,9 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      toast.success('Password updated.')
+      toast.success(t('account.passwordUpdated'))
     } catch (submitError) {
-      toast.error(submitError instanceof Error ? submitError.message : 'Failed to update password.')
+      toast.error(submitError instanceof Error ? submitError.message : t('account.failedUpdatePassword'))
     } finally {
       setIsUpdatingPassword(false)
     }
@@ -387,7 +419,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 md:px-6">
-        <h1 className="text-xl font-semibold leading-none tracking-normal">My Account</h1>
+        <h1 className="text-xl font-semibold leading-none tracking-normal">{t('account.pageTitle')}</h1>
         <Button
           variant="outline"
           onClick={() => void handleLogout()}
@@ -395,7 +427,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
           className="gap-2 text-destructive hover:bg-destructive/5 hover:text-destructive"
         >
           <LogOut className="h-4 w-4" />
-          {isLoggingOut ? 'Signing out...' : 'Sign out'}
+          {isLoggingOut ? t('account.signingOut') : t('account.signOut')}
         </Button>
       </div>
 
@@ -411,17 +443,17 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
         {!isLoading && !user ? (
           <div className="flex min-h-64 flex-col items-center justify-center rounded-md border bg-muted/10 p-6 text-center">
-            <p className="text-sm text-muted-foreground">No authenticated user is available right now.</p>
+            <p className="text-sm text-muted-foreground">{t('account.noUser')}</p>
           </div>
         ) : null}
 
         {user ? (
           <Tabs defaultValue="profile" className="gap-4">
             <TabsList variant="line" className="border-b">
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="password">Password</TabsTrigger>
-              <TabsTrigger value="api-keys">API keys</TabsTrigger>
-              {isAdminLike(user) ? <TabsTrigger value="system">System</TabsTrigger> : null}
+              <TabsTrigger value="profile">{t('account.profile')}</TabsTrigger>
+              <TabsTrigger value="password">{t('account.password')}</TabsTrigger>
+              <TabsTrigger value="api-keys">{t('account.apiKeys')}</TabsTrigger>
+              {isAdminLike(user) ? <TabsTrigger value="system">{t('account.system')}</TabsTrigger> : null}
             </TabsList>
 
             <TabsContent value="profile">
@@ -435,10 +467,10 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <h2 className="truncate text-lg font-semibold leading-tight">
-                        {displayValue(user.displayName) ?? displayValue(user.username) ?? 'Account'}
+                        {displayValue(user.displayName) ?? displayValue(user.username) ?? t('account.account')}
                       </h2>
                       <Badge variant={user.mustChangePassword ? 'destructive' : 'outline'}>
-                        {user.mustChangePassword ? 'Password required' : user.status ?? 'Active'}
+                        {user.mustChangePassword ? t('account.passwordRequired') : user.status ? translateStatus(user.status, t) : t('status.active')}
                       </Badge>
                     </div>
                     <p className="truncate text-sm text-muted-foreground">
@@ -449,17 +481,17 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
                 <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
                   {([
-                    { label: 'Title', value: displayValue(user.title) },
-                    { label: 'Bio', value: displayValue(user.bio) },
-                    { label: 'Email', value: displayValue(user.email) },
-                    { label: 'Timezone', value: displayValue(user.timezone) },
-                    { label: 'Role', value: displayValue(user.globalRole) },
-                    { label: 'Status', value: displayValue(user.status) },
+                    { label: t('common.title'), value: displayValue(user.title) },
+                    { label: t('usersPage.bio'), value: displayValue(user.bio) },
+                    { label: t('common.email'), value: displayValue(user.email) },
+                    { label: t('common.timezone'), value: displayValue(user.timezone) },
+                    { label: t('common.role'), value: user.globalRole ? translateRole(user.globalRole, t) : null },
+                    { label: t('common.status'), value: user.status ? translateStatus(user.status, t) : null },
                   ] satisfies Array<{ label: string; value: string | null }>).map(({ label, value }) => (
                     <div key={label} className="min-w-0">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
                       <dd className="mt-0.5 break-words text-sm font-medium">
-                        {value ?? <span className="italic font-normal text-muted-foreground">Not set</span>}
+                        {value ?? <span className="italic font-normal text-muted-foreground">{t('common.notSet')}</span>}
                       </dd>
                     </div>
                   ))}
@@ -478,20 +510,20 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                 {user.mustChangePassword ? (
                   <Alert variant="destructive">
                     <ShieldAlert className="h-4 w-4" />
-                    <AlertTitle>Update password required</AlertTitle>
-                    <AlertDescription>You must set a new password before continuing.</AlertDescription>
+                    <AlertTitle>{t('account.updatePasswordRequired')}</AlertTitle>
+                    <AlertDescription>{t('account.updatePasswordDescription')}</AlertDescription>
                   </Alert>
                 ) : (
                   <h3 className="flex items-center gap-2 text-sm font-semibold">
                     <KeyRound className="h-4 w-4" />
-                    Change password
+                    {t('auth.changePassword')}
                   </h3>
                 )}
 
                 <form className="max-w-3xl space-y-4" onSubmit={handlePasswordSubmit}>
                   {!user.mustChangePassword ? (
                     <PasswordField
-                      label="Current password"
+                      label={t('account.currentPassword')}
                       value={currentPassword}
                       onChange={setCurrentPassword}
                       visible={showCurrentPassword}
@@ -501,7 +533,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                     />
                   ) : null}
                   <PasswordField
-                    label="New password"
+                    label={t('auth.newPassword')}
                     value={newPassword}
                     onChange={setNewPassword}
                     visible={showNewPassword}
@@ -510,7 +542,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                     required
                   />
                   <PasswordField
-                    label="Confirm password"
+                    label={t('auth.confirmPassword')}
                     value={confirmPassword}
                     onChange={setConfirmPassword}
                     visible={showConfirmPassword}
@@ -520,7 +552,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                   />
                   <Button type="submit" disabled={isUpdatingPassword} className="gap-2">
                     <KeyRound className="h-4 w-4" />
-                    {isUpdatingPassword ? 'Updating...' : 'Update password'}
+                    {isUpdatingPassword ? t('auth.updating') : t('auth.updatePassword')}
                   </Button>
                 </form>
               </section>
@@ -532,7 +564,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                   <div>
                     <h3 className="flex items-center gap-2 text-sm font-semibold">
                       <Server className="h-4 w-4" />
-                      System information
+                      {t('account.systemInformation')}
                     </h3>
                   </div>
 
@@ -544,26 +576,26 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                   ) : systemInformation ? (
                     <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
                       <div>
-                        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Server version</dt>
+                        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('account.serverVersion')}</dt>
                         <dd className="mt-0.5 font-mono text-sm font-medium">{systemInformation.serverVersion}</dd>
                       </div>
                       <div>
                         <dt className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           <Cpu className="h-3.5 w-3.5" />
-                          LLM provider
+                          {t('account.llmProvider')}
                         </dt>
                         <dd className="mt-0.5 text-sm font-medium">
                           <span className="capitalize">{systemInformation.llmProvider}</span>
                           <span className="mx-1.5 text-muted-foreground">·</span>
                           <span className="font-mono text-xs">{systemInformation.llmModel}</span>
                           <span className="ml-2 text-xs font-normal text-muted-foreground">
-                            ({systemInformation.llmAvailable ? 'available' : 'unavailable'})
+                            ({systemInformation.llmAvailable ? t('account.available') : t('account.unavailable')})
                           </span>
                         </dd>
                       </div>
                     </dl>
                   ) : (
-                    <p className="text-sm text-muted-foreground">System information is unavailable.</p>
+                    <p className="text-sm text-muted-foreground">{t('account.systemUnavailable')}</p>
                   )}
                 </section>
               </TabsContent>
@@ -574,18 +606,18 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                 <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                   <h3 className="flex items-center gap-2 text-sm font-semibold">
                     <Plug className="h-4 w-4" />
-                    API keys
+                    {t('account.apiKeys')}
                   </h3>
                   <Button variant="outline" size="sm" onClick={() => void loadApiKeys()} disabled={isLoadingApiKeys} className="gap-2">
                     <RefreshCw className={`h-4 w-4 ${isLoadingApiKeys ? 'animate-spin' : ''}`} />
-                    {isLoadingApiKeys ? 'Refreshing...' : 'Refresh'}
+                    {isLoadingApiKeys ? t('account.refreshing') : t('common.refresh')}
                   </Button>
                 </div>
 
                 <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
                   <form className="space-y-4" onSubmit={handleApiKeySubmit}>
                     <div className="space-y-3">
-                      <label className="block text-sm font-semibold">Key name</label>
+                      <label className="block text-sm font-semibold">{t('account.keyName')}</label>
                       <Input
                         value={apiKeyName}
                         onChange={(event) => setApiKeyName(event.target.value)}
@@ -595,10 +627,10 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
                     <div className="space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-sm font-semibold">Scopes</p>
+                        <p className="text-sm font-semibold">{t('account.scopes')}</p>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">
-                            {selectedScopes.length} of {TOTAL_SCOPE_COUNT} selected
+                            {t('account.scopesSelected', { selected: selectedScopes.length, total: TOTAL_SCOPE_COUNT })}
                           </span>
                           <Button
                             type="button"
@@ -607,7 +639,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                             className="px-2 text-muted-foreground"
                             onClick={handleToggleAllScopes}
                           >
-                            {selectedScopes.length === TOTAL_SCOPE_COUNT ? 'Clear all' : 'Select all'}
+                            {selectedScopes.length === TOTAL_SCOPE_COUNT ? t('common.clearAll') : t('account.selectAll')}
                           </Button>
                         </div>
                       </div>
@@ -627,7 +659,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                                     indeterminate={groupIndeterminate}
                                     onCheckedChange={(checked) => toggleGroup(group.label, checked === true)}
                                   />
-                                  {group.label}
+                                  {t(scopeGroupKeys[group.label] ?? group.label)}
                                 </label>
                                 <span className="text-xs text-muted-foreground">
                                   {selectedInGroup.length}/{group.options.length}
@@ -645,8 +677,8 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                                         checked={selectedScopes.includes(option.value)}
                                         onCheckedChange={(checked) => updateSelectedScope(option.value, checked === true)}
                                       />
-                                      <label htmlFor={checkboxId} className="min-w-0 cursor-pointer text-sm" title={option.description}>
-                                        {option.label}
+                                      <label htmlFor={checkboxId} className="min-w-0 cursor-pointer text-sm" title={t(scopeOptionKeys[option.value].description)}>
+                                        {t(scopeOptionKeys[option.value].label)}
                                       </label>
                                     </div>
                                   )
@@ -660,28 +692,28 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
                     <Button type="submit" disabled={isCreatingApiKey} className="gap-2">
                       <KeyRound className="h-4 w-4" />
-                      {isCreatingApiKey ? 'Creating...' : 'Create API key'}
+                      {isCreatingApiKey ? t('account.creating') : t('account.createApiKey')}
                     </Button>
 
                     {createdApiKey ? (
                       <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-semibold">New key</p>
+                          <p className="text-sm font-semibold">{t('account.newKey')}</p>
                           <Button type="button" variant="outline" size="sm" onClick={() => void handleCopyApiKey()} className="gap-2">
                             <Copy className="h-4 w-4" />
-                            Copy
+                            {t('account.copy')}
                           </Button>
                         </div>
                         <p className="break-all font-mono text-xs text-primary">{createdApiKey.rawKey}</p>
-                        <p className="text-xs text-muted-foreground">Shown once. Store it before leaving this page.</p>
+                        <p className="text-xs text-muted-foreground">{t('account.shownOnce')}</p>
                       </div>
                     ) : null}
                   </form>
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
-                      <h4 className="text-sm font-semibold">Existing keys</h4>
-                      <span className="text-xs text-muted-foreground">{apiKeys.length} total</span>
+                      <h4 className="text-sm font-semibold">{t('account.existingKeys')}</h4>
+                      <span className="text-xs text-muted-foreground">{t('account.total', { count: apiKeys.length })}</span>
                     </div>
 
                     {isLoadingApiKeys ? (
@@ -693,8 +725,8 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
                     {!isLoadingApiKeys && apiKeys.length === 0 ? (
                       <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                        <p>No API keys created.</p>
-                        <p className="text-xs">Create one above to get started.</p>
+                        <p>{t('account.noKeys')}</p>
+                        <p className="text-xs">{t('account.createKeyHint')}</p>
                       </div>
                     ) : null}
 
@@ -707,7 +739,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                             <div className="min-w-0 space-y-2">
                               <div className="flex min-w-0 flex-wrap items-center gap-2">
                                 <h4 className="min-w-0 truncate text-sm font-semibold" title={apiKey.name}>{apiKey.name}</h4>
-                                <Badge variant={isRevoked ? 'secondary' : 'outline'}>{apiKey.status}</Badge>
+                                <Badge variant={isRevoked ? 'secondary' : 'outline'}>{translateStatus(apiKey.status, t)}</Badge>
                               </div>
                               <div className="flex flex-wrap gap-1.5">
                                 {apiKey.scopes.map((scope) => (
@@ -718,20 +750,20 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
                             <dl className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
                               <div>
-                                <dt className="font-medium text-foreground">Created</dt>
-                                <dd>{formatDateTime(apiKey.createdAt)}</dd>
+                                <dt className="font-medium text-foreground">{t('common.created')}</dt>
+                                <dd>{formatDateTime(apiKey.createdAt, t('common.never'))}</dd>
                               </div>
                               <div>
-                                <dt className="font-medium text-foreground">Last used</dt>
-                                <dd>{formatDateTime(apiKey.lastUsedAt)}</dd>
+                                <dt className="font-medium text-foreground">{t('account.lastUsed')}</dt>
+                                <dd>{formatDateTime(apiKey.lastUsedAt, t('common.never'))}</dd>
                               </div>
                             </dl>
 
                             <div className="flex justify-end">
                               <DeleteConfirmPopover
-                                title="Revoke API key?"
-                                description="This key will stop working immediately."
-                                confirmLabel="Revoke"
+                                title={t('account.revokeKey')}
+                                description={t('account.revokeDescription')}
+                                confirmLabel={t('account.revoke')}
                                 disabled={isRevoked || revokingApiKeyId === apiKey.id}
                                 trigger={(
                                   <Button
@@ -742,7 +774,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                                     className="gap-2 text-destructive hover:bg-destructive/5 hover:text-destructive"
                                   >
                                     <X className="h-4 w-4" />
-                                    {revokingApiKeyId === apiKey.id ? 'Revoking...' : 'Revoke'}
+                                    {revokingApiKeyId === apiKey.id ? t('account.revoking') : t('account.revoke')}
                                   </Button>
                                 )}
                                 onConfirm={() => handleRevokeApiKey(apiKey.id)}

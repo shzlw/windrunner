@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Bell, CheckCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import type { TFunction } from 'i18next'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,14 +16,14 @@ import {
   type UserNotification,
 } from '@/lib/api'
 
-function relativeTime(value: string) {
+function relativeTime(value: string, t: TFunction) {
   const seconds = Math.max(1, Math.round((Date.now() - new Date(value).getTime()) / 1000))
-  if (seconds < 60) return `${seconds}s ago`
+  if (seconds < 60) return t('notifications.secondsAgo', { count: seconds })
   const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 60) return t('notifications.minutesAgo', { count: minutes })
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.round(hours / 24)}d ago`
+  if (hours < 24) return t('notifications.hoursAgo', { count: hours })
+  return t('notifications.daysAgo', { count: Math.round(hours / 24) })
 }
 
 type NotificationContextValue = {
@@ -34,6 +36,7 @@ type NotificationContextValue = {
 const NotificationContext = createContext<NotificationContextValue | null>(null)
 
 export function NotificationProvider({ currentUser, children }: { currentUser: AuthUser | null; children: React.ReactNode }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const navigateRef = useRef(navigate)
   useEffect(() => {
@@ -79,7 +82,7 @@ export function NotificationProvider({ currentUser, children }: { currentUser: A
         description: notification.message,
         action: notification.projectId
           ? {
-              label: 'Open',
+              label: t('notifications.open'),
               onClick: () => void navigateRef.current(`/app/projects/${notification.projectId}`),
             }
           : undefined,
@@ -121,8 +124,9 @@ function useNotifications() {
 }
 
 export default function NotificationCenter({ inSidebar = false }: { inSidebar?: boolean }) {
+  const { t } = useTranslation()
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications()
-  const label = unreadCount ? `${unreadCount} unread notifications` : 'Notifications'
+  const label = unreadCount ? t('notifications.unread', { count: unreadCount }) : t('notifications.title')
 
   return (
     <Popover>
@@ -134,7 +138,7 @@ export default function NotificationCenter({ inSidebar = false }: { inSidebar?: 
           aria-label={label}
         >
           <Bell className="size-4" />
-          <span className={inSidebar ? 'group-data-[collapsible=icon]:hidden' : 'sr-only'}>Notifications</span>
+          <span className={inSidebar ? 'group-data-[collapsible=icon]:hidden' : 'sr-only'}>{t('notifications.title')}</span>
           {unreadCount > 0 ? (
             <Badge className={inSidebar ? 'ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 h-4 min-w-4 px-1 text-[10px] leading-none' : 'absolute -right-1 -top-1 h-4 min-w-4 px-1 text-[10px] leading-none'}>{unreadCount > 99 ? '99+' : unreadCount}</Badge>
           ) : null}
@@ -142,17 +146,17 @@ export default function NotificationCenter({ inSidebar = false }: { inSidebar?: 
       </PopoverTrigger>
       <PopoverContent align="end" side={inSidebar ? 'right' : 'bottom'} className="w-96 gap-0 p-0">
         <PopoverHeader className="flex-row items-center justify-between border-b px-4 py-3">
-          <PopoverTitle>Notifications</PopoverTitle>
+          <PopoverTitle>{t('notifications.title')}</PopoverTitle>
           {unreadCount > 0 ? (
             <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={() => void markAllRead()}>
               <CheckCheck className="size-3.5" />
-              Mark all read
+              {t('notifications.markAllRead')}
             </Button>
           ) : null}
         </PopoverHeader>
         <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-muted-foreground">You’re all caught up.</p>
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">{t('notifications.caughtUp')}</p>
           ) : notifications.map((notification) => (
             <button
               key={notification.id}
@@ -165,7 +169,7 @@ export default function NotificationCenter({ inSidebar = false }: { inSidebar?: 
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{notification.title}</p>
                   <p className="mt-0.5 text-sm text-muted-foreground">{notification.message}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{relativeTime(notification.createdAt)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{relativeTime(notification.createdAt, t)}</p>
                 </div>
               </div>
             </button>

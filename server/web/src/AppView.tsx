@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useLocation, useNavigate, useOutlet, useOutletContext, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 import type { AskPageOutletContext } from './App'
 import AskPage from './AskPage'
@@ -14,6 +15,7 @@ type PageArtifactContext = {
 }
 
 export default function AppView() {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -52,7 +54,7 @@ export default function AppView() {
         await Promise.all(artifactContexts.map((context) => addChatSessionContext(activeSessionId, context.entityType, context.entityId)))
         await appContext.refreshChatSessions(activeSessionId)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to add this page to AI context.')
+        toast.error(error instanceof Error ? error.message : t('ask.failedAddPage'))
         return
       }
     }

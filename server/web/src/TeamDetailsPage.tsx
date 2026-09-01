@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Check, ChevronRight, FolderOpen, Loader2, Plus, Save, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import { Badge } from '@/components/ui/badge'
@@ -35,18 +36,19 @@ import {
   type TeamMember,
   type User,
 } from '@/lib/api'
+import { translateRole } from '@/i18n/labels'
 
-function displayUser(user: User | AuthUser | null | undefined) {
+function displayUser(user: User | AuthUser | null | undefined, fallback: string) {
   if (!user) {
-    return 'Unknown user'
+    return fallback
   }
 
   return user.displayName?.trim() || user.username
 }
 
-function displayProject(project: Project | null | undefined) {
+function displayProject(project: Project | null | undefined, fallback: string) {
   if (!project) {
-    return 'Unknown project'
+    return fallback
   }
 
   return project.title?.trim() || project.name?.trim() || project.id
@@ -56,6 +58,7 @@ const TEAM_ROLE_OPTIONS: TeamMember['role'][] = ['TEAM_MEMBER', 'TEAM_OWNER']
 const PROJECT_ROLE_OPTIONS: ProjectTeam['role'][] = ['VIEWER', 'EDITOR', 'OWNER']
 
 export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const { teamId } = useParams()
@@ -187,7 +190,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
 
     const name = editName.trim()
     if (!name) {
-      toast.error('Team name is required.')
+      toast.error(t('teams.nameRequired'))
       return
     }
 
@@ -198,9 +201,9 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
       setTeam(updated)
       setEditName(updated.name)
       setEditDescription(updated.description ?? '')
-      toast.success('Team updated.')
+      toast.success(t('teamDetails.teamUpdated'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update team.')
+      toast.error(error instanceof Error ? error.message : t('teamDetails.failedUpdate'))
     } finally {
       setIsUpdating(false)
     }
@@ -215,10 +218,10 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
 
     try {
       await deleteTeam(team.id)
-      toast.success('Team deleted.')
+      toast.success(t('teamDetails.teamDeleted'))
       navigate(workspaceDestination('/app/teams'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete team.')
+      toast.error(error instanceof Error ? error.message : t('teamDetails.failedDelete'))
     } finally {
       setIsDeleting(false)
     }
@@ -237,9 +240,9 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
       setMemberUserId('')
       setMemberRole('TEAM_MEMBER')
       await reloadRelations()
-      toast.success('Member added.')
+      toast.success(t('teamDetails.memberAdded'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add member.')
+      toast.error(error instanceof Error ? error.message : t('teamDetails.failedAddMember'))
     } finally {
       setIsAddingMember(false)
     }
@@ -253,9 +256,9 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
     try {
       await removeTeamMember(team.id, userId)
       setMembers((current) => current.filter((member) => member.userId !== userId))
-      toast.success('Member removed.')
+      toast.success(t('teamDetails.memberRemoved'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove member.')
+      toast.error(error instanceof Error ? error.message : t('teamDetails.failedRemoveMember'))
     }
   }
 
@@ -272,9 +275,9 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
       setProjectId('')
       setProjectRole('VIEWER')
       await reloadRelations()
-      toast.success('Project linked.')
+      toast.success(t('teamDetails.projectLinked'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to link project.')
+      toast.error(error instanceof Error ? error.message : t('teamDetails.failedLinkProject'))
     } finally {
       setIsAddingProject(false)
     }
@@ -288,9 +291,9 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
     try {
       await removeTeamProject(team.id, nextProjectId)
       setProjectLinks((current) => current.filter((link) => link.projectId !== nextProjectId))
-      toast.success('Project unlinked.')
+      toast.success(t('teamDetails.projectUnlinked'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to unlink project.')
+      toast.error(error instanceof Error ? error.message : t('teamDetails.failedUnlinkProject'))
     }
   }
 
@@ -303,9 +306,9 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
 
     try {
       await requestTeamJoin(team.id)
-      toast.success('Join request submitted.')
+      toast.success(t('teamDetails.joinSubmitted'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to request team membership.')
+      toast.error(error instanceof Error ? error.message : t('teamDetails.failedJoin'))
     } finally {
       setIsRequestingJoin(false)
     }
@@ -321,9 +324,9 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
     try {
       await decideTeamJoinRequest(team.id, requestId, decision)
       await reloadRelations()
-      toast.success(decision === 'APPROVE' ? 'Join request approved.' : 'Join request rejected.')
+      toast.success(decision === 'APPROVE' ? t('teamDetails.joinApproved') : t('teamDetails.joinRejected'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update join request.')
+      toast.error(error instanceof Error ? error.message : t('teamDetails.failedJoinUpdate'))
     } finally {
       setIsDecidingJoinRequestId(null)
     }
@@ -333,7 +336,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-          <h1 className="text-xl font-semibold leading-none tracking-normal">Teams</h1>
+          <h1 className="text-xl font-semibold leading-none tracking-normal">{t('teams.pageTitle')}</h1>
         </div>
         <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto p-6">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -346,14 +349,14 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-          <h1 className="text-xl font-semibold leading-none tracking-normal">Teams</h1>
+          <h1 className="text-xl font-semibold leading-none tracking-normal">{t('teams.pageTitle')}</h1>
         </div>
         <Empty className="min-w-0 flex-1 overflow-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <UsersRound />
             </EmptyMedia>
-            <EmptyTitle>{errorMessage || 'Team not found.'}</EmptyTitle>
+            <EmptyTitle>{errorMessage || t('teamDetails.teamNotFound')}</EmptyTitle>
           </EmptyHeader>
         </Empty>
       </div>
@@ -365,7 +368,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
       <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 md:px-6">
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold leading-none tracking-normal">
           <NavLink to={workspaceDestination('/app/teams')} className="shrink-0 text-muted-foreground hover:text-foreground">
-            Teams
+            {t('teams.pageTitle')}
           </NavLink>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="flex min-w-0 items-center gap-1.5">
@@ -376,7 +379,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
         {!isCurrentUserMember && currentUser && currentUser.globalRole !== 'SUPERADMIN' ? (
           <Button type="button" variant="outline" className="gap-2" disabled={isRequestingJoin} onClick={() => void handleRequestJoin()}>
             {isRequestingJoin ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-            Request access
+            {t('teamDetails.requestAccess')}
           </Button>
         ) : null}
       </div>
@@ -384,24 +387,24 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
       <div className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
         <Tabs defaultValue="info" className="gap-4">
           <TabsList variant="line" className="border-b">
-            <TabsTrigger value="info">Info</TabsTrigger>
-            <TabsTrigger value="members">Members</TabsTrigger>
-            <TabsTrigger value="projects">Projects</TabsTrigger>
-            {canManageTeamLinks ? <TabsTrigger value="join-requests">Join requests</TabsTrigger> : null}
+            <TabsTrigger value="info">{t('common.info')}</TabsTrigger>
+            <TabsTrigger value="members">{t('common.members')}</TabsTrigger>
+            <TabsTrigger value="projects">{t('common.projects')}</TabsTrigger>
+            {canManageTeamLinks ? <TabsTrigger value="join-requests">{t('teamDetails.joinRequests')}</TabsTrigger> : null}
           </TabsList>
 
           <TabsContent value="info">
             <section className="max-w-3xl space-y-4 rounded-md border bg-background p-4">
               <div>
-                <h2 className="text-sm font-semibold">Basic info</h2>
+                <h2 className="text-sm font-semibold">{t('teamDetails.basicInfo')}</h2>
               </div>
               <form className="space-y-4" onSubmit={handleUpdateTeam}>
                 <div className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
-                  <label className="text-sm font-medium">Name</label>
+                  <label className="text-sm font-medium">{t('common.name')}</label>
                   <Input value={editName} onChange={(event) => setEditName(event.target.value)} disabled={!isAdminLike} />
                 </div>
                 <div className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-start">
-                  <label className="pt-2 text-sm font-medium">Description</label>
+                  <label className="pt-2 text-sm font-medium">{t('common.description')}</label>
                   <Textarea
                     value={editDescription}
                     onChange={(event) => setEditDescription(event.target.value)}
@@ -413,7 +416,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                   <div className="flex justify-end">
                     <Button type="submit" className="gap-2" disabled={isUpdating || (editName.trim() === team.name && (editDescription.trim() || '') === (team.description?.trim() || ''))}>
                       {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Save
+                      {t('common.save')}
                     </Button>
                   </div>
                 ) : null}
@@ -422,14 +425,14 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
               {isAdminLike ? (
                 <div className="flex border-t pt-4">
                   <DeleteConfirmPopover
-                    title="Delete team?"
-                    description="Team memberships and project links will be removed."
-                    confirmLabel="Delete team"
+                    title={t('teamDetails.deleteTeam')}
+                    description={t('teamDetails.deleteTeamDescription')}
+                    confirmLabel={t('teamDetails.deleteTeamConfirm')}
                     disabled={isDeleting}
                     trigger={(
                       <Button type="button" variant="destructive" className="gap-2" disabled={isDeleting}>
                         <Trash2 className="h-4 w-4" />
-                        {isDeleting ? 'Deleting...' : 'Delete'}
+                        {isDeleting ? t('common.deleting') : t('common.delete')}
                       </Button>
                     )}
                     onConfirm={handleDeleteTeam}
@@ -444,7 +447,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
               <div className="flex items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-sm font-semibold">
                   <UserPlus className="h-4 w-4" />
-                  Members
+                  {t('common.members')}
                 </h2>
                 <Badge variant="secondary">{members.length}</Badge>
               </div>
@@ -452,29 +455,29 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                 {canManageTeamLinks ? (
                   <form className="flex flex-col gap-2 sm:flex-row sm:items-center" onSubmit={handleAddMember}>
                     <NativeSelect className="w-full sm:w-72" value={memberUserId} onChange={(event) => setMemberUserId(event.target.value)} disabled={availableUsers.length === 0}>
-                      <NativeSelectOption value="">Select user</NativeSelectOption>
+                      <NativeSelectOption value="">{t('teamDetails.selectUser')}</NativeSelectOption>
                       {availableUsers.map((user) => (
                         <NativeSelectOption key={user.id} value={user.id}>
-                          {displayUser(user)}
+                          {displayUser(user, t('common.unknownUser'))}
                         </NativeSelectOption>
                       ))}
                     </NativeSelect>
                     <NativeSelect className="w-full sm:w-40" value={memberRole} onChange={(event) => setMemberRole(event.target.value as TeamMember['role'])}>
                       {TEAM_ROLE_OPTIONS.map((role) => (
                         <NativeSelectOption key={role} value={role}>
-                          {role}
+                          {translateRole(role, t)}
                         </NativeSelectOption>
                       ))}
                     </NativeSelect>
                     <Button type="submit" className="gap-2" disabled={isAddingMember || !memberUserId}>
                       {isAddingMember ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                      Add
+                      {t('common.add')}
                     </Button>
                   </form>
                 ) : null}
 
                 <div className="grid gap-3 xl:grid-cols-2">
-                  {([['TEAM_OWNER', 'Owners'], ['TEAM_MEMBER', 'Members']] as const).map(([role, label]) => {
+                  {([['TEAM_OWNER', t('teamDetails.owners')], ['TEAM_MEMBER', t('common.members')]] as const).map(([role, label]) => {
                     const roleMembers = members.filter((member) => member.role === role)
                     return (
                       <div key={role} className="space-y-3 rounded-md border p-3">
@@ -483,7 +486,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                           <Badge variant="outline">{roleMembers.length}</Badge>
                         </div>
                         {roleMembers.length === 0 ? (
-                          <div className="rounded-md border border-dashed px-3 py-5 text-sm text-muted-foreground">No {label.toLowerCase()} assigned.</div>
+                          <div className="rounded-md border border-dashed px-3 py-5 text-sm text-muted-foreground">{t('teamDetails.noRoleAssigned', { role: label.toLowerCase() })}</div>
                         ) : (
                           <div className="space-y-2">
                             {roleMembers.map((member) => {
@@ -491,16 +494,16 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                               return (
                                 <div key={member.userId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                                   <div className="min-w-0">
-                                    <div className="truncate text-sm font-medium">{displayUser(user)}</div>
+                                    <div className="truncate text-sm font-medium">{displayUser(user, t('common.unknownUser'))}</div>
                                     {user?.email ? <div className="truncate text-xs text-muted-foreground">{user.email}</div> : null}
                                   </div>
                                   {canManageTeamLinks ? (
                                     <DeleteConfirmPopover
-                                      title="Remove team member?"
-                                      description="This user will lose access granted through this team."
-                                      confirmLabel="Remove"
+                                      title={t('teamDetails.removeMember')}
+                                      description={t('teamDetails.removeMemberDescription')}
+                                      confirmLabel={t('common.remove')}
                                       trigger={(
-                                        <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove member">
+                                        <Button type="button" variant="ghost" size="icon-sm" aria-label={t('teamDetails.removeMemberAction')}>
                                           <X className="h-4 w-4" />
                                         </Button>
                                       )}
@@ -525,7 +528,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
               <div className="flex items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-sm font-semibold">
                   <FolderOpen className="h-4 w-4" />
-                  Projects
+                  {t('common.projects')}
                 </h2>
                 <Badge variant="secondary">{projectLinks.length}</Badge>
               </div>
@@ -533,29 +536,29 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                 {canManageTeamLinks ? (
                   <form className="flex flex-col gap-2 sm:flex-row sm:items-center" onSubmit={handleAddProject}>
                     <NativeSelect className="w-full sm:w-80" value={projectId} onChange={(event) => setProjectId(event.target.value)} disabled={availableProjects.length === 0}>
-                      <NativeSelectOption value="">Select project</NativeSelectOption>
+                      <NativeSelectOption value="">{t('teamDetails.selectProject')}</NativeSelectOption>
                       {availableProjects.map((project) => (
                         <NativeSelectOption key={project.id} value={project.id}>
-                          {displayProject(project)}
+                          {displayProject(project, t('common.unknownProject'))}
                         </NativeSelectOption>
                       ))}
                     </NativeSelect>
                     <NativeSelect className="w-full sm:w-36" value={projectRole} onChange={(event) => setProjectRole(event.target.value as ProjectTeam['role'])}>
                       {PROJECT_ROLE_OPTIONS.map((role) => (
                         <NativeSelectOption key={role} value={role}>
-                          {role}
+                          {translateRole(role, t)}
                         </NativeSelectOption>
                       ))}
                     </NativeSelect>
                     <Button type="submit" className="gap-2" disabled={isAddingProject || !projectId}>
                       {isAddingProject ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                      Add
+                      {t('common.add')}
                     </Button>
                   </form>
                 ) : null}
 
                 {projectLinks.length === 0 ? (
-                  <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">No projects linked.</div>
+                  <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">{t('teamDetails.noProjects')}</div>
                 ) : (
                   <div className="space-y-2">
                     {projectLinks.map((link) => {
@@ -563,16 +566,16 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                       return (
                         <div key={link.projectId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                           <button type="button" className="min-w-0 text-left" onClick={() => navigate(workspaceDestination(`/app/projects/${link.projectId}`))}>
-                            <div className="truncate text-sm font-medium">{displayProject(project)}</div>
-                            <div className="truncate text-xs text-muted-foreground">{link.role}</div>
+                            <div className="truncate text-sm font-medium">{displayProject(project, t('common.unknownProject'))}</div>
+                            <div className="truncate text-xs text-muted-foreground">{translateRole(link.role, t)}</div>
                           </button>
                           {canManageTeamLinks ? (
                             <DeleteConfirmPopover
-                              title="Unlink project?"
-                              description="This team will lose the project access granted by this link."
-                              confirmLabel="Unlink"
+                              title={t('teamDetails.unlinkProject')}
+                              description={t('teamDetails.unlinkProjectDescription')}
+                              confirmLabel={t('teamDetails.unlink')}
                               trigger={(
-                                <Button type="button" variant="ghost" size="icon-sm" aria-label="Unlink project">
+                                <Button type="button" variant="ghost" size="icon-sm" aria-label={t('teamDetails.unlinkProjectAction')}>
                               <X className="h-4 w-4" />
                                 </Button>
                               )}
@@ -594,28 +597,28 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="flex items-center gap-2 text-sm font-semibold">
                     <Check className="h-4 w-4" />
-                    Join requests
+                    {t('teamDetails.joinRequests')}
                   </h2>
                   <Badge variant="secondary">{joinRequests.length}</Badge>
                 </div>
                 <div className="space-y-2">
                   {joinRequests.length === 0 ? (
-                    <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">No pending requests.</div>
+                    <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">{t('teamDetails.noRequests')}</div>
                   ) : (
                     joinRequests.map((joinRequest) => {
                       const user = userById.get(joinRequest.userId)
                       return (
                         <div key={joinRequest.id} className="space-y-2 rounded-md border px-3 py-2">
                           <div className="min-w-0">
-                            <div className="truncate text-sm font-medium">{displayUser(user)}</div>
+                            <div className="truncate text-sm font-medium">{displayUser(user, t('common.unknownUser'))}</div>
                             {user?.email ? <div className="truncate text-xs text-muted-foreground">{user.email}</div> : null}
                           </div>
                           <div className="flex gap-1">
                             <Button type="button" size="sm" className="gap-1" disabled={isDecidingJoinRequestId === joinRequest.id} onClick={() => void handleDecideJoinRequest(joinRequest.id, 'APPROVE')}>
-                              Approve
+                              {t('teamDetails.approve')}
                             </Button>
                             <Button type="button" variant="outline" size="sm" disabled={isDecidingJoinRequestId === joinRequest.id} onClick={() => void handleDecideJoinRequest(joinRequest.id, 'REJECT')}>
-                              Reject
+                              {t('teamDetails.reject')}
                             </Button>
                           </div>
                         </div>

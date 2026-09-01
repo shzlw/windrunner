@@ -81,7 +81,8 @@ The UI uses `i18next` with `react-i18next`. The localization setup lives under
 
 - `src/i18n/index.ts` initializes i18next, detects the browser language, and
   persists the selected language in local storage.
-- `src/i18n/locales/en.ts` contains the English translation keys and values.
+- `src/i18n/locales/en.ts` and `src/i18n/locales/zh.ts` contain the English and
+  Simplified Chinese translation values.
 - `src/i18n/locales/index.ts` registers available resources and language labels.
 - `src/components/LanguageSelect.tsx` provides the language selector shown in
   My Account.

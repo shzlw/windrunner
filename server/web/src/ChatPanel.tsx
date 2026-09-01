@@ -7,6 +7,8 @@ import remarkGfm from 'remark-gfm'
 import { useParams } from 'react-router'
 import { AlertTriangle, ArrowUp, Bot, FileText, FolderOpen, Loader2, Plus, Square, User, UserRound, UsersRound, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
@@ -14,6 +16,7 @@ import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { translateStatus, translateWorkItemType } from '@/i18n/labels'
 import {
   getChatSession,
   startNewChatSession,
@@ -51,10 +54,6 @@ function createMessageId() {
   return `message-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-function workItemStatusLabel(status: string) {
-  return status.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase())
-}
-
 // A partially-streamed artifact marker (e.g. "[[team:team_ab" without its "]]")
 // would flash as raw text before completing, so it is hidden until closed.
 const incompleteTrailingMarkerPattern = /\[\[(?:project|workitem|team|user):[^\]\s]*$/
@@ -67,17 +66,17 @@ const markdownSanitizeSchema = {
   },
 }
 
-function artifactMarkersToLinks(content: string) {
+function artifactMarkersToLinks(content: string, t: TFunction) {
   return content.replace(
     artifactReferencePattern,
     (_marker, referenceType: 'project' | 'workitem' | 'team' | 'user', referenceId: string) => {
       const label = referenceType === 'project'
-        ? 'Project'
+        ? t('common.project')
         : referenceType === 'team'
-          ? 'Team'
+          ? t('common.team')
           : referenceType === 'user'
-            ? 'User'
-            : 'Work item'
+            ? t('common.user')
+            : t('common.workItem')
       return `[${label}](artifact:${referenceType}:${referenceId})`
     },
   )
@@ -85,6 +84,7 @@ function artifactMarkersToLinks(content: string) {
 
 function renderAssistantContent(
   content: string,
+  t: TFunction,
   references: Map<string, ChatWorkItemReference>,
   projectReferences: Map<string, string>,
   teamReferences: Map<string, string>,
@@ -95,7 +95,7 @@ function renderAssistantContent(
   onUserReferenceClick?: (userId: string) => void,
 ) {
   content = content.replace(incompleteTrailingMarkerPattern, '')
-  const markdown = artifactMarkersToLinks(content)
+  const markdown = artifactMarkersToLinks(content, t)
 
   const components: Components = {
     h1: ({ children }) => <h3 className="mb-2 mt-4 text-base font-semibold first:mt-0">{children}</h3>,
@@ -172,7 +172,7 @@ function renderAssistantContent(
                 ? onUserReferenceClick?.(referenceId)
                 : onWorkItemReferenceClick?.(referenceId)}
           disabled={!isClickable}
-          aria-label={`Open ${referenceType === 'project' ? 'project' : referenceType === 'team' ? 'team' : referenceType === 'user' ? 'user' : 'work item'} ${label}`}
+          aria-label={t('chat.openReference', { type: referenceType === 'project' ? t('common.project') : referenceType === 'team' ? t('common.team') : referenceType === 'user' ? t('common.user') : t('common.workItem'), label })}
         >
           {referenceType === 'project'
             ? <FolderOpen className="h-3 w-3 shrink-0" />
@@ -189,7 +189,7 @@ function renderAssistantContent(
         <Tooltip>
           <TooltipTrigger render={referenceButton} />
           <TooltipContent>
-            <span>{referenceType === 'project' ? 'Project' : referenceType === 'team' ? 'Team' : referenceType === 'user' ? 'User' : reference ? `${workItemStatusLabel(reference.status)} · ${reference.type}` : 'Unresolved reference'}</span>
+            <span>{referenceType === 'project' ? t('common.project') : referenceType === 'team' ? t('common.team') : referenceType === 'user' ? t('common.user') : reference ? `${translateStatus(reference.status, t)} · ${translateWorkItemType(reference.type, t)}` : t('chat.unresolvedReference')}</span>
           </TooltipContent>
         </Tooltip>
       )
@@ -267,6 +267,7 @@ export default function ChatPanel({
   composerFooter?: ReactNode
   onClose?: () => void
 }) {
+  const { t } = useTranslation()
   const routeProjectId = useParams().projectId
   projectId = projectId || routeProjectId || ''
   const chatProjectIds = projectIds?.length ? projectIds : projectId ? [projectId] : []
@@ -342,7 +343,7 @@ export default function ChatPanel({
         }
       } catch (error) {
         if (isMounted) {
-          toast.error(error instanceof Error ? error.message : 'Failed to load chat session.')
+          toast.error(error instanceof Error ? error.message : t('chat.failedLoadSession'))
         }
       } finally {
         if (isMounted) {
@@ -380,7 +381,7 @@ export default function ChatPanel({
       if (createdSession) onSessionStarted?.(createdSession)
     }
     if (!activeSessionId) {
-      toast.error('Start a chat session before sending a message.')
+      toast.error(t('chat.startBeforeSending'))
       return
     }
     const requestSessionId = activeSessionId
@@ -522,8 +523,8 @@ export default function ChatPanel({
               variant="ghost"
               className="-mr-1 ml-auto"
               onClick={onClearSelectedContext}
-              aria-label="Clear selected context"
-              title="Clear selected context"
+              aria-label={t('chat.clearContext')}
+              title={t('chat.clearContext')}
             >
               <X className="h-3 w-3" />
             </Button>
@@ -536,17 +537,17 @@ export default function ChatPanel({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleTextareaKeyDown}
-            placeholder="Ask anything…"
+            placeholder={t('home.askAnything')}
             disabled={isLoadingSession}
             className="max-h-32 min-h-16 resize-none border-0 px-1 py-1 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
           <div className="flex justify-end pt-1">
             {isStreaming ? (
-              <Button type="button" size="icon" variant="outline" onClick={stopStreaming} aria-label="Stop response">
+              <Button type="button" size="icon" variant="outline" onClick={stopStreaming} aria-label={t('chat.stopResponse')}>
                 <Square className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="submit" size="icon" disabled={isLoadingSession || !draft.trim()} aria-label="Send message">
+              <Button type="submit" size="icon" disabled={isLoadingSession || !draft.trim()} aria-label={t('chat.sendMessage')}>
                 <ArrowUp className="h-4 w-4" />
               </Button>
             )}
@@ -570,7 +571,7 @@ export default function ChatPanel({
       setDraft('')
       onSessionStarted?.(session)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to start a new chat session.')
+      toast.error(error instanceof Error ? error.message : t('chat.failedStartSession'))
     } finally {
       setIsStartingSession(false)
     }
@@ -589,7 +590,7 @@ export default function ChatPanel({
           <div className="flex w-full items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <Bot className="h-4 w-4 shrink-0 text-primary" />
-              <h2 className="truncate text-sm font-semibold leading-none tracking-normal">Chat with AI</h2>
+              <h2 className="truncate text-sm font-semibold leading-none tracking-normal">{t('chat.chatWithAi')}</h2>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <Button
@@ -598,7 +599,7 @@ export default function ChatPanel({
                 variant="ghost"
                 onClick={() => void handleStartNewSession()}
                 disabled={isLoadingSession || isStreaming || isStartingSession}
-                aria-label="Start new chat"
+                aria-label={t('chat.startNewChat')}
               >
                 {isStartingSession ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               </Button>
@@ -608,7 +609,7 @@ export default function ChatPanel({
                   size="icon-sm"
                   variant="ghost"
                   onClick={onClose}
-                  aria-label="Close AI chat"
+                  aria-label={t('chat.closeChat')}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -626,7 +627,7 @@ export default function ChatPanel({
             </div>
           ) : messages.length === 0 ? (
             <div className="flex h-full min-h-56 flex-col items-center justify-center gap-5 p-6">
-              <h2 className="text-center text-xl font-semibold tracking-tight">How can I help you today?</h2>
+              <h2 className="text-center text-xl font-semibold tracking-tight">{t('chat.greeting')}</h2>
               <div className="w-full max-w-2xl">
                 {renderComposer()}
               </div>
@@ -651,12 +652,12 @@ export default function ChatPanel({
                       ) : (
                         message.content
                           ? message.role === 'assistant'
-                            ? renderAssistantContent(message.content, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick)
+                            ? renderAssistantContent(message.content, t, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick)
                             : <span className="whitespace-pre-wrap">{message.content}</span>
                           : (
                             <span className="flex min-h-5 items-center gap-2 text-sm leading-none text-muted-foreground">
                               <Loader2 className="h-4 w-4 animate-spin" />
-                              <span>Thinking…</span>
+                              <span>{t('chat.thinking')}</span>
                             </span>
                           )
                       )}

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { ChevronRight, FolderOpen, Loader2, Plus, Save, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
 import { NavLink, useLocation, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import { Badge } from '@/components/ui/badge'
@@ -31,26 +32,27 @@ import {
   type Team,
   type User,
 } from '@/lib/api'
+import { translateRole } from '@/i18n/labels'
 
 const PROJECT_ROLE_OPTIONS: ProjectTeam['role'][] = ['VIEWER', 'EDITOR', 'OWNER']
 const ACCESS_ROLE_GROUPS: ProjectTeam['role'][] = ['OWNER', 'EDITOR', 'VIEWER']
 type AddAccessMode = 'member' | 'team'
 
-function formatProjectTitle(project: Project) {
-  return project.title?.trim() ? project.title : 'Untitled project'
+function formatProjectTitle(project: Project, fallback: string) {
+  return project.title?.trim() ? project.title : fallback
 }
 
-function displayUser(user: User | AuthUser | null | undefined) {
+function displayUser(user: User | AuthUser | null | undefined, fallback: string) {
   if (!user) {
-    return 'Unknown user'
+    return fallback
   }
 
   return user.displayName?.trim() || user.username
 }
 
-function formatOptionalDate(value: string | undefined) {
+function formatOptionalDate(value: string | undefined, fallback: string) {
   if (!value) {
-    return 'Not available'
+    return fallback
   }
 
   return new Intl.DateTimeFormat(undefined, {
@@ -60,6 +62,7 @@ function formatOptionalDate(value: string | undefined) {
 }
 
 export default function ProjectSettingsPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const { projectId } = useParams()
@@ -130,7 +133,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
       ])
 
       setProject(nextProject)
-      setEditTitle(formatProjectTitle(nextProject))
+      setEditTitle(formatProjectTitle(nextProject, t('common.untitledProject')))
       setTeams(nextTeams)
       setUsers(nextUsers)
       setProjectMembers(nextProjectMembers)
@@ -176,7 +179,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
 
     const title = editTitle.trim()
     if (!title) {
-      toast.error('Project name is required.')
+      toast.error(t('projects.nameRequired'))
       return
     }
 
@@ -184,10 +187,10 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     try {
       const updated = await updateProject(project.id, { title })
       setProject(updated)
-      setEditTitle(formatProjectTitle(updated))
-      toast.success('Project updated.')
+      setEditTitle(formatProjectTitle(updated, t('common.untitledProject')))
+      toast.success(t('projects.projectUpdated'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update project.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedUpdate'))
     } finally {
       setIsUpdating(false)
     }
@@ -201,10 +204,10 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     setIsDeleting(true)
     try {
       await request<void>(`/internal-api/v1/projects/${project.id}`, { method: 'DELETE' })
-      toast.success('Project deleted.')
+      toast.success(t('projects.projectDeleted'))
       navigate(workspaceDestination('/app/projects'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete project.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedDelete'))
     } finally {
       setIsDeleting(false)
     }
@@ -222,9 +225,9 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
       setAssignMemberUserId('')
       setAssignMemberRole('VIEWER')
       await loadProjectRelations()
-      toast.success('Project member added.')
+      toast.success(t('projects.memberAdded'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to add project member.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedAddMember'))
     } finally {
       setIsAssigningMember(false)
     }
@@ -241,9 +244,9 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
       setProjectMembers((current) => current.map((member) => (
         member.userId === userId ? { ...member, role } : member
       )))
-      toast.success('Project member updated.')
+      toast.success(t('projects.memberUpdated'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update project member.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedUpdateMember'))
       await loadProjectRelations()
     } finally {
       setUpdatingMemberUserId(null)
@@ -258,9 +261,9 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     try {
       await removeProjectMember(project.id, userId)
       setProjectMembers((current) => current.filter((member) => member.userId !== userId))
-      toast.success('Project member removed.')
+      toast.success(t('projects.memberRemoved'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove project member.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedRemoveMember'))
     }
   }
 
@@ -276,9 +279,9 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
       setAssignTeamId('')
       setAssignTeamRole('VIEWER')
       await loadProjectRelations()
-      toast.success('Team assigned.')
+      toast.success(t('projects.teamAssigned'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to assign team.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedAssignTeam'))
     } finally {
       setIsAssigningTeam(false)
     }
@@ -295,9 +298,9 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
       setProjectTeams((current) => current.map((projectTeam) => (
         projectTeam.teamId === teamId ? { ...projectTeam, role } : projectTeam
       )))
-      toast.success('Team access updated.')
+      toast.success(t('projectSettings.teamAccessUpdated'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update team access.')
+      toast.error(error instanceof Error ? error.message : t('projectSettings.failedUpdateTeamAccess'))
       await loadProjectRelations()
     } finally {
       setUpdatingTeamId(null)
@@ -312,9 +315,9 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     try {
       await unassignProjectTeam(project.id, teamId)
       setProjectTeams((current) => current.filter((projectTeam) => projectTeam.teamId !== teamId))
-      toast.success('Team removed from project.')
+      toast.success(t('projects.teamRemoved'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove team.')
+      toast.error(error instanceof Error ? error.message : t('projects.failedRemoveTeam'))
     }
   }
 
@@ -322,7 +325,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-          <h1 className="text-xl font-semibold leading-none tracking-normal">Projects</h1>
+          <h1 className="text-xl font-semibold leading-none tracking-normal">{t('projectSettings.pageTitle')}</h1>
         </div>
         <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto p-6">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -335,14 +338,14 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-          <h1 className="text-xl font-semibold leading-none tracking-normal">Projects</h1>
+          <h1 className="text-xl font-semibold leading-none tracking-normal">{t('projectSettings.pageTitle')}</h1>
         </div>
         <Empty className="min-w-0 flex-1 overflow-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <FolderOpen />
             </EmptyMedia>
-            <EmptyTitle>{errorMessage || 'Project not found.'}</EmptyTitle>
+            <EmptyTitle>{errorMessage || t('projectSettings.projectNotFound')}</EmptyTitle>
           </EmptyHeader>
         </Empty>
       </div>
@@ -354,53 +357,53 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
       <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold leading-none tracking-normal">
           <NavLink to={workspaceDestination('/app/projects')} className="shrink-0 text-muted-foreground hover:text-foreground">
-            Projects
+            {t('projectSettings.pageTitle')}
           </NavLink>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <NavLink to={workspaceDestination(`/app/projects/${project.id}`)} className="flex min-w-0 items-center gap-1.5 text-muted-foreground hover:text-foreground">
             <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="truncate">{formatProjectTitle(project)}</span>
+            <span className="truncate">{formatProjectTitle(project, t('common.untitledProject'))}</span>
           </NavLink>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="truncate">Settings</span>
+          <span className="truncate">{t('projectSettings.settings')}</span>
         </h1>
       </div>
 
       <div className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
         <Tabs defaultValue="info" className="gap-4">
           <TabsList variant="line" className="border-b">
-            <TabsTrigger value="info">Info</TabsTrigger>
-            <TabsTrigger value="access">Access</TabsTrigger>
+            <TabsTrigger value="info">{t('projectSettings.info')}</TabsTrigger>
+            <TabsTrigger value="access">{t('projectSettings.access')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="info">
             <section className="max-w-3xl space-y-4 rounded-md border bg-background p-4">
               <div>
-                <h2 className="text-sm font-semibold">Project info</h2>
+                <h2 className="text-sm font-semibold">{t('projectSettings.projectInfo')}</h2>
               </div>
               <form className="space-y-4" onSubmit={handleUpdateProject}>
                 <div className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
-                  <label className="text-sm font-medium">Name</label>
+                  <label className="text-sm font-medium">{t('common.name')}</label>
                   <Input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} />
                 </div>
                 <div className="flex justify-end">
-                  <Button type="submit" className="gap-2" disabled={isUpdating || editTitle.trim() === formatProjectTitle(project)}>
+                  <Button type="submit" className="gap-2" disabled={isUpdating || editTitle.trim() === formatProjectTitle(project, t('common.untitledProject'))}>
                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Save
+                    {t('common.save')}
                   </Button>
                 </div>
               </form>
 
               <div className="flex border-t pt-4">
                 <DeleteConfirmPopover
-                  title="Delete project?"
-                  description="Project nodes and access assignments will be removed."
-                  confirmLabel="Delete project"
+                  title={t('projectSettings.deleteProject')}
+                  description={t('projectSettings.deleteProjectDescription')}
+                  confirmLabel={t('projects.deleteProjectButton')}
                   disabled={isDeleting}
                   trigger={(
                     <Button type="button" variant="destructive" className="gap-2" disabled={isDeleting}>
                       <Trash2 className="h-4 w-4" />
-                      {isDeleting ? 'Deleting...' : 'Delete'}
+                      {isDeleting ? t('common.deleting') : t('common.delete')}
                     </Button>
                   )}
                   onConfirm={handleDeleteProject}
@@ -412,30 +415,30 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
           <TabsContent value="access">
             <div className="space-y-4">
               <section className="rounded-md border bg-background p-4">
-                <h2 className="text-sm font-semibold">Access summary</h2>
+                <h2 className="text-sm font-semibold">{t('projectSettings.accessSummary')}</h2>
                 <dl className="mt-4 grid gap-3 sm:grid-cols-4">
                   <div>
-                    <dt className="text-xs font-medium uppercase text-muted-foreground">Your access</dt>
-                    <dd className="mt-1 text-sm">{currentMembership?.role ?? 'Not direct'}</dd>
+                    <dt className="text-xs font-medium uppercase text-muted-foreground">{t('projectSettings.yourAccess')}</dt>
+                    <dd className="mt-1 text-sm">{currentMembership?.role ? translateRole(currentMembership.role, t) : t('projectSettings.notDirect')}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs font-medium uppercase text-muted-foreground">Members</dt>
+                    <dt className="text-xs font-medium uppercase text-muted-foreground">{t('common.members')}</dt>
                     <dd className="mt-1 text-sm">{projectMembers.length}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs font-medium uppercase text-muted-foreground">Teams</dt>
+                    <dt className="text-xs font-medium uppercase text-muted-foreground">{t('common.teams')}</dt>
                     <dd className="mt-1 text-sm">{projectTeams.length}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs font-medium uppercase text-muted-foreground">Updated</dt>
-                    <dd className="mt-1 text-sm">{formatOptionalDate(project.updatedAt)}</dd>
+                    <dt className="text-xs font-medium uppercase text-muted-foreground">{t('common.updated')}</dt>
+                    <dd className="mt-1 text-sm">{formatOptionalDate(project.updatedAt, t('common.notAvailable'))}</dd>
                   </div>
                 </dl>
               </section>
 
               <section className="space-y-3 rounded-md border bg-background p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-semibold">Access by role</h2>
+                  <h2 className="text-sm font-semibold">{t('projectSettings.accessByRole')}</h2>
                   <Badge variant="secondary">{projectMembers.length + projectTeams.length}</Badge>
                 </div>
 
@@ -446,12 +449,12 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                     return (
                       <div key={role} className="space-y-3 rounded-md border p-3">
                         <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-sm font-medium">{role}</h3>
+                          <h3 className="text-sm font-medium">{role === 'OWNER' ? t('role.owner') : role === 'EDITOR' ? t('role.editor') : t('role.viewer')}</h3>
                           <Badge variant="outline">{roleMembers.length + roleTeams.length}</Badge>
                         </div>
 
                         {roleMembers.length === 0 && roleTeams.length === 0 ? (
-                          <div className="rounded-md border border-dashed px-3 py-5 text-sm text-muted-foreground">No access assigned.</div>
+                          <div className="rounded-md border border-dashed px-3 py-5 text-sm text-muted-foreground">{t('projectSettings.noAccess')}</div>
                         ) : (
                           <div className="space-y-2">
                             {roleMembers.map((member) => {
@@ -461,7 +464,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                       <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
-                                      <div className="truncate text-sm font-medium">{displayUser(user)}</div>
+                                      <div className="truncate text-sm font-medium">{displayUser(user, t('common.unknownUser'))}</div>
                                     </div>
                                   </div>
                                   <NativeSelect
@@ -472,16 +475,16 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                                   >
                                     {PROJECT_ROLE_OPTIONS.map((nextRole) => (
                                       <NativeSelectOption key={nextRole} value={nextRole}>
-                                        {nextRole}
+                                        {translateRole(nextRole, t)}
                                       </NativeSelectOption>
                                     ))}
                                   </NativeSelect>
                                   <DeleteConfirmPopover
-                                    title="Remove project member?"
-                                    description="This user will lose direct access granted by this project membership."
-                                    confirmLabel="Remove"
+                                    title={t('projectSettings.removeMember')}
+                                    description={t('projectSettings.removeMemberDescription')}
+                                    confirmLabel={t('common.remove')}
                                     trigger={(
-                                      <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove project member">
+                                      <Button type="button" variant="ghost" size="icon-sm" aria-label={t('projects.removeMemberAction')}>
                                         <X className="h-4 w-4" />
                                       </Button>
                                     )}
@@ -510,16 +513,16 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                                   >
                                     {PROJECT_ROLE_OPTIONS.map((nextRole) => (
                                       <NativeSelectOption key={nextRole} value={nextRole}>
-                                        {nextRole}
+                                      {translateRole(nextRole, t)}
                                       </NativeSelectOption>
                                     ))}
                                   </NativeSelect>
                                   <DeleteConfirmPopover
-                                    title="Remove team from project?"
-                                    description="Team members will lose the project access granted through this team."
-                                    confirmLabel="Remove"
+                                    title={t('projectSettings.removeTeam')}
+                                    description={t('projectSettings.removeTeamDescription')}
+                                    confirmLabel={t('common.remove')}
                                     trigger={(
-                                      <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove team">
+                                      <Button type="button" variant="ghost" size="icon-sm" aria-label={t('projects.removeTeamAction')}>
                                         <X className="h-4 w-4" />
                                       </Button>
                                     )}
@@ -537,7 +540,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
               </section>
 
               <section className="max-w-4xl space-y-4 rounded-md border bg-background p-4">
-                <h2 className="text-sm font-semibold">Add access</h2>
+                <h2 className="text-sm font-semibold">{t('projectSettings.addAccess')}</h2>
 
                 <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
                   <ToggleGroup
@@ -554,40 +557,40 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                   >
                     <ToggleGroupItem value="member" className="gap-2">
                       <UserPlus className="h-4 w-4" />
-                      Member
+                      {t('common.member')}
                     </ToggleGroupItem>
                     <ToggleGroupItem value="team" className="gap-2">
                       <UsersRound className="h-4 w-4" />
-                      Team
+                      {t('common.team')}
                     </ToggleGroupItem>
                   </ToggleGroup>
 
                   {addAccessMode === 'member' ? (
                     <form className="flex flex-col gap-2 sm:flex-row sm:items-center" onSubmit={handleAssignMember}>
                       <NativeSelect className="w-full sm:w-72" value={assignMemberUserId} onChange={(event) => setAssignMemberUserId(event.target.value)} disabled={availableMemberUsers.length === 0}>
-                        <NativeSelectOption value="">Select user</NativeSelectOption>
+                        <NativeSelectOption value="">{t('projectSettings.selectUser')}</NativeSelectOption>
                         {availableMemberUsers.map((user) => (
                           <NativeSelectOption key={user.id} value={user.id}>
-                            {displayUser(user)}
+                            {displayUser(user, t('common.unknownUser'))}
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
                       <NativeSelect className="w-full sm:w-36" value={assignMemberRole} onChange={(event) => setAssignMemberRole(event.target.value as ProjectMember['role'])}>
                         {PROJECT_ROLE_OPTIONS.map((role) => (
                           <NativeSelectOption key={role} value={role}>
-                            {role}
+                            {translateRole(role, t)}
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
                       <Button type="submit" className="gap-2" disabled={isAssigningMember || !assignMemberUserId}>
                         {isAssigningMember ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                        Add
+                        {t('common.add')}
                       </Button>
                     </form>
                   ) : (
                     <form className="flex flex-col gap-2 sm:flex-row sm:items-center" onSubmit={handleAssignTeam}>
                       <NativeSelect className="w-full sm:w-72" value={assignTeamId} onChange={(event) => setAssignTeamId(event.target.value)} disabled={availableTeams.length === 0}>
-                        <NativeSelectOption value="">Select team</NativeSelectOption>
+                        <NativeSelectOption value="">{t('projectSettings.selectTeam')}</NativeSelectOption>
                         {availableTeams.map((team) => (
                           <NativeSelectOption key={team.id} value={team.id}>
                             {team.name}
@@ -597,13 +600,13 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                       <NativeSelect className="w-full sm:w-36" value={assignTeamRole} onChange={(event) => setAssignTeamRole(event.target.value as ProjectTeam['role'])}>
                         {PROJECT_ROLE_OPTIONS.map((role) => (
                           <NativeSelectOption key={role} value={role}>
-                            {role}
+                            {translateRole(role, t)}
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
                       <Button type="submit" className="gap-2" disabled={isAssigningTeam || !assignTeamId}>
                         {isAssigningTeam ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                        Assign
+                        {t('projects.assign')}
                       </Button>
                     </form>
                   )}

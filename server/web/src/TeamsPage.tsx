@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Loader2, Plus, Search, UsersRound, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -20,12 +21,12 @@ import {
   type User,
 } from '@/lib/api'
 
-function displayUser(user: User | AuthUser | null | undefined) {
+function displayUser(user: User | AuthUser | null | undefined, fallback: string) {
   if (!user) {
-    return 'Unknown user'
+    return fallback
   }
 
-  return user.displayName?.trim() || user.username
+    return user.displayName?.trim() || user.username || fallback
 }
 
 function sortTeams(teams: Team[]) {
@@ -41,6 +42,7 @@ function avatarInitials(label: string) {
 }
 
 export default function TeamsPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const [teams, setTeams] = useState<Team[]>([])
@@ -99,7 +101,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
       setTeams(sortTeams(nextTeams))
       setUsers(nextUsers)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load teams.')
+      toast.error(error instanceof Error ? error.message : t('teams.failedLoad'))
     } finally {
       setIsLoading(false)
     }
@@ -136,12 +138,12 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
     event.preventDefault()
     const name = createName.trim()
     if (!name) {
-      toast.error('Team name is required.')
+      toast.error(t('teams.nameRequired'))
       return
     }
     if (createOwnerUserIds.length === 0) {
       setOwnerSubmitAttempted(true)
-      toast.error('Select at least one team owner.')
+      toast.error(t('teams.ownerRequired'))
       return
     }
 
@@ -154,10 +156,10 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
       setCreateOwnerUserIds([])
       setCreateOwnerUserId('')
       setIsSheetOpen(false)
-      toast.success('Team created.')
+      toast.success(t('teams.teamCreated'))
       navigate(workspaceDestination(`/app/teams/${created.id}`))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create team.')
+      toast.error(error instanceof Error ? error.message : t('teams.failedCreate'))
     } finally {
       setIsCreating(false)
     }
@@ -166,19 +168,19 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
-        <h1 className="text-xl font-semibold leading-none tracking-normal">Teams</h1>
+        <h1 className="text-xl font-semibold leading-none tracking-normal">{t('teams.pageTitle')}</h1>
       </div>
 
       <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
         <div className="flex flex-col gap-2 sm:flex-row lg:items-center">
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-10" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search" />
+            <Input className="pl-10" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('common.search')} />
           </div>
           {isAdminLike ? (
             <Button className="gap-2" onClick={openCreateSheet}>
               <Plus className="h-4 w-4" />
-              New team
+              {t('teams.newTeam')}
             </Button>
           ) : null}
         </div>
@@ -194,39 +196,39 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
                 <EmptyMedia variant="icon">
                   <UsersRound />
                 </EmptyMedia>
-                <EmptyTitle>No teams found</EmptyTitle>
+                <EmptyTitle>{t('teams.noTeams')}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Members</TableHead>
-                  <TableHead>Projects</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>My role</TableHead>
+                  <TableHead>{t('common.name')}</TableHead>
+                  <TableHead>{t('common.description')}</TableHead>
+                  <TableHead>{t('common.members')}</TableHead>
+                  <TableHead>{t('common.projects')}</TableHead>
+                  <TableHead>{t('common.created')}</TableHead>
+                  <TableHead>{t('teams.myRole')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTeams.map((team) => {
-                  const members = (team.memberUserIds ?? []).map((userId) => ({ id: userId, label: team.memberDisplayNames?.[userId] || displayUser(userById.get(userId)) }))
+                  const members = (team.memberUserIds ?? []).map((userId) => ({ id: userId, label: team.memberDisplayNames?.[userId] || displayUser(userById.get(userId), t('common.unknownUser')) }))
                   return (
                     <TableRow key={team.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(workspaceDestination(`/app/teams/${team.id}`))}>
                       <TableCell className="font-medium">{team.name}</TableCell>
                       <TableCell className="max-w-[360px] truncate text-muted-foreground">{team.description?.trim() || '—'}</TableCell>
                       <TableCell>
                         {members.length > 0 ? (
-                          <div className="flex -space-x-2" aria-label={`${members.length} members`}>
+                          <div className="flex -space-x-2" aria-label={t('common.memberCount', { count: members.length })}>
                             {members.slice(0, 4).map((member) => <span key={member.id} className="grid size-7 place-items-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground" title={member.label}>{avatarInitials(member.label)}</span>)}
-                            {members.length > 4 ? <span className="grid size-7 place-items-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground" title={`${members.length - 4} more members`}>+{members.length - 4}</span> : null}
+                            {members.length > 4 ? <span className="grid size-7 place-items-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground" title={t('teams.moreMembers', { count: members.length - 4 })}>+{members.length - 4}</span> : null}
                           </div>
                         ) : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell className="text-muted-foreground">{team.projectCount ?? 0}</TableCell>
                       <TableCell className="whitespace-nowrap text-muted-foreground">{formatShortDate(team.createdAt)}</TableCell>
-                      <TableCell className="text-muted-foreground">{team.currentUserRole === 'TEAM_OWNER' ? 'Owner' : team.currentUserRole === 'TEAM_MEMBER' ? 'Member' : '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">{team.currentUserRole === 'TEAM_OWNER' ? t('common.owner') : team.currentUserRole === 'TEAM_MEMBER' ? t('common.member') : '—'}</TableCell>
                     </TableRow>
                   )
                 })}
@@ -243,10 +245,10 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
           showCloseButton={false}
         >
           <SheetHeader className="flex min-h-12 flex-row items-center justify-between gap-3 border-b px-4 py-2">
-            <SheetTitle className="text-xl">New team</SheetTitle>
+            <SheetTitle className="text-xl">{t('teams.newTeam')}</SheetTitle>
             <SheetClose
               render={<Button variant="ghost" size="icon-sm" className="-mr-2" />}
-              aria-label="Close"
+              aria-label={t('common.close')}
             >
               <X className="h-4 w-4" />
             </SheetClose>
@@ -255,11 +257,11 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
           <div className="flex-1 px-6 py-4">
             <form className="space-y-5" onSubmit={handleCreateTeam}>
               <div className="space-y-2">
-                <label className="block text-sm font-semibold">Name</label>
+                <label className="block text-sm font-semibold">{t('common.name')}</label>
                 <Input value={createName} onChange={(event) => setCreateName(event.target.value)} />
               </div>
               <div className="space-y-2">
-                <label className="block text-sm font-semibold">Description</label>
+                <label className="block text-sm font-semibold">{t('common.description')}</label>
                 <Textarea
                   value={createDescription}
                   onChange={(event) => setCreateDescription(event.target.value)}
@@ -267,22 +269,22 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
                 />
               </div>
               <div className="space-y-2">
-                <label className="block text-sm font-semibold">Team owners</label>
+                <label className="block text-sm font-semibold">{t('teams.teamOwners')}</label>
                 <div className="flex gap-2">
                   <NativeSelect className="w-full" value={createOwnerUserId} onChange={(event) => setCreateOwnerUserId(event.target.value)} disabled={createOwnerUsers.length === 0}>
-                    <NativeSelectOption value="">Select owner</NativeSelectOption>
+                    <NativeSelectOption value="">{t('teams.selectOwner')}</NativeSelectOption>
                     {createOwnerUsers.map((user) => (
                       <NativeSelectOption key={user.id} value={user.id}>
-                        {displayUser(user)}
+                {displayUser(user, t('common.unknownUser'))}
                       </NativeSelectOption>
                     ))}
                   </NativeSelect>
-                  <Button type="button" variant="outline" size="icon" onClick={addCreateOwner} disabled={!createOwnerUserId} aria-label="Add team owner">
+                  <Button type="button" variant="outline" size="icon" onClick={addCreateOwner} disabled={!createOwnerUserId} aria-label={t('teams.addOwner')}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
                 {ownerSubmitAttempted && createOwnerUserIds.length === 0 ? (
-                  <p className="text-sm text-destructive">Select at least one team owner.</p>
+                  <p className="text-sm text-destructive">{t('teams.ownerRequired')}</p>
                 ) : null}
                 {createOwnerUserIds.length > 0 ? (
                   <div className="space-y-2">
@@ -290,8 +292,8 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
                       const user = userById.get(userId)
                       return (
                         <div key={userId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                          <span className="truncate text-sm">{displayUser(user)}</span>
-                          <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeCreateOwner(userId)} aria-label={`Remove ${displayUser(user)} as team owner`}>
+                          <span className="truncate text-sm">{displayUser(user, t('common.unknownUser'))}</span>
+                          <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeCreateOwner(userId)} aria-label={t('teams.removeOwner', { name: displayUser(user, t('common.unknownUser')) })}>
                             <X className="h-4 w-4" />
                           </Button>
                         </div>
@@ -303,11 +305,11 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
               <div className="flex gap-2">
                 <Button type="submit" className="gap-2" disabled={isCreating}>
                   {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Create
+                  {t('teams.create')}
                 </Button>
                 <Button type="button" variant="outline" className="gap-2" onClick={() => setIsSheetOpen(false)} disabled={isCreating}>
                   <X className="h-4 w-4" />
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </form>
