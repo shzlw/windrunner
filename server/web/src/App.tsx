@@ -340,7 +340,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const [isChatStreaming, setIsChatStreaming] = useState(false)
   const [newChatRequestKey, setNewChatRequestKey] = useState(0)
   const menuItems = baseMenuItems
-  const accountLabel = `@${currentUser?.displayName || currentUser?.username || 'account'}`
+  const accountLabel = currentUser?.displayName || currentUser?.username || 'account'
   const refreshChatSessions = useCallback(async (preferredSessionId?: string) => {
     setIsLoadingChatSessions(true)
     try {

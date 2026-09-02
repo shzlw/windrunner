@@ -441,11 +441,11 @@ export default function AIAnalyticsPage() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center gap-2 border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center gap-2 border-b px-4 py-2 md:px-5">
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('analytics.pageTitle')}</h1>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
+      <div className="min-w-0 flex-1 space-y-2 overflow-auto p-3 md:p-4">
         <div className="flex flex-col gap-2 sm:flex-row lg:items-center">
           <NativeSelect className="w-full sm:w-56" value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>
             <NativeSelectOption value="all">{t('analytics.allProjects')}</NativeSelectOption>
@@ -510,7 +510,7 @@ export default function AIAnalyticsPage() {
               />
             </div>
 
-            <div className="rounded-md border bg-background p-4">
+            <div className="rounded-md border bg-background p-3">
               <div className="mb-4 flex items-center gap-2">
                 <h2 className="text-sm font-semibold tracking-normal">{t('analytics.usageByFeature')}</h2>
                 {isUsageLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
@@ -526,7 +526,7 @@ export default function AIAnalyticsPage() {
           </TabsContent>
 
           <TabsContent value="outcomes" className="mt-0 space-y-3">
-        <div className="rounded-md border bg-background p-4">
+        <div className="rounded-md border bg-background p-3">
           <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-md border px-3 py-2">
               <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
@@ -642,7 +642,7 @@ export default function AIAnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="usage" className="mt-0 space-y-3">
-        <div className="rounded-md border bg-background p-4">
+        <div className="rounded-md border bg-background p-3">
           <div className="mb-4 flex items-center gap-2">
             <h2 className="text-sm font-semibold tracking-normal">{t('analytics.tokenUsage')}</h2>
             {isUsageLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
@@ -744,7 +744,7 @@ export default function AIAnalyticsPage() {
         </div>
 
         {usage && usage.byProviderModel.length > 0 ? (
-          <div className="rounded-md border bg-background p-4">
+          <div className="rounded-md border bg-background p-3">
             <div className="mb-4 flex items-center gap-2">
               <h2 className="text-sm font-semibold tracking-normal">{t('analytics.models')}</h2>
               {isUsageLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}

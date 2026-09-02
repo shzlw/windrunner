@@ -71,12 +71,12 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('subscriptions.pageTitle')}</h1>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
-        <div className="rounded-md border bg-background p-4">
+      <div className="min-w-0 flex-1 space-y-2 overflow-auto p-3 md:p-4">
+        <div className="rounded-md border bg-background p-3">
           {isLoading ? (
             <div className="flex min-h-64 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -150,7 +150,7 @@ export default function SubscriptionsPage() {
                   })}
                 </TableBody>
               </Table>
-              <div className="flex justify-end border-t pt-3 text-sm">
+              <div className="flex justify-end border-t pt-2 text-sm">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -169,7 +169,7 @@ export default function SubscriptionsPage() {
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
-                  <div className="ml-4 border-l pl-4">
+                  <div className="ml-3 border-l pl-3">
                     <NativeSelect
                       className="h-8 w-20"
                       value={String(pageSize)}

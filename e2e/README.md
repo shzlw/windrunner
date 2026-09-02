@@ -68,6 +68,19 @@ npx playwright test --project=cli
 The server is not started by Playwright; start it first with
 `../server/start-local.sh` from the repository root's `e2e/` folder.
 
+## UI E2E tests
+
+The UI baseline runs in Google Chrome. Locally it opens a visible Chrome
+window; CI runs headlessly. It uses `E2E_LOGIN` and `E2E_PASSWORD`, logs in
+through the browser, and opens the Projects page.
+
+```bash
+npm run test:ui
+```
+
+Chrome must be installed on the machine running the test. Run this from the
+`e2e` folder with the server already running.
+
 ## Scenario and performance seeding
 
 Seeds coherent, real-world programs rather than synthetic `e2e` records. The
@@ -117,8 +130,8 @@ For Docker Compose, set the pool size before starting the app, for example:
 
 ## Writing new specs
 
-- Put API specs in `tests/api`, CLI specs in `tests/cli`, and shared fixtures in
-  `tests/support`.
+- Put API specs in `tests/api`, CLI specs in `tests/cli`, UI specs in `tests/ui`,
+  and shared fixtures in `tests/support`.
 - The `authenticated` fixture provides `{ api, apiKey, userId }` — use it for
   anything that needs authorization.
 - Tests create real data on the target server; failed tests leave their data

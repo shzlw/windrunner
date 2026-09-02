@@ -95,7 +95,6 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
   const [updatingMemberUserId, setUpdatingMemberUserId] = useState<string | null>(null)
   const [updatingTeamId, setUpdatingTeamId] = useState<string | null>(null)
 
-  const teamById = useMemo(() => new Map(teams.map((team) => [team.id, team])), [teams])
   const userById = useMemo(() => {
     const nextUserById = new Map<string, User | AuthUser>(users.map((user) => [user.id, user]))
     if (currentUser) {
@@ -324,10 +323,10 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
   if (isLoading) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+        <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
           <h1 className="text-xl font-semibold leading-none tracking-normal">{t('projectSettings.pageTitle')}</h1>
         </div>
-        <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto p-6">
+        <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto p-4">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       </div>
@@ -337,7 +336,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
   if (errorMessage || !project) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+        <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
           <h1 className="text-xl font-semibold leading-none tracking-normal">{t('projectSettings.pageTitle')}</h1>
         </div>
         <Empty className="min-w-0 flex-1 overflow-auto">
@@ -354,7 +353,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold leading-none tracking-normal">
           <NavLink to={workspaceDestination('/app/projects')} className="shrink-0 text-muted-foreground hover:text-foreground">
             {t('projectSettings.pageTitle')}
@@ -369,8 +368,8 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
         </h1>
       </div>
 
-      <div className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
-        <Tabs defaultValue="info" className="gap-4">
+      <div className="min-w-0 flex-1 overflow-auto p-3 md:p-4">
+        <Tabs defaultValue="info" className="gap-3">
           <TabsList variant="line" className="border-b">
             <TabsTrigger value="info">{t('projectSettings.info')}</TabsTrigger>
             <TabsTrigger value="access">{t('projectSettings.access')}</TabsTrigger>
@@ -454,13 +453,13 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                         </div>
 
                         {roleMembers.length === 0 && roleTeams.length === 0 ? (
-                          <div className="rounded-md border border-dashed px-3 py-5 text-sm text-muted-foreground">{t('projectSettings.noAccess')}</div>
+                          <div className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">{t('projectSettings.noAccess')}</div>
                         ) : (
                           <div className="space-y-2">
                             {roleMembers.map((member) => {
                               const user = userById.get(member.userId)
                               return (
-                                <div key={`member-${member.userId}`} className="grid gap-2 rounded-md border px-3 py-2 sm:grid-cols-[minmax(0,1fr)_8.5rem_auto] sm:items-center xl:grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_8.5rem_auto]">
+                                <div key={`member-${member.userId}`} className="grid gap-2 rounded-md border px-3 py-1.5 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-center">
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                       <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
@@ -468,7 +467,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                                     </div>
                                   </div>
                                   <NativeSelect
-                                    className="w-full sm:w-36"
+                                    className="w-full sm:w-32"
                                     value={member.role}
                                     onChange={(event) => void handleUpdateMemberRole(member.userId, event.target.value as ProjectMember['role'])}
                                     disabled={updatingMemberUserId === member.userId}
@@ -495,18 +494,16 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                             })}
 
                             {roleTeams.map((projectTeam) => {
-                              const team = teamById.get(projectTeam.teamId)
                               return (
-                                <div key={`team-${projectTeam.teamId}`} className="grid gap-2 rounded-md border px-3 py-2 sm:grid-cols-[minmax(0,1fr)_8.5rem_auto] sm:items-center xl:grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_8.5rem_auto]">
+                                <div key={`team-${projectTeam.teamId}`} className="grid gap-2 rounded-md border px-3 py-1.5 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-center">
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2">
                                       <UsersRound className="h-3.5 w-3.5 text-muted-foreground" />
-                                      <div className="truncate text-sm font-medium">{team?.name || projectTeam.teamId}</div>
+                                      {projectTeam.teamName?.trim() ? <div className="truncate text-sm font-medium">{projectTeam.teamName.trim()}</div> : null}
                                     </div>
-                                    <div className="truncate font-mono text-xs text-muted-foreground">{projectTeam.teamId}</div>
                                   </div>
                                   <NativeSelect
-                                    className="w-full sm:w-36"
+                                    className="w-full sm:w-32"
                                     value={projectTeam.role}
                                     onChange={(event) => void handleUpdateTeamRole(projectTeam.teamId, event.target.value as ProjectTeam['role'])}
                                     disabled={updatingTeamId === projectTeam.teamId}

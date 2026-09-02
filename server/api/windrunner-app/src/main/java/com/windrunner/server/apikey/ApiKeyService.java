@@ -37,10 +37,14 @@ public class ApiKeyService {
     private final EntityIdGenerator idGenerator;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public List<ApiKeyResponse> listOwnedApiKeys(String ownerUserId) {
-        return apiKeyRepository.findByOwnerUserId(ownerUserId).stream()
+    public List<ApiKeyResponse> listOwnedApiKeys(String ownerUserId, int limit, long offset) {
+        return apiKeyRepository.findPageByOwnerUserId(ownerUserId, limit, offset).stream()
                 .map(apiKey -> ApiKeyResponse.from(apiKey, apiKeyScopeRepository.findScopesByApiKeyId(apiKey.getId())))
                 .toList();
+    }
+
+    public long countOwnedApiKeys(String ownerUserId) {
+        return apiKeyRepository.countByOwnerUserId(ownerUserId);
     }
 
     @Transactional

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactElement, ReactNode } from 'react'
 import { NavLink, Navigate, useLocation, useOutletContext, useParams, useSearchParams } from 'react-router'
-import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, PanelRightClose, PanelRightOpen, Pencil, Plus, Save, Search, Settings, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Bookmark, BookmarkCheck, Bot, Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, CircleSmall, ClipboardCheck, FileText, Filter, Focus, FolderOpen, History, ListTodo, Loader2, MessageSquarePlus, MessageSquareText, MoreHorizontal, MoveRight, OctagonAlert, PanelRightClose, PanelRightOpen, Pencil, Plus, Save, Search, Settings, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { usePanelRef } from 'react-resizable-panels'
 import { useTranslation } from 'react-i18next'
@@ -29,6 +29,7 @@ import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -37,7 +38,6 @@ import {
   createRelationship,
   deleteRelationship,
   acceptEntryAiReview,
-  acceptNewEntryAiReview,
   decideGraphChangeProposal,
   deleteEntry,
   deleteNode,
@@ -75,11 +75,9 @@ import {
   updateEntry,
   updateRelationshipReason,
   rejectEntryAiReview,
-  rejectNewEntryAiReview,
   reorderContentItems,
   reviewEntryWithAi,
   reviewWorkItemWithAi,
-  reviewNewEntryWithAi,
   getSubscriptionStatus,
   subscribeWorkItem,
   unsubscribeWorkItem,
@@ -214,7 +212,7 @@ function readWorkspaceInspectorCollapsed() {
   }
 }
 
-const workItemTypeOptions = ['TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'] as const
+const workItemTypeOptions = ['NOTE', 'TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'] as const
 const entryTypeOptions = ['COMMENT', 'INFORMATION', 'ANSWER', 'EVIDENCE', 'PROPOSAL', 'RESOLUTION'] as const
 const workItemStatusOptions: Record<string, { value: string; label: string }[]> = {
   TASK: [
@@ -1094,17 +1092,10 @@ function WorkItemEntries({
   composerPlaceholder,
   isQuestion,
   acceptedAnswerEntryId,
-  isAiReviewAvailable,
   onEntryComposerOpened,
   onSelect,
   onCreate,
-  onReviewNew,
-  onAcceptNewReview,
-  onRejectNewReview,
   onUpdate,
-  onReview,
-  onAcceptReview,
-  onRejectReview,
   onAcceptAnswer,
   onMoveContent,
   onDelete,
@@ -1120,17 +1111,10 @@ function WorkItemEntries({
   composerPlaceholder: string
   isQuestion: boolean
   acceptedAnswerEntryId: string | null
-  isAiReviewAvailable: boolean
   onEntryComposerOpened: () => void
   onSelect: (entry: Entry) => void
   onCreate: (type: string, body: string) => Promise<void>
-  onReviewNew: (type: string, body: string, instruction?: string) => Promise<EntryAiReview>
-  onAcceptNewReview: (type: string, review: EntryAiReview) => Promise<void>
-  onRejectNewReview: (type: string, review: EntryAiReview) => Promise<void>
   onUpdate: (entry: Entry, type: string, body: string) => Promise<void>
-  onReview: (entry: Entry, type: string, body: string, instruction?: string) => Promise<EntryAiReview>
-  onAcceptReview: (entry: Entry, review: EntryAiReview) => Promise<void>
-  onRejectReview: (entry: Entry, review: EntryAiReview) => Promise<void>
   onAcceptAnswer: (entryId: string) => Promise<void>
   onMoveContent: (entityType: 'WORK_ITEM' | 'ENTRY', entityId: string, offset: number) => Promise<void>
   onDelete: (entryId: string) => Promise<void>
@@ -1143,10 +1127,6 @@ function WorkItemEntries({
   const [editType, setEditType] = useState('COMMENT')
   const [editBody, setEditBody] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const [reviewByEntryId, setReviewByEntryId] = useState<Map<string, EntryAiReview>>(new Map())
-  const [reviewFeedbackByEntryId, setReviewFeedbackByEntryId] = useState<Map<string, string>>(new Map())
-  const [newEntryReview, setNewEntryReview] = useState<EntryAiReview | null>(null)
-  const [newReviewFeedback, setNewReviewFeedback] = useState('')
   const [acceptingAnswerEntryId, setAcceptingAnswerEntryId] = useState<string | null>(null)
   const visibleContent = showEntries ? content : content.filter((item) => item.entityType === 'WORK_ITEM')
 
@@ -1158,38 +1138,10 @@ function WorkItemEntries({
     }
   }, [onEntryComposerOpened, startAdding])
 
-  async function reviewNewEntry() {
-    if (!newBody.trim()) {
-      toast.error(t('workspace.updateRequired'))
-      return
-    }
-    setIsSaving(true)
-    try {
-      const review = await onReviewNew(newType, newBody.trim())
-      setNewEntryReview({ ...review, entryType: newType })
-      setIsAdding(false)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('workspace.failedReviewUpdate'))
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  async function reviewEditedEntry(entry: Entry) {
-    if (!editBody.trim()) {
-      toast.error(t('workspace.updateRequired'))
-      return
-    }
-    setIsSaving(true)
-    try {
-      const review = await onReview(entry, editType, editBody.trim())
-      setReviewByEntryId((current) => new Map(current).set(entry.id, { ...review, entryType: editType }))
-      setEditingEntryId(null)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('workspace.failedReviewUpdate'))
-    } finally {
-      setIsSaving(false)
-    }
+  function beginEntryEdit(entry: Entry) {
+    setEditingEntryId(entry.id)
+    setEditType(entry.type)
+    setEditBody(entry.body)
   }
 
   async function saveNewEntry() {
@@ -1225,7 +1177,7 @@ function WorkItemEntries({
     }
   }
 
-  if (visibleContent.length === 0 && !isAdding && !newEntryReview) {
+  if (visibleContent.length === 0 && !isAdding) {
     return null
   }
 
@@ -1248,62 +1200,86 @@ function WorkItemEntries({
         }
         const entry = item.entry
         const isEditing = editingEntryId === entry.id
-        const review = reviewByEntryId.get(entry.id)
         const isAcceptedAnswer = entry.id === acceptedAnswerEntryId
         return (
-          <div key={entry.id} className={cn('group/entry-row relative flex min-h-[50px] min-w-0 items-center gap-2 rounded-md border border-border/50 bg-muted/15 px-2 py-1 transition-colors hover:bg-muted/35', selectedEntryId === entry.id && 'border-primary/40 bg-primary/5 ring-1 ring-inset ring-primary/25')} onClick={() => onSelect(entry)}>
+          <div
+            key={entry.id}
+            className={cn('group/entry-row relative flex min-h-8 min-w-0 items-center gap-2 rounded-md bg-muted/15 px-2 py-1 transition-colors hover:bg-muted/35', selectedEntryId === entry.id && 'bg-primary/5 ring-1 ring-inset ring-primary/25')}
+            onClick={() => onSelect(entry)}
+            onDoubleClick={(event) => {
+              if ((event.target as HTMLElement).closest('button, input, textarea, select, a')) {
+                return
+              }
+              beginEntryEdit(entry)
+            }}
+          >
             <span className={cn('absolute top-1/2 -left-3 h-px w-3', highlightConnectors ? 'bg-primary/50' : 'bg-border')} aria-hidden="true" />
-            <span className="grid h-7 w-7 shrink-0 place-items-center text-muted-foreground" aria-hidden="true"><MessageSquareText className="h-3.5 w-3.5" /></span>
+            <span className="grid h-6 w-7 shrink-0 place-items-center text-muted-foreground" aria-hidden="true"><MessageSquareText className="h-3.5 w-3.5" /></span>
             {isEditing ? (
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <NativeSelect className="w-32 shrink-0" value={editType} onChange={(event) => setEditType(event.target.value)} disabled={isSaving}>
-                  {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{translateEntryType(type, t)}</NativeSelectOption>)}
-                </NativeSelect>
-                <Input
-                  autoFocus
-                  className="h-7 min-w-0 flex-1 text-sm"
-                  value={editBody}
-                  onChange={(event) => setEditBody(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      void saveEditedEntry(entry)
-                    }
-                    if (event.key === 'Escape') {
-                      event.preventDefault()
-                      setEditingEntryId(null)
-                    }
-                  }}
-                  disabled={isSaving}
-                  aria-label={t('workspace.updateContent')}
-                />
-                {isAiReviewAvailable ? (
-                  <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={() => void reviewEditedEntry(entry)}>
-                    <Bot className="h-3.5 w-3.5" /> {t('workspace.aiReview')}
-                  </Button>
-                ) : null}
-                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveEditedEntry(entry)} aria-label={t('workspace.updateSaved')} title={t('workspace.updateSaved')}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={(
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="ghost"
+                        className="h-5 max-w-32 shrink-0 gap-1 px-1.5 text-[11px] text-muted-foreground"
+                        disabled={isSaving}
+                        aria-label={t('workspace.updateClassification')}
+                        title={t('workspace.updateClassification')}
+                      >
+                        <span className="truncate">{translateEntryType(editType, t)}</span>
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    )}
+                  />
+                  <DropdownMenuContent align="start" className="w-44">
+                    {entryTypeOptions.map((type) => (
+                      <DropdownMenuItem key={type} onClick={() => setEditType(type)}>
+                        {translateEntryType(type, t)}
+                        {editType === type ? <Check className="ml-auto h-4 w-4" /> : null}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <div className="flex h-6 min-w-0 flex-1 items-center">
+                  <Input
+                    autoFocus
+                    className="h-6 w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:border-0 focus-visible:ring-0"
+                    value={editBody}
+                    onChange={(event) => setEditBody(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        void saveEditedEntry(entry)
+                      }
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        setEditingEntryId(null)
+                      }
+                    }}
+                    disabled={isSaving}
+                    aria-label={t('workspace.updateContent')}
+                  />
+                </div>
+                <Button type="button" size="icon-xs" variant="ghost" className="h-5 w-5" disabled={isSaving} onClick={() => void saveEditedEntry(entry)} aria-label={t('workspace.updateSaved')} title={t('workspace.updateSaved')}>
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
                 </Button>
-                <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => setEditingEntryId(null)} aria-label={t('common.cancel')} title={t('common.cancel')}><X /></Button>
+                <Button type="button" size="icon-xs" variant="ghost" className="h-5 w-5" disabled={isSaving} onClick={() => setEditingEntryId(null)} aria-label={t('common.cancel')} title={t('common.cancel')}><X /></Button>
               </div>
             ) : (
-              <>
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-start">
-                    <div className="min-w-0 flex-1">
-                      <p className="min-w-0 truncate text-sm leading-5 text-foreground" title={entry.body}>{entry.body}</p>
-                      <div className="mt-0.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
-                        <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', entryTypeBadgeClass(entry.type))}>{translateEntryType(entry.type, t)}</Badge>
-                        {isAcceptedAnswer ? (
-                          <span className="flex shrink-0 items-center gap-1 text-primary">
-                            <Check className="h-3 w-3" /> Accepted
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                {!review ? (
-                  <div className="ml-auto flex w-7 shrink-0 items-center justify-end opacity-0 transition-opacity group-hover/entry-row:opacity-100 group-focus-within/entry-row:opacity-100 group-hover/entry-row:pointer-events-auto group-focus-within/entry-row:pointer-events-auto pointer-events-none">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                {entry.type.trim().toUpperCase() !== 'COMMENT' ? (
+                  <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', entryTypeBadgeClass(entry.type))}>{translateEntryType(entry.type, t)}</Badge>
+                ) : null}
+                <p className="min-w-0 flex-1 truncate text-sm leading-5 text-foreground" title={entry.body}>{entry.body}</p>
+                {isAcceptedAnswer ? (
+                  <span className="flex shrink-0 items-center gap-1 text-[11px] text-primary">
+                    <Check className="h-3 w-3" /> Accepted
+                  </span>
+                ) : null}
+                <div className="ml-auto flex w-7 shrink-0 items-center justify-end opacity-0 transition-opacity group-hover/entry-row:opacity-100 group-focus-within/entry-row:opacity-100 group-hover/entry-row:pointer-events-auto group-focus-within/entry-row:pointer-events-auto pointer-events-none">
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={(
@@ -1342,7 +1318,7 @@ function WorkItemEntries({
                             {t('workspace.acceptAnswer')}
                           </DropdownMenuItem>
                         ) : null}
-                        <DropdownMenuItem onClick={(event) => { event.stopPropagation(); setEditingEntryId(entry.id); setEditType(entry.type); setEditBody(entry.body) }}>
+                        <DropdownMenuItem onClick={(event) => { event.stopPropagation(); beginEntryEdit(entry) }}>
                           <Pencil className="h-4 w-4" /> {t('workspace.editUpdate')}
                         </DropdownMenuItem>
                         <DeleteConfirmPopover
@@ -1357,194 +1333,67 @@ function WorkItemEntries({
                         />
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </div>
-                ) : null}
                 </div>
-              {review ? (
-                <div className="mt-2 ml-4 flex min-w-0 items-start gap-3 rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
-                  <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-muted-foreground">{t('workspace.yourDraft')}</p>
-                    <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground line-through">{review.originalBody}</p>
-                    <p className="mt-2 text-xs font-medium text-primary">{t('workspace.suggested')}</p>
-                    <p className="whitespace-pre-wrap break-words text-sm">{review.proposedBody}</p>
-                    {review.proposedType && review.proposedType !== (review.entryType ?? entry.type) ? (
-                      <p className="mt-2 text-xs text-primary">{t('workspace.classification')}: {translateEntryType(review.entryType ?? entry.type, t)} → {translateEntryType(review.proposedType, t)}</p>
-                    ) : null}
-                    {review.rationale ? <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{review.rationale}</p> : null}
-                    <div className="mt-2 flex gap-2">
-                      <Input
-                        className="h-7 bg-white text-xs"
-                        value={reviewFeedbackByEntryId.get(entry.id) ?? ''}
-                        onChange={(event) => setReviewFeedbackByEntryId((current) => new Map(current).set(entry.id, event.target.value))}
-                        placeholder={t('workspace.tellAi')}
-                        disabled={isSaving}
-                      />
-                      <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={async () => {
-                        setIsSaving(true)
-                        try {
-                          const nextReview = await onReview(entry, review.proposedType ?? review.entryType ?? entry.type, review.proposedBody, reviewFeedbackByEntryId.get(entry.id))
-                          setReviewByEntryId((current) => new Map(current).set(entry.id, { ...nextReview, entryType: review.proposedType ?? review.entryType ?? entry.type }))
-                          setReviewFeedbackByEntryId((current) => { const next = new Map(current); next.delete(entry.id); return next })
-                        } catch (error) {
-                          toast.error(error instanceof Error ? error.message : t('workspace.failedSuggestionUpdate'))
-                        } finally {
-                          setIsSaving(false)
-                        }
-                      }}>{t('workspace.askAgain')}</Button>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1 pt-0.5">
-                  <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
-                    setIsSaving(true)
-                    try {
-                      await onAcceptReview(entry, review)
-                      setReviewByEntryId((current) => {
-                        const next = new Map(current)
-                        next.delete(entry.id)
-                        return next
-                      })
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : t('workspace.failedAcceptSuggestion'))
-                    } finally {
-                      setIsSaving(false)
-                    }
-                  }} aria-label={t('workspace.acceptSuggestion')} title={t('workspace.acceptSuggestion')}>
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
-                  </Button>
-                  <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={() => {
-                    setEditingEntryId(entry.id)
-                    setEditType(review.proposedType ?? review.entryType ?? entry.type)
-                    setEditBody(review.proposedBody)
-                    setReviewByEntryId((current) => { const next = new Map(current); next.delete(entry.id); return next })
-                  }} aria-label={t('workspace.keepEditingSuggestion')} title={t('workspace.keepEditing')}><Pencil /></Button>
-                  <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
-                    setIsSaving(true)
-                    try {
-                      await onRejectReview(entry, review)
-                      setReviewByEntryId((current) => {
-                        const next = new Map(current)
-                        next.delete(entry.id)
-                        return next
-                      })
-                      setEditingEntryId(entry.id)
-                      setEditType(review.entryType ?? entry.type)
-                      setEditBody(review.originalBody)
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : t('workspace.failedRejectSuggestion'))
-                    } finally {
-                      setIsSaving(false)
-                    }
-                  }} aria-label={t('workspace.rejectSuggestion')} title={t('workspace.rejectSuggestion')}><X /></Button>
-                  </div>
-                </div>
-              ) : null}
-                </div>
-              </>
+              </div>
             )}
           </div>
         )
       })}
       {isAdding ? (
-        <div className="relative flex min-w-0 items-center gap-2 rounded-sm py-2 pl-3">
-          <span className="absolute top-1/2 left-0 size-1.5 -translate-x-[3px] -translate-y-1/2 rounded-full bg-primary/60" aria-hidden="true" />
-          <NativeSelect className="w-32 shrink-0" value={newType} onChange={(event) => setNewType(event.target.value)} disabled={isSaving} aria-label={t('workspace.updateClassification')}>
-            {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{translateEntryType(type, t)}</NativeSelectOption>)}
-          </NativeSelect>
-          <Input
-            autoFocus
-            className="h-7 min-w-0 flex-1 text-sm"
-            value={newBody}
-            onChange={(event) => setNewBody(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                void saveNewEntry()
-              }
-              if (event.key === 'Escape') {
-                event.preventDefault()
-                setIsAdding(false)
-              }
-            }}
-            placeholder={composerPlaceholder}
-            disabled={isSaving}
-            aria-label={composerPlaceholder}
-          />
-          {isAiReviewAvailable ? (
-            <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={() => void reviewNewEntry()}>
-              <Bot className="h-3.5 w-3.5" /> {t('workspace.aiReview')}
-            </Button>
-          ) : null}
-          <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => void saveNewEntry()} aria-label={t('workspace.addUpdate')} title={t('workspace.addUpdate')}>
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
-          </Button>
-          <Button type="button" size="icon-xs" variant="ghost" disabled={isSaving} onClick={() => setIsAdding(false)} aria-label={t('workspace.cancelNewUpdate')} title={t('common.cancel')}><X /></Button>
-        </div>
-      ) : null}
-      {newEntryReview ? (
-        <div className="relative mt-2 ml-3 flex min-w-0 items-start gap-3 rounded-md border border-primary/25 bg-primary/5 px-3 py-2.5">
-          <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted-foreground">{t('workspace.yourDraft')}</p>
-            <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground line-through">{newEntryReview.originalBody}</p>
-            <p className="mt-2 text-xs font-medium text-primary">{t('workspace.suggested')}</p>
-            <p className="whitespace-pre-wrap break-words text-sm">{newEntryReview.proposedBody}</p>
-            {newEntryReview.proposedType && newEntryReview.proposedType !== (newEntryReview.entryType ?? newType) ? (
-              <p className="mt-2 text-xs text-primary">{t('workspace.classification')}: {translateEntryType(newEntryReview.entryType ?? newType, t)} → {translateEntryType(newEntryReview.proposedType, t)}</p>
-            ) : null}
-            {newEntryReview.rationale ? <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{newEntryReview.rationale}</p> : null}
-            <div className="mt-2 flex gap-2">
-              <Input className="h-7 bg-white text-xs" value={newReviewFeedback} onChange={(event) => setNewReviewFeedback(event.target.value)} placeholder={t('workspace.tellAi')} disabled={isSaving} />
-              <Button type="button" size="xs" variant="outline" disabled={isSaving} onClick={async () => {
-                setIsSaving(true)
-                try {
-                  const nextReview = await onReviewNew(newEntryReview.proposedType ?? newEntryReview.entryType ?? newType, newEntryReview.proposedBody, newReviewFeedback)
-                  setNewEntryReview({ ...nextReview, entryType: newEntryReview.proposedType ?? newEntryReview.entryType ?? newType })
-                  setNewReviewFeedback('')
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : t('workspace.failedSuggestionUpdate'))
-                } finally {
-                  setIsSaving(false)
+        <div className="relative flex min-h-8 min-w-0 items-center gap-2 rounded-md bg-muted/15 px-2 py-1">
+          <span className={cn('absolute top-1/2 -left-3 h-px w-3', highlightConnectors ? 'bg-primary/50' : 'bg-border')} aria-hidden="true" />
+          <span className="grid h-6 w-7 shrink-0 place-items-center text-muted-foreground" aria-hidden="true"><MessageSquareText className="h-3.5 w-3.5" /></span>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={(
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  className="h-5 max-w-32 shrink-0 gap-1 px-1.5 text-[11px] text-muted-foreground"
+                  disabled={isSaving}
+                  aria-label={t('workspace.updateClassification')}
+                  title={t('workspace.updateClassification')}
+                >
+                  <span className="truncate">{translateEntryType(newType, t)}</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              )}
+            />
+            <DropdownMenuContent align="start" className="w-44">
+              {entryTypeOptions.map((type) => (
+                <DropdownMenuItem key={type} onClick={() => setNewType(type)}>
+                  {translateEntryType(type, t)}
+                  {newType === type ? <Check className="ml-auto h-4 w-4" /> : null}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div className="flex h-6 min-w-0 flex-1 items-center">
+            <Input
+              autoFocus
+              className="h-6 w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:border-0 focus-visible:ring-0"
+              value={newBody}
+              onChange={(event) => setNewBody(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  void saveNewEntry()
                 }
-              }}>{t('workspace.askAgain')}</Button>
-            </div>
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  setIsAdding(false)
+                }
+              }}
+              placeholder={composerPlaceholder}
+              disabled={isSaving}
+              aria-label={composerPlaceholder}
+            />
           </div>
-          <div className="flex shrink-0 items-center gap-1 pt-0.5">
-          <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
-            setIsSaving(true)
-            try {
-              await onAcceptNewReview(newEntryReview.proposedType ?? newEntryReview.entryType ?? 'COMMENT', newEntryReview)
-              setNewEntryReview(null)
-              setNewBody('')
-            } catch (error) {
-              toast.error(error instanceof Error ? error.message : t('workspace.failedAcceptSuggestion'))
-            } finally {
-              setIsSaving(false)
-            }
-          }} aria-label={t('workspace.acceptSuggestion')} title={t('workspace.acceptSuggestion')}>
+          <Button type="button" size="icon-xs" variant="ghost" className="h-5 w-5" disabled={isSaving} onClick={() => void saveNewEntry()} aria-label={t('workspace.addUpdate')} title={t('workspace.addUpdate')}>
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check />}
           </Button>
-          <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={() => {
-            setNewType(newEntryReview.proposedType ?? newEntryReview.entryType ?? newType)
-            setNewBody(newEntryReview.proposedBody)
-            setNewEntryReview(null)
-            setIsAdding(true)
-          }} aria-label={t('workspace.keepEditingSuggestion')} title={t('workspace.keepEditing')}><Pencil /></Button>
-          <Button type="button" size="icon-sm" variant="ghost" disabled={isSaving} onClick={async () => {
-            setIsSaving(true)
-            try {
-              await onRejectNewReview(newEntryReview.entryType ?? 'COMMENT', newEntryReview)
-              setNewEntryReview(null)
-              setNewType(newEntryReview.entryType ?? newType)
-              setNewBody(newEntryReview.originalBody)
-              setIsAdding(true)
-            } catch (error) {
-              toast.error(error instanceof Error ? error.message : t('workspace.failedRejectSuggestion'))
-            } finally {
-              setIsSaving(false)
-            }
-          }} aria-label={t('workspace.rejectSuggestion')} title={t('workspace.rejectSuggestion')}><X /></Button>
-          </div>
+          <Button type="button" size="icon-xs" variant="ghost" className="h-5 w-5" disabled={isSaving} onClick={() => setIsAdding(false)} aria-label={t('workspace.cancelNewUpdate')} title={t('common.cancel')}><X /></Button>
         </div>
       ) : null}
     </div>
@@ -1629,7 +1478,7 @@ function BlockerPopover({ nodeId, trigger, blockerUi }: { nodeId: string; trigge
                           }
                         }}
                       />
-                      <Button type="button" size="icon-sm" variant="ghost" disabled={blockerUi.isSaving} onClick={() => void saveReason(relationship.id)} aria-label={t('common.save')}><Check /></Button>
+                      <Button type="button" size="icon-sm" variant="ghost" disabled={blockerUi.isSaving} onClick={() => void saveReason(relationship.id)} aria-label={t('common.save')} title={t('common.save')}><Check /></Button>
                     </div>
                   ) : (
                     <button
@@ -1796,7 +1645,6 @@ function TreeRowContent({
   userLabels,
   teamLabels,
   selectedEntryId,
-  isAiReviewAvailable,
   canReorder,
   canMoveUp,
   canMoveDown,
@@ -1810,13 +1658,7 @@ function TreeRowContent({
   onDelete,
   onEditTitle,
   onCreateEntry,
-  onReviewNewEntry,
-  onAcceptNewEntryReview,
-  onRejectNewEntryReview,
   onUpdateEntry,
-  onReviewEntry,
-  onAcceptEntryReview,
-  onRejectEntryReview,
   onAcceptAnswer,
   onMoveContentOrder,
   onMoveInContentOrder,
@@ -1844,7 +1686,6 @@ function TreeRowContent({
   userLabels: Map<string, string>
   teamLabels: Map<string, string>
   selectedEntryId: string | null
-  isAiReviewAvailable: boolean
   canReorder: boolean
   canMoveUp: boolean
   canMoveDown: boolean
@@ -1858,13 +1699,7 @@ function TreeRowContent({
   onDelete: (nodeId: string) => void
   onEditTitle: (node: ProjectNode, title: string) => Promise<void>
   onCreateEntry: (workItemId: string, type: string, body: string) => Promise<void>
-  onReviewNewEntry: (workItemId: string, type: string, body: string, instruction?: string) => Promise<EntryAiReview>
-  onAcceptNewEntryReview: (workItemId: string, type: string, review: EntryAiReview) => Promise<void>
-  onRejectNewEntryReview: (workItemId: string, type: string, review: EntryAiReview) => Promise<void>
   onUpdateEntry: (entry: Entry, type: string, body: string) => Promise<void>
-  onReviewEntry: (entry: Entry, type: string, body: string, instruction?: string) => Promise<EntryAiReview>
-  onAcceptEntryReview: (entry: Entry, review: EntryAiReview) => Promise<void>
-  onRejectEntryReview: (entry: Entry, review: EntryAiReview) => Promise<void>
   onAcceptAnswer: (questionId: string, entryId: string) => Promise<void>
   onMoveContentOrder: (parentWorkItemId: string | null, entityType: 'WORK_ITEM' | 'ENTRY', entityId: string, offset: number) => Promise<void>
   onMoveInContentOrder: (offset: number) => void
@@ -1890,6 +1725,7 @@ function TreeRowContent({
   const hasMoreChildren = childPageInfo ? childPageInfo.page + 1 < childPageInfo.totalPages : false
   const canReorderContent = canReorder && hasLoadedChildren && !isLoadingChildren && !hasMoreChildren
   const proposal = node.proposal
+  const isNote = node.type.trim().toUpperCase() === 'NOTE'
   const canExpand = !proposal
   const isDecidingProposal = decidingProposalChangeId === proposal?.changeId
   const status = nodeFieldValue(node, 'status')
@@ -1899,6 +1735,9 @@ function TreeRowContent({
     ...parseStringArrayValue(nodeFieldValue(node, 'assigneeUserIds')).map((id) => ({ id, label: userLabels.get(id) ?? t('common.unknownUser'), type: 'user' })),
     ...parseStringArrayValue(nodeFieldValue(node, 'assigneeTeamIds')).map((id) => ({ id, label: teamLabels.get(id) ?? t('common.unknownTeam'), type: 'team' })),
   ]
+  const assigneeTooltip = t('workspace.assigneesTooltip', {
+    assignees: assigneeIds.map((assignee) => `${assignee.label} (${assignee.type === 'team' ? t('common.team') : t('common.user')})`).join(', '),
+  })
   const blockerCount = blockerUi.relationshipsByNodeId.get(node.id)?.length ?? 0
   const entryCount = entriesByWorkItemId.get(node.id)?.length ?? 0
   const orderedContent = orderedWorkItemContent(
@@ -1943,10 +1782,11 @@ function TreeRowContent({
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       <div
         className={cn(
-          'group/work-item-row flex min-h-[50px] min-w-0 items-start gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground',
+          'group/work-item-row flex min-w-0 cursor-pointer items-start gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground',
+          isNote ? 'min-h-8 py-1' : 'min-h-14 py-1',
           isSelected ? 'bg-primary/5 text-foreground ring-1 ring-inset ring-primary/35' : null,
           isChatHighlighted ? 'bg-primary/10 text-foreground ring-2 ring-primary/50' : null,
           isDimmed ? 'opacity-50' : null,
@@ -1954,6 +1794,12 @@ function TreeRowContent({
         )}
         style={{ marginLeft: `${depth * treeDepthIndentPx}px` }}
         data-work-item-id={node.id}
+        onClick={(event) => {
+          if (isEditingTitle || (event.target as HTMLElement).closest('button, input, textarea, select, a')) {
+            return
+          }
+          onSelect(node)
+        }}
       >
         <button
           type="button"
@@ -1961,6 +1807,7 @@ function TreeRowContent({
           onClick={() => onToggle(node.id)}
           disabled={!canExpand}
           aria-label={isExpanded ? t('workspace.collapseItem') : t('workspace.expandItem')}
+          title={isExpanded ? t('workspace.collapseItem') : t('workspace.expandItem')}
         >
           {isLoadingChildren ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1979,10 +1826,10 @@ function TreeRowContent({
             }}
           >
             <div className="flex min-w-0 items-center gap-1.5">
-              <div className="h-5 min-w-0 flex-1 rounded-md border bg-background px-1 transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20">
+              <div className="flex h-6 min-w-0 flex-1 items-center">
                 <Input
                   autoFocus
-                  className="h-5 w-full border-0 bg-transparent px-1 text-sm font-medium shadow-none focus-visible:border-0 focus-visible:ring-0"
+                  className="h-6 w-full border-0 bg-transparent px-0 py-0 text-[13px] font-medium leading-4 shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-[13px]"
                   value={draftTitle}
                   onChange={(event) => setDraftTitle(event.target.value)}
                   onKeyDown={(event) => {
@@ -2013,7 +1860,7 @@ function TreeRowContent({
                 </Button>
               </div>
             </div>
-            <div className="mt-0.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
+            <div className={cn('mt-1 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground', isNote && 'hidden')}>
               <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', workItemTypeBadgeClass(node.type))}>
                 {translateWorkItemType(node.type, t)}
               </Badge>
@@ -2037,42 +1884,56 @@ function TreeRowContent({
                 </Badge>
               ) : null}
               {assigneeIds.length > 0 ? (
-                <div className="flex shrink-0 -space-x-1" aria-label={t('common.assignees')}>
-                  {assigneeIds.slice(0, 3).map((assignee) => (
-                    <span
-                      key={`${assignee.type}-${assignee.id}`}
-                      className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground"
-                      title={`${assignee.label} (${assignee.type})`}
-                    >
-                      {avatarInitials(assignee.label)}
-                    </span>
-                  ))}
-                  {assigneeIds.length > 3 ? (
-                    <span className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground" title={t('workspace.moreAssignees', { count: assigneeIds.length - 3 })}>
-                      +{assigneeIds.length - 3}
-                    </span>
-                  ) : null}
-                </div>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={(
+                      <Badge variant="secondary" className="h-5 gap-0 px-1.5" aria-label={t('common.assignees')}>
+                        <span className="flex -space-x-1">
+                          {assigneeIds.slice(0, 3).map((assignee) => (
+                            <span
+                              key={`${assignee.type}-${assignee.id}`}
+                              className="grid size-4 place-items-center rounded-full border-2 border-secondary bg-muted text-[8px] font-medium text-muted-foreground"
+                            >
+                              {avatarInitials(assignee.label)}
+                            </span>
+                          ))}
+                          {assigneeIds.length > 3 ? (
+                            <span className="grid size-4 place-items-center rounded-full border-2 border-secondary bg-muted text-[8px] font-medium text-muted-foreground">
+                              +{assigneeIds.length - 3}
+                            </span>
+                          ) : null}
+                        </span>
+                      </Badge>
+                    )}
+                  />
+                  <TooltipContent>{assigneeTooltip}</TooltipContent>
+                </Tooltip>
               ) : null}
               {entryCount > 0 ? (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="ghost"
-                  className={cn('h-5 shrink-0 gap-1 px-1 text-[11px]', showEntries ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
-                  onClick={() => {
-                    if (!showEntries && !isExpanded) {
-                      onToggle(node.id)
-                    }
-                    setShowEntries((current) => !current)
-                  }}
-                  aria-expanded={showEntries}
-                  aria-label={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
-                  title={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
-                >
-                  <MessageSquareText className="h-3 w-3" />
-                  <span>{entryCount}</span>
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={(
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="ghost"
+                        className={cn('h-5 shrink-0 gap-1 px-1.5 text-[10px] font-medium', showEntries ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                        onClick={() => {
+                          if (!showEntries && !isExpanded) {
+                            onToggle(node.id)
+                          }
+                          setShowEntries((current) => !current)
+                        }}
+                        aria-expanded={showEntries}
+                        aria-label={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
+                      >
+                        <MessageSquareText className="h-3 w-3" />
+                        <span>{entryCount}</span>
+                      </Button>
+                    )}
+                  />
+                  <TooltipContent>{showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}</TooltipContent>
+                </Tooltip>
               ) : null}
               {blockerCount > 0 ? (
                 <BlockerPopover
@@ -2099,7 +1960,7 @@ function TreeRowContent({
           <div className="min-w-0 flex-1">
             <button
               type="button"
-              className="flex min-w-0 w-full items-center text-left leading-5"
+              className="flex h-6 min-w-0 w-full items-center text-left leading-4"
               onClick={() => onSelect(node)}
               onDoubleClick={() => {
                 if (!proposal && !isSaving) {
@@ -2110,14 +1971,14 @@ function TreeRowContent({
             >
               <span
                 className={cn(
-                  'min-w-0 truncate text-sm font-medium text-foreground',
+                  'min-w-0 truncate text-[13px] font-medium text-foreground',
                   proposal?.action === 'DELETE' ? 'line-through decoration-destructive decoration-2' : null,
                 )}
               >
                 {node.title}
               </span>
             </button>
-            <div className="mt-0.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground">
+            <div className={cn('mt-1 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] leading-4 text-muted-foreground', isNote && 'hidden')}>
               <Badge variant="outline" className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium uppercase tracking-wide', workItemTypeBadgeClass(node.type))}>
                 {translateWorkItemType(node.type, t)}
               </Badge>
@@ -2141,42 +2002,56 @@ function TreeRowContent({
                 </Badge>
               ) : null}
               {assigneeIds.length > 0 ? (
-                <div className="flex shrink-0 -space-x-1" aria-label={t('common.assignees')}>
-                  {assigneeIds.slice(0, 3).map((assignee) => (
-                    <span
-                      key={`${assignee.type}-${assignee.id}`}
-                      className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground"
-                      title={`${assignee.label} (${assignee.type})`}
-                    >
-                      {avatarInitials(assignee.label)}
-                    </span>
-                  ))}
-                  {assigneeIds.length > 3 ? (
-                    <span className="grid size-4 place-items-center rounded-full border-2 border-background bg-muted text-[8px] font-medium text-muted-foreground" title={t('workspace.moreAssignees', { count: assigneeIds.length - 3 })}>
-                      +{assigneeIds.length - 3}
-                    </span>
-                  ) : null}
-                </div>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={(
+                      <Badge variant="secondary" className="h-5 gap-0 px-1.5" aria-label={t('common.assignees')}>
+                        <span className="flex -space-x-1">
+                          {assigneeIds.slice(0, 3).map((assignee) => (
+                            <span
+                              key={`${assignee.type}-${assignee.id}`}
+                              className="grid size-4 place-items-center rounded-full border-2 border-secondary bg-muted text-[8px] font-medium text-muted-foreground"
+                            >
+                              {avatarInitials(assignee.label)}
+                            </span>
+                          ))}
+                          {assigneeIds.length > 3 ? (
+                            <span className="grid size-4 place-items-center rounded-full border-2 border-secondary bg-muted text-[8px] font-medium text-muted-foreground">
+                              +{assigneeIds.length - 3}
+                            </span>
+                          ) : null}
+                        </span>
+                      </Badge>
+                    )}
+                  />
+                  <TooltipContent>{assigneeTooltip}</TooltipContent>
+                </Tooltip>
               ) : null}
               {entryCount > 0 ? (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="ghost"
-                  className={cn('h-5 shrink-0 gap-1 px-1 text-[11px]', showEntries ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
-                  onClick={() => {
-                    if (!showEntries && !isExpanded) {
-                      onToggle(node.id)
-                    }
-                    setShowEntries((current) => !current)
-                  }}
-                  aria-expanded={showEntries}
-                  aria-label={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
-                  title={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
-                >
-                  <MessageSquareText className="h-3 w-3" />
-                  <span>{entryCount}</span>
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={(
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="ghost"
+                        className={cn('h-5 shrink-0 gap-1 px-1.5 text-[10px] font-medium', showEntries ? 'bg-primary/10 text-primary' : 'text-muted-foreground')}
+                        onClick={() => {
+                          if (!showEntries && !isExpanded) {
+                            onToggle(node.id)
+                          }
+                          setShowEntries((current) => !current)
+                        }}
+                        aria-expanded={showEntries}
+                        aria-label={showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}
+                      >
+                        <MessageSquareText className="h-3 w-3" />
+                        <span>{entryCount}</span>
+                      </Button>
+                    )}
+                  />
+                  <TooltipContent>{showEntries ? t('workspace.hideUpdates', { count: entryCount }) : t('workspace.showUpdates', { count: entryCount })}</TooltipContent>
+                </Tooltip>
               ) : null}
               {blockerCount > 0 ? (
                 <BlockerPopover
@@ -2251,10 +2126,50 @@ function TreeRowContent({
         ) : !isEditingTitle ? (
           <div
             className={cn(
-              'ml-auto flex w-7 shrink-0 items-center justify-end opacity-0 transition-opacity group-focus-within/work-item-row:opacity-100 group-hover/work-item-row:opacity-100',
+              'ml-auto flex shrink-0 items-center justify-end gap-1 opacity-0 transition-opacity group-focus-within/work-item-row:opacity-100 group-hover/work-item-row:opacity-100',
               isSelected ? 'opacity-100' : 'pointer-events-none group-focus-within/work-item-row:pointer-events-auto group-hover/work-item-row:pointer-events-auto',
             )}
           >
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={(
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    disabled={isSaving}
+                    aria-label={t('common.add')}
+                    title={t('common.add')}
+                  >
+                    <Plus />
+                  </Button>
+                )}
+              />
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onClick={() => {
+                  if (!isExpanded) {
+                    onToggle(node.id)
+                  }
+                  setShowEntries(true)
+                  setEntryComposerRequested(true)
+                }}>
+                  <MessageSquarePlus className="h-4 w-4" /> {node.type.toUpperCase() === 'QUESTION' ? t('workspace.writeAnswer') : t('workspace.writeUpdate')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddChild(node.id, 'NOTE')}>
+                  <FileText className="h-4 w-4" /> {translateWorkItemType('NOTE', t)}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddChild(node.id, 'TASK')}>
+                  <ListTodo className="h-4 w-4" /> {t('workspace.addTask')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddChild(node.id, 'QUESTION')}>
+                  <CircleHelp className="h-4 w-4" /> {t('workspace.askQuestion')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAddChild(node.id, 'APPROVAL')}>
+                  <ClipboardCheck className="h-4 w-4" /> {t('workspace.requestApproval')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={(
@@ -2353,7 +2268,6 @@ function TreeRowContent({
                 userLabels={userLabels}
                 teamLabels={teamLabels}
                 selectedEntryId={selectedEntryId}
-                isAiReviewAvailable={isAiReviewAvailable}
                 canReorder={canReorderContent}
                 canMoveUp={contentIndex > 0}
                 canMoveDown={contentIndex < totalContent - 1}
@@ -2367,13 +2281,7 @@ function TreeRowContent({
                 onDelete={onDelete}
                 onEditTitle={onEditTitle}
                 onCreateEntry={onCreateEntry}
-                onReviewNewEntry={onReviewNewEntry}
-                onAcceptNewEntryReview={onAcceptNewEntryReview}
-                onRejectNewEntryReview={onRejectNewEntryReview}
                 onUpdateEntry={onUpdateEntry}
-                onReviewEntry={onReviewEntry}
-                onAcceptEntryReview={onAcceptEntryReview}
-                onRejectEntryReview={onRejectEntryReview}
                 onAcceptAnswer={onAcceptAnswer}
                 onMoveContentOrder={onMoveContentOrder}
                 onMoveInContentOrder={(offset) => { void onMoveContentOrder(node.id, 'WORK_ITEM', child.id, offset) }}
@@ -2392,17 +2300,10 @@ function TreeRowContent({
             composerPlaceholder={node.type.toUpperCase() === 'QUESTION' ? t('workspace.writeAnswer') : t('workspace.writeUpdate')}
             isQuestion={node.type.toUpperCase() === 'QUESTION'}
             acceptedAnswerEntryId={acceptedAnswerByQuestionId.get(node.id) ?? null}
-            isAiReviewAvailable={isAiReviewAvailable}
             onEntryComposerOpened={() => setEntryComposerRequested(false)}
             onSelect={onSelectEntry}
             onCreate={(type, body) => onCreateEntry(node.id, type, body)}
-            onReviewNew={(type, body, instruction) => onReviewNewEntry(node.id, type, body, instruction)}
-            onAcceptNewReview={(type, review) => onAcceptNewEntryReview(node.id, type, review)}
-            onRejectNewReview={(type, review) => onRejectNewEntryReview(node.id, type, review)}
             onUpdate={onUpdateEntry}
-            onReview={onReviewEntry}
-            onAcceptReview={onAcceptEntryReview}
-            onRejectReview={onRejectEntryReview}
             onAcceptAnswer={(entryId) => onAcceptAnswer(node.id, entryId)}
             onMoveContent={(entityType, entityId, offset) => onMoveContentOrder(node.id, entityType, entityId, offset)}
             onDelete={onDeleteEntry}
@@ -2421,37 +2322,6 @@ function TreeRowContent({
               </Button>
             </div>
           ) : null}
-          {isSelected ? <div>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={(
-                  <Button type="button" size="xs" variant="ghost" className="gap-1 text-muted-foreground" disabled={isSaving}>
-                    <Plus className="h-3.5 w-3.5" /> Add
-                  </Button>
-                )}
-              />
-              <DropdownMenuContent align="start" className="w-52">
-                <DropdownMenuItem onClick={() => {
-                  if (!isExpanded) {
-                    onToggle(node.id)
-                  }
-                  setShowEntries(true)
-                  setEntryComposerRequested(true)
-                }}>
-                    <MessageSquarePlus className="h-4 w-4" /> {node.type.toUpperCase() === 'QUESTION' ? t('workspace.writeAnswer') : t('workspace.writeUpdate')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAddChild(node.id, 'TASK')}>
-                  <ListTodo className="h-4 w-4" /> {t('workspace.addTask')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAddChild(node.id, 'QUESTION')}>
-                  <CircleHelp className="h-4 w-4" /> {t('workspace.askQuestion')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAddChild(node.id, 'APPROVAL')}>
-                  <ClipboardCheck className="h-4 w-4" /> {t('workspace.requestApproval')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div> : null}
         </div>
       ) : null}
     </div>
@@ -2605,7 +2475,7 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
       {summaryRows.length > 0 ? (
         <div className="space-y-2">
           {summaryRows.map((row) => (
-            <div key={row.label} className="grid gap-2 rounded-md border bg-background p-2 text-sm sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
+            <div key={row.label} className="grid gap-2 rounded-md border bg-background p-2 text-xs sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
               <div className="font-medium text-muted-foreground">{row.label}</div>
               <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">{t('workspace.old')}</div>
@@ -2624,7 +2494,7 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
         <div className="mt-3 space-y-2">
           <p className="text-xs font-medium uppercase text-muted-foreground">{t('workspace.fields')}</p>
           {fieldDiffs.map((diff) => (
-            <div key={diff.name} className="grid gap-2 rounded-md border bg-background p-2 text-sm sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
+            <div key={diff.name} className="grid gap-2 rounded-md border bg-background p-2 text-xs sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
               <div className="min-w-0">
                 <div className="font-medium text-muted-foreground">{diff.label}</div>
                 <Badge
@@ -2646,7 +2516,7 @@ function ProposalUpdateDiff({ node }: { node: TreeNode }) {
           ))}
         </div>
       ) : (
-        <div className="mt-3 rounded-md border bg-background p-2 text-sm text-muted-foreground">
+        <div className="mt-3 rounded-md border bg-background p-2 text-xs text-muted-foreground">
           {t('workspace.noChangedFields')}
         </div>
       )}
@@ -2675,7 +2545,7 @@ function ProposalAddDetails({ node, nodeTitleById }: { node: TreeNode; nodeTitle
         <p className="text-sm font-medium">{t('workspace.proposedNewWorkItem')}</p>
         <p className="text-xs text-muted-foreground">{t('workspace.reviewDetailsBeforeAdding')}</p>
       </div>
-      <div className="grid gap-2 text-sm sm:grid-cols-2">
+      <div className="grid gap-2 text-xs sm:grid-cols-2">
         {rows.map((row) => (
           <div key={row.label} className="min-w-0 rounded-md border bg-background p-2">
             <div className="text-xs font-medium text-muted-foreground">{row.label}</div>
@@ -2714,9 +2584,9 @@ function WorkspaceProposalPanel({
   )
 
   return (
-    <section className="space-y-3 border-b bg-primary/5 px-4 py-3">
+    <section className="space-y-3 border-b bg-primary/5 px-3 py-2.5">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> {t('workspace.aiSuggestion')}</div>
+        <div className="flex items-center gap-2 text-xs font-semibold text-primary"><Bot className="h-4 w-4" /> {t('workspace.aiSuggestion')}</div>
         <Badge variant="secondary">{changes.length} {changes.length === 1 ? t('workspace.change') : t('workspace.changes', { count: changes.length })}</Badge>
       </div>
 
@@ -2724,7 +2594,7 @@ function WorkspaceProposalPanel({
       {node.proposal?.action === 'UPDATE' ? <ProposalUpdateDiff node={node} /> : null}
 
       {otherNodeChanges.map(({ change }) => (
-        <div key={change.id} className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm">
+        <div key={change.id} className="flex items-start gap-2 rounded-md border bg-background p-2 text-xs">
           <Badge variant={change.action === 'DELETE' ? 'destructive' : 'default'}>{translateProposalAction(change.action, t)}</Badge>
           <span className={cn('break-words', change.action === 'DELETE' && 'line-through')}>{change.summary}</span>
         </div>
@@ -2734,7 +2604,7 @@ function WorkspaceProposalPanel({
         <div className="space-y-2">
           <p className="text-xs font-medium uppercase text-muted-foreground">{t('workspace.entries')}</p>
           {entryChanges.map(({ change }) => (
-            <div key={change.id} className="space-y-2 rounded-md border bg-background p-2 text-sm">
+            <div key={change.id} className="space-y-2 rounded-md border bg-background p-2 text-xs">
               <div className="flex items-center gap-2"><Badge variant={change.action === 'DELETE' ? 'destructive' : 'secondary'}>{translateProposalAction(change.action, t)}</Badge><span>{change.summary}</span></div>
               {change.previousEntry && change.action === 'UPDATE' ? (
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -2754,7 +2624,7 @@ function WorkspaceProposalPanel({
             const relationship = change.relationship ?? change.previousRelationship
             const endpointLabel = (type: string, id: string) => type === 'WORK_ITEM' ? (nodeTitleById.get(id) ?? t('common.workItem')) : t('common.entry')
             return (
-              <div key={change.id} className="flex items-start gap-2 rounded-md border bg-background p-2 text-sm">
+              <div key={change.id} className="flex items-start gap-2 rounded-md border bg-background p-2 text-xs">
                 <Badge variant={change.action === 'DELETE' ? 'destructive' : 'secondary'}>{translateProposalAction(change.action, t)}</Badge>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -3056,22 +2926,6 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     setSelectedNodeId(null)
     setInspectorMode('task')
   }, [projectId])
-  const handleReviewNewEntryWithAi = useCallback(async (workItemId: string, type: string, body: string, instruction?: string) => {
-    if (!projectId) throw new Error('Project is unavailable.')
-    return reviewNewEntryWithAi(projectId, { workItemId, type, body }, instruction)
-  }, [projectId])
-  const handleAcceptNewEntryAiReview = useCallback(async (workItemId: string, type: string, review: EntryAiReview) => {
-    if (!projectId) throw new Error('Project is unavailable.')
-    const created = await acceptNewEntryAiReview(projectId, { workItemId, type }, review.originalBody, review.proposedBody)
-    setEntries((current) => [...current, created])
-    setSelectedEntryId(created.id)
-    setSelectedNodeId(null)
-    setInspectorMode('task')
-  }, [projectId])
-  const handleRejectNewEntryAiReview = useCallback(async (workItemId: string, type: string, review: EntryAiReview) => {
-    if (!projectId) throw new Error('Project is unavailable.')
-    await rejectNewEntryAiReview(projectId, { workItemId, type }, review.originalBody, review.proposedBody)
-  }, [projectId])
   const handleUpdateEntry = useCallback(async (entry: Entry, type: string, body: string) => {
     if (!projectId) throw new Error('Project is unavailable.')
     const updated = await updateEntry(projectId, entry.id, { workItemId: entry.workItemId, type, body })
@@ -3079,22 +2933,6 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     setSelectedEntryId(updated.id)
     setSelectedNodeId(null)
     setInspectorMode('task')
-  }, [projectId])
-  const handleReviewEntryWithAi = useCallback(async (entry: Entry, type: string, body: string, instruction?: string) => {
-    if (!projectId) throw new Error('Project is unavailable.')
-    return reviewEntryWithAi(projectId, entry.id, body, type, instruction)
-  }, [projectId])
-  const handleAcceptEntryAiReview = useCallback(async (entry: Entry, review: EntryAiReview) => {
-    if (!projectId) throw new Error('Project is unavailable.')
-    const updated = await acceptEntryAiReview(projectId, entry.id, review.originalBody, review.proposedBody, review.proposedType ?? review.entryType)
-    setEntries((current) => current.map((currentEntry) => currentEntry.id === updated.id ? updated : currentEntry))
-    setSelectedEntryId(updated.id)
-    setSelectedNodeId(null)
-    setInspectorMode('task')
-  }, [projectId])
-  const handleRejectEntryAiReview = useCallback(async (entry: Entry, review: EntryAiReview) => {
-    if (!projectId) throw new Error('Project is unavailable.')
-    await rejectEntryAiReview(projectId, entry.id, review.originalBody, review.proposedBody)
   }, [projectId])
   const handleAcceptAnswer = useCallback(async (questionId: string, entryId: string) => {
     if (!projectId) throw new Error('Project is unavailable.')
@@ -4480,7 +4318,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
             <span className="truncate">{formatProjectTitle(project, t('common.untitledProject'))}</span>
           </span>
         </h1>
-        <Button render={<NavLink to={workspaceDestination(`/app/projects/${project.id}/settings`)} />} variant="ghost" size="icon-sm" aria-label={t('workspace.projectSettings')}>
+        <Button render={<NavLink to={workspaceDestination(`/app/projects/${project.id}/settings`)} />} variant="ghost" size="icon-sm" aria-label={t('workspace.projectSettings')} title={t('workspace.projectSettings')}>
           <Settings className="h-4 w-4" />
         </Button>
       </div>
@@ -4573,7 +4411,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                               {assigneeTeamOptions.map((team) => <NativeSelectOption key={`team-${team.id}`} value={`TEAM:${team.id}`}>{team.label} (team)</NativeSelectOption>)}
                             </NativeSelect>
                           )}
-                          <Button type="button" variant="ghost" size="icon-xs" onClick={() => setWorkItemFilterConditions((current) => current.filter((item) => item.id !== condition.id))} aria-label={t('workspace.removeCondition')}><X /></Button>
+                          <Button type="button" variant="ghost" size="icon-xs" onClick={() => setWorkItemFilterConditions((current) => current.filter((item) => item.id !== condition.id))} aria-label={t('workspace.removeCondition')} title={t('workspace.removeCondition')}><X /></Button>
                         </div>
                       ))}
                     </div>
@@ -4616,6 +4454,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                 )}
               />
               <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem onClick={() => void handleCreateNode(focusedNodeId ?? undefined, 'NOTE')}>
+                  <FileText className="h-4 w-4" /> {translateWorkItemType('NOTE', t)}
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => void handleCreateNode(focusedNodeId ?? undefined, 'TASK')}>
                   <ListTodo className="h-4 w-4" /> {t('workspace.task')}
                 </DropdownMenuItem>
@@ -4733,7 +4574,6 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                         userLabels={userLabels}
                         teamLabels={teamLabels}
                         selectedEntryId={selectedEntryId}
-                        isAiReviewAvailable={isLlmAvailable}
                         canReorder={canReorderContent}
                         canMoveUp={rootIndex > 0}
                         canMoveDown={rootIndex < filteredTree.length - 1}
@@ -4747,13 +4587,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                         onDelete={(nextNodeId) => void handleDeleteNode(nextNodeId)}
                         onEditTitle={handleInlineTitleUpdate}
                         onCreateEntry={handleCreateEntry}
-                        onReviewNewEntry={handleReviewNewEntryWithAi}
-                        onAcceptNewEntryReview={handleAcceptNewEntryAiReview}
-                        onRejectNewEntryReview={handleRejectNewEntryAiReview}
                         onUpdateEntry={handleUpdateEntry}
-                        onReviewEntry={handleReviewEntryWithAi}
-                        onAcceptEntryReview={handleAcceptEntryAiReview}
-                        onRejectEntryReview={handleRejectEntryAiReview}
                         onAcceptAnswer={handleAcceptAnswer}
                         onMoveContentOrder={handleMoveContentItem}
                         onMoveInContentOrder={(offset) => { void handleMoveContentItem(null, 'WORK_ITEM', node.id, offset) }}
@@ -4890,17 +4724,18 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                   />
 
                   <div className="divide-y border-b">
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">{t('common.type')}</label>
-                      <NativeSelect value={form.type} onChange={(event) => handleTypeChange(event.target.value)} disabled={isSaving || Boolean(selectedNode.proposal)}>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-xs font-semibold text-muted-foreground">{t('common.type')}</label>
+                      <NativeSelect size="sm" value={form.type} onChange={(event) => handleTypeChange(event.target.value)} disabled={isSaving || Boolean(selectedNode.proposal)}>
                         {workItemTypeOptions.map((type) => (
                           <NativeSelectOption key={type} value={type}>{translateWorkItemType(type, t)}</NativeSelectOption>
                         ))}
                       </NativeSelect>
                     </div>
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
-                      <label className="text-sm font-semibold text-muted-foreground">{t('common.title')}</label>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)]">
+                      <label className="text-xs font-semibold text-muted-foreground">{t('common.title')}</label>
                       <Textarea
+                        className="text-sm"
                         rows={3}
                         value={form.title}
                         onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
@@ -4908,9 +4743,9 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                     </div>
 
                     {workItemInspectorReview ? (
-                      <section className="space-y-3 bg-primary/5 px-4 py-3">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> {t('workspace.aiSuggestion')}</div>
-                        <div className="grid gap-1 text-sm">
+                      <section className="space-y-3 bg-primary/5 px-3 py-2.5">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-primary"><Bot className="h-4 w-4" /> {t('workspace.aiSuggestion')}</div>
+                        <div className="grid gap-1 text-xs">
                           <span>{t('common.title')}: <s>{workItemInspectorReview.originalTitle}</s> → <strong>{workItemInspectorReview.proposedTitle}</strong></span>
                           <span>{t('common.type')}: {translateWorkItemType(form.type, t)} → <strong>{translateWorkItemType(workItemInspectorReview.proposedType, t)}</strong></span>
                           <span>{t('common.status')}: {translateStatus(normalizedStatus(formFieldValue(form.fields, 'status')) || defaultStatusForType(form.type), t)} → <strong>{translateStatus(workItemInspectorReview.proposedStatus, t)}</strong></span>
@@ -4923,7 +4758,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                             <span className="text-xs font-medium text-muted-foreground">{t('workspace.suggestedBlockers')}</span>
                             <div className="grid gap-1.5">
                               {workItemInspectorReview.proposedBlockers.map((blocker) => (
-                                <div key={blocker.workItemId} className="flex items-start gap-2 rounded-md border border-destructive/25 bg-background/70 px-2 py-1.5 text-sm">
+                                <div key={blocker.workItemId} className="flex items-start gap-2 rounded-md border border-destructive/25 bg-background/70 px-2 py-1.5 text-xs">
                                   <OctagonAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
                                   <div className="min-w-0">
                                     <div className="truncate font-medium">{blockerTitleById.get(blocker.workItemId) ?? blocker.workItemId}</div>
@@ -4936,7 +4771,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                         ) : null}
                         {workItemInspectorReview.rationale ? <p className="text-xs text-muted-foreground">{workItemInspectorReview.rationale}</p> : null}
                         <div className="flex gap-2">
-                          <Input className="bg-white" value={workItemInspectorReviewFeedback} onChange={(event) => setWorkItemInspectorReviewFeedback(event.target.value)} placeholder={t('workspace.tellAi')} disabled={isSaving} />
+                          <Input className="h-7 bg-white text-sm" value={workItemInspectorReviewFeedback} onChange={(event) => setWorkItemInspectorReviewFeedback(event.target.value)} placeholder={t('workspace.tellAi')} disabled={isSaving} />
                           <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRefineWorkItemAiReview()}>{t('workspace.askAgain')}</Button>
                         </div>
                         <div className="flex gap-2">
@@ -4949,9 +4784,10 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                       </section>
                     ) : null}
 
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">{t('common.status')}</label>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-xs font-semibold text-muted-foreground">{t('common.status')}</label>
                       <NativeSelect
+                        size="sm"
                         value={normalizedStatus(formFieldValue(form.fields, 'status')) || defaultStatusForType(form.type)}
                         onChange={(event) => updateManagedWorkItemField('status', 'Status', 'text', event.target.value, true)}
                       >
@@ -4961,18 +4797,20 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                       </NativeSelect>
                     </div>
 
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">{t('common.dueDate')}</label>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-xs font-semibold text-muted-foreground">{t('common.dueDate')}</label>
                       <Input
+                        className="h-7 text-sm"
                         type="date"
                         value={String(formFieldValue(form.fields, 'dueDate') ?? '')}
                         onChange={(event) => updateManagedWorkItemField('dueDate', 'Due date', 'date', event.target.value, true)}
                       />
                     </div>
 
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">{t('common.priority')}</label>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-xs font-semibold text-muted-foreground">{t('common.priority')}</label>
                       <NativeSelect
+                        size="sm"
                         value={String(formFieldValue(form.fields, 'priority') ?? '')}
                         onChange={(event) => updateManagedWorkItemField('priority', 'Priority', 'text', event.target.value, true)}
                       >
@@ -4984,23 +4822,38 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                       </NativeSelect>
                     </div>
 
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
-                      <label className="pt-2 text-sm font-semibold text-muted-foreground">{t('common.assignees')}</label>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)]">
+                      <label className="pt-2 text-xs font-semibold text-muted-foreground">{t('common.assignees')}</label>
                       <div className="grid gap-3">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <NativeSelect
-                            className="w-full sm:w-28"
-                            value={newAssigneeType}
-                            onChange={(event) => {
-                              setNewAssigneeType(event.target.value as 'USER' | 'TEAM')
-                              setNewAssigneeId('')
+                        <div className="flex items-center">
+                          <ToggleGroup
+                            value={[newAssigneeType]}
+                            onValueChange={(nextValue) => {
+                              const nextType = nextValue[0] as 'USER' | 'TEAM' | undefined
+                              if (nextType) {
+                                setNewAssigneeType(nextType)
+                                setNewAssigneeId('')
+                              }
                             }}
+                            variant="outline"
+                            size="sm"
+                            spacing={0}
+                            aria-label={t('common.assignees')}
                           >
-                            <NativeSelectOption value="USER">{t('common.user')}</NativeSelectOption>
-                            <NativeSelectOption value="TEAM">{t('common.team')}</NativeSelectOption>
-                          </NativeSelect>
+                            <ToggleGroupItem value="USER" className="gap-1.5" aria-label={t('common.user')} title={t('common.user')}>
+                              <UserPlus className="h-3.5 w-3.5" />
+                              {t('common.user')}
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="TEAM" className="gap-1.5" aria-label={t('common.team')} title={t('common.team')}>
+                              <UsersRound className="h-3.5 w-3.5" />
+                              {t('common.team')}
+                            </ToggleGroupItem>
+                          </ToggleGroup>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-2">
                           <NativeSelect
-                            className="w-full sm:flex-1"
+                            size="sm"
+                            className="min-w-0 flex-1"
                             value={newAssigneeId}
                             onChange={(event) => setNewAssigneeId(event.target.value)}
                             disabled={availableAssigneeOptions.length === 0}
@@ -5014,21 +4867,20 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                               <NativeSelectOption key={option.id} value={option.id}>{option.label}</NativeSelectOption>
                             ))}
                           </NativeSelect>
-                          <Button type="button" className="gap-2" disabled={!newAssigneeId} onClick={handleAddAssignee}>
+                          <Button type="button" size="icon-sm" aria-label={t('common.add')} title={t('common.add')} disabled={!newAssigneeId} onClick={handleAddAssignee}>
                             <Plus className="h-4 w-4" />
-                            {t('common.add')}
                           </Button>
                         </div>
 
                         {assignedUserIds.length === 0 && assignedTeamIds.length === 0 ? (
-                          <div className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">{t('workspace.noAssignees')}</div>
+                          <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">{t('workspace.noAssignees')}</div>
                         ) : (
                           <div className="space-y-2">
                             {assignedUserIds.map((userId) => (
                               <div key={`user-${userId}`} className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2">
                                 <div className="flex min-w-0 items-center gap-2">
                                   <Badge variant="outline" className="shrink-0 border-sky-200 bg-sky-50 font-medium text-sky-700 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300">{t('common.user')}</Badge>
-                                  <span className="truncate text-sm font-medium">{assigneeUserLabelById.get(userId) ?? userId}</span>
+                                  <span className="truncate text-xs font-medium">{assigneeUserLabelById.get(userId) ?? userId}</span>
                                 </div>
                                 <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('USER', userId)} aria-label={t('workspace.removeAssignee')} title={t('common.remove')}>
                                   <X className="h-4 w-4" />
@@ -5039,7 +4891,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                               <div key={`team-${teamId}`} className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-3 py-2">
                                 <div className="flex min-w-0 items-center gap-2">
                                   <Badge variant="outline" className="shrink-0 border-violet-200 bg-violet-50 font-medium text-violet-700 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300">{t('common.team')}</Badge>
-                                  <span className="truncate text-sm font-medium">{assigneeTeamLabelById.get(teamId) ?? teamId}</span>
+                                  <span className="truncate text-xs font-medium">{assigneeTeamLabelById.get(teamId) ?? teamId}</span>
                                 </div>
                                 <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeAssignee('TEAM', teamId)} aria-label={t('workspace.removeAssignee')} title={t('common.remove')}>
                                   <X className="h-4 w-4" />
@@ -5051,8 +4903,8 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                       </div>
                     </div>
 
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-start">
-                      <label className="pt-2 text-sm font-semibold text-muted-foreground">{t('common.relationship')}</label>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-start">
+                      <label className="pt-2 text-xs font-semibold text-muted-foreground">{t('common.relationship')}</label>
                       <div className="grid min-w-0 gap-2">
                         {(workItemRelationshipsByNodeId.get(selectedNode.id) ?? []).map((relationship) => {
                           const isOutgoing = relationship.fromEntityId === selectedNode.id
@@ -5060,7 +4912,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                           const relatedTitle = blockerTitleById.get(relatedNodeId) ?? relatedNodeId
                           const isBlocker = relationship.type === 'BLOCKED_BY'
                           return (
-                            <span key={relationship.id} className={cn('flex min-w-0 items-center gap-2 rounded-md border py-1 pl-2 pr-1 text-sm', isBlocker && 'border-destructive/30 bg-destructive/5')}>
+                            <span key={relationship.id} className={cn('flex min-w-0 items-center gap-2 rounded-md border py-1 pl-2 pr-1 text-xs', isBlocker && 'border-destructive/30 bg-destructive/5')}>
                               {isBlocker
                                 ? <OctagonAlert className="h-3.5 w-3.5 shrink-0 text-destructive" />
                                 : <MoveRight className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground', !isOutgoing && 'rotate-180')} />}
@@ -5091,7 +4943,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                             relationshipUi={workItemRelationshipUi}
                             trigger={(
                               <Button type="button" size="sm" className="gap-1" disabled={Boolean(selectedNode.proposal)}>
-                                <Plus className="h-3.5 w-3.5" /> {t('workspace.addRelationship')}
+                                <Plus className="h-3.5 w-3.5" /> {t('common.add')}
                               </Button>
                             )}
                           />
@@ -5099,13 +4951,13 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                       </div>
                     </div>
 
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">{t('common.created')}</span>
-                      <span className="text-sm">{selectedNode.createdAt ? formatActivityDate(selectedNode.createdAt) : '—'}</span>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">{t('common.created')}</span>
+                      <span className="text-xs">{selectedNode.createdAt ? formatActivityDate(selectedNode.createdAt) : '—'}</span>
                     </div>
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">{t('common.updated')}</span>
-                      <span className="text-sm">{selectedNode.updatedAt ? formatActivityDate(selectedNode.updatedAt) : '—'}</span>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">{t('common.updated')}</span>
+                      <span className="text-xs">{selectedNode.updatedAt ? formatActivityDate(selectedNode.updatedAt) : '—'}</span>
                     </div>
                   </div>
 
@@ -5169,7 +5021,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                         description={t('workspace.deleteItemDescription')}
                         disabled={isSaving || Boolean(selectedNode.proposal)}
                         trigger={(
-                          <Button type="button" variant="destructive" size="icon-sm" disabled={isSaving || Boolean(selectedNode.proposal)} aria-label={t('workspace.deleteItem')}>
+                          <Button type="button" variant="destructive" size="icon-sm" disabled={isSaving || Boolean(selectedNode.proposal)} aria-label={t('workspace.deleteItem')} title={t('workspace.deleteItem')}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
@@ -5193,20 +5045,20 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                 <div className="flex h-full min-h-0 flex-col overflow-hidden">
                   <div className="min-h-0 flex-1 overflow-auto">
                     <div className="divide-y border-b">
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <label className="text-sm font-semibold text-muted-foreground">{t('common.type')}</label>
-                      <NativeSelect value={entryInspectorType} onChange={(event) => setEntryInspectorType(event.target.value)} disabled={isSaving || Boolean(entryInspectorReview)}>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <label className="text-xs font-semibold text-muted-foreground">{t('common.type')}</label>
+                      <NativeSelect size="sm" value={entryInspectorType} onChange={(event) => setEntryInspectorType(event.target.value)} disabled={isSaving || Boolean(entryInspectorReview)}>
                         {entryTypeOptions.map((type) => <NativeSelectOption key={type} value={type}>{translateEntryType(type, t)}</NativeSelectOption>)}
                       </NativeSelect>
                     </div>
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">{t('common.author')}</span>
-                      <span className="text-sm">{entryAuthorLabel(selectedEntry, userLabels, t('common.unknownUser'))}</span>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">{t('common.author')}</span>
+                      <span className="text-xs">{entryAuthorLabel(selectedEntry, userLabels, t('common.unknownUser'))}</span>
                     </div>
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)]">
-                      <label className="text-sm font-semibold text-muted-foreground">{t('common.content')}</label>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)]">
+                      <label className="text-xs font-semibold text-muted-foreground">{t('common.content')}</label>
                       <Textarea
-                        className="min-h-52 resize-y bg-white"
+                        className="min-h-52 resize-y bg-white text-sm"
                         value={entryInspectorBody}
                         onChange={(event) => setEntryInspectorBody(event.target.value)}
                         disabled={isSaving || Boolean(entryInspectorReview)}
@@ -5214,33 +5066,33 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                       />
                     </div>
                     {entryInspectorReview ? (
-                      <section className="space-y-3 bg-primary/5 px-4 py-3">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Bot className="h-4 w-4" /> {t('workspace.aiSuggestion')}</div>
+                      <section className="space-y-3 bg-primary/5 px-3 py-2.5">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-primary"><Bot className="h-4 w-4" /> {t('workspace.aiSuggestion')}</div>
                         <div className="space-y-1">
                           <p className="text-xs font-medium text-muted-foreground">{t('workspace.yourDraft')}</p>
-                          <p className="whitespace-pre-wrap break-words rounded-sm bg-background/70 p-2 text-sm">{entryInspectorReview.originalBody}</p>
+                          <p className="whitespace-pre-wrap break-words rounded-sm bg-background/70 p-2 text-xs">{entryInspectorReview.originalBody}</p>
                         </div>
                         <div className="space-y-1">
                           <p className="text-xs font-medium text-primary">{t('workspace.suggested')}</p>
-                          <p className="whitespace-pre-wrap break-words rounded-sm bg-background/70 p-2 text-sm">{entryInspectorReview.proposedBody}</p>
+                          <p className="whitespace-pre-wrap break-words rounded-sm bg-background/70 p-2 text-xs">{entryInspectorReview.proposedBody}</p>
                         </div>
                         {entryInspectorReview.proposedType && entryInspectorReview.proposedType !== (entryInspectorReview.entryType ?? entryInspectorType) ? (
-                          <p className="text-sm text-primary">{t('workspace.classification')}: {translateEntryType(entryInspectorReview.entryType ?? entryInspectorType, t)} → {translateEntryType(entryInspectorReview.proposedType, t)}</p>
+                          <p className="text-xs text-primary">{t('workspace.classification')}: {translateEntryType(entryInspectorReview.entryType ?? entryInspectorType, t)} → {translateEntryType(entryInspectorReview.proposedType, t)}</p>
                         ) : null}
                         {entryInspectorReview.rationale ? <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">{entryInspectorReview.rationale}</p> : null}
                         <div className="flex gap-2">
-                          <Input className="bg-white" value={entryInspectorReviewFeedback} onChange={(event) => setEntryInspectorReviewFeedback(event.target.value)} placeholder={t('workspace.tellAi')} disabled={isSaving} />
+                          <Input className="h-7 bg-white text-sm" value={entryInspectorReviewFeedback} onChange={(event) => setEntryInspectorReviewFeedback(event.target.value)} placeholder={t('workspace.tellAi')} disabled={isSaving} />
                           <Button type="button" variant="outline" disabled={isSaving} onClick={() => void handleRefineInspectorEntryReview()}>{t('workspace.askAgain')}</Button>
                         </div>
                       </section>
                     ) : null}
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">{t('common.created')}</span>
-                      <span className="text-sm">{formatActivityDate(selectedEntry.createdAt)}</span>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">{t('common.created')}</span>
+                      <span className="text-xs">{formatActivityDate(selectedEntry.createdAt)}</span>
                     </div>
-                    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">{t('common.updated')}</span>
-                      <span className="text-sm">{selectedEntry.updatedAt ? formatActivityDate(selectedEntry.updatedAt) : '—'}</span>
+                    <div className="grid gap-2 px-3 py-1.5 sm:grid-cols-[110px_minmax(0,1fr)] sm:items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">{t('common.updated')}</span>
+                      <span className="text-xs">{selectedEntry.updatedAt ? formatActivityDate(selectedEntry.updatedAt) : '—'}</span>
                     </div>
                     </div>
                   </div>

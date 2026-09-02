@@ -335,10 +335,10 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
   if (isLoading) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+        <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
           <h1 className="text-xl font-semibold leading-none tracking-normal">{t('teams.pageTitle')}</h1>
         </div>
-        <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto p-6">
+        <div className="flex min-w-0 flex-1 items-center justify-center overflow-auto p-4">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       </div>
@@ -348,7 +348,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
   if (errorMessage || !team) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+        <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
           <h1 className="text-xl font-semibold leading-none tracking-normal">{t('teams.pageTitle')}</h1>
         </div>
         <Empty className="min-w-0 flex-1 overflow-auto">
@@ -365,7 +365,7 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-2 md:px-5">
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-semibold leading-none tracking-normal">
           <NavLink to={workspaceDestination('/app/teams')} className="shrink-0 text-muted-foreground hover:text-foreground">
             {t('teams.pageTitle')}
@@ -384,8 +384,8 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
         ) : null}
       </div>
 
-      <div className="min-w-0 flex-1 overflow-auto p-4 md:p-6">
-        <Tabs defaultValue="info" className="gap-4">
+      <div className="min-w-0 flex-1 overflow-auto p-3 md:p-4">
+        <Tabs defaultValue="info" className="gap-3">
           <TabsList variant="line" className="border-b">
             <TabsTrigger value="info">{t('common.info')}</TabsTrigger>
             <TabsTrigger value="members">{t('common.members')}</TabsTrigger>
@@ -486,13 +486,13 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                           <Badge variant="outline">{roleMembers.length}</Badge>
                         </div>
                         {roleMembers.length === 0 ? (
-                          <div className="rounded-md border border-dashed px-3 py-5 text-sm text-muted-foreground">{t('teamDetails.noRoleAssigned', { role: label.toLowerCase() })}</div>
+                          <div className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">{t('teamDetails.noRoleAssigned', { role: label.toLowerCase() })}</div>
                         ) : (
                           <div className="space-y-2">
                             {roleMembers.map((member) => {
                               const user = userById.get(member.userId)
                               return (
-                                <div key={member.userId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                                <div key={member.userId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-1.5">
                                   <div className="min-w-0">
                                     <div className="truncate text-sm font-medium">{displayUser(user, t('common.unknownUser'))}</div>
                                     {user?.email ? <div className="truncate text-xs text-muted-foreground">{user.email}</div> : null}
@@ -558,13 +558,13 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                 ) : null}
 
                 {projectLinks.length === 0 ? (
-                  <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">{t('teamDetails.noProjects')}</div>
+                  <div className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">{t('teamDetails.noProjects')}</div>
                 ) : (
                   <div className="space-y-2">
                     {projectLinks.map((link) => {
                       const project = projectById.get(link.projectId)
                       return (
-                        <div key={link.projectId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                        <div key={link.projectId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-1.5">
                           <button type="button" className="min-w-0 text-left" onClick={() => navigate(workspaceDestination(`/app/projects/${link.projectId}`))}>
                             <div className="truncate text-sm font-medium">{displayProject(project, t('common.unknownProject'))}</div>
                             <div className="truncate text-xs text-muted-foreground">{translateRole(link.role, t)}</div>
@@ -603,12 +603,12 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                 </div>
                 <div className="space-y-2">
                   {joinRequests.length === 0 ? (
-                    <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">{t('teamDetails.noRequests')}</div>
+                    <div className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">{t('teamDetails.noRequests')}</div>
                   ) : (
                     joinRequests.map((joinRequest) => {
                       const user = userById.get(joinRequest.userId)
                       return (
-                        <div key={joinRequest.id} className="space-y-2 rounded-md border px-3 py-2">
+                        <div key={joinRequest.id} className="space-y-2 rounded-md border px-3 py-1.5">
                           <div className="min-w-0">
                             <div className="truncate text-sm font-medium">{displayUser(user, t('common.unknownUser'))}</div>
                             {user?.email ? <div className="truncate text-xs text-muted-foreground">{user.email}</div> : null}

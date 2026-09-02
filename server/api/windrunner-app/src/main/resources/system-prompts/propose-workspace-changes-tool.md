@@ -26,7 +26,7 @@ For WorkItem and Entry UPDATE, set unspecified fields to null so their current v
 WorkItem assignees contain only assigneeType (`USER` or `TEAM`) and assigneeId.
 Before including assignees, call `fetch_project_assignees` for the target project with a focused query. USER and TEAM assignees must use IDs returned by that tool. The write path revalidates eligibility when the proposal is applied.
 Dates use YYYY-MM-DD.
-A WorkItem type must be exactly one of `TASK`, `QUESTION`, `APPROVAL`, `REVIEW`, or `DECISION`; if the user does not specify a type, use `TASK`. Do not use labels such as `WORK_ITEM`, `FEATURE`, `BUG`, or `EPIC` as types.
+A WorkItem type must be exactly one of `NOTE`, `TASK`, `QUESTION`, `APPROVAL`, `REVIEW`, or `DECISION`; if the user asks for a simple title-only row, use `NOTE`; if no type is specified, use `TASK`. Do not use labels such as `WORK_ITEM`, `FEATURE`, `BUG`, or `EPIC` as types.
 WorkItem status must be one of `OPEN`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `WAITING`, `ANSWERED`, `PENDING`, `APPROVED`, `REJECTED`, or `CANCELLED`.
 Entry type must be one of `COMMENT`, `INFORMATION`, `ANSWER`, `EVIDENCE`, `PROPOSAL`, or `RESOLUTION`.
 Use PROJECT_ROOT only when intentionally moving an existing WorkItem to project level.

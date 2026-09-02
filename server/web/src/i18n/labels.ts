@@ -11,6 +11,7 @@ function translatedLabel(value: string, t: TFunction, keys: Record<string, strin
 
 export function translateWorkItemType(value: string, t: TFunction) {
   return translatedLabel(value, t, {
+    NOTE: 'workItemType.note',
     TASK: 'workItemType.task',
     QUESTION: 'workItemType.question',
     APPROVAL: 'workItemType.approval',

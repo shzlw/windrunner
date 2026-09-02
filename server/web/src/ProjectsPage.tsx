@@ -484,11 +484,11 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('projects.pageTitle')}</h1>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
+      <div className="min-w-0 flex-1 space-y-2 overflow-auto p-3 md:p-4">
         <div className="flex flex-col gap-2 sm:flex-row lg:items-center">
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -505,7 +505,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
           </Button>
         </div>
 
-        <div className="rounded-md border bg-background p-4">
+        <div className="rounded-md border bg-background p-3">
           {isLoading ? (
             <div className="flex min-h-64 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -608,11 +608,11 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
             </SheetClose>
           </SheetHeader>
 
-          <div className="flex-1 px-6 py-2">
+          <div className="flex-1 px-4 py-2">
             {sheetMode === 'detail' ? (
               selectedProject ? (
-                <div className="space-y-6">
-                  <dl className="space-y-4">
+                <div className="space-y-4">
+                  <dl className="space-y-3">
                     <div className="border-b pb-3">
                       <dt className="text-sm font-medium">{t('common.name')}</dt>
                       <dd className="mt-1 break-words text-sm text-muted-foreground">{formatProjectTitle(selectedProject, t('common.untitledProject'))}</dd>
@@ -638,7 +638,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                     <ArrowRight className="h-4 w-4" />
                   </Button>
 
-                  <section className="space-y-3 border-t pt-5">
+                  <section className="space-y-3 border-t pt-4">
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="text-sm font-semibold">{t('projects.projectMembers')}</h3>
                       <Badge variant="secondary">{projectMembers.length}</Badge>
@@ -667,13 +667,13 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                     </form>
 
                     {projectMembers.length === 0 ? (
-                      <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">{t('projects.noDirectMembers')}</div>
+                      <div className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">{t('projects.noDirectMembers')}</div>
                     ) : (
                       <div className="space-y-2">
                         {projectMembers.map((member) => {
                           const user = userById.get(member.userId)
                           return (
-                            <div key={member.userId} className="grid gap-2 rounded-md border px-3 py-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-center">
+                            <div key={member.userId} className="grid gap-2 rounded-md border px-3 py-1.5 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-center">
                               <div className="min-w-0">
                                 <div className="truncate text-sm font-medium">{displayUser(user, t('common.unknownUser'))}</div>
                                 <div className="truncate font-mono text-xs text-muted-foreground">{member.userId}</div>
@@ -708,7 +708,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                     )}
                   </section>
 
-                  <section className="space-y-3 border-t pt-5">
+                  <section className="space-y-3 border-t pt-4">
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="text-sm font-semibold">{t('projects.assignedTeams')}</h3>
                       <Badge variant="secondary">{projectTeams.length}</Badge>
@@ -737,13 +737,13 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                     </form>
 
                     {projectTeams.length === 0 ? (
-                      <div className="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">{t('projects.noTeams')}</div>
+                      <div className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">{t('projects.noTeams')}</div>
                     ) : (
                       <div className="space-y-2">
                         {projectTeams.map((projectTeam) => {
                           const team = teamById.get(projectTeam.teamId)
                           return (
-                            <div key={projectTeam.teamId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                            <div key={projectTeam.teamId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-1.5">
                               <div className="min-w-0">
                                 <div className="truncate text-sm font-medium">{team?.name || t('common.unknownTeam')}</div>
                                 <div className="truncate text-xs text-muted-foreground">{translateRole(projectTeam.role, t)}</div>
@@ -809,7 +809,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                     </div>
 
                     {createOwnerUserIds.length === 0 && createOwnerTeamIds.length === 0 ? (
-                      <div className="rounded-md border border-dashed px-4 py-5 text-sm text-muted-foreground">
+                      <div className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">
                         {t('projects.noOwnersSelected')}
                       </div>
                     ) : (
@@ -817,7 +817,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                         {createOwnerUserIds.map((userId) => {
                           const user = userById.get(userId)
                           return (
-                            <div key={userId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                            <div key={userId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-1.5">
                               <div className="min-w-0">
                                 <div className="truncate text-sm font-medium">{displayUser(user, t('common.unknownUser'))}</div>
                                 {user?.email ? <div className="truncate text-xs text-muted-foreground">{user.email}</div> : null}
@@ -832,7 +832,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
                         {createOwnerTeamIds.map((teamId) => {
                           const team = teamById.get(teamId)
                           return (
-                            <div key={teamId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                            <div key={teamId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-1.5">
                               <div className="min-w-0">
                                 <div className="truncate text-sm font-medium">{team?.name || t('common.unknownTeam')}</div>
                                 <div className="truncate text-xs text-muted-foreground">{t('projects.teamOwner')}</div>
@@ -873,7 +873,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
           </div>
 
           {sheetMode === 'detail' && selectedProject ? (
-            <div className="flex shrink-0 gap-2 border-t p-6">
+            <div className="flex shrink-0 gap-2 border-t p-4">
               <Button onClick={openEditSheet} className="gap-2">
                 <Pencil className="h-4 w-4" />
                 Edit project

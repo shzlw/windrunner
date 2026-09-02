@@ -83,7 +83,7 @@ public class WorkItemWriteMcpTools {
 
     @McpTool(
             name = "create_work_item",
-            description = "Create a new work item in a project: a TASK, QUESTION, APPROVAL, REVIEW, or DECISION. Before calling, use search_work_items with the intended title and inspect the relevant parent/type. If a clear existing match exists, report it and use an existing update capability instead of creating a duplicate. If matches are ambiguous, ask for clarification. Optionally place it under a parent work item.",
+            description = "Create a new work item in a project: a NOTE, TASK, QUESTION, APPROVAL, REVIEW, or DECISION. Use NOTE for a simple title-only row. Before calling, use search_work_items with the intended title and inspect the relevant parent/type. If a clear existing match exists, report it and use an existing update capability instead of creating a duplicate. If matches are ambiguous, ask for clarification. Optionally place it under a parent work item.",
             generateOutputSchema = true,
             annotations = @McpAnnotations(
                     readOnlyHint = false,

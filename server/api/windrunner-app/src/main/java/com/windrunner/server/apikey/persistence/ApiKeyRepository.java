@@ -19,8 +19,18 @@ public interface ApiKeyRepository extends CrudRepository<ApiKey, String> {
             FROM api_key
             WHERE owner_user_id = :ownerUserId
             ORDER BY created_at DESC, id DESC
+            LIMIT :limit OFFSET :offset
             """)
-    List<ApiKey> findByOwnerUserId(@Param("ownerUserId") String ownerUserId);
+    List<ApiKey> findPageByOwnerUserId(@Param("ownerUserId") String ownerUserId,
+                                       @Param("limit") int limit,
+                                       @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM api_key
+            WHERE owner_user_id = :ownerUserId
+            """)
+    long countByOwnerUserId(@Param("ownerUserId") String ownerUserId);
 
     @Query("""
             SELECT id, owner_user_id, name, key_hash, status, created_at, last_used_at, revoked_at

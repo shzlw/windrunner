@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { toast } from 'sonner'
-import { Copy, Cpu, Eye, EyeOff, KeyRound, LogOut, Plug, RefreshCw, Server, ShieldAlert, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Cpu, Eye, EyeOff, KeyRound, LogOut, Plug, RefreshCw, Server, ShieldAlert, X } from 'lucide-react'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import LanguageSelect from '@/components/LanguageSelect'
@@ -12,7 +12,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -217,21 +219,35 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [isLoadingApiKeys, setIsLoadingApiKeys] = useState(false)
+  const [apiKeyPage, setApiKeyPage] = useState(0)
+  const [apiKeyPageSize, setApiKeyPageSize] = useState(5)
+  const [apiKeyTotalItems, setApiKeyTotalItems] = useState(0)
+  const [apiKeyTotalPages, setApiKeyTotalPages] = useState(0)
   const [apiKeyName, setApiKeyName] = useState('')
   const [selectedScopes, setSelectedScopes] = useState<ApiKeyScope[]>(['teams:read'])
   const [createdApiKey, setCreatedApiKey] = useState<CreatedApiKey | null>(null)
   const [isCreatingApiKey, setIsCreatingApiKey] = useState(false)
+  const [isCreateApiKeyDialogOpen, setIsCreateApiKeyDialogOpen] = useState(false)
   const [revokingApiKeyId, setRevokingApiKeyId] = useState<string | null>(null)
   const [systemInformation, setSystemInformation] = useState<SystemInformation | null>(null)
   const [isLoadingSystemInformation, setIsLoadingSystemInformation] = useState(false)
 
-  async function loadApiKeys() {
+  async function loadApiKeys(nextPage = apiKeyPage, nextPageSize = apiKeyPageSize) {
     setIsLoadingApiKeys(true)
     try {
-      const nextApiKeys = await listMyApiKeys()
-      setApiKeys(nextApiKeys)
+      const response = await listMyApiKeys(nextPage, nextPageSize)
+      if (response.items.length === 0 && nextPage > 0 && response.totalPages > 0 && nextPage >= response.totalPages) {
+        await loadApiKeys(response.totalPages - 1, nextPageSize)
+        return
+      }
+      setApiKeys(response.items)
+      setApiKeyPage(response.page)
+      setApiKeyTotalItems(response.totalItems)
+      setApiKeyTotalPages(response.totalPages)
     } catch (loadError) {
       setApiKeys([])
+      setApiKeyTotalItems(0)
+      setApiKeyTotalPages(0)
       toast.error(loadError instanceof Error ? loadError.message : t('account.failedLoadKeys'))
     } finally {
       setIsLoadingApiKeys(false)
@@ -245,7 +261,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       const nextUser = await fetchCurrentUser()
       setUser(nextUser)
       onUserChange(nextUser)
-      await loadApiKeys()
+      await loadApiKeys(0, apiKeyPageSize)
       if (isAdminLike(nextUser)) {
         setIsLoadingSystemInformation(true)
         try {
@@ -343,7 +359,8 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       setCreatedApiKey(nextApiKey)
       setApiKeyName('')
       setSelectedScopes(['teams:read'])
-      await loadApiKeys()
+      setIsCreateApiKeyDialogOpen(false)
+      await loadApiKeys(apiKeyPage, apiKeyPageSize)
       toast.success(t('account.keyCreated'))
     } catch (submitError) {
       toast.error(submitError instanceof Error ? submitError.message : t('account.failedCreateKey'))
@@ -418,7 +435,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b px-4 py-2 md:px-5">
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('account.pageTitle')}</h1>
         <Button
           variant="outline"
@@ -431,7 +448,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
         </Button>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
+      <div className="min-w-0 flex-1 space-y-2 overflow-auto p-3 md:p-4">
         {isLoading ? (
           <div className="rounded-md border bg-background p-4">
             <div className="space-y-4">
@@ -457,7 +474,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
             </TabsList>
 
             <TabsContent value="profile">
-              <section className="max-w-4xl space-y-6 rounded-md border bg-background p-6">
+              <section className="max-w-4xl space-y-4 rounded-md border bg-background p-4">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-14 w-14 border">
                     <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
@@ -474,7 +491,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                       </Badge>
                     </div>
                     <p className="truncate text-sm text-muted-foreground">
-                      @{displayValue(user.username) ?? 'unknown'}
+                      {displayValue(user.username) ?? 'unknown'}
                     </p>
                   </div>
                 </div>
@@ -497,7 +514,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                   ))}
                 </dl>
 
-                <div className="border-t pt-5">
+                <div className="border-t pt-4">
                   <h3 className="text-sm font-semibold">{t('language.preferencesTitle')}</h3>
                   <p className="mt-1 mb-4 text-sm text-muted-foreground">{t('language.description')}</p>
                   <LanguageSelect />
@@ -560,7 +577,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
             {isAdminLike(user) ? (
               <TabsContent value="system">
-                <section className="max-w-4xl space-y-5 rounded-md border bg-background p-6">
+                <section className="max-w-4xl space-y-4 rounded-md border bg-background p-4">
                   <div>
                     <h3 className="flex items-center gap-2 text-sm font-semibold">
                       <Server className="h-4 w-4" />
@@ -603,22 +620,203 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
 
             <TabsContent value="api-keys">
               <section className="max-w-5xl space-y-4 rounded-md border bg-background p-4">
-                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold">
-                    <Plug className="h-4 w-4" />
-                    {t('account.apiKeys')}
-                  </h3>
-                  <Button variant="outline" size="sm" onClick={() => void loadApiKeys()} disabled={isLoadingApiKeys} className="gap-2">
-                    <RefreshCw className={`h-4 w-4 ${isLoadingApiKeys ? 'animate-spin' : ''}`} />
-                    {isLoadingApiKeys ? t('account.refreshing') : t('common.refresh')}
-                  </Button>
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                  <div className="min-w-0">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold">
+                      <Plug className="h-4 w-4" />
+                      {t('account.apiKeys')}
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{t('account.apiKeysDescription')}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button variant="outline" size="sm" onClick={() => void loadApiKeys()} disabled={isLoadingApiKeys} className="gap-2">
+                      <RefreshCw className={`h-4 w-4 ${isLoadingApiKeys ? 'animate-spin' : ''}`} />
+                      {isLoadingApiKeys ? t('account.refreshing') : t('common.refresh')}
+                    </Button>
+                    <Button size="sm" onClick={() => setIsCreateApiKeyDialogOpen(true)} className="gap-2">
+                      <KeyRound className="h-4 w-4" />
+                      {t('account.createApiKey')}
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-                  <form className="space-y-4" onSubmit={handleApiKeySubmit}>
-                    <div className="space-y-3">
-                      <label className="block text-sm font-semibold">{t('account.keyName')}</label>
+                {createdApiKey ? (
+                  <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <KeyRound className="h-4 w-4 shrink-0 text-primary" />
+                        <p className="text-sm font-semibold">{t('account.newKey')}</p>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" onClick={() => void handleCopyApiKey()} className="gap-2">
+                        <Copy className="h-4 w-4" />
+                        {t('account.copy')}
+                      </Button>
+                    </div>
+                    <p className="break-all rounded-md border bg-background/80 px-2 py-1.5 font-mono text-xs text-primary">{createdApiKey.rawKey}</p>
+                    <p className="text-xs text-muted-foreground">{t('account.shownOnce')}</p>
+                  </div>
+                ) : null}
+
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold">{t('account.existingKeys')}</h4>
+                    <span className="text-xs text-muted-foreground">{t('account.total', { count: apiKeyTotalItems })}</span>
+                  </div>
+
+                  {isLoadingApiKeys ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-20 w-full" />
+                      <Skeleton className="h-20 w-full" />
+                    </div>
+                  ) : null}
+
+                  {!isLoadingApiKeys && apiKeys.length === 0 ? (
+                    <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-md border border-dashed p-6 text-center">
+                      <KeyRound className="h-5 w-5 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">{t('account.noKeys')}</p>
+                      <p className="text-xs text-muted-foreground">{t('account.createKeyHint')}</p>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateApiKeyDialogOpen(true)} className="mt-1 gap-2">
+                        <KeyRound className="h-4 w-4" />
+                        {t('account.createApiKey')}
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {!isLoadingApiKeys && apiKeys.map((apiKey) => {
+                    const isRevoked = apiKey.status === 'REVOKED'
+
+                    return (
+                      <article key={apiKey.id} className="overflow-hidden rounded-md border bg-background">
+                        <div className="flex min-w-0 items-start gap-3 px-3 py-2.5">
+                          <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                              <h4 className="min-w-0 truncate text-sm font-semibold" title={apiKey.name}>{apiKey.name}</h4>
+                              <Badge variant={isRevoked ? 'secondary' : 'outline'}>{translateStatus(apiKey.status, t)}</Badge>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                              <span>{t('common.created')}: {formatDateTime(apiKey.createdAt, t('common.never'))}</span>
+                              <span>{t('account.lastUsed')}: {formatDateTime(apiKey.lastUsedAt, t('common.never'))}</span>
+                            </div>
+                          </div>
+
+                          {!isRevoked ? (
+                            <DeleteConfirmPopover
+                              title={t('account.revokeKey')}
+                              description={t('account.revokeDescription')}
+                              confirmLabel={t('account.revoke')}
+                              disabled={revokingApiKeyId === apiKey.id}
+                              trigger={(
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  disabled={revokingApiKeyId === apiKey.id}
+                                  className="shrink-0 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                                  aria-label={revokingApiKeyId === apiKey.id ? t('account.revoking') : t('account.revoke')}
+                                  title={revokingApiKeyId === apiKey.id ? t('account.revoking') : t('account.revoke')}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                              onConfirm={() => handleRevokeApiKey(apiKey.id)}
+                            />
+                          ) : null}
+                        </div>
+
+                        <div className="border-t bg-muted/10 px-3 py-2.5">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('account.permissions')}</span>
+                            <span className="text-xs text-muted-foreground">{t('account.permissionCount', { count: apiKey.scopes.length })}</span>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {API_KEY_SCOPE_GROUPS.map((group) => {
+                              const selectedOptions = group.options.filter((option) => apiKey.scopes.includes(option.value))
+                              if (selectedOptions.length === 0) {
+                                return null
+                              }
+
+                              return (
+                                <div key={group.label} className="min-w-0 rounded-md border bg-background/70 px-2.5 py-2">
+                                  <p className="mb-1 text-xs font-semibold text-foreground">{t(scopeGroupKeys[group.label] ?? group.label)}</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {selectedOptions.map((option) => (
+                                      <Badge key={option.value} variant="secondary" className="h-5 px-1.5 text-[10px] font-medium">
+                                        {t(scopeOptionKeys[option.value].label)}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </article>
+                    )
+                  })}
+
+                  {!isLoadingApiKeys && apiKeyTotalPages > 0 ? (
+                    <div className="flex justify-end border-t pt-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          onClick={() => void loadApiKeys(Math.max(0, apiKeyPage - 1), apiKeyPageSize)}
+                          disabled={apiKeyPage === 0 || isLoadingApiKeys}
+                          aria-label={t('common.previousPage')}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          {t('common.pageOf', { page: apiKeyPage + 1, total: Math.max(apiKeyTotalPages, 1) })}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          onClick={() => void loadApiKeys(apiKeyPage + 1, apiKeyPageSize)}
+                          disabled={isLoadingApiKeys || apiKeyPage >= apiKeyTotalPages - 1}
+                          aria-label={t('common.nextPage')}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        <div className="ml-3 border-l pl-3">
+                          <NativeSelect
+                            className="h-8 w-20"
+                            value={String(apiKeyPageSize)}
+                            onChange={(event) => {
+                              const nextPageSize = Number(event.target.value)
+                              setApiKeyPageSize(nextPageSize)
+                              void loadApiKeys(0, nextPageSize)
+                            }}
+                            disabled={isLoadingApiKeys}
+                            aria-label={t('common.pageSize')}
+                          >
+                            <NativeSelectOption value="5">5</NativeSelectOption>
+                            <NativeSelectOption value="10">10</NativeSelectOption>
+                            <NativeSelectOption value="25">25</NativeSelectOption>
+                          </NativeSelect>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+
+              <Dialog open={isCreateApiKeyDialogOpen} onOpenChange={setIsCreateApiKeyDialogOpen}>
+                <DialogContent className="max-h-[calc(100vh-2rem)] min-w-0 overflow-y-auto sm:max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>{t('account.createApiKey')}</DialogTitle>
+                    <DialogDescription>{t('account.apiKeysDescription')}</DialogDescription>
+                  </DialogHeader>
+
+                  <form id="create-api-key-form" className="space-y-4" onSubmit={handleApiKeySubmit}>
+                    <div className="space-y-2">
+                      <label htmlFor="api-key-name" className="block text-sm font-semibold">{t('account.keyName')}</label>
                       <Input
+                        id="api-key-name"
+                        autoFocus
                         value={apiKeyName}
                         onChange={(event) => setApiKeyName(event.target.value)}
                         required
@@ -626,34 +824,34 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-sm font-semibold">{t('account.scopes')}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold">{t('account.permissions')}</p>
+                          <p className="text-xs text-muted-foreground">
                             {t('account.scopesSelected', { selected: selectedScopes.length, total: TOTAL_SCOPE_COUNT })}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="px-2 text-muted-foreground"
-                            onClick={handleToggleAllScopes}
-                          >
-                            {selectedScopes.length === TOTAL_SCOPE_COUNT ? t('common.clearAll') : t('account.selectAll')}
-                          </Button>
+                          </p>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="px-2 text-muted-foreground"
+                          onClick={handleToggleAllScopes}
+                        >
+                          {selectedScopes.length === TOTAL_SCOPE_COUNT ? t('common.clearAll') : t('account.selectAll')}
+                        </Button>
                       </div>
 
-                      <div className="space-y-4">
+                      <div className="grid gap-2 sm:grid-cols-2">
                         {API_KEY_SCOPE_GROUPS.map((group) => {
                           const selectedInGroup = group.options.filter((option) => selectedScopes.includes(option.value))
                           const groupChecked = selectedInGroup.length === group.options.length
                           const groupIndeterminate = selectedInGroup.length > 0 && !groupChecked
 
                           return (
-                            <div key={group.label} className="space-y-2">
-                              <div className="flex items-center justify-between gap-3">
-                                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <div key={group.label} className="overflow-hidden rounded-md border bg-muted/5">
+                              <div className="flex items-center justify-between gap-2 border-b bg-muted/25 px-3 py-2.5">
+                                <label className="flex items-center gap-2 text-xs font-semibold text-foreground">
                                   <Checkbox
                                     checked={groupChecked}
                                     indeterminate={groupIndeterminate}
@@ -661,17 +859,17 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                                   />
                                   {t(scopeGroupKeys[group.label] ?? group.label)}
                                 </label>
-                                <span className="text-xs text-muted-foreground">
+                                <span className="rounded-full bg-background px-1.5 py-0.5 text-[11px] text-muted-foreground">
                                   {selectedInGroup.length}/{group.options.length}
                                 </span>
                               </div>
 
-                              <div className="grid gap-1 sm:grid-cols-2">
+                              <div className="space-y-0.5 p-1.5">
                                 {group.options.map((option) => {
                                   const checkboxId = `api-key-scope-${option.value.replace(/[^a-z0-9]+/gi, '-')}`
 
                                   return (
-                                    <div key={option.value} className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted/60">
+                                    <div key={option.value} className="flex min-h-8 items-center gap-2 rounded-md px-1.5 py-1 hover:bg-muted/60">
                                       <Checkbox
                                         id={checkboxId}
                                         checked={selectedScopes.includes(option.value)}
@@ -689,104 +887,19 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                         })}
                       </div>
                     </div>
+                  </form>
 
-                    <Button type="submit" disabled={isCreatingApiKey} className="gap-2">
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsCreateApiKeyDialogOpen(false)} disabled={isCreatingApiKey}>
+                      {t('common.cancel')}
+                    </Button>
+                    <Button type="submit" form="create-api-key-form" disabled={isCreatingApiKey} className="gap-2">
                       <KeyRound className="h-4 w-4" />
                       {isCreatingApiKey ? t('account.creating') : t('account.createApiKey')}
                     </Button>
-
-                    {createdApiKey ? (
-                      <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-semibold">{t('account.newKey')}</p>
-                          <Button type="button" variant="outline" size="sm" onClick={() => void handleCopyApiKey()} className="gap-2">
-                            <Copy className="h-4 w-4" />
-                            {t('account.copy')}
-                          </Button>
-                        </div>
-                        <p className="break-all font-mono text-xs text-primary">{createdApiKey.rawKey}</p>
-                        <p className="text-xs text-muted-foreground">{t('account.shownOnce')}</p>
-                      </div>
-                    ) : null}
-                  </form>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <h4 className="text-sm font-semibold">{t('account.existingKeys')}</h4>
-                      <span className="text-xs text-muted-foreground">{t('account.total', { count: apiKeys.length })}</span>
-                    </div>
-
-                    {isLoadingApiKeys ? (
-                      <div className="space-y-3">
-                        <Skeleton className="h-20 w-full" />
-                        <Skeleton className="h-20 w-full" />
-                      </div>
-                    ) : null}
-
-                    {!isLoadingApiKeys && apiKeys.length === 0 ? (
-                      <div className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                        <p>{t('account.noKeys')}</p>
-                        <p className="text-xs">{t('account.createKeyHint')}</p>
-                      </div>
-                    ) : null}
-
-                    {!isLoadingApiKeys && apiKeys.map((apiKey) => {
-                      const isRevoked = apiKey.status === 'REVOKED'
-
-                      return (
-                        <article key={apiKey.id} className="rounded-md border bg-background px-4 py-3">
-                          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,280px)_auto] lg:items-center">
-                            <div className="min-w-0 space-y-2">
-                              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                <h4 className="min-w-0 truncate text-sm font-semibold" title={apiKey.name}>{apiKey.name}</h4>
-                                <Badge variant={isRevoked ? 'secondary' : 'outline'}>{translateStatus(apiKey.status, t)}</Badge>
-                              </div>
-                              <div className="flex flex-wrap gap-1.5">
-                                {apiKey.scopes.map((scope) => (
-                                  <Badge key={scope} variant="secondary">{scope}</Badge>
-                                ))}
-                              </div>
-                            </div>
-
-                            <dl className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
-                              <div>
-                                <dt className="font-medium text-foreground">{t('common.created')}</dt>
-                                <dd>{formatDateTime(apiKey.createdAt, t('common.never'))}</dd>
-                              </div>
-                              <div>
-                                <dt className="font-medium text-foreground">{t('account.lastUsed')}</dt>
-                                <dd>{formatDateTime(apiKey.lastUsedAt, t('common.never'))}</dd>
-                              </div>
-                            </dl>
-
-                            <div className="flex justify-end">
-                              <DeleteConfirmPopover
-                                title={t('account.revokeKey')}
-                                description={t('account.revokeDescription')}
-                                confirmLabel={t('account.revoke')}
-                                disabled={isRevoked || revokingApiKeyId === apiKey.id}
-                                trigger={(
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={isRevoked || revokingApiKeyId === apiKey.id}
-                                    className="gap-2 text-destructive hover:bg-destructive/5 hover:text-destructive"
-                                  >
-                                    <X className="h-4 w-4" />
-                                    {revokingApiKeyId === apiKey.id ? t('account.revoking') : t('account.revoke')}
-                                  </Button>
-                                )}
-                                onConfirm={() => handleRevokeApiKey(apiKey.id)}
-                              />
-                            </div>
-                          </div>
-                        </article>
-                      )
-                    })}
-                  </div>
-                </div>
-              </section>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </TabsContent>
 
           </Tabs>

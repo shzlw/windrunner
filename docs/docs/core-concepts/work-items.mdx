@@ -1,16 +1,16 @@
 ---
 sidebar_position: 2
 title: Work items
-description: Learn how Windrunner uses work items for tasks, questions, approvals, reviews, and decisions.
+description: Learn how Windrunner uses work items for notes, tasks, questions, approvals, reviews, and decisions.
 ---
 
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Work items
 
-A work item is the durable record for something a project needs to complete,
-answer, approve, review, or decide. Use entries for updates and supporting
-detail.
+A work item is the durable record for a note or something a project needs to
+complete, answer, approve, review, or decide. Use entries for updates and
+supporting detail.
 
 ## Fields
 
@@ -27,6 +27,7 @@ detail.
 
 | Type | Starting status | Available statuses |
 | --- | --- | --- |
+| `NOTE` | `OPEN` | `OPEN`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `CANCELLED` |
 | `TASK`, `REVIEW` | `OPEN` | `OPEN`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `CANCELLED` |
 | `QUESTION` | `OPEN` | `OPEN`, `WAITING`, `ANSWERED`, `CANCELLED` |
 | `APPROVAL` | `PENDING` | `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED` |
@@ -34,6 +35,9 @@ detail.
 
 `BLOCKED` means progress is stopped by another item. Record the cause with a
 [`BLOCKED_BY`](relationships) relationship.
+
+A `NOTE` appears as a title-only row in the workspace tree. Its regular fields
+remain available in the inspector when needed.
 
 ## Hierarchy and assignments
 

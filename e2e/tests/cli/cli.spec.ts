@@ -175,10 +175,11 @@ test.describe('CLI against a running server', () => {
       expect(firstWorkItemId).toBeTruthy();
 
       const secondWorkItem = await runJson<any>([
-        'work-items', 'create', createdProjectId, '--title', uniqueName('second-work-item'), '--type', 'TASK',
+        'work-items', 'create', createdProjectId, '--title', uniqueName('second-work-item'), '--type', 'NOTE',
       ], authenticated.apiKey);
       secondWorkItemId = secondWorkItem.workItem.id as string;
       expect(secondWorkItemId).toBeTruthy();
+      expect(secondWorkItem.workItem.type).toBe('NOTE');
 
       const listedWorkItems = await runJson<any[]>([
         'work-items', 'list', createdProjectId,

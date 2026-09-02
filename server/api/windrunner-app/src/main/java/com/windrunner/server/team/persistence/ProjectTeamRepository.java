@@ -7,11 +7,21 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, String> {
+
+    record ProjectTeamWithName(
+            String projectId,
+            String teamId,
+            String teamName,
+            String role,
+            OffsetDateTime createdAt
+    ) {
+    }
 
     @Query("""
             SELECT project_id, team_id, role, created_at
@@ -50,6 +60,19 @@ public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, Strin
             ORDER BY team_id ASC
             """)
     List<ProjectTeam> findByProjectId(@Param("projectId") String projectId);
+
+    @Query("""
+            SELECT pt.project_id,
+                   pt.team_id,
+                   t.name AS team_name,
+                   pt.role,
+                   pt.created_at
+            FROM project_team pt
+            LEFT JOIN team t ON t.id = pt.team_id
+            WHERE pt.project_id = :projectId
+            ORDER BY pt.team_id ASC
+            """)
+    List<ProjectTeamWithName> findByProjectIdWithTeamName(@Param("projectId") String projectId);
 
     @Query("""
             SELECT project_id, team_id, role, created_at

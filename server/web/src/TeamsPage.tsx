@@ -167,11 +167,11 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('teams.pageTitle')}</h1>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
+      <div className="min-w-0 flex-1 space-y-2 overflow-auto p-3 md:p-4">
         <div className="flex flex-col gap-2 sm:flex-row lg:items-center">
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -185,7 +185,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
           ) : null}
         </div>
 
-        <div className="rounded-md border bg-background p-4">
+        <div className="rounded-md border bg-background p-3">
           {isLoading ? (
             <div className="flex min-h-64 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -254,7 +254,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
             </SheetClose>
           </SheetHeader>
 
-          <div className="flex-1 px-6 py-4">
+          <div className="flex-1 px-4 py-3">
             <form className="space-y-5" onSubmit={handleCreateTeam}>
               <div className="space-y-2">
                 <label className="block text-sm font-semibold">{t('common.name')}</label>
@@ -291,7 +291,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
                     {createOwnerUserIds.map((userId) => {
                       const user = userById.get(userId)
                       return (
-                        <div key={userId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                        <div key={userId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-1.5">
                           <span className="truncate text-sm">{displayUser(user, t('common.unknownUser'))}</span>
                           <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeCreateOwner(userId)} aria-label={t('teams.removeOwner', { name: displayUser(user, t('common.unknownUser')) })}>
                             <X className="h-4 w-4" />

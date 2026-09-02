@@ -177,7 +177,7 @@ export default function WorkItemHistoryPanel({
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="px-4 py-3">
+          <div className="px-3 py-2">
             <ol className="relative space-y-1 border-l pl-4">
               {items.map((entry) => {
                 const changes = parseChanges(entry.changesJson)
@@ -193,7 +193,7 @@ export default function WorkItemHistoryPanel({
                       className={cn('group flex items-baseline justify-between gap-2 rounded-sm py-1', hasDetails && 'cursor-pointer')}
                       onClick={hasDetails ? () => toggleExpanded(entry.id) : undefined}
                     >
-                      <p className="min-w-0 flex-1 truncate text-sm" title={entry.summary}>
+                      <p className="min-w-0 flex-1 truncate text-xs" title={entry.summary}>
                         <span className="font-medium">{actorLabel(entry)}</span>{' '}
                         <span className="text-muted-foreground">{entry.summary}</span>
                       </p>
@@ -212,7 +212,7 @@ export default function WorkItemHistoryPanel({
                       </time>
                     </div>
                     {hasDetails && isExpanded ? (
-                      <div className="mt-1 mb-2 space-y-2 rounded-md border bg-muted/30 p-3">
+                      <div className="mt-1 mb-2 space-y-2 rounded-md border bg-muted/30 p-2">
                         {changes ? (
                           <div className="space-y-1">
                             {Object.entries(changes).map(([field, change]) => (

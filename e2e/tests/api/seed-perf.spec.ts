@@ -44,7 +44,7 @@ const TITLE_SCOPES = [
 ] as const;
 const PRIORITIES = ['MEDIUM', 'HIGH', 'MEDIUM', 'LOW', 'HIGH', 'URGENT'] as const;
 
-type WorkItemType = 'TASK' | 'QUESTION' | 'APPROVAL' | 'REVIEW' | 'DECISION';
+type WorkItemType = 'NOTE' | 'TASK' | 'QUESTION' | 'APPROVAL' | 'REVIEW' | 'DECISION';
 type WorkItemStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED' | 'ANSWERED' | 'PENDING' | 'APPROVED';
 type Assignee = {assigneeType: 'USER' | 'TEAM'; assigneeId: string};
 type CreatedItem = {
@@ -81,6 +81,7 @@ function isoDate(daysFromNow: number) {
 }
 
 function workItemType(sequence: number): WorkItemType {
+  if (sequence % 23 === 0) return 'NOTE';
   if (sequence % 19 === 0) return 'DECISION';
   if (sequence % 13 === 0) return 'APPROVAL';
   if (sequence % 11 === 0) return 'REVIEW';
@@ -103,6 +104,7 @@ function workItemTitle(stream: SeedWorkstream, type: WorkItemType, sequence: num
   const subject = stream.subjects[sequence % stream.subjects.length];
   const context = stream.contexts[Math.floor(sequence / stream.subjects.length) % stream.contexts.length];
   const scope = TITLE_SCOPES[Math.floor(sequence / (stream.subjects.length * stream.contexts.length)) % TITLE_SCOPES.length];
+  if (type === 'NOTE') return `${subject} notes for ${context} ${scope}`;
   if (type === 'QUESTION') return `Confirm whether ${subject} is ready for ${context} ${scope}`;
   if (type === 'APPROVAL') return `Approve ${subject} for ${context} ${scope}`;
   if (type === 'REVIEW') return `Review ${subject} in ${context} ${scope}`;

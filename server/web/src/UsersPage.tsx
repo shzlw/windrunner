@@ -402,11 +402,11 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('usersPage.pageTitle')}</h1>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
+      <div className="min-w-0 flex-1 space-y-2 overflow-auto p-3 md:p-4">
         <div className="flex flex-col gap-2 sm:flex-row lg:items-center">
           <div className="relative w-full sm:w-72">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -425,7 +425,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
           ) : null}
         </div>
 
-        <div className="rounded-md border bg-background p-4">
+        <div className="rounded-md border bg-background p-3">
           {isListLoading ? (
             <div className="flex min-h-64 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -466,7 +466,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                         <TableCell className="font-medium">{user.displayName?.trim() || user.username}</TableCell>
                         <TableCell className="max-w-[220px] truncate text-muted-foreground">{formatValue(user.title, t('common.notSet'))}</TableCell>
                         <TableCell className="max-w-[280px] truncate text-muted-foreground">{formatValue(user.email, t('common.notSet'))}</TableCell>
-                        <TableCell className="font-mono text-[11px] text-muted-foreground">@{user.username}</TableCell>
+                        <TableCell className="font-mono text-[11px] text-muted-foreground">{user.username}</TableCell>
                         <TableCell>
                           <Badge variant={user.status === 'ACTIVE' ? 'secondary' : 'outline'}>
                             {user.status ? translateStatus(user.status, t) : t('common.notSet')}
@@ -483,7 +483,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   })}
                 </TableBody>
               </Table>
-              <div className="flex justify-end border-t pt-3 text-sm">
+              <div className="flex justify-end border-t pt-2 text-sm">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -533,7 +533,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
             </SheetClose>
           </SheetHeader>
 
-          <div className="flex-1 px-6 py-2">
+          <div className="flex-1 px-4 py-2">
             {sheetMode === 'detail' && isDetailLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-10 w-full" />
@@ -544,8 +544,8 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
 
             {sheetMode === 'detail' ? (
               selectedUser ? (
-                <div className="space-y-6">
-                  <dl className="space-y-4">
+                <div className="space-y-4">
+                  <dl className="space-y-3">
                     {[
                       [t('usersPage.displayName'), formatValue(selectedUser.displayName, t('common.notSet'))],
                       [t('common.title'), formatValue(selectedUser.title, t('common.notSet'))],
@@ -567,7 +567,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   </dl>
 
                   {isAdminLike ? (
-                  <form className="space-y-4 border-t pt-5" onSubmit={handlePasswordReset}>
+                  <form className="space-y-4 border-t pt-4" onSubmit={handlePasswordReset}>
                     <h3 className="text-sm font-medium">{t('usersPage.security')}</h3>
                     <FieldGroup className="gap-4">
                       <Field className="gap-2">
@@ -764,7 +764,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
 
           {sheetMode === 'detail' && selectedUser ? (
             isAdminLike ? (
-            <div className="flex shrink-0 gap-2 border-t p-6">
+            <div className="flex shrink-0 gap-2 border-t p-4">
               <Button onClick={openEditSheet} className="gap-2">
                 <Edit3 className="h-4 w-4" /> {t('usersPage.editUser')}
               </Button>

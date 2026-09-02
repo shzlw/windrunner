@@ -190,11 +190,11 @@ export default function AuditLogsPage() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('audit.pageTitle')}</h1>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
+      <div className="min-w-0 flex-1 space-y-2 overflow-auto p-3 md:p-4">
         <div className="relative w-full sm:w-80">
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -205,7 +205,7 @@ export default function AuditLogsPage() {
           />
         </div>
 
-        <div className="rounded-md border bg-background p-4">
+        <div className="rounded-md border bg-background p-3">
           {isListLoading ? (
             <div className="flex min-h-64 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -251,8 +251,8 @@ export default function AuditLogsPage() {
                           <div className="font-medium">{entityTypeLabel(auditLog.entityType, t)}</div>
                           <div className="max-w-[200px] truncate text-xs text-muted-foreground">{entityDisplayName(auditLog, t)}</div>
                         </TableCell>
-                        <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">{projectDisplayName(auditLog, t)}</TableCell>
-                        <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">{actorDisplayName(auditLog, t)}</TableCell>
+                        <TableCell className="max-w-[180px] truncate text-xs text-muted-foreground">{projectDisplayName(auditLog, t)}</TableCell>
+                        <TableCell className="max-w-[180px] truncate text-xs text-muted-foreground">{actorDisplayName(auditLog, t)}</TableCell>
                         <TableCell>
                           <Badge variant={auditLog.outcome === 'SUCCESS' ? 'outline' : 'destructive'}>{outcomeLabel(auditLog.outcome, t)}</Badge>
                         </TableCell>
@@ -262,7 +262,7 @@ export default function AuditLogsPage() {
                   })}
                 </TableBody>
               </Table>
-              <div className="flex justify-end border-t pt-3 text-sm">
+              <div className="flex justify-end border-t pt-2 text-sm">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -281,7 +281,7 @@ export default function AuditLogsPage() {
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
-                  <div className="ml-4 border-l pl-4">
+                  <div className="ml-3 border-l pl-3">
                     <NativeSelect
                       className="h-8 w-20"
                       value={String(pageSize)}
@@ -313,7 +313,7 @@ export default function AuditLogsPage() {
             </SheetClose>
           </SheetHeader>
 
-          <div className="flex-1 px-6 py-2">
+          <div className="flex-1 px-4 py-2">
             {isDetailLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-10 w-full" />
@@ -323,8 +323,8 @@ export default function AuditLogsPage() {
             ) : null}
 
             {selectedAuditLog ? (
-              <div className="space-y-6">
-                <dl className="space-y-4">
+              <div className="space-y-4">
+                <dl className="space-y-3">
                   {[
                     [t('audit.time'), formatDate(selectedAuditLog.occurredAt)],
                     [t('audit.action'), actionLabel(selectedAuditLog.action, t)],
@@ -343,7 +343,7 @@ export default function AuditLogsPage() {
                 </dl>
 
                 {jsonSections.map(([label, value]) => (
-                  <section key={label} className="space-y-2 border-t pt-4">
+                  <section key={label} className="space-y-2 border-t pt-3">
                     <h3 className="text-sm font-medium">{label}</h3>
                     <pre className="max-h-80 overflow-auto rounded-md border bg-muted/30 p-3 text-xs leading-relaxed">
                       {value}

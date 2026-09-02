@@ -130,13 +130,13 @@ async function deleteProject(context: E2EContext, projectId: string) {
   await context.api.delete(`/api/v1/projects/${projectId}`, {headers: bearer(context)});
 }
 
-async function createWorkItem(context: E2EContext, projectId: string, title: string, assignees: Array<{assigneeType: string; assigneeId: string}> = []): Promise<WorkItem> {
+async function createWorkItem(context: E2EContext, projectId: string, title: string, assignees: Array<{assigneeType: string; assigneeId: string}> = [], type = 'TASK'): Promise<WorkItem> {
   return readData<WorkItem>(await context.api.post(`/api/v1/projects/${projectId}/work-items`, {
     headers: bearer(context),
     data: {
       workItem: {
         title,
-        type: 'TASK',
+        type,
         status: 'OPEN',
         dueDate: '2099-12-31',
         priority: 'HIGH',
@@ -179,6 +179,8 @@ test.describe('External API: work items and entries', () => {
       ]);
       const second = await createWorkItem(authenticated, project.id, uniqueName('second'));
       secondId = second.workItem.id;
+      const note = await createWorkItem(authenticated, project.id, uniqueName('note'), [], 'NOTE');
+      expect(note.workItem.type).toBe('NOTE');
 
       const listed = await readPage<WorkItem>(await authenticated.api.get(
         `/api/v1/projects/${project.id}/work-items?page=-1&size=500&status=open&type=task&priority=high&updated_after=1970-01-01T00:00:00Z`,

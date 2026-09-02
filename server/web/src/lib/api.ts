@@ -41,6 +41,14 @@ export interface ApiKey {
   scopes: ApiKeyScope[]
 }
 
+export interface ApiKeyPageResponse {
+  items: ApiKey[]
+  page: number
+  size: number
+  totalItems: number
+  totalPages: number
+}
+
 export interface CreatedApiKey extends ApiKey {
   rawKey: string
 }
@@ -70,7 +78,7 @@ export interface WorkItem {
   projectId: string
   parentWorkItemId: string | null
   sortIndex: number
-  type: 'TASK' | 'QUESTION' | 'APPROVAL' | 'REVIEW' | 'DECISION'
+  type: 'NOTE' | 'TASK' | 'QUESTION' | 'APPROVAL' | 'REVIEW' | 'DECISION'
   title: string
   status: 'OPEN' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE' | 'WAITING' | 'ANSWERED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
   dueDate: string | null
@@ -293,6 +301,7 @@ export interface TeamMember {
 export interface ProjectTeam {
   projectId: string
   teamId: string
+  teamName?: string | null
   role: 'OWNER' | 'EDITOR' | 'VIEWER'
   createdAt?: string
 }
@@ -628,8 +637,15 @@ export async function fetchCurrentUser() {
   return request<AuthUser>('/api/v1/auth/me', { method: 'GET' })
 }
 
-export async function listMyApiKeys() {
-  return request<ApiKey[]>('/internal-api/v1/me/api-keys', { method: 'GET' })
+export async function listMyApiKeys(page = 0, size = 25): Promise<ApiKeyPageResponse> {
+  const envelope = await requestEnvelope<ApiKey[]>(`/internal-api/v1/me/api-keys?page=${page}&size=${size}`, { method: 'GET' })
+  return {
+    items: envelope.data ?? [],
+    page: envelope.meta?.page ?? page,
+    size: envelope.meta?.size ?? size,
+    totalItems: envelope.meta?.totalItems ?? envelope.data?.length ?? 0,
+    totalPages: envelope.meta?.totalPages ?? 0,
+  }
 }
 
 export async function createMyApiKey(payload: { name: string; scopes: ApiKeyScope[] }) {
@@ -909,7 +925,7 @@ async function legacyNodes(projectId: string, query?: string) {
   return workspace.workItems.map((view) => legacyNode(view, workspace.workItems))
 }
 
-function workItemType(type: string): WorkItem['type'] { return ['TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'].includes(type.toUpperCase()) ? type.toUpperCase() as WorkItem['type'] : 'TASK' }
+function workItemType(type: string): WorkItem['type'] { return ['NOTE', 'TASK', 'QUESTION', 'APPROVAL', 'REVIEW', 'DECISION'].includes(type.toUpperCase()) ? type.toUpperCase() as WorkItem['type'] : 'TASK' }
 
 function fieldValue(fields: ProjectNodeField[], name: string) { return fields.find((field) => field.name === name)?.value }
 

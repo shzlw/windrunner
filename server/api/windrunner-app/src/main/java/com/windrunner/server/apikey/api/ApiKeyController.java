@@ -19,9 +19,19 @@ public class ApiKeyController {
     private final ApiKeyService apiKeyService;
 
     @GetMapping
-    public ApiResponse<List<ApiKeyResponse>> listApiKeys(HttpServletRequest request) {
+    public ApiResponse<List<ApiKeyResponse>> listApiKeys(@RequestParam(name = "page", defaultValue = "0") int page,
+                                                         @RequestParam(name = "size", defaultValue = "25") int size,
+                                                         HttpServletRequest request) {
         AppUser currentUser = authService.requireCurrentUser(request);
-        return ApiResponse.success(apiKeyService.listOwnedApiKeys(currentUser.getId()));
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.max(1, Math.min(size, 100));
+        long totalItems = apiKeyService.countOwnedApiKeys(currentUser.getId());
+        return ApiResponse.page(
+                apiKeyService.listOwnedApiKeys(currentUser.getId(), normalizedSize, (long) normalizedPage * normalizedSize),
+                normalizedPage,
+                normalizedSize,
+                totalItems,
+                (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @PostMapping

@@ -4,9 +4,9 @@ import { loadEnvLocal } from './tests/support/env';
 loadEnvLocal(__dirname);
 
 /**
- * API-level e2e configuration for Windrunner.
+ * E2E configuration for Windrunner.
  *
- * Targets a running Windrunner server. No browsers required.
+ * Targets a running Windrunner server.
  *
  * Credentials come from `e2e/.env.local` (git-ignored) or the
  * environment. Two mutually exclusive auth modes:
@@ -39,6 +39,16 @@ export default defineConfig({
       name: 'cli',
       testMatch: /cli[\\/].*\.spec\.ts$/,
       use: {},
+    },
+    {
+      name: 'ui',
+      testMatch: /ui[\\/].*\.spec\.ts$/,
+      use: {
+        browserName: 'chromium',
+        channel: 'chrome',
+        headless: Boolean(process.env.CI),
+        locale: 'en-US',
+      },
     },
   ],
 });

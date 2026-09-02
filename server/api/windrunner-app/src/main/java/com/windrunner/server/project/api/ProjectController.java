@@ -209,10 +209,10 @@ public class ProjectController {
     }
 
     @GetMapping("/{id}/teams")
-    public ApiResponse<List<ProjectTeam>> listProjectTeams(@PathVariable("id") String id, HttpServletRequest request) {
+    public ApiResponse<List<ProjectTeamRepository.ProjectTeamWithName>> listProjectTeams(@PathVariable("id") String id, HttpServletRequest request) {
         projectAccessService.requireProjectRole(id, authService.requireCurrentUser(request), ProjectRoles.VIEWER);
         requireProject(id);
-        return ApiResponse.success(projectTeamRepository.findByProjectId(id));
+        return ApiResponse.success(projectTeamRepository.findByProjectIdWithTeamName(id));
     }
 
     @GetMapping("/{id}/members")

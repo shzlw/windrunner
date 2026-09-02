@@ -72,7 +72,7 @@ function WorkItemLink({ item }: { item: AssignedWorkItem }) {
     <div className="min-w-0">
       <div className="flex min-w-0 items-center gap-2">
         <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', workItemTypeBadgeClass(item.type))}>{translateWorkItemType(item.type, t)}</Badge>
-        <NavLink to={`/app/projects/${item.projectId}?workItemId=${item.workItemId}`} className="min-w-0 flex-1 line-clamp-2 break-words font-medium hover:underline" title={item.title}>{item.title}</NavLink>
+        <NavLink to={`/app/projects/${item.projectId}?workItemId=${item.workItemId}`} className="min-w-0 flex-1 line-clamp-2 break-words text-[13px] leading-5 font-medium hover:underline" title={item.title}>{item.title}</NavLink>
       </div>
     </div>
   )
@@ -85,14 +85,14 @@ function StatusBadge({ status }: { status: string }) {
 
 function PriorityBadge({ priority }: { priority: string | null }) {
   const { t } = useTranslation()
-  if (!priority) return <span className="whitespace-nowrap text-sm text-muted-foreground">{t('myWork.noPriority')}</span>
+  if (!priority) return <span className="whitespace-nowrap text-xs text-muted-foreground">{t('myWork.noPriority')}</span>
   return <Badge variant="outline" className={cn('whitespace-nowrap', priorityBadgeClass(priority))}>{translatePriority(priority, t)}</Badge>
 }
 
 function BoardWorkItemCard({ item }: { item: AssignedWorkItem }) {
   const { t } = useTranslation()
   return (
-    <article className="flex min-w-0 flex-col rounded-md border bg-background p-3 shadow-xs">
+    <article className="flex min-w-0 flex-col rounded-md border bg-background p-2.5 shadow-xs">
       <div className="flex min-w-0 items-center justify-between gap-2">
         <Badge variant="outline" className={cn('shrink-0 font-medium uppercase', workItemTypeBadgeClass(item.type))}>
           {translateWorkItemType(item.type, t)}
@@ -102,13 +102,13 @@ function BoardWorkItemCard({ item }: { item: AssignedWorkItem }) {
 
       <NavLink
         to={`/app/projects/${item.projectId}?workItemId=${item.workItemId}`}
-        className="mt-3 min-w-0 line-clamp-2 break-words text-sm font-medium leading-5 hover:underline"
+        className="mt-2.5 min-w-0 line-clamp-2 break-words text-sm font-medium leading-5 hover:underline"
         title={item.title}
       >
         {item.title}
       </NavLink>
 
-      <div className="mt-3 flex min-w-0 items-center justify-between gap-3 border-t pt-3 text-xs">
+      <div className="mt-2 flex min-w-0 items-center justify-between gap-3 border-t pt-2 text-xs">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <span className="shrink-0 text-[11px] text-muted-foreground">{t('common.project')}</span>
           <NavLink to={`/app/projects/${item.projectId}`} className="min-w-0 truncate font-medium text-foreground hover:underline" title={item.projectName}>
@@ -134,7 +134,7 @@ function SummaryStat({ label, value, tone }: { label: string; value: number; ton
           ? 'text-blue-600 dark:text-blue-400'
           : 'text-muted-foreground'
 
-  return <span className="rounded-md border bg-muted/30 px-2.5 py-1.5 text-sm font-medium text-foreground"><span className={toneClass}>{label}</span> <span className="font-semibold">{value}</span></span>
+  return <span className="rounded-md border bg-muted/30 px-2 py-1 text-[13px] font-medium text-foreground"><span className={toneClass}>{label}</span> <span className="font-semibold">{value}</span></span>
 }
 
 export default function MyWorkPage() {
@@ -208,11 +208,11 @@ export default function MyWorkPage() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('myWork.pageTitle')}</h1>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-3 overflow-auto p-4 md:p-6">
+      <div className="min-w-0 flex-1 space-y-2 overflow-auto p-3 md:p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
             <SummaryStat label={t('myWork.showing')} value={filteredItems.length} tone="blue" />
@@ -247,7 +247,7 @@ export default function MyWorkPage() {
           {(search || projectFilter !== 'ALL' || statusFilter !== 'ALL' || priorityFilter !== 'ALL') && <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>{t('common.clear')}</Button>}
         </div>
 
-        <div className="rounded-md border bg-background p-4">
+        <div className="rounded-md border bg-background p-3">
           {isLoading ? <div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div> : items.length === 0 ? (
             <Empty className="min-h-64 border-0"><EmptyHeader><EmptyMedia variant="icon"><ListTodo /></EmptyMedia><EmptyTitle>{t('myWork.nothingAssigned')}</EmptyTitle></EmptyHeader></Empty>
           ) : filteredItems.length === 0 ? (
@@ -255,9 +255,9 @@ export default function MyWorkPage() {
           ) : view === 'list' ? (
             <><div className="overflow-x-auto"><Table className="min-w-[760px]"><TableHeader><TableRow><TableHead>{t('myWork.workItem')}</TableHead><TableHead>{t('common.project')}</TableHead><TableHead>{t('common.status')}</TableHead><TableHead>{t('common.priority')}</TableHead><TableHead>{t('myWork.dueDate')}</TableHead><TableHead>{t('myWork.updated')}</TableHead></TableRow></TableHeader><TableBody>{filteredItems.map((item) => <TableRow key={item.workItemId}><TableCell><WorkItemLink item={item} /></TableCell><TableCell><NavLink to={`/app/projects/${item.projectId}`} className="font-medium hover:underline">{item.projectName}</NavLink></TableCell><TableCell><StatusBadge status={item.status} /></TableCell><TableCell><PriorityBadge priority={item.priority} /></TableCell><TableCell className={cn('whitespace-nowrap', isOverdue(item) ? 'font-medium text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{isOverdue(item) ? t('myWork.overdue') : formatDueDate(item.dueDate, t)}</TableCell><TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(item.updatedAt)}</TableCell></TableRow>)}</TableBody></Table></div><Pagination page={page} totalPages={totalPages} pageSize={pageSize} isLoading={isLoading} setPage={setPage} setPageSize={setPageSize} /></>
           ) : view === 'grouped' ? (
-            <div className="divide-y">{groupedItems.map(([project, projectItems]) => <section key={project} className="py-2 first:pt-0 last:pb-0"><div className="flex items-center gap-2 px-1 py-2"><h2 className="text-sm font-semibold">{project}</h2><span className="text-xs text-muted-foreground">{projectItems.length} {projectItems.length === 1 ? t('common.item') : t('common.items')}</span></div><div className="space-y-1">{projectItems.map((item) => <div key={item.workItemId} className="flex flex-wrap items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50"><div className="min-w-[18rem] flex-1"><WorkItemLink item={item} /></div><StatusBadge status={item.status} /><PriorityBadge priority={item.priority} /><span className={cn('min-w-28 text-right text-sm', isOverdue(item) ? 'font-medium text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{isOverdue(item) ? t('myWork.overdue') : formatDueDate(item.dueDate, t)}</span></div>)}</div></section>)}</div>
+            <div className="divide-y">{groupedItems.map(([project, projectItems]) => <section key={project} className="py-1 first:pt-0 last:pb-0"><div className="flex items-center gap-2 px-1 py-1.5"><h2 className="text-sm font-semibold">{project}</h2><span className="text-xs text-muted-foreground">{projectItems.length} {projectItems.length === 1 ? t('common.item') : t('common.items')}</span></div><div className="space-y-0.5">{projectItems.map((item) => <div key={item.workItemId} className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50"><div className="min-w-[18rem] flex-1"><WorkItemLink item={item} /></div><StatusBadge status={item.status} /><PriorityBadge priority={item.priority} /><span className={cn('min-w-28 text-right text-xs', isOverdue(item) ? 'font-medium text-red-600 dark:text-red-400' : 'text-muted-foreground')}>{isOverdue(item) ? t('myWork.overdue') : formatDueDate(item.dueDate, t)}</span></div>)}</div></section>)}</div>
           ) : (
-            <div className="flex min-w-0 gap-3 overflow-x-auto pb-1">{boardStatuses.map((boardStatus) => { const laneItems = filteredItems.filter((item) => normalizedStatus(item.status) === boardStatus); return <section key={boardStatus} className="flex min-h-56 min-w-64 flex-1 flex-col rounded-md border bg-muted/30 p-2"><div className="flex shrink-0 items-center justify-between px-1 py-2"><h2 className="text-xs font-semibold uppercase tracking-wide">{displayStatus(boardStatus, t)}</h2><span className="text-xs text-muted-foreground">{laneItems.length}</span></div><div className="min-w-0 space-y-2">{laneItems.map((item) => <BoardWorkItemCard key={item.workItemId} item={item} />)}{laneItems.length === 0 && <div className="px-1 py-8 text-center text-xs text-muted-foreground">{t('myWork.boardEmpty')}</div>}</div></section> })}</div>
+            <div className="flex min-w-0 gap-3 overflow-x-auto pb-1">{boardStatuses.map((boardStatus) => { const laneItems = filteredItems.filter((item) => normalizedStatus(item.status) === boardStatus); return <section key={boardStatus} className="flex min-h-56 min-w-64 flex-1 flex-col rounded-md border bg-muted/30 p-2"><div className="flex shrink-0 items-center justify-between px-1 py-1.5"><h2 className="text-xs font-semibold uppercase tracking-wide">{displayStatus(boardStatus, t)}</h2><span className="text-xs text-muted-foreground">{laneItems.length}</span></div><div className="min-w-0 space-y-2">{laneItems.map((item) => <BoardWorkItemCard key={item.workItemId} item={item} />)}{laneItems.length === 0 && <div className="px-1 py-8 text-center text-xs text-muted-foreground">{t('myWork.boardEmpty')}</div>}</div></section> })}</div>
           )}
         </div>
       </div>
@@ -267,5 +267,5 @@ export default function MyWorkPage() {
 
 function Pagination({ page, totalPages, pageSize, isLoading, setPage, setPageSize }: { page: number; totalPages: number; pageSize: number; isLoading: boolean; setPage: (update: (current: number) => number) => void; setPageSize: (size: number) => void }) {
   const { t } = useTranslation()
-  return <div className="flex justify-end border-t pt-3 text-sm"><div className="flex items-center gap-2"><Button variant="outline" size="icon-sm" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || isLoading} aria-label={t('common.previousPage')}><ChevronLeft className="h-4 w-4" /></Button><span className="text-sm text-muted-foreground">{t('common.pageOf', { page: page + 1, total: Math.max(totalPages, 1) })}</span><Button variant="outline" size="icon-sm" onClick={() => setPage((current) => current + 1)} disabled={isLoading || totalPages === 0 || page >= totalPages - 1} aria-label={t('common.nextPage')}><ChevronRight className="h-4 w-4" /></Button><div className="ml-4 border-l pl-4"><NativeSelect className="h-8 w-20" value={String(pageSize)} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(() => 0) }} disabled={isLoading} aria-label={t('common.pageSize')}><NativeSelectOption value="25">25</NativeSelectOption><NativeSelectOption value="50">50</NativeSelectOption></NativeSelect></div></div></div>
+  return <div className="flex justify-end border-t pt-2 text-sm"><div className="flex items-center gap-2"><Button variant="outline" size="icon-sm" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || isLoading} aria-label={t('common.previousPage')}><ChevronLeft className="h-4 w-4" /></Button><span className="text-sm text-muted-foreground">{t('common.pageOf', { page: page + 1, total: Math.max(totalPages, 1) })}</span><Button variant="outline" size="icon-sm" onClick={() => setPage((current) => current + 1)} disabled={isLoading || totalPages === 0 || page >= totalPages - 1} aria-label={t('common.nextPage')}><ChevronRight className="h-4 w-4" /></Button><div className="ml-3 border-l pl-3"><NativeSelect className="h-8 w-20" value={String(pageSize)} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(() => 0) }} disabled={isLoading} aria-label={t('common.pageSize')}><NativeSelectOption value="25">25</NativeSelectOption><NativeSelectOption value="50">50</NativeSelectOption></NativeSelect></div></div></div>
 }
