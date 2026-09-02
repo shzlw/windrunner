@@ -35,8 +35,8 @@ cd windrunner/server
 Create a `.env` file next to `docker-compose.yml` and set secure passwords:
 
 ```dotenv
-POSTGRES_PASSWORD=change-me
-WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD=change-me
+POSTGRES_PASSWORD=windrunner
+WINDRUNNER_BOOTSTRAP_SUPERADMIN_PASSWORD=changeme
 ```
 
 Start Windrunner:
