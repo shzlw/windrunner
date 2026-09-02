@@ -4,6 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import com.windrunner.server.llm.LlmTool;
+import com.windrunner.server.user.domain.AppUser;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.junit.jupiter.api.Test;
 
 class ToolServiceTest {
@@ -12,7 +16,7 @@ class ToolServiceTest {
     void exposesRegisteredToolsAsLlmTools() {
         ToolService service = new ToolService(List.of(new TestTool("fetch_things")));
 
-        assertThat(service.llmTools()).extracting(function -> function.name())
+        assertThat(service.llmTools(context())).extracting(function -> function.name())
                 .containsExactly("fetch_things");
     }
 
@@ -26,7 +30,32 @@ class ToolServiceTest {
                 .hasMessage("Duplicate tool name: duplicate");
     }
 
-    private record TestTool(String name) implements Tool<Parameters> {
+    @Test
+    void bindsTheRequestContextToEachLlmToolInvocation() throws Exception {
+        AtomicReference<ToolExecutionContext> receivedContext = new AtomicReference<>();
+        TestTool tool = new TestTool("fetch_things", receivedContext);
+        ToolExecutionContext context = context();
+
+        Object result = execute(new ToolService(List.of(tool)).llmTools(context).getFirst(), new Parameters("value"));
+
+        assertThat(result).isEqualTo("value");
+        assertThat(receivedContext).hasValue(context);
+    }
+
+    @Test
+    void rejectsMissingRequestContext() {
+        ToolService service = new ToolService(List.of(new TestTool("fetch_things")));
+
+        assertThatThrownBy(() -> service.llmTools(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Tool execution context is required");
+    }
+
+    private record TestTool(String name, AtomicReference<ToolExecutionContext> receivedContext) implements Tool<Parameters> {
+
+        private TestTool(String name) {
+            this(name, new AtomicReference<>());
+        }
 
         @Override
         public String description() {
@@ -39,11 +68,21 @@ class ToolServiceTest {
         }
 
         @Override
-        public Object execute(Parameters parameters) {
+        public Object execute(Parameters parameters, ToolExecutionContext context) {
+            receivedContext.set(context);
             return parameters.value();
         }
     }
 
     private record Parameters(String value) {
+    }
+
+    private ToolExecutionContext context() {
+        return new ToolExecutionContext(new AppUser(), "session-1", List.of());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object execute(LlmTool<?> tool, Parameters parameters) throws Exception {
+        return ((LlmTool<Parameters>) tool).handler().execute(parameters);
     }
 }

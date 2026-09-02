@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface ToolRegistry {
 
-    List<LlmTool<?>> llmTools();
+    List<LlmTool<?>> llmTools(ToolExecutionContext context);
 }

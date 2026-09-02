@@ -1,6 +1,8 @@
 package com.windrunner.server.tools.identity;
 
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.utils.FileUtils;
@@ -23,6 +25,7 @@ public class FetchUserDetailsTool implements Tool<FetchUserDetailsTool.Parameter
     private static final String PROMPT_NAME = "fetch-user-details-tool.md";
 
     private final AppUserRepository appUserRepository;
+    private final ToolAuthorizationService authorization;
 
     @Override
     public String name() {
@@ -40,7 +43,7 @@ public class FetchUserDetailsTool implements Tool<FetchUserDetailsTool.Parameter
     }
 
     @Override
-    public Object execute(Parameters parameters) {
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
         List<String> userIds = parameters == null || parameters.userIds() == null
                 ? List.of()
                 : new LinkedHashSet<>(parameters.userIds().stream()
@@ -54,6 +57,7 @@ public class FetchUserDetailsTool implements Tool<FetchUserDetailsTool.Parameter
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At most 100 user ids can be requested");
         }
 
+        authorization.requireContext(context);
         Map<String, AppUser> usersById = appUserRepository.findActiveUsersByIds(userIds).stream()
                 .collect(Collectors.toMap(AppUser::getId, Function.identity()));
         List<ResultUser> users = userIds.stream()

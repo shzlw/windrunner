@@ -2,6 +2,7 @@ package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.tools.work.FetchEntriesTool;
 import com.windrunner.server.tools.work.FetchProjectBlockersTool;
 import com.windrunner.server.tools.work.FetchProjectSummaryTool;
@@ -38,8 +39,8 @@ public class ProjectReadMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchWorkItemsTool.Response listWorkItems(String projectId, String query, Integer limit, Integer offset) {
-        String normalizedProjectId = authorizeProject(projectId, ApiKeyScopes.WORK_ITEMS_READ);
-        return execute(workItems, new FetchWorkItemsTool.Parameters(normalizedProjectId, query, limit, offset));
+        ToolExecutionContext context = authorizeProject(projectId, ApiKeyScopes.WORK_ITEMS_READ);
+        return execute(workItems, new FetchWorkItemsTool.Parameters(projectId, query, limit, offset), context);
     }
 
     @McpTool(
@@ -52,8 +53,8 @@ public class ProjectReadMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchEntriesTool.Response listEntries(String projectId, String workItemId, Integer limit, Integer offset) {
-        String normalizedProjectId = authorizeProject(projectId, ApiKeyScopes.ENTRIES_READ);
-        return execute(entries, new FetchEntriesTool.Parameters(normalizedProjectId, workItemId, limit, offset));
+        ToolExecutionContext context = authorizeProject(projectId, ApiKeyScopes.ENTRIES_READ);
+        return execute(entries, new FetchEntriesTool.Parameters(projectId, workItemId, limit, offset), context);
     }
 
     @McpTool(
@@ -66,8 +67,8 @@ public class ProjectReadMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchRelationshipsTool.Response listRelationships(String projectId, String entityId, Integer limit, Integer offset) {
-        String normalizedProjectId = authorizeProject(projectId, ApiKeyScopes.RELATIONSHIPS_READ);
-        return execute(relationships, new FetchRelationshipsTool.Parameters(normalizedProjectId, entityId, limit, offset));
+        ToolExecutionContext context = authorizeProject(projectId, ApiKeyScopes.RELATIONSHIPS_READ);
+        return execute(relationships, new FetchRelationshipsTool.Parameters(projectId, entityId, limit, offset), context);
     }
 
     @McpTool(
@@ -80,9 +81,9 @@ public class ProjectReadMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchProjectBlockersTool.Response listProjectBlockers(String projectId, Integer limit, Integer offset) {
-        String normalizedProjectId = authorizeProject(projectId,
+        ToolExecutionContext context = authorizeProject(projectId,
                 ApiKeyScopes.WORK_ITEMS_READ, ApiKeyScopes.RELATIONSHIPS_READ);
-        return execute(blockers, new FetchProjectBlockersTool.Parameters(normalizedProjectId, limit, offset));
+        return execute(blockers, new FetchProjectBlockersTool.Parameters(projectId, limit, offset), context);
     }
 
     @McpTool(
@@ -95,24 +96,24 @@ public class ProjectReadMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchProjectSummaryTool.Response getProjectSummary(String projectId) {
-        String normalizedProjectId = authorizeProject(projectId,
+        ToolExecutionContext context = authorizeProject(projectId,
                 ApiKeyScopes.PROJECTS_READ,
                 ApiKeyScopes.WORK_ITEMS_READ,
                 ApiKeyScopes.ENTRIES_READ,
                 ApiKeyScopes.RELATIONSHIPS_READ);
-        return execute(summary, new FetchProjectSummaryTool.Parameters(normalizedProjectId));
+        return execute(summary, new FetchProjectSummaryTool.Parameters(projectId), context);
     }
 
-    private String authorizeProject(String projectId, String... scopes) {
+    private ToolExecutionContext authorizeProject(String projectId, String... scopes) {
         String normalizedProjectId = authorization.requireProjectId(projectId);
-        authorization.requireProjectViewer(normalizedProjectId, scopes);
-        return normalizedProjectId;
+        return authorization.toolContext(
+                authorization.requireProjectViewer(normalizedProjectId, scopes), normalizedProjectId);
     }
 
     @SuppressWarnings("unchecked")
-    private <P, R> R execute(Tool<P> tool, P parameters) {
+    private <P, R> R execute(Tool<P> tool, P parameters, ToolExecutionContext context) {
         try {
-            return (R) tool.execute(parameters);
+            return (R) tool.execute(parameters, context);
         } catch (RuntimeException exception) {
             throw exception;
         } catch (Exception exception) {

@@ -3,6 +3,8 @@ package com.windrunner.server.tools.identity;
 import com.windrunner.server.tools.Tool;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ public class FetchUsersTool implements Tool<FetchUsersTool.Parameters> {
     private static final String PROMPT_NAME = "fetch-users-tool.md";
 
     private final AppUserRepository appUserRepository;
+    private final ToolAuthorizationService authorization;
 
     @Override
     public String name() {
@@ -35,11 +38,12 @@ public class FetchUsersTool implements Tool<FetchUsersTool.Parameters> {
     }
 
     @Override
-    public Object execute(Parameters parameters) {
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
         int limit = parameters == null || parameters.limit() == null
                 ? DEFAULT_LIMIT
                 : Math.max(1, Math.min(parameters.limit(), MAX_LIMIT));
         String query = parameters == null ? null : normalizeQuery(parameters.query());
+        authorization.requireContext(context);
         List<ResultUser> users = appUserRepository.findActiveAssignableUsers(query, limit).stream()
                 .map(ResultUser::from)
                 .toList();

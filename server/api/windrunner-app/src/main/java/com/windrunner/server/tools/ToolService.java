@@ -27,20 +27,23 @@ public class ToolService implements ToolRegistry {
     }
 
     @Override
-    public List<LlmTool<?>> llmTools() {
+    public List<LlmTool<?>> llmTools(ToolExecutionContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException("Tool execution context is required");
+        }
         List<LlmTool<?>> functions = new ArrayList<>();
         for (Tool<?> tool : toolsByName.values()) {
-            functions.add(toLlmTool(tool));
+            functions.add(toLlmTool(tool, context));
         }
         return List.copyOf(functions);
     }
 
-    private <T> LlmTool<T> toLlmTool(Tool<T> tool) {
+    private <T> LlmTool<T> toLlmTool(Tool<T> tool, ToolExecutionContext context) {
         return new LlmTool<>(
                 tool.name(),
                 tool.description(),
                 tool.parametersType(),
-                tool::execute
+                parameters -> tool.execute(parameters, context)
         );
     }
 }

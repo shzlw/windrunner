@@ -2,6 +2,7 @@ package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.tools.identity.FetchTeamDetailsTool;
 import com.windrunner.server.tools.identity.FetchTeamMembersTool;
 import com.windrunner.server.tools.identity.FetchTeamProjectsTool;
@@ -44,8 +45,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchTeamsTool.Result listTeams(String query, Integer limit) {
-        authorization.requireScope(ApiKeyScopes.TEAMS_READ);
-        return execute(teams, new FetchTeamsTool.Parameters(query, limit));
+        return execute(teams, new FetchTeamsTool.Parameters(query, limit), identityContext(ApiKeyScopes.TEAMS_READ));
     }
 
     @McpTool(
@@ -58,8 +58,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchTeamDetailsTool.Result getTeam(String teamId) {
-        authorization.requireScope(ApiKeyScopes.TEAMS_READ);
-        return execute(teamDetails, new FetchTeamDetailsTool.Parameters(teamId));
+        return execute(teamDetails, new FetchTeamDetailsTool.Parameters(teamId), identityContext(ApiKeyScopes.TEAMS_READ));
     }
 
     @McpTool(
@@ -72,8 +71,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchTeamMembersTool.Result listTeamMembers(String teamId, Integer limit, Integer offset) {
-        authorization.requireScope(ApiKeyScopes.TEAM_MEMBERS_READ);
-        return execute(teamMembers, new FetchTeamMembersTool.Parameters(teamId, limit, offset));
+        return execute(teamMembers, new FetchTeamMembersTool.Parameters(teamId, limit, offset), identityContext(ApiKeyScopes.TEAM_MEMBERS_READ));
     }
 
     @McpTool(
@@ -86,8 +84,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchTeamProjectsTool.Result listTeamProjects(String teamId, Integer limit, Integer offset) {
-        authorization.requireScope(ApiKeyScopes.TEAM_PROJECTS_READ);
-        return execute(teamProjects, new FetchTeamProjectsTool.Parameters(teamId, limit, offset));
+        return execute(teamProjects, new FetchTeamProjectsTool.Parameters(teamId, limit, offset), identityContext(ApiKeyScopes.TEAM_PROJECTS_READ));
     }
 
     @McpTool(
@@ -100,8 +97,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchUsersTool.Result listUsers(String query, Integer limit) {
-        authorization.requireScope(ApiKeyScopes.USERS_READ);
-        return execute(users, new FetchUsersTool.Parameters(query, limit));
+        return execute(users, new FetchUsersTool.Parameters(query, limit), identityContext(ApiKeyScopes.USERS_READ));
     }
 
     @McpTool(
@@ -114,21 +110,25 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public UserDetails getUser(String userId) {
-        authorization.requireScope(ApiKeyScopes.USERS_READ);
+        ToolExecutionContext context = identityContext(ApiKeyScopes.USERS_READ);
         if (userId == null || userId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId is required");
         }
         FetchUserDetailsTool.Result result = execute(userDetails,
-                new FetchUserDetailsTool.Parameters(List.of(userId.trim())));
+                new FetchUserDetailsTool.Parameters(List.of(userId.trim())), context);
         FetchUserDetailsTool.ResultUser user = result.users().stream().findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         return new UserDetails(user.id(), user.username(), user.displayName(), user.email(), user.title(), user.bio());
     }
 
+    private ToolExecutionContext identityContext(String scope) {
+        return authorization.toolContext(authorization.requireScope(scope));
+    }
+
     @SuppressWarnings("unchecked")
-    private <P, R> R execute(Tool<P> tool, P parameters) {
+    private <P, R> R execute(Tool<P> tool, P parameters, ToolExecutionContext context) {
         try {
-            return (R) tool.execute(parameters);
+            return (R) tool.execute(parameters, context);
         } catch (RuntimeException exception) {
             throw exception;
         } catch (Exception exception) {

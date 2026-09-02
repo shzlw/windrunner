@@ -12,17 +12,13 @@ import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectRepository;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.tools.ToolRegistry;
-import com.windrunner.server.tools.identity.FetchProjectAssigneesTool;
-import com.windrunner.server.tools.work.FetchEntriesTool;
-import com.windrunner.server.tools.work.FetchProjectBlockersTool;
-import com.windrunner.server.tools.work.FetchProjectSummaryTool;
-import com.windrunner.server.tools.work.FetchRelationshipsTool;
-import com.windrunner.server.tools.work.FetchWorkItemsTool;
+import com.windrunner.server.tools.chat.FindProjectsTool;
+import com.windrunner.server.tools.chat.ProposeWorkspaceChangesTool;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.utils.FileUtils;
 import com.windrunner.server.work.WorkItemService;
-import com.windrunner.server.work.WorkspaceChangeProposalService;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.WorkItemRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -56,12 +52,13 @@ public class ChatMessageController {
     private final ObjectProvider<LlmService> llmServiceProvider;
     private final ProjectRepository projects;
     private final ToolRegistry toolRegistry;
+    private final FindProjectsTool findProjectsTool;
     private final AuthService authService;
     private final ProjectAccessService projectAccessService;
     private final ChatService chatService;
     private final WorkItemService workItems;
     private final WorkItemRepository workItemRepository;
-    private final WorkspaceChangeProposalService workspaceChangeProposals;
+    private final ProposeWorkspaceChangesTool proposeWorkspaceChangesTool;
     private final LlmUsageService llmUsageService;
 
     @PostMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -101,13 +98,16 @@ public class ChatMessageController {
         String usageProjectId = targetProject == null ? (contextProjects.isEmpty() ? null : contextProjects.getFirst().getId()) : targetProject.getId();
         final List<String> allowedProjectIds = contextProjectIds;
         final String promptContext = context;
+        final ToolExecutionContext toolContext = new ToolExecutionContext(actor, session.getId(), allowedProjectIds);
 
         Thread.startVirtualThread(() -> {
             long startNanos = System.nanoTime();
             try {
                 send(emitter, "started", new ChatStarted(titleFromMessage(sourceMessage.getContent())));
-                List<LlmTool<?>> availableTools = new ArrayList<>(projectScopedTools(allowedProjectIds));
-                if (targetProject != null) availableTools.add(workspaceProposalTool(targetProject.getId(), session, sourceMessage));
+                List<LlmTool<?>> availableTools = new ArrayList<>(toolRegistry.llmTools(toolContext));
+                availableTools.add(findProjectsTool.forContext(toolContext));
+                if (targetProject != null) availableTools.add(proposeWorkspaceChangesTool.forMessage(
+                        toolContext, targetProject.getId(), session.getId(), sourceMessage.getId(), sourceMessage.getContent()));
                 LlmResult<String> llmResult = llmService.runChatWithTools(
                         messages,
                         instructions(targetProject, session, sourceMessage, promptContext, allowedProjectIds),
@@ -195,31 +195,6 @@ public class ChatMessageController {
         }).toList();
     }
 
-    private List<LlmTool<?>> projectScopedTools(List<String> allowedProjectIds) {
-        return toolRegistry.llmTools().stream().map(tool -> switch (tool.name()) {
-            case "fetch_work_items", "fetch_entries", "fetch_relationships", "fetch_project_summary", "fetch_project_blockers", "fetch_project_assignees" -> scopedProjectTool(tool, allowedProjectIds);
-            default -> tool;
-        }).toList();
-    }
-
-    private <T> LlmTool<T> scopedProjectTool(LlmTool<T> tool, List<String> allowedProjectIds) {
-        return new LlmTool<>(tool.name(), tool.description(), tool.parametersType(), arguments -> {
-            String requestedProjectId = projectIdFromToolArguments(arguments);
-            if (!allowedProjectIds.contains(requestedProjectId)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "The requested project is not in the selected context");
-            return tool.handler().execute(arguments);
-        });
-    }
-
-    private String projectIdFromToolArguments(Object arguments) {
-        if (arguments instanceof FetchWorkItemsTool.Parameters p) return p.projectId();
-        if (arguments instanceof FetchEntriesTool.Parameters p) return p.projectId();
-        if (arguments instanceof FetchRelationshipsTool.Parameters p) return p.projectId();
-        if (arguments instanceof FetchProjectSummaryTool.Parameters p) return p.projectId();
-        if (arguments instanceof FetchProjectBlockersTool.Parameters p) return p.projectId();
-        if (arguments instanceof FetchProjectAssigneesTool.Parameters p) return p.projectId();
-        return null;
-    }
-
     private String selectedProjectContext(List<Project> selectedProjects) {
         StringBuilder scope = new StringBuilder("Selected project context (project references only; fetch WorkItems and updates with the available read tools):\n");
         for (Project project : selectedProjects) {
@@ -230,7 +205,7 @@ public class ChatMessageController {
     }
 
     private String selectedWorkItemContext(String projectId, ChatContext context) {
-        if (projectId == null || projectId.isBlank() || context == null || context.selectedNodeId() == null || context.selectedNodeId().isBlank()) return "No specific artifact is selected. Use the available read tools to find relevant workspace records, and ask a concise clarification when the request is ambiguous.";
+        if (projectId == null || projectId.isBlank() || context == null || context.selectedNodeId() == null || context.selectedNodeId().isBlank()) return "No specific artifact is selected. For project-scoped requests, use find_projects before any project read tool; for other requests, use the appropriate identity tools and ask a concise clarification when the request is ambiguous.";
         WorkItem item = workItems.get(projectId, context.selectedNodeId().trim());
         return "Selected WorkItem context (selected item only; fetch related data with the available read tools):\n"
                 + "- WorkItem: " + item.getTitle() + " [id=" + item.getId() + ", projectId=" + projectId
@@ -248,11 +223,6 @@ public class ChatMessageController {
                 .replace("{{chatSessionId}}", session.getId())
                 .replace("{{sourceMessageId}}", sourceMessage.getId())
                 .replace("{{selectedContext}}", selectedContext);
-    }
-
-    private LlmTool<WorkspaceChangeProposalService.ProposalDraft> workspaceProposalTool(String projectId, ChatSession session, ChatMessage sourceMessage) {
-        return new LlmTool<>("propose_workspace_changes", FileUtils.loadSystemPrompt("propose-workspace-changes-tool.md"), WorkspaceChangeProposalService.ProposalDraft.class,
-                draft -> workspaceChangeProposals.create(projectId, session.getId(), sourceMessage.getId(), sourceMessage.getContent(), draft));
     }
 
     private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }

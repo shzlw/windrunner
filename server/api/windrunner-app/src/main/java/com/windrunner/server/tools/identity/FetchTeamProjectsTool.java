@@ -7,6 +7,8 @@ import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.persistence.ProjectTeamRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ public class FetchTeamProjectsTool implements Tool<FetchTeamProjectsTool.Paramet
     private final TeamRepository teamRepository;
     private final ProjectTeamRepository projectTeamRepository;
     private final ProjectRepository projectRepository;
+    private final ToolAuthorizationService authorization;
 
     @Override
     public String name() {
@@ -43,11 +46,12 @@ public class FetchTeamProjectsTool implements Tool<FetchTeamProjectsTool.Paramet
     }
 
     @Override
-    public Object execute(Parameters parameters) {
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
         String teamId = parameters == null || parameters.teamId() == null ? "" : parameters.teamId().trim();
         if (teamId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Team id is required");
         }
+        authorization.requireContext(context);
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
         Integer requestedLimit = parameters == null ? null : parameters.limit();
@@ -56,6 +60,7 @@ public class FetchTeamProjectsTool implements Tool<FetchTeamProjectsTool.Paramet
                 : Math.max(1, Math.min(requestedLimit, MAX_LIMIT));
         long offset = parameters == null || parameters.offset() == null ? 0 : Math.max(0, parameters.offset());
         List<ProjectTeam> links = projectTeamRepository.findPageByTeamId(teamId, limit, offset);
+        long total = projectTeamRepository.countByTeamId(teamId);
         Map<String, Project> projectsById = new LinkedHashMap<>();
         if (!links.isEmpty()) {
             projectRepository.findAllById(links.stream().map(ProjectTeam::getProjectId).toList())
@@ -67,7 +72,6 @@ public class FetchTeamProjectsTool implements Tool<FetchTeamProjectsTool.Paramet
                     return new LinkedProject(link.getProjectId(), project == null ? null : project.getName(), link.getRole());
                 })
                 .toList();
-        long total = projectTeamRepository.countByTeamId(teamId);
         return new Result(team.getId(), team.getName(), projects, projects.size(), total, limit, offset, offset + projects.size() < total);
     }
 

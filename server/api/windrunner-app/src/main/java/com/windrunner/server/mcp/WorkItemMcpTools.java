@@ -5,6 +5,7 @@ import com.windrunner.server.external.auth.ExternalAccessService;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.tools.work.FetchEntriesTool;
 import com.windrunner.server.tools.work.FetchRelationshipsTool;
 import com.windrunner.server.user.domain.AppUser;
@@ -55,8 +56,9 @@ public class WorkItemMcpTools {
                     openWorldHint = false))
     public SearchResults searchWorkItems(String projectId, String query) {
         requireScope(ApiKeyScopes.WORK_ITEMS_READ);
-        requireProjectViewer(projectId);
-        ProjectSearchResult result = searchService.search(projectId, query == null ? "" : query, 20);
+        ToolExecutionContext context = requireProjectViewer(projectId);
+        String normalizedProjectId = context.allowedProjectIds().getFirst();
+        ProjectSearchResult result = searchService.search(normalizedProjectId, query == null ? "" : query, 20);
         return new SearchResults(
                 result.workItems().stream().map(SearchWorkItem::from).toList(),
                 result.entries().stream().map(SearchEntry::from).toList(),
@@ -78,15 +80,16 @@ public class WorkItemMcpTools {
                 ApiKeyScopes.WORK_ITEMS_READ,
                 ApiKeyScopes.ENTRIES_READ,
                 ApiKeyScopes.RELATIONSHIPS_READ);
-        requireProjectViewer(projectId);
+        ToolExecutionContext context = requireProjectViewer(projectId);
+        String normalizedProjectId = context.allowedProjectIds().getFirst();
         WorkItem item = workItems.findById(workItemId)
-                .filter(i -> projectId.equals(i.getProjectId()))
+                .filter(i -> normalizedProjectId.equals(i.getProjectId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Work item not found"));
 
         FetchEntriesTool.Response entryPage = execute(fetchEntries,
-                new FetchEntriesTool.Parameters(projectId, workItemId, entryLimit, 0));
+                new FetchEntriesTool.Parameters(normalizedProjectId, workItemId, entryLimit, 0), context);
         FetchRelationshipsTool.Response relationshipPage = execute(fetchRelationships,
-                new FetchRelationshipsTool.Parameters(projectId, workItemId, relationshipLimit, 0));
+                new FetchRelationshipsTool.Parameters(normalizedProjectId, workItemId, relationshipLimit, 0), context);
 
         return new WorkItemDetail(
                 item.getId(),
@@ -153,15 +156,20 @@ public class WorkItemMcpTools {
         return externalAccessService.requireScopes(attributes.getRequest(), scopes);
     }
 
-    private void requireProjectViewer(String projectId) {
+    private ToolExecutionContext requireProjectViewer(String projectId) {
+        if (projectId == null || projectId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "projectId is required");
+        }
+        String normalizedProjectId = projectId.trim();
         AppUser actor = McpActors.authenticatedActor();
-        projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
+        projectAccessService.requireProjectRole(normalizedProjectId, actor, ProjectRoles.VIEWER);
+        return new ToolExecutionContext(actor, null, List.of(normalizedProjectId));
     }
 
     @SuppressWarnings("unchecked")
-    private <P, R> R execute(Tool<P> tool, P parameters) {
+    private <P, R> R execute(Tool<P> tool, P parameters, ToolExecutionContext context) {
         try {
-            return (R) tool.execute(parameters);
+            return (R) tool.execute(parameters, context);
         } catch (RuntimeException exception) {
             throw exception;
         } catch (Exception exception) {

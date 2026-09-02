@@ -3,6 +3,8 @@ package com.windrunner.server.tools.identity;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -15,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class FetchTeamDetailsTool implements Tool<FetchTeamDetailsTool.Parameters> {
 
     private final TeamRepository teamRepository;
+    private final ToolAuthorizationService authorization;
     @Override
     public String name() {
         return "fetch_team_details";
@@ -31,11 +34,12 @@ public class FetchTeamDetailsTool implements Tool<FetchTeamDetailsTool.Parameter
     }
 
     @Override
-    public Object execute(Parameters parameters) {
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
         String teamId = parameters == null || parameters.teamId() == null ? "" : parameters.teamId().trim();
         if (teamId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Team id is required");
         }
+        authorization.requireContext(context);
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
 

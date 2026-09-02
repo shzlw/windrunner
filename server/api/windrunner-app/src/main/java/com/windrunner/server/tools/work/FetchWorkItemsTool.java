@@ -1,6 +1,8 @@
 package com.windrunner.server.tools.work;
 
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.domain.WorkItemAssignee;
@@ -20,6 +22,7 @@ public class FetchWorkItemsTool implements Tool<FetchWorkItemsTool.Parameters> {
     private final WorkItemRepository workItems;
     private final WorkItemAssigneeRepository assignees;
     private final SearchNormalizer searchNormalizer;
+    private final ToolAuthorizationService authorization;
 
     @Override
     public String name() {
@@ -37,10 +40,9 @@ public class FetchWorkItemsTool implements Tool<FetchWorkItemsTool.Parameters> {
     }
 
     @Override
-    public Object execute(Parameters parameters) {
-        if (parameters == null || parameters.projectId() == null || parameters.projectId().isBlank())
-            throw new IllegalArgumentException("projectId is required");
-        String projectId = parameters.projectId().trim();
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
+        String projectId = authorization.requireProject(
+                context, parameters == null ? null : parameters.projectId());
         String query = parameters.query() == null ? "" : parameters.query().trim();
         int limit = parameters.limit() == null ? 50 : Math.max(1, Math.min(parameters.limit(), 100));
         long offset = parameters.offset() == null ? 0 : Math.max(0, parameters.offset());

@@ -41,6 +41,49 @@ public interface ProjectRepository extends CrudRepository<Project, String> {
     @Query("""
             SELECT DISTINCT p.id, p.name, p.created_by_user_id, p.created_at, p.updated_at, p.archived_at
             FROM project p
+            WHERE (
+                    :query IS NULL
+                 OR :query = ''
+                 OR p.id = :query
+                 OR LOWER(p.name) LIKE CONCAT('%', LOWER(:query), '%')
+            )
+              AND (
+                    EXISTS (
+                        SELECT 1
+                        FROM project_member pm
+                        WHERE pm.project_id = p.id
+                          AND pm.user_id = :userId
+                    )
+                 OR EXISTS (
+                        SELECT 1
+                        FROM project_team pt
+                        JOIN team_member tm ON tm.team_id = pt.team_id
+                        WHERE pt.project_id = p.id
+                          AND tm.user_id = :userId
+                    )
+              )
+            ORDER BY p.name ASC, p.id ASC
+            LIMIT :limit
+            """)
+    List<Project> findVisibleToUserByQuery(@Param("userId") String userId,
+                                           @Param("query") String query,
+                                           @Param("limit") int limit);
+
+    @Query("""
+            SELECT id, name, created_by_user_id, created_at, updated_at, archived_at
+            FROM project
+            WHERE :query IS NULL
+               OR :query = ''
+               OR id = :query
+               OR LOWER(name) LIKE CONCAT('%', LOWER(:query), '%')
+            ORDER BY name ASC, id ASC
+            LIMIT :limit
+            """)
+    List<Project> findAllByQuery(@Param("query") String query, @Param("limit") int limit);
+
+    @Query("""
+            SELECT DISTINCT p.id, p.name, p.created_by_user_id, p.created_at, p.updated_at, p.archived_at
+            FROM project p
             WHERE EXISTS (
                 SELECT 1
                 FROM project_member pm

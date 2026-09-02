@@ -3,6 +3,8 @@ package com.windrunner.server.tools.identity;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ public class FetchTeamsTool implements Tool<FetchTeamsTool.Parameters> {
     private static final String PROMPT_NAME = "fetch-teams-tool.md";
 
     private final TeamRepository teamRepository;
+    private final ToolAuthorizationService authorization;
 
     @Override
     public String name() {
@@ -35,11 +38,12 @@ public class FetchTeamsTool implements Tool<FetchTeamsTool.Parameters> {
     }
 
     @Override
-    public Object execute(Parameters parameters) {
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
         int limit = parameters == null || parameters.limit() == null
                 ? DEFAULT_LIMIT
                 : Math.max(1, Math.min(parameters.limit(), MAX_LIMIT));
         String query = parameters == null ? null : normalizeQuery(parameters.query());
+        authorization.requireContext(context);
         List<ResultTeam> teams = teamRepository.findAssignableTeams(query, limit).stream()
                 .map(ResultTeam::from)
                 .toList();

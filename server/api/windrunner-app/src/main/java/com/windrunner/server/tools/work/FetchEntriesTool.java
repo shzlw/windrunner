@@ -1,6 +1,8 @@
 package com.windrunner.server.tools.work;
 
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
 import com.windrunner.server.work.EntryService;
 import com.windrunner.server.work.domain.Entry;
@@ -13,6 +15,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FetchEntriesTool implements Tool<FetchEntriesTool.Parameters> {
     private final EntryService entries;
+    private final ToolAuthorizationService authorization;
 
     @Override
     public String name() {
@@ -30,14 +33,14 @@ public class FetchEntriesTool implements Tool<FetchEntriesTool.Parameters> {
     }
 
     @Override
-    public Object execute(Parameters parameters) {
-        if (parameters == null || parameters.projectId() == null || parameters.projectId().isBlank())
-            throw new IllegalArgumentException("projectId is required");
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
+        String projectId = authorization.requireProject(
+                context, parameters == null ? null : parameters.projectId());
         String workItemId = parameters.workItemId() == null ? null : parameters.workItemId().trim();
         int limit = parameters.limit() == null ? 50 : Math.max(1, Math.min(parameters.limit(), 100));
         long offset = parameters.offset() == null ? 0 : Math.max(0, parameters.offset());
-        List<Entry> results = entries.listPageForTool(parameters.projectId().trim(), workItemId, limit, offset);
-        long total = entries.countForTool(parameters.projectId().trim(), workItemId);
+        List<Entry> results = entries.listPageForTool(projectId, workItemId, limit, offset);
+        long total = entries.countForTool(projectId, workItemId);
         return new Response(results, results.size(), total, limit, offset, offset + results.size() < total);
     }
 

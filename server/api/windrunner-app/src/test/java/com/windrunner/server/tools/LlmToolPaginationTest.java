@@ -30,6 +30,7 @@ import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
 import com.windrunner.server.work.persistence.WorkItemRepository;
 import com.windrunner.server.search.SearchNormalizer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -41,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class LlmToolPaginationTest {
@@ -69,6 +71,17 @@ class LlmToolPaginationTest {
     private ProjectRepository projectRepository;
     @Mock
     private EntryRepository entryRepository;
+    @Mock
+    private ToolAuthorizationService authorization;
+
+    private final ToolExecutionContext context = context();
+
+    @BeforeEach
+    void authorizeToolReads() {
+        when(authorization.requireProject(any(), any()))
+                .thenAnswer(invocation -> ((ToolExecutionContext) invocation.getArgument(0))
+                        .requireProjectId((String) invocation.getArgument(1)));
+    }
 
     @Test
     void fetchWorkItemsUsesDatabasePageAndBatchesAssignees() {
@@ -83,8 +96,8 @@ class LlmToolPaginationTest {
         when(workItemAssigneeRepository.findByWorkItemIds(List.of("item-1"))).thenReturn(List.of(assignee));
 
         FetchWorkItemsTool.Response response = (FetchWorkItemsTool.Response) new FetchWorkItemsTool(
-                workItemRepository, workItemAssigneeRepository, searchNormalizer)
-                .execute(new FetchWorkItemsTool.Parameters("project-1", null, 50, 100));
+                workItemRepository, workItemAssigneeRepository, searchNormalizer, authorization)
+                .execute(new FetchWorkItemsTool.Parameters("project-1", null, 50, 100), context);
 
         assertThat(response.count()).isOne();
         assertThat(response.total()).isEqualTo(101);
@@ -105,8 +118,8 @@ class LlmToolPaginationTest {
         when(workItemAssigneeRepository.findByWorkItemIds(List.of("item-1"))).thenReturn(List.of());
 
         FetchWorkItemsTool.Response response = (FetchWorkItemsTool.Response) new FetchWorkItemsTool(
-                workItemRepository, workItemAssigneeRepository, searchNormalizer)
-                .execute(new FetchWorkItemsTool.Parameters("project-1", "deployment", 20, null));
+                workItemRepository, workItemAssigneeRepository, searchNormalizer, authorization)
+                .execute(new FetchWorkItemsTool.Parameters("project-1", "deployment", 20, null), context);
 
         assertThat(response.total()).isEqualTo(21);
         assertThat(response.hasMore()).isTrue();
@@ -120,8 +133,8 @@ class LlmToolPaginationTest {
         when(entryService.listPageForTool("project-1", "item-1", 10, 10L)).thenReturn(List.of(entry));
         when(entryService.countForTool("project-1", "item-1")).thenReturn(12L);
 
-        FetchEntriesTool.Response response = (FetchEntriesTool.Response) new FetchEntriesTool(entryService)
-                .execute(new FetchEntriesTool.Parameters("project-1", "item-1", 10, 10));
+        FetchEntriesTool.Response response = (FetchEntriesTool.Response) new FetchEntriesTool(entryService, authorization)
+                .execute(new FetchEntriesTool.Parameters("project-1", "item-1", 10, 10), context);
 
         assertThat(response.entries()).containsExactly(entry);
         assertThat(response.total()).isEqualTo(12);
@@ -138,8 +151,8 @@ class LlmToolPaginationTest {
         when(relationshipService.listPageForTool("project-1", "item-1", 50, 0L)).thenReturn(List.of(relationship));
         when(relationshipService.countForTool("project-1", "item-1")).thenReturn(1L);
 
-        FetchRelationshipsTool.Response response = (FetchRelationshipsTool.Response) new FetchRelationshipsTool(relationshipService)
-                .execute(new FetchRelationshipsTool.Parameters("project-1", "item-1", null, null));
+        FetchRelationshipsTool.Response response = (FetchRelationshipsTool.Response) new FetchRelationshipsTool(relationshipService, authorization)
+                .execute(new FetchRelationshipsTool.Parameters("project-1", "item-1", null, null), context);
 
         assertThat(response.relationships()).containsExactly(relationship);
         assertThat(response.total()).isOne();
@@ -155,8 +168,8 @@ class LlmToolPaginationTest {
         when(relationshipRepository.findPageWorkItemBlockers("project-1", 50, 50L)).thenReturn(List.of(row));
         when(relationshipRepository.countAllWorkItemBlockers("project-1")).thenReturn(101L);
 
-        FetchProjectBlockersTool.Response response = (FetchProjectBlockersTool.Response) new FetchProjectBlockersTool(relationshipRepository)
-                .execute(new FetchProjectBlockersTool.Parameters("project-1", 50, 50));
+        FetchProjectBlockersTool.Response response = (FetchProjectBlockersTool.Response) new FetchProjectBlockersTool(relationshipRepository, authorization)
+                .execute(new FetchProjectBlockersTool.Parameters("project-1", 50, 50), context);
 
         assertThat(response.count()).isOne();
         assertThat(response.total()).isEqualTo(101);
@@ -179,8 +192,8 @@ class LlmToolPaginationTest {
         when(appUserRepository.findActiveUsersByIds(List.of("user-1"))).thenReturn(List.of(user));
 
         FetchTeamMembersTool.Result result = (FetchTeamMembersTool.Result) new FetchTeamMembersTool(
-                teamRepository, teamMemberRepository, appUserRepository)
-                .execute(new FetchTeamMembersTool.Parameters("team-1", null, 20));
+                teamRepository, teamMemberRepository, appUserRepository, authorization)
+                .execute(new FetchTeamMembersTool.Parameters("team-1", null, 20), context);
 
         assertThat(result.total()).isEqualTo(21);
         assertThat(result.hasMore()).isFalse();
@@ -203,8 +216,8 @@ class LlmToolPaginationTest {
         when(projectRepository.findAllById(List.of("project-1"))).thenReturn(List.of(project));
 
         FetchTeamProjectsTool.Result result = (FetchTeamProjectsTool.Result) new FetchTeamProjectsTool(
-                teamRepository, projectTeamRepository, projectRepository)
-                .execute(new FetchTeamProjectsTool.Parameters("team-1", null, null));
+                teamRepository, projectTeamRepository, projectRepository, authorization)
+                .execute(new FetchTeamProjectsTool.Parameters("team-1", null, null), context);
 
         assertThat(result.total()).isOne();
         assertThat(result.hasMore()).isFalse();
@@ -224,8 +237,8 @@ class LlmToolPaginationTest {
                 .thenReturn(List.of(team));
 
         FetchProjectAssigneesTool.Result result = (FetchProjectAssigneesTool.Result) new FetchProjectAssigneesTool(
-                appUserRepository, teamRepository)
-                .execute(new FetchProjectAssigneesTool.Parameters("project-1", " kc ", 10));
+                appUserRepository, teamRepository, authorization)
+                .execute(new FetchProjectAssigneesTool.Parameters("project-1", " kc ", 10), context);
 
         assertThat(result.projectId()).isEqualTo("project-1");
         assertThat(result.users()).singleElement().satisfies(candidate ->
@@ -254,8 +267,8 @@ class LlmToolPaginationTest {
         when(workItemAssigneeRepository.countByProjectId("project-1")).thenReturn(List.of());
 
         FetchProjectSummaryTool.Response response = (FetchProjectSummaryTool.Response) new FetchProjectSummaryTool(
-                workItemRepository, workItemAssigneeRepository, entryRepository, relationshipRepository)
-                .execute(new FetchProjectSummaryTool.Parameters("project-1"));
+                workItemRepository, workItemAssigneeRepository, entryRepository, relationshipRepository, authorization)
+                .execute(new FetchProjectSummaryTool.Parameters("project-1"), context);
 
         assertThat(response.totals().workItems()).isEqualTo(1000);
         assertThat(response.totals().entries()).isEqualTo(2000);
@@ -278,5 +291,12 @@ class LlmToolPaginationTest {
         team.setId(id);
         team.setName(name);
         return team;
+    }
+
+    private static ToolExecutionContext context() {
+        AppUser actor = new AppUser();
+        actor.setId("admin-1");
+        actor.setGlobalRole("ADMIN");
+        return new ToolExecutionContext(actor, "session-1", List.of("project-1"));
     }
 }

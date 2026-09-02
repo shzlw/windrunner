@@ -5,6 +5,8 @@ import com.windrunner.server.team.domain.TeamMember;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.utils.FileUtils;
@@ -26,6 +28,7 @@ public class FetchTeamMembersTool implements Tool<FetchTeamMembersTool.Parameter
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final AppUserRepository userRepository;
+    private final ToolAuthorizationService authorization;
 
     @Override
     public String name() {
@@ -43,11 +46,12 @@ public class FetchTeamMembersTool implements Tool<FetchTeamMembersTool.Parameter
     }
 
     @Override
-    public Object execute(Parameters parameters) {
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
         String teamId = parameters == null || parameters.teamId() == null ? "" : parameters.teamId().trim();
         if (teamId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Team id is required");
         }
+        authorization.requireContext(context);
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
         Integer requestedLimit = parameters == null ? null : parameters.limit();

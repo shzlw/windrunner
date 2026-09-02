@@ -2,14 +2,14 @@ package com.windrunner.server.work;
 
 import com.windrunner.server.llm.*;
 import com.windrunner.server.llm.domain.LlmUsageFeature;
+import com.windrunner.server.tools.work.FetchWorkItemDetailsTool;
+import com.windrunner.server.tools.work.ProposeWorkItemRevisionTool;
+import com.windrunner.server.tools.work.SearchWorkItemsForBlockerTool;
 import com.windrunner.server.utils.FileUtils;
 import com.windrunner.server.work.api.WorkItemAiReviewRequest;
 import com.windrunner.server.work.api.WorkItemAiReviewResponse;
-import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.Relationship;
 import com.windrunner.server.work.domain.WorkItem;
-import com.windrunner.server.work.domain.WorkItemAssignee;
-import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.RelationshipRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -22,7 +22,6 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -32,9 +31,10 @@ import java.util.concurrent.atomic.AtomicReference;
 public class WorkItemAiReviewService {
     private static final String REVIEW_PROMPT = "work-item-ai-review.md";
     private final WorkItemService workItems;
-    private final ProjectSearchService projectSearch;
-    private final EntryRepository entries;
     private final RelationshipRepository relationships;
+    private final FetchWorkItemDetailsTool fetchWorkItemDetailsTool;
+    private final SearchWorkItemsForBlockerTool searchWorkItemsForBlockerTool;
+    private final ProposeWorkItemRevisionTool proposeWorkItemRevisionTool;
     private final LlmAvailabilityService llmAvailability;
     private final ObjectProvider<LlmService> llmServiceProvider;
     private final LlmUsageService llmUsageService;
@@ -55,32 +55,11 @@ public class WorkItemAiReviewService {
                 .map(Relationship::getToEntityId)
                 .collect(java.util.stream.Collectors.toSet());
         Set<String> availableBlockerIds = new HashSet<>();
-        AtomicReference<Proposal> proposalRef = new AtomicReference<>();
-        LlmTool<WorkItemLookup> fetchDetailsTool = new LlmTool<>(
-                "fetch_work_item_details",
-                "Fetch one related WorkItem with its direct children, recent updates, and relationships. Use only when the supplied WorkItem context is not enough.",
-                WorkItemLookup.class,
-                lookup -> {
-                    WorkItemDetails details = fetchWorkItemDetails(projectId, lookup);
-                    availableBlockerIds.add(details.workItem().id());
-                    details.children().forEach(child -> availableBlockerIds.add(child.id()));
-                    return details;
-                }
-        );
-        LlmTool<WorkItemSearch> searchBlockerCandidatesTool = new LlmTool<>(
-                "search_work_items_for_blocker",
-                "Search this project for WorkItems that may be relevant blockers. Use a focused query derived from the current WorkItem; only returned IDs may be proposed as blockers.",
-                WorkItemSearch.class,
-                search -> {
-                    List<WorkItemSummary> results = searchBlockerCandidates(projectId, id, search);
-                    results.forEach(item -> availableBlockerIds.add(item.id()));
-                    return results;
-                }
-        );
-        LlmTool<Proposal> tool = new LlmTool<>("propose_work_item_revision", "Submit a conservative WorkItem revision.", Proposal.class, proposal -> {
-            proposalRef.set(proposal);
-            return Map.of("recorded", true);
-        });
+        AtomicReference<ProposeWorkItemRevisionTool.Parameters> proposalRef = new AtomicReference<>();
+        LlmTool<?> fetchDetailsTool = fetchWorkItemDetailsTool.forProject(projectId, availableBlockerIds::add);
+        LlmTool<?> searchBlockerCandidatesTool = searchWorkItemsForBlockerTool.forProject(
+                projectId, id, availableBlockerIds::add);
+        LlmTool<?> tool = proposeWorkItemRevisionTool.forReview(proposalRef::set);
         LlmService llm = llmServiceProvider.getIfAvailable();
         if (llm == null)
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI suggestions are unavailable");
@@ -110,7 +89,7 @@ public class WorkItemAiReviewService {
                 new LlmUsageContext(actorId, projectId, LlmUsageFeature.WORK_ITEM_AI_REVIEW),
                 llmResult,
                 durationMs);
-        Proposal proposal = proposalRef.get();
+        ProposeWorkItemRevisionTool.Parameters proposal = proposalRef.get();
         if (proposal == null || WorkItemService.blank(proposal.proposedTitle()))
             throw new LlmException("AI did not return a WorkItem revision");
         String proposedType = WorkItemService.enumValue(blankOr(proposal.proposedType(), type), WorkTypes.WORK_ITEM_TYPES, "Proposed work item type");
@@ -142,65 +121,6 @@ public class WorkItemAiReviewService {
                 + (WorkItemService.blank(request.instruction()) ? "" : "\n\nAuthor feedback:\n" + AiReviewLimits.bounded(request.instruction().trim(), AiReviewLimits.MAX_INSTRUCTION_LENGTH));
     }
 
-    private WorkItemDetails fetchWorkItemDetails(String projectId, WorkItemLookup lookup) {
-        if (lookup == null || WorkItemService.blank(lookup.workItemId())) {
-            throw WorkItemService.bad("workItemId is required");
-        }
-        WorkItem item = workItems.get(projectId, lookup.workItemId().trim());
-        List<Entry> itemEntries = entries.findPageByWorkItemId(item.getId(), null, AiReviewLimits.MAX_RELATED_ENTRIES, 0);
-        List<Relationship> itemRelationships = relationships.findByEntity(projectId, "WORK_ITEM", item.getId(), AiReviewLimits.MAX_RELATED_RELATIONSHIPS);
-        List<WorkItem> children = workItems.listSubtree(projectId, item.getId(), 1, AiReviewLimits.MAX_CHILDREN);
-        return new WorkItemDetails(
-                workItemSummary(item),
-                children.stream().map(this::workItemSummary).toList(),
-                itemEntries.stream().map(this::entrySummary).toList(),
-                itemRelationships.stream().map(this::relationshipSummary).toList());
-    }
-
-    private List<WorkItemSummary> searchBlockerCandidates(String projectId, String currentWorkItemId, WorkItemSearch search) {
-        if (search == null || WorkItemService.blank(search.query())) {
-            return List.of();
-        }
-        return projectSearch.search(projectId, search.query(), AiReviewLimits.MAX_SEARCH_RESULTS).workItems().stream()
-                .filter(item -> !currentWorkItemId.equals(item.getId()))
-                .map(this::workItemSummary)
-                .limit(AiReviewLimits.MAX_SEARCH_RESULTS)
-                .toList();
-    }
-
-    private WorkItemSummary workItemSummary(WorkItem item) {
-        return new WorkItemSummary(item.getId(), item.getParentWorkItemId(), AiReviewLimits.bounded(item.getTitle(), AiReviewLimits.MAX_TITLE_LENGTH), item.getType(), item.getStatus(), item.getDueDate(), item.getPriority());
-    }
-
-    private EntrySummary entrySummary(Entry entry) {
-        return new EntrySummary(entry.getId(), entry.getType(), AiReviewLimits.bounded(entry.getBody(), AiReviewLimits.MAX_TEXT_LENGTH), entry.getCreatedAt());
-    }
-
-    private RelationshipSummary relationshipSummary(Relationship relationship) {
-        return new RelationshipSummary(relationship.getId(), relationship.getType(), relationship.getFromEntityType(), relationship.getFromEntityId(), relationship.getToEntityType(), relationship.getToEntityId(), AiReviewLimits.bounded(relationship.getReason(), AiReviewLimits.MAX_TEXT_LENGTH));
-    }
-
-    public record WorkItemLookup(String workItemId) {
-    }
-
-    public record WorkItemSearch(String query) {
-    }
-
-    public record WorkItemDetails(WorkItemSummary workItem, List<WorkItemSummary> children,
-                                  List<EntrySummary> updates, List<RelationshipSummary> relationships) {
-    }
-
-    public record WorkItemSummary(String id, String parentWorkItemId, String title, String type, String status,
-                                  LocalDate dueDate, String priority) {
-    }
-
-    public record EntrySummary(String id, String type, String body, java.time.OffsetDateTime createdAt) {
-    }
-
-    public record RelationshipSummary(String id, String type, String fromEntityType, String fromEntityId,
-                                      String toEntityType, String toEntityId, String reason) {
-    }
-
     private String validDate(String value) {
         if (WorkItemService.blank(value)) return null;
         try {
@@ -214,11 +134,4 @@ public class WorkItemAiReviewService {
         return WorkItemService.blank(value) ? fallback : value;
     }
 
-    public record Proposal(String proposedTitle, String proposedType, String proposedStatus, String proposedDueDate,
-                           String proposedPriority, List<WorkItemAssignee> proposedAssignees,
-                           List<ProposedBlocker> proposedBlockers, String rationale) {
-    }
-
-    public record ProposedBlocker(String workItemId, String reason) {
-    }
 }

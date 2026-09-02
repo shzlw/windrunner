@@ -1,6 +1,8 @@
 package com.windrunner.server.tools.work;
 
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
 import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.RelationshipRepository;
@@ -19,6 +21,7 @@ public class FetchProjectSummaryTool implements Tool<FetchProjectSummaryTool.Par
     private final WorkItemAssigneeRepository assignees;
     private final EntryRepository entries;
     private final RelationshipRepository relationships;
+    private final ToolAuthorizationService authorization;
 
     @Override
     public String name() {
@@ -36,9 +39,9 @@ public class FetchProjectSummaryTool implements Tool<FetchProjectSummaryTool.Par
     }
 
     @Override
-    public Object execute(Parameters parameters) {
-        requireProjectId(parameters);
-        String projectId = parameters.projectId().trim();
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
+        String projectId = authorization.requireProject(
+                context, parameters == null ? null : parameters.projectId());
         return new Response(
                 projectId,
                 new Totals(
@@ -56,12 +59,6 @@ public class FetchProjectSummaryTool implements Tool<FetchProjectSummaryTool.Par
                         workItems.summarizeDueDates(projectId),
                         assignees.countByProjectId(projectId).stream().map(row -> new AssigneeCount(
                                 row.assigneeType(), row.assigneeId(), row.assigneeLabel(), row.count())).toList()));
-    }
-
-    private void requireProjectId(Parameters parameters) {
-        if (parameters == null || parameters.projectId() == null || parameters.projectId().isBlank()) {
-            throw new IllegalArgumentException("projectId is required");
-        }
     }
 
     private List<Count> toWorkItemCounts(List<WorkItemRepository.DistributionRow> rows) {

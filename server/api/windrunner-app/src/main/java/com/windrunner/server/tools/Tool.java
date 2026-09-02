@@ -8,5 +8,5 @@ public interface Tool<T> {
 
     Class<T> parametersType();
 
-    Object execute(T parameters) throws Exception;
+    Object execute(T parameters, ToolExecutionContext context) throws Exception;
 }

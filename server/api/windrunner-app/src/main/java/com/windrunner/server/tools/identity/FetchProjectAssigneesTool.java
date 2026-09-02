@@ -3,6 +3,8 @@ package com.windrunner.server.tools.identity;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.tools.Tool;
+import com.windrunner.server.tools.ToolAuthorizationService;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.utils.FileUtils;
@@ -19,6 +21,7 @@ public class FetchProjectAssigneesTool implements Tool<FetchProjectAssigneesTool
 
     private final AppUserRepository users;
     private final TeamRepository teams;
+    private final ToolAuthorizationService authorization;
 
     @Override
     public String name() {
@@ -36,11 +39,9 @@ public class FetchProjectAssigneesTool implements Tool<FetchProjectAssigneesTool
     }
 
     @Override
-    public Object execute(Parameters parameters) {
-        if (parameters == null || parameters.projectId() == null || parameters.projectId().isBlank()) {
-            throw new IllegalArgumentException("projectId is required");
-        }
-        String projectId = parameters.projectId().trim();
+    public Object execute(Parameters parameters, ToolExecutionContext context) {
+        String projectId = authorization.requireProject(
+                context, parameters == null ? null : parameters.projectId());
         String query = parameters.query() == null || parameters.query().isBlank() ? null : parameters.query().trim();
         int limit = parameters.limit() == null ? DEFAULT_LIMIT : Math.max(1, Math.min(parameters.limit(), MAX_LIMIT));
         List<UserCandidate> userCandidates = users.findAssignableUsersForProject(projectId, query, limit).stream()
