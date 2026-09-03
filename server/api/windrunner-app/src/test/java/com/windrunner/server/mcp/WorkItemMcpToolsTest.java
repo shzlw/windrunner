@@ -87,9 +87,9 @@ class WorkItemMcpToolsTest {
         Entry entry = new Entry();
         entry.setId("entry-1");
         entry.setWorkItemId("item-1");
-        when(fetchEntries.execute(new FetchEntriesTool.Parameters("project-1", "item-1", 10, 0), any()))
+        when(fetchEntries.execute(eq(new FetchEntriesTool.Parameters("project-1", "item-1", 10, 0)), any()))
                 .thenReturn(new FetchEntriesTool.Response(List.of(entry), 1, 11, 10, 0, true));
-        when(fetchRelationships.execute(new FetchRelationshipsTool.Parameters("project-1", "item-1", 5, 0), any()))
+        when(fetchRelationships.execute(eq(new FetchRelationshipsTool.Parameters("project-1", "item-1", 5, 0)), any()))
                 .thenReturn(new FetchRelationshipsTool.Response(List.of(), 0, 0, 5, 0, false));
 
         WorkItemMcpTools.WorkItemDetail result = controller().getWorkItem("project-1", "item-1", 10, 5);
@@ -104,8 +104,8 @@ class WorkItemMcpToolsTest {
                 ApiKeyScopes.WORK_ITEMS_READ,
                 ApiKeyScopes.ENTRIES_READ,
                 ApiKeyScopes.RELATIONSHIPS_READ);
-        verify(fetchEntries).execute(new FetchEntriesTool.Parameters("project-1", "item-1", 10, 0), any());
-        verify(fetchRelationships).execute(new FetchRelationshipsTool.Parameters("project-1", "item-1", 5, 0), any());
+        verify(fetchEntries).execute(eq(new FetchEntriesTool.Parameters("project-1", "item-1", 10, 0)), any());
+        verify(fetchRelationships).execute(eq(new FetchRelationshipsTool.Parameters("project-1", "item-1", 5, 0)), any());
     }
 
     private WorkItemMcpTools controller() {

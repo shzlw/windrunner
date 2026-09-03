@@ -616,7 +616,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-14 shrink-0 items-center border-b px-4 py-3 md:px-6">
+      <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('ask.askAi')}</h1>
       </div>
 

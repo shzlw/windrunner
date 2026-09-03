@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,7 +61,7 @@ class IdentityMcpToolsTest {
         assertThat(result.total()).isEqualTo(125);
         assertThat(result.hasMore()).isTrue();
         verify(authorization).requireScope(ApiKeyScopes.TEAM_MEMBERS_READ);
-        verify(teamMembers).execute(new FetchTeamMembersTool.Parameters("team-1", 20, 40), any());
+        verify(teamMembers).execute(eq(new FetchTeamMembersTool.Parameters("team-1", 20, 40)), any());
     }
 
     @Test
@@ -75,7 +76,7 @@ class IdentityMcpToolsTest {
         assertThat(result).isEqualTo(new IdentityMcpTools.UserDetails(
                 "user-1", "jane", "Jane Doe", "jane@example.com", "Product", "Owns discovery."));
         verify(authorization).requireScope(ApiKeyScopes.USERS_READ);
-        verify(userDetails).execute(new FetchUserDetailsTool.Parameters(List.of("user-1")), any());
+        verify(userDetails).execute(eq(new FetchUserDetailsTool.Parameters(List.of("user-1"))), any());
     }
 
     private IdentityMcpTools tools() {

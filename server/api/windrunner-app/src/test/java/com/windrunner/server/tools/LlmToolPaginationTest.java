@@ -30,7 +30,6 @@ import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
 import com.windrunner.server.work.persistence.WorkItemRepository;
 import com.windrunner.server.search.SearchNormalizer;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -42,7 +41,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class LlmToolPaginationTest {
@@ -76,15 +74,9 @@ class LlmToolPaginationTest {
 
     private final ToolExecutionContext context = context();
 
-    @BeforeEach
-    void authorizeToolReads() {
-        when(authorization.requireProject(any(), any()))
-                .thenAnswer(invocation -> ((ToolExecutionContext) invocation.getArgument(0))
-                        .requireProjectId((String) invocation.getArgument(1)));
-    }
-
     @Test
     void fetchWorkItemsUsesDatabasePageAndBatchesAssignees() {
+        authorizeProjectRead();
         WorkItem item = workItem("item-1");
         WorkItemAssignee assignee = new WorkItemAssignee();
         assignee.setWorkItemId("item-1");
@@ -110,6 +102,7 @@ class LlmToolPaginationTest {
 
     @Test
     void fetchWorkItemsUsesBoundedSearchQueryAndReportsMorePages() {
+        authorizeProjectRead();
         WorkItem item = workItem("item-1");
         when(searchNormalizer.normalize("deployment")).thenReturn("deploy");
         when(workItemRepository.searchInProjectPage("project-1", "deploy", "deployment", 20, 0L))
@@ -128,6 +121,7 @@ class LlmToolPaginationTest {
 
     @Test
     void fetchEntriesUsesPagedServiceReadAndReportsMorePages() {
+        authorizeProjectRead();
         Entry entry = new Entry();
         entry.setId("entry-1");
         when(entryService.listPageForTool("project-1", "item-1", 10, 10L)).thenReturn(List.of(entry));
@@ -146,6 +140,7 @@ class LlmToolPaginationTest {
 
     @Test
     void fetchRelationshipsUsesTargetedPagedEntityRead() {
+        authorizeProjectRead();
         Relationship relationship = new Relationship();
         relationship.setId("relationship-1");
         when(relationshipService.listPageForTool("project-1", "item-1", 50, 0L)).thenReturn(List.of(relationship));
@@ -163,6 +158,7 @@ class LlmToolPaginationTest {
 
     @Test
     void fetchProjectBlockersIsBoundedAndReportsTotal() {
+        authorizeProjectRead();
         RelationshipRepository.BlockerRow row = new RelationshipRepository.BlockerRow(
                 "relationship-1", "blocked-1", "Blocked", "OPEN", "blocker-1", "Blocker", "OPEN", "reason");
         when(relationshipRepository.findPageWorkItemBlockers("project-1", 50, 50L)).thenReturn(List.of(row));
@@ -226,6 +222,7 @@ class LlmToolPaginationTest {
 
     @Test
     void fetchProjectAssigneesReturnsOnlyProjectScopedCandidates() {
+        authorizeProjectRead();
         AppUser user = new AppUser();
         user.setId("user-1");
         user.setUsername("kc");
@@ -253,6 +250,7 @@ class LlmToolPaginationTest {
 
     @Test
     void projectSummaryKeepsAggregationServerSide() {
+        authorizeProjectRead();
         when(workItemRepository.countAllByProjectId("project-1")).thenReturn(1000L);
         when(entryRepository.countAllByProjectId("project-1")).thenReturn(2000L);
         when(relationshipRepository.countAllByProjectId("project-1")).thenReturn(300L);
@@ -276,6 +274,12 @@ class LlmToolPaginationTest {
         verify(workItemRepository, never()).findByProjectId("project-1");
         verify(entryRepository, never()).findByProjectId("project-1");
         verify(relationshipRepository, never()).findByProjectId("project-1");
+    }
+
+    private void authorizeProjectRead() {
+        when(authorization.requireProject(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> ((ToolExecutionContext) invocation.getArgument(0))
+                        .requireProjectId((String) invocation.getArgument(1)));
     }
 
     private static WorkItem workItem(String id) {
