@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Copy, Cpu, Eye, EyeOff, KeyRound, LogOut, Plug, RefreshCw, Server, ShieldAlert, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Cpu, Eye, EyeOff, KeyRound, LogOut, Mic, Plug, RefreshCw, Server, ShieldAlert, X } from 'lucide-react'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import LanguageSelect from '@/components/LanguageSelect'
@@ -607,6 +607,20 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                           <span className="font-mono text-xs">{systemInformation.llmModel}</span>
                           <span className="ml-2 text-xs font-normal text-muted-foreground">
                             ({systemInformation.llmAvailable ? t('account.available') : t('account.unavailable')})
+                          </span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          <Mic className="h-3.5 w-3.5" />
+                          {t('account.audioTranscription')}
+                        </dt>
+                        <dd className="mt-0.5 text-sm font-medium">
+                          <span className="capitalize">{systemInformation.audioTranscriptionProvider || '—'}</span>
+                          <span className="mx-1.5 text-muted-foreground">·</span>
+                          <span className="font-mono text-xs">{displayValue(systemInformation.audioTranscriptionModel) ?? '—'}</span>
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            ({systemInformation.audioTranscriptionAvailable ? t('account.available') : t('account.unavailable')})
                           </span>
                         </dd>
                       </div>

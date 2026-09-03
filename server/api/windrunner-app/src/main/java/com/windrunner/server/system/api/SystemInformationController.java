@@ -1,6 +1,8 @@
 package com.windrunner.server.system.api;
 
 import com.windrunner.server.api.ApiResponse;
+import com.windrunner.server.audio.AudioTranscriptionService;
+import com.windrunner.server.audio.config.AudioTranscriptionProperties;
 import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.llm.LlmAvailabilityService;
 import com.windrunner.server.user.domain.AppUser;
@@ -19,6 +21,8 @@ public class SystemInformationController {
 
     private final AuthService authService;
     private final LlmAvailabilityService llmAvailabilityService;
+    private final AudioTranscriptionProperties audioTranscriptionProperties;
+    private final ObjectProvider<AudioTranscriptionService> audioTranscriptionService;
     private final ObjectProvider<BuildProperties> buildProperties;
 
     @GetMapping
@@ -29,13 +33,29 @@ public class SystemInformationController {
         String version = build == null || build.getVersion() == null || build.getVersion().isBlank()
                 ? "—"
                 : build.getVersion();
+        AudioTranscriptionService audioService = audioTranscriptionService.getIfAvailable();
         return ApiResponse.success(new SystemInformation(
                 version,
                 llmAvailabilityService.provider(),
                 llmAvailabilityService.model(),
-                llmAvailabilityService.available()));
+                llmAvailabilityService.available(),
+                audioService == null
+                        ? audioTranscriptionProperties.configuredProvider()
+                        : audioService.provider(),
+                audioService == null
+                        ? audioTranscriptionProperties.configuredModel()
+                        : audioService.model(),
+                audioService != null));
     }
 
-    public record SystemInformation(String serverVersion, String llmProvider, String llmModel, boolean llmAvailable) {
+    public record SystemInformation(
+            String serverVersion,
+            String llmProvider,
+            String llmModel,
+            boolean llmAvailable,
+            String audioTranscriptionProvider,
+            String audioTranscriptionModel,
+            boolean audioTranscriptionAvailable
+    ) {
     }
 }

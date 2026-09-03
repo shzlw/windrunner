@@ -343,6 +343,18 @@ export interface ChatStreamData {
   assistantMessageId?: string
 }
 
+export interface AudioTranscriptionStatus {
+  available: boolean
+  provider: string | null
+  model: string | null
+  maxDurationSeconds: number
+  maxFileSizeBytes: number
+}
+
+export interface AudioTranscriptionResponse {
+  text: string
+}
+
 export interface ChatSessionMessage extends ChatMessage {
   id: string
   chatSessionId: string
@@ -393,6 +405,9 @@ export interface SystemInformation {
   llmProvider: string
   llmModel: string
   llmAvailable: boolean
+  audioTranscriptionProvider: string
+  audioTranscriptionModel: string | null
+  audioTranscriptionAvailable: boolean
 }
 
 export interface ApiError {
@@ -819,6 +834,29 @@ export async function streamChatSession(
     },
     onEvent,
   )
+}
+
+export async function getAudioTranscriptionStatus(): Promise<AudioTranscriptionStatus> {
+  return request<AudioTranscriptionStatus>('/internal-api/v1/audio/transcriptions/status', { method: 'GET' })
+}
+
+export async function transcribeAudio(
+  audio: Blob,
+  fileName: string,
+  language?: string,
+  signal?: AbortSignal,
+): Promise<AudioTranscriptionResponse> {
+  const body = new FormData()
+  body.append('file', audio, fileName)
+  if (language?.trim()) {
+    body.append('language', language.trim())
+  }
+
+  return request<AudioTranscriptionResponse>('/internal-api/v1/audio/transcriptions', {
+    method: 'POST',
+    body,
+    signal,
+  })
 }
 
 export async function getChatSession(sessionId: string): Promise<ChatSession> {

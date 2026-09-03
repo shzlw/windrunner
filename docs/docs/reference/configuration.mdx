@@ -83,6 +83,30 @@ selects `openai` unless you override it.
 | `WINDRUNNER_LLM_OPENAI_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
 | `WINDRUNNER_LLM_OPENAI_READ_TIMEOUT` | `2m` | Response read timeout. |
 
+### Voice transcription
+
+Voice dictation uses the provider selected by
+`WINDRUNNER_AUDIO_TRANSCRIPTION_PROVIDER`, independently of the chat
+provider. Set `WINDRUNNER_AUDIO_TRANSCRIPTION_ENABLED=true` and configure the
+selected provider to show the microphone control in Ask AI. Recordings are
+handled as temporary multipart uploads and are not persisted by Windrunner.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_ENABLED` | `false` | Enables voice dictation in the chat composer. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_PROVIDER` | `openai` | Selects the transcription provider. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_MAX_DURATION_SECONDS` | `120` | Maximum browser recording duration. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_MAX_FILE_SIZE_BYTES` | `10485760` | Maximum uploaded audio size. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_CONNECT_TIMEOUT` | `10s` | Provider connection timeout. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_READ_TIMEOUT` | `2m` | Provider response timeout. |
+| `OPENAI_TRANSCRIPTION_API_KEY` | Falls back to `OPENAI_API_KEY` | Optional provider-specific API key. |
+| `OPENAI_TRANSCRIPTION_BASE_URL` | `https://api.openai.com/v1` | OpenAI transcription API base URL. |
+| `OPENAI_TRANSCRIPTION_MODEL` | `gpt-transcribe` | OpenAI transcription model. |
+| `GEMINI_TRANSCRIPTION_API_KEY` | Falls back to `GEMINI_API_KEY` | Optional provider-specific API key. |
+| `GEMINI_TRANSCRIPTION_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini transcription API base URL. |
+| `GEMINI_TRANSCRIPTION_MODEL` | `gemini-2.5-flash` | Gemini transcription model. |
+| `WINDRUNNER_UPLOAD_TEMP_DIR` | Java temporary directory | Directory used for transient multipart uploads. |
+
 ### Gemini
 
 | Variable | Default | Description |

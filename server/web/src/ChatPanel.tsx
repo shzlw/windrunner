@@ -5,7 +5,7 @@ import type { Components } from 'react-markdown'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import { useParams } from 'react-router'
-import { AlertTriangle, ArrowUp, Bot, FileText, FolderOpen, Loader2, Plus, Square, User, UserRound, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, ArrowUp, Bot, FileText, FolderOpen, Loader2, Mic, Plus, Square, User, UserRound, UsersRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -15,8 +15,10 @@ import { Button } from '@/components/ui/button'
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import VoiceWaveform from '@/components/VoiceWaveform'
 import { cn } from '@/lib/utils'
 import { translateStatus, translateWorkItemType } from '@/i18n/labels'
+import useVoiceTranscription, { formatRecordingTime } from '@/hooks/use-voice-transcription'
 import {
   getChatSession,
   startNewChatSession,
@@ -282,10 +284,30 @@ export default function ChatPanel({
   const [isStreaming, setIsStreaming] = useState(false)
   const viewportRef = useRef<HTMLDivElement>(null)
   const composerFormRef = useRef<HTMLFormElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const hasAutoSubmittedInitialDraftRef = useRef(false)
   const isRequestInFlightRef = useRef(false)
   const requestSessionIdRef = useRef<string | null>(null)
+  const voiceTranscription = useVoiceTranscription({
+    value: draft,
+    onValueChange: setDraft,
+    inputRef: textareaRef,
+    disabled: isLoadingSession || isStreaming,
+  })
+  const {
+    available: isTranscriptionAvailable,
+    voiceInputSupported,
+    isRecording,
+    isTranscribing,
+    recordingSeconds,
+    transcriptionError,
+    microphonePermission,
+    waveformLevels,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = voiceTranscription
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -357,7 +379,7 @@ export default function ChatPanel({
     return () => {
       isMounted = false
     }
-  }, [sessionId])
+  }, [sessionId, t])
 
   function applySession(session: ChatSession) {
     setMessages(session.messages.map((message) => ({
@@ -370,7 +392,7 @@ export default function ChatPanel({
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = draft.trim()
-    if (!content || isStreaming || isLoadingSession) {
+    if (!content || isStreaming || isRecording || isTranscribing || isLoadingSession) {
       return
     }
 
@@ -512,6 +534,8 @@ export default function ChatPanel({
   }
 
   function renderComposer() {
+    const voiceButtonDisabled = isLoadingSession || isStreaming || isTranscribing
+
     return (
       <form ref={composerFormRef} className="w-full" onSubmit={handleSend}>
         {selectedContext ? (
@@ -533,33 +557,75 @@ export default function ChatPanel({
         {messages.length > 0 && composerFooter ? <div className="mb-2.5">{composerFooter}</div> : null}
         <div className="rounded-md border bg-background p-2 transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/20">
           <Textarea
+            ref={textareaRef}
             rows={2}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleTextareaKeyDown}
             placeholder={t('home.askAnything')}
-            disabled={isLoadingSession}
+            disabled={isLoadingSession || isRecording || isTranscribing}
             className="max-h-32 min-h-16 resize-none border-0 px-1 py-1 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
-          <div className="flex justify-end pt-1">
-            {isStreaming ? (
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <div className="flex min-w-0 items-center gap-1">
+              {isRecording ? (
+                <div className="flex items-center gap-2 px-1 text-xs text-destructive" aria-live="polite">
+                  <VoiceWaveform levels={waveformLevels} />
+                  <span>{formatRecordingTime(recordingSeconds)}</span>
+                </div>
+              ) : isTranscribing ? (
+                <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground" aria-live="polite">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>{t('chat.transcribing')}</span>
+                </div>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-1">
+              {isRecording ? (
+                <>
+                  <Button type="button" size="icon" variant="ghost" onClick={cancelRecording} aria-label={t('chat.cancelRecording')} title={t('chat.cancelRecording')}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" size="icon" variant="outline" onClick={stopRecording} aria-label={t('chat.stopRecording')} title={t('chat.stopRecording')}>
+                    <Square className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : isStreaming ? (
               <Button type="button" size="icon" variant="outline" onClick={stopStreaming} aria-label={t('chat.stopResponse')}>
                 <Square className="h-4 w-4" />
               </Button>
-            ) : (
-              <Button type="submit" size="icon" disabled={isLoadingSession || !draft.trim()} aria-label={t('chat.sendMessage')}>
-                <ArrowUp className="h-4 w-4" />
-              </Button>
-            )}
+              ) : (
+                <>
+                  {isTranscriptionAvailable && voiceInputSupported && !isTranscribing ? (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => void startRecording()}
+                      disabled={voiceButtonDisabled}
+                      aria-label={t('chat.recordVoice')}
+                      title={t('chat.recordVoice')}
+                    >
+                      <Mic className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                  <Button type="submit" size="icon" disabled={isLoadingSession || isTranscribing || !draft.trim()} aria-label={t('chat.sendMessage')}>
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
+        {transcriptionError ? <div className="mt-2 text-xs text-destructive" role="alert">{transcriptionError}</div> : null}
+        {microphonePermission === 'denied' && !transcriptionError ? <div className="mt-2 text-xs text-destructive" role="alert">{t('chat.microphonePermissionDenied')}</div> : null}
         {messages.length === 0 && composerFooter ? <div className="mt-2.5">{composerFooter}</div> : null}
       </form>
     )
   }
 
   async function handleStartNewSession() {
-    if (isStreaming || isStartingSession) {
+    if (isStreaming || isRecording || isTranscribing || isStartingSession) {
       return
     }
 
