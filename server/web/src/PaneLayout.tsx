@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { Bot, ChevronLeft } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { useGroupRef, usePanelRef } from 'react-resizable-panels'
 import { useTranslation } from 'react-i18next'
 
@@ -15,8 +15,6 @@ type PaneLayoutProps = {
   content?: ReactNode
   chat?: ReactNode
   artifact?: ReactNode
-  onOpenAssistant?: () => void | Promise<void>
-  assistantLabel?: string
   className?: string
 }
 
@@ -37,23 +35,7 @@ function loadDefaultLayout(storageKey: string) {
   return { 'conversation-pane': 35, 'artifact-pane': 65 }
 }
 
-function AssistantLauncher({ onClick, label }: { onClick: () => void | Promise<void>; label: string }) {
-  return (
-    <Button
-      type="button"
-      size="icon-lg"
-      variant="outline"
-      className="absolute right-5 bottom-5 z-20 h-14 w-14 rounded-full bg-background shadow-md"
-      onClick={() => void onClick()}
-      aria-label={label}
-      title={label}
-    >
-      <Bot className="h-7 w-7" size={48} />
-    </Button>
-  )
-}
-
-export default function PaneLayout({ mode, content, chat, artifact, onOpenAssistant, assistantLabel, className }: PaneLayoutProps) {
+export default function PaneLayout({ mode, content, chat, artifact, className }: PaneLayoutProps) {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
   const location = useLocation()
@@ -61,18 +43,8 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
   const groupRef = useGroupRef()
   const chatPanelRef = usePanelRef()
   const [mobilePane, setMobilePane] = useState<'chat' | 'artifact'>('chat')
-  const [isChatCollapsed, setIsChatCollapsed] = useState(false)
   const defaultLayout = useMemo(() => loadDefaultLayout(paneLayoutStorageKey), [])
   const rootClassName = ['flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background', className ?? ''].join(' ')
-
-  function openAssistant() {
-    const params = new URLSearchParams(location.search)
-    params.set('chatPanel', 'open')
-    const query = params.toString()
-    navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`)
-  }
-
-  const handleOpenAssistant = onOpenAssistant ?? openAssistant
 
   function toggleChatPanel() {
     const panel = chatPanelRef.current
@@ -82,21 +54,14 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
     const shouldOpen = panel.isCollapsed()
     if (shouldOpen) {
       panel.expand()
-      setIsChatCollapsed(false)
     } else {
       panel.collapse()
-      setIsChatCollapsed(true)
     }
 
     const params = new URLSearchParams(location.search)
     params.set('chatPanel', shouldOpen ? 'open' : 'closed')
     const query = params.toString()
     navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, { replace: true })
-  }
-
-  async function expandAssistant() {
-    await handleOpenAssistant()
-    toggleChatPanel()
   }
 
   if (mode === 'full') {
@@ -119,7 +84,6 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {artifact}
         </main>
-        <AssistantLauncher onClick={handleOpenAssistant} label={assistantLabel ?? t('pane.openAskAi')} />
       </div>
     )
   }
@@ -185,7 +149,6 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
           collapsible
           collapsedSize={0}
           panelRef={chatPanelRef}
-          onResize={(size) => setIsChatCollapsed(size.inPixels < 10)}
         >
           <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-r bg-background">
             {chat}
@@ -206,7 +169,6 @@ export default function PaneLayout({ mode, content, chat, artifact, onOpenAssist
         <ResizablePanel id="artifact-pane" defaultSize="65%" minSize={320}>
           <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
             {artifact}
-            {isChatCollapsed ? <AssistantLauncher onClick={expandAssistant} label={assistantLabel ?? t('pane.expandAskAi')} /> : null}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

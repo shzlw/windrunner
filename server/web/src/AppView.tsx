@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useOutlet, useOutletContext, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -37,9 +37,7 @@ export default function AppView() {
     teamId ? { entityType: 'TEAM', entityId: teamId, label: 'team' } : null,
     userId ? { entityType: 'USER', entityId: userId, label: 'user' } : null,
   ].filter((context): context is PageArtifactContext => Boolean(context))
-  const assistantArtifact = artifactContexts.find((context) => context.entityType === 'WORK_ITEM') ?? artifactContexts[0]
-
-  async function openAssistant() {
+  const openAssistant = useCallback(async () => {
     let sessionId = searchParams.get('chatSessionId')
     if (artifactContexts.length > 0) {
       if (!sessionId) {
@@ -66,7 +64,14 @@ export default function AppView() {
     }
     const query = nextParams.toString()
     navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`)
-  }
+  }, [appContext, artifactContexts, location.hash, location.pathname, navigate, searchParams, t])
+
+  useEffect(() => {
+    if (isHome || isAskAi) {
+      return
+    }
+    return appContext.registerOpenAssistant(openAssistant)
+  }, [appContext, isAskAi, isHome, openAssistant])
 
   if (isHome) {
     return <PaneLayout mode="full" content={outlet} />
@@ -81,8 +86,6 @@ export default function AppView() {
       mode={hasChatPanel ? 'split' : 'artifact'}
       chat={hasChatPanel ? <AskPage projectId={projectId} onGraphChangeProposalSaved={notifyArtifactChange} /> : undefined}
       artifact={outlet}
-      onOpenAssistant={openAssistant}
-      assistantLabel={assistantArtifact ? `Ask AI about this ${assistantArtifact.label}` : undefined}
     />
   )
 }

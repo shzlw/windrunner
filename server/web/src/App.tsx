@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { Bot, ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 
@@ -68,6 +68,7 @@ export type AskPageOutletContext = {
   createChatSession: () => Promise<ChatSession | null>
   onSubmitHomeCommand: (prompt: string) => Promise<void>
   onStreamingChange: (isStreaming: boolean) => void
+  registerOpenAssistant: (handler: (() => void | Promise<void>) | null) => () => void
 }
 
 
@@ -339,6 +340,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const [isStartingSession, setIsStartingSession] = useState(false)
   const [isChatStreaming, setIsChatStreaming] = useState(false)
   const [newChatRequestKey, setNewChatRequestKey] = useState(0)
+  const openAssistantHandlerRef = useRef<(() => void | Promise<void>) | null>(null)
   const menuItems = baseMenuItems
   const accountLabel = currentUser?.displayName || currentUser?.username || 'account'
   const refreshChatSessions = useCallback(async (preferredSessionId?: string) => {
@@ -441,6 +443,23 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     navigate(`/app/ask-ai?chatSessionId=${encodeURIComponent(session.id)}`)
   }
 
+  async function handleAskAi() {
+    if (openAssistantHandlerRef.current) {
+      await openAssistantHandlerRef.current()
+      return
+    }
+    navigate('/app/ask-ai')
+  }
+
+  const registerOpenAssistant = useCallback((handler: (() => void | Promise<void>) | null) => {
+    openAssistantHandlerRef.current = handler
+    return () => {
+      if (openAssistantHandlerRef.current === handler) {
+        openAssistantHandlerRef.current = null
+      }
+    }
+  }, [])
+
   async function handleHomeCommand(prompt: string) {
     setNewChatRequestKey((current) => current + 1)
     const session = await createChatSession()
@@ -495,6 +514,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     createChatSession,
     onSubmitHomeCommand: handleHomeCommand,
     onStreamingChange: setIsChatStreaming,
+    registerOpenAssistant,
   }
 
   return (
@@ -531,11 +551,11 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      render={<button type="button" onClick={() => void handleNewChat()} />}
-                      tooltip={t('navigation.newChat')}
+                      render={<button type="button" onClick={() => void handleAskAi()} />}
+                      tooltip={t('pane.openAskAi')}
                     >
-                      <Plus />
-                      <span>{t('navigation.newChat')}</span>
+                      <Bot />
+                      <span>{t('ask.askAi')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
@@ -543,7 +563,20 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
             </SidebarGroup>
             <SidebarSeparator className="mx-0" />
             <SidebarGroup className="min-h-0 flex-1 overflow-hidden pt-2">
-              <SidebarGroupLabel className="h-6 px-2">{t('navigation.recentConversations')}</SidebarGroupLabel>
+              <SidebarGroupLabel className="h-6 justify-between px-2">
+                <span>{t('navigation.recentConversations')}</span>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  className="group-data-[collapsible=icon]:hidden"
+                  onClick={() => void handleNewChat()}
+                  aria-label={t('navigation.newChat')}
+                  title={t('navigation.newChat')}
+                >
+                  <Plus />
+                </Button>
+              </SidebarGroupLabel>
               <SidebarGroupContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <AskSessionsSidebar
                 sessions={askSessions}
