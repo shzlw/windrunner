@@ -88,6 +88,72 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
             SELECT w.id, w.project_id, w.parent_work_item_id, w.sort_index, w.type, w.title, w.status, w.due_date, w.priority, w.created_by_user_id, w.created_at, w.updated_at
             FROM work_item w
             WHERE w.project_id = :projectId
+              AND (:parentWorkItemId IS NULL
+                OR (:parentWorkItemId = 'PROJECT_ROOT' AND w.parent_work_item_id IS NULL)
+                OR w.parent_work_item_id = :parentWorkItemId)
+              AND (:type IS NULL OR w.type = :type)
+            ORDER BY w.updated_at DESC, w.id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<WorkItem> findPageForProjectWithFilters(@Param("projectId") String projectId,
+                                                 @Param("parentWorkItemId") String parentWorkItemId,
+                                                 @Param("type") String type,
+                                                 @Param("limit") int limit,
+                                                 @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM work_item w
+            WHERE w.project_id = :projectId
+              AND (:parentWorkItemId IS NULL
+                OR (:parentWorkItemId = 'PROJECT_ROOT' AND w.parent_work_item_id IS NULL)
+                OR w.parent_work_item_id = :parentWorkItemId)
+              AND (:type IS NULL OR w.type = :type)
+            """)
+    long countForProjectWithFilters(@Param("projectId") String projectId,
+                                    @Param("parentWorkItemId") String parentWorkItemId,
+                                    @Param("type") String type);
+
+    @Query("""
+            SELECT w.id, w.project_id, w.parent_work_item_id, w.sort_index, w.type, w.title, w.status, w.due_date, w.priority, w.created_by_user_id, w.created_at, w.updated_at
+            FROM work_item w, websearch_to_tsquery('simple', :ftsQuery) q
+            WHERE w.project_id = :projectId
+              AND (:parentWorkItemId IS NULL
+                OR (:parentWorkItemId = 'PROJECT_ROOT' AND w.parent_work_item_id IS NULL)
+                OR w.parent_work_item_id = :parentWorkItemId)
+              AND (:type IS NULL OR w.type = :type)
+              AND (w.search_vec @@ q OR w.title % :rawQuery)
+            ORDER BY ts_rank_cd(w.search_vec, q) DESC, w.updated_at DESC, w.id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<WorkItem> searchInProjectPageWithFilters(@Param("projectId") String projectId,
+                                                  @Param("ftsQuery") String ftsQuery,
+                                                  @Param("rawQuery") String rawQuery,
+                                                  @Param("parentWorkItemId") String parentWorkItemId,
+                                                  @Param("type") String type,
+                                                  @Param("limit") int limit,
+                                                  @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM work_item w, websearch_to_tsquery('simple', :ftsQuery) q
+            WHERE w.project_id = :projectId
+              AND (:parentWorkItemId IS NULL
+                OR (:parentWorkItemId = 'PROJECT_ROOT' AND w.parent_work_item_id IS NULL)
+                OR w.parent_work_item_id = :parentWorkItemId)
+              AND (:type IS NULL OR w.type = :type)
+              AND (w.search_vec @@ q OR w.title % :rawQuery)
+            """)
+    long countSearchInProjectWithFilters(@Param("projectId") String projectId,
+                                         @Param("ftsQuery") String ftsQuery,
+                                         @Param("rawQuery") String rawQuery,
+                                         @Param("parentWorkItemId") String parentWorkItemId,
+                                         @Param("type") String type);
+
+    @Query("""
+            SELECT w.id, w.project_id, w.parent_work_item_id, w.sort_index, w.type, w.title, w.status, w.due_date, w.priority, w.created_by_user_id, w.created_at, w.updated_at
+            FROM work_item w
+            WHERE w.project_id = :projectId
               AND (:status IS NULL OR w.status = :status)
               AND (:type IS NULL OR w.type = :type)
               AND (:priority IS NULL OR w.priority = :priority)

@@ -82,9 +82,9 @@ class LlmToolPaginationTest {
         assignee.setWorkItemId("item-1");
         assignee.setAssigneeType("USER");
         assignee.setAssigneeId("user-1");
-        when(workItemRepository.findPageForProject("project-1", null, null, null, null, 50, 100L))
+        when(workItemRepository.findPageForProjectWithFilters("project-1", null, null, 50, 100L))
                 .thenReturn(List.of(item));
-        when(workItemRepository.countForProject("project-1", null, null, null, null)).thenReturn(101L);
+        when(workItemRepository.countForProjectWithFilters("project-1", null, null)).thenReturn(101L);
         when(workItemAssigneeRepository.findByWorkItemIds(List.of("item-1"))).thenReturn(List.of(assignee));
 
         FetchWorkItemsTool.Response response = (FetchWorkItemsTool.Response) new FetchWorkItemsTool(
@@ -105,9 +105,9 @@ class LlmToolPaginationTest {
         authorizeProjectRead();
         WorkItem item = workItem("item-1");
         when(searchNormalizer.normalize("deployment")).thenReturn("deploy");
-        when(workItemRepository.searchInProjectPage("project-1", "deploy", "deployment", 20, 0L))
+        when(workItemRepository.searchInProjectPageWithFilters("project-1", "deploy", "deployment", null, null, 20, 0L))
                 .thenReturn(List.of(item));
-        when(workItemRepository.countSearchInProject("project-1", "deploy", "deployment")).thenReturn(21L);
+        when(workItemRepository.countSearchInProjectWithFilters("project-1", "deploy", "deployment", null, null)).thenReturn(21L);
         when(workItemAssigneeRepository.findByWorkItemIds(List.of("item-1"))).thenReturn(List.of());
 
         FetchWorkItemsTool.Response response = (FetchWorkItemsTool.Response) new FetchWorkItemsTool(
@@ -117,6 +117,24 @@ class LlmToolPaginationTest {
         assertThat(response.total()).isEqualTo(21);
         assertThat(response.hasMore()).isTrue();
         verify(workItemRepository, never()).findPageForProject("project-1", null, null, null, null, 20, 0L);
+    }
+
+    @Test
+    void fetchWorkItemsAppliesParentAndTypeFilters() {
+        authorizeProjectRead();
+        WorkItem item = workItem("item-1");
+        when(workItemRepository.findPageForProjectWithFilters(
+                "project-1", "parent-1", "TASK", 50, 0L)).thenReturn(List.of(item));
+        when(workItemRepository.countForProjectWithFilters("project-1", "parent-1", "TASK")).thenReturn(1L);
+        when(workItemAssigneeRepository.findByWorkItemIds(List.of("item-1"))).thenReturn(List.of());
+
+        FetchWorkItemsTool.Response response = (FetchWorkItemsTool.Response) new FetchWorkItemsTool(
+                workItemRepository, workItemAssigneeRepository, searchNormalizer, authorization)
+                .execute(new FetchWorkItemsTool.Parameters("project-1", null, " parent-1 ", "task", null, null), context);
+
+        assertThat(response.total()).isOne();
+        assertThat(response.workItems()).hasSize(1);
+        verify(workItemRepository).findPageForProjectWithFilters("project-1", "parent-1", "TASK", 50, 0L);
     }
 
     @Test

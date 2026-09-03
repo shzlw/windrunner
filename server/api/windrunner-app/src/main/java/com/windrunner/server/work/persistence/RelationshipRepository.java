@@ -132,6 +132,44 @@ public interface RelationshipRepository extends CrudRepository<Relationship, Str
     Optional<Relationship> findById(@Param("id") String id);
 
     @Query("""
+            SELECT r.id, r.project_id, r.from_entity_type, r.from_entity_id, r.to_entity_type, r.to_entity_id, r.type, r.reason, r.source_entry_id, r.created_by_user_id, r.created_at
+            FROM relationship r
+            WHERE r.project_id = :projectId
+              AND r.from_entity_type = :fromEntityType
+              AND r.from_entity_id = :fromEntityId
+              AND r.to_entity_type = :toEntityType
+              AND r.to_entity_id = :toEntityId
+              AND r.type = :relationshipType
+            ORDER BY r.created_at DESC, r.id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<Relationship> findExactPage(@Param("projectId") String projectId,
+                                     @Param("fromEntityType") String fromEntityType,
+                                     @Param("fromEntityId") String fromEntityId,
+                                     @Param("toEntityType") String toEntityType,
+                                     @Param("toEntityId") String toEntityId,
+                                     @Param("relationshipType") String relationshipType,
+                                     @Param("limit") int limit,
+                                     @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM relationship r
+            WHERE r.project_id = :projectId
+              AND r.from_entity_type = :fromEntityType
+              AND r.from_entity_id = :fromEntityId
+              AND r.to_entity_type = :toEntityType
+              AND r.to_entity_id = :toEntityId
+              AND r.type = :relationshipType
+            """)
+    long countExact(@Param("projectId") String projectId,
+                    @Param("fromEntityType") String fromEntityType,
+                    @Param("fromEntityId") String fromEntityId,
+                    @Param("toEntityType") String toEntityType,
+                    @Param("toEntityId") String toEntityId,
+                    @Param("relationshipType") String relationshipType);
+
+    @Query("""
             SELECT id, project_id, from_entity_type, from_entity_id, to_entity_type, to_entity_id, type, reason, source_entry_id, created_by_user_id, created_at
             FROM relationship
             WHERE project_id = :projectId

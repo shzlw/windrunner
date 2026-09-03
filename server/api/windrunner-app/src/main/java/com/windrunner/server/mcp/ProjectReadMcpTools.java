@@ -8,6 +8,8 @@ import com.windrunner.server.tools.work.FetchProjectBlockersTool;
 import com.windrunner.server.tools.work.FetchProjectSummaryTool;
 import com.windrunner.server.tools.work.FetchRelationshipsTool;
 import com.windrunner.server.tools.work.FetchWorkItemsTool;
+import com.windrunner.server.tools.work.FindRelationshipsExactTool;
+import com.windrunner.server.tools.work.SearchEntriesTool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
@@ -28,20 +30,28 @@ public class ProjectReadMcpTools {
     private final FetchRelationshipsTool relationships;
     private final FetchProjectBlockersTool blockers;
     private final FetchProjectSummaryTool summary;
+    private final SearchEntriesTool searchEntries;
+    private final FindRelationshipsExactTool exactRelationships;
 
     @McpTool(
             name = "list_work_items",
-            description = "List one bounded page of a project's work items, optionally filtered by query. The response includes total and hasMore; fetch another page only when needed, then use get_work_item for one selected item.",
+            description = "List one bounded page of a project's work items, optionally filtered by title query, exact parentWorkItemId, or exact type. Use PROJECT_ROOT for top-level items. The response includes total and hasMore; fetch another page only when needed, then use get_work_item for one selected item.",
             generateOutputSchema = true,
             annotations = @McpAnnotations(
                     readOnlyHint = true,
                     destructiveHint = false,
                     idempotentHint = true,
                     openWorldHint = false))
-    public FetchWorkItemsTool.Response listWorkItems(String projectId, String query, Integer limit, Integer offset) {
+    public FetchWorkItemsTool.Response listWorkItems(String projectId, String query,
+                                                     String parentWorkItemId, String type,
+                                                     Integer limit, Integer offset) {
         AuthorizedProject authorizedProject = authorizeProject(projectId, ApiKeyScopes.WORK_ITEMS_READ);
         return execute(workItems, new FetchWorkItemsTool.Parameters(
-                authorizedProject.projectId(), query, limit, offset), authorizedProject.context());
+                authorizedProject.projectId(), query, parentWorkItemId, type, limit, offset), authorizedProject.context());
+    }
+
+    public FetchWorkItemsTool.Response listWorkItems(String projectId, String query, Integer limit, Integer offset) {
+        return listWorkItems(projectId, query, null, null, limit, offset);
     }
 
     @McpTool(
@@ -107,6 +117,38 @@ public class ProjectReadMcpTools {
                 ApiKeyScopes.RELATIONSHIPS_READ);
         return execute(summary, new FetchProjectSummaryTool.Parameters(
                 authorizedProject.projectId()), authorizedProject.context());
+    }
+
+    @McpTool(
+            name = "search_entries",
+            description = "Search bounded entry candidates in a project, optionally restricted to one work item. Set exact=true with the full body and workItemId to check for an exact duplicate; otherwise use ranked full-text candidates.",
+            generateOutputSchema = true,
+            annotations = @McpAnnotations(
+                    readOnlyHint = true,
+                    destructiveHint = false,
+                    idempotentHint = true,
+                    openWorldHint = false))
+    public SearchEntriesTool.Response searchEntries(String projectId, String workItemId, String query,
+                                                    Boolean exact, Integer limit, Integer offset) {
+        AuthorizedProject authorizedProject = authorizeProject(projectId, ApiKeyScopes.ENTRIES_READ);
+        return execute(searchEntries, new SearchEntriesTool.Parameters(
+                authorizedProject.projectId(), workItemId, query, exact, limit, offset), authorizedProject.context());
+    }
+
+    @McpTool(
+            name = "find_relationships_exact",
+            description = "Find relationships matching one project's exact from endpoint, to endpoint, and relationship type. Use this targeted check before proposing a new relationship.",
+            generateOutputSchema = true,
+            annotations = @McpAnnotations(
+                    readOnlyHint = true,
+                    destructiveHint = false,
+                    idempotentHint = true,
+                    openWorldHint = false))
+    public FindRelationshipsExactTool.Response findRelationshipsExact(String projectId, String fromType, String fromId,
+                                                                      String toType, String toId, String relationshipType) {
+        AuthorizedProject authorizedProject = authorizeProject(projectId, ApiKeyScopes.RELATIONSHIPS_READ);
+        return execute(exactRelationships, new FindRelationshipsExactTool.Parameters(
+                authorizedProject.projectId(), fromType, fromId, toType, toId, relationshipType), authorizedProject.context());
     }
 
     private AuthorizedProject authorizeProject(String projectId, String... scopes) {

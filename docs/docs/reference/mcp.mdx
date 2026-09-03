@@ -63,7 +63,9 @@ Read tools:
 | `list_work_items` | `work_items:read` | A bounded, paginated work-item page for a project |
 | `get_work_item` | `work_items:read` + `entries:read` + `relationships:read` | One selected item plus the first bounded pages of entries and relationships |
 | `list_entries` | `entries:read` | A bounded, paginated entry page for a project or work item |
+| `search_entries` | `entries:read` | Ranked entry candidates, or an exact body duplicate check within one work item |
 | `list_relationships` | `relationships:read` | A bounded, paginated relationship page for a project or entity |
+| `find_relationships_exact` | `relationships:read` | Exact endpoint-and-type relationship lookup |
 | `list_project_blockers` | `work_items:read` + `relationships:read` | Server-side blocker results with bounded pagination |
 | `get_project_summary` | `projects:read` + `work_items:read` + `entries:read` + `relationships:read` | Server-side project totals and distributions |
 | `list_my_work` | *(any valid key)* | A bounded, paginated page of items assigned to the key owner |

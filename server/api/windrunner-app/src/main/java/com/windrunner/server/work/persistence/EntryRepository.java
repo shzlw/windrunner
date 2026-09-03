@@ -108,6 +108,54 @@ public interface EntryRepository extends CrudRepository<Entry, String> {
                                 @Param("rawQuery") String rawQuery,
                                 @Param("limit") int limit);
 
+    @Query("""
+            SELECT e.id, e.project_id, e.work_item_id, e.sort_index, e.author_user_id, e.type, e.body, e.created_at, e.updated_at
+            FROM entry e, websearch_to_tsquery('simple', :ftsQuery) q
+            WHERE e.project_id = :projectId
+              AND (:workItemId IS NULL OR e.work_item_id = :workItemId)
+              AND (e.search_vec @@ q OR e.body % :rawQuery)
+            ORDER BY ts_rank_cd(e.search_vec, q) DESC, e.created_at DESC, e.id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<Entry> searchPageInProject(@Param("projectId") String projectId,
+                                    @Param("workItemId") String workItemId,
+                                    @Param("ftsQuery") String ftsQuery,
+                                    @Param("rawQuery") String rawQuery,
+                                    @Param("limit") int limit,
+                                    @Param("offset") long offset);
+
+    @Query("""
+            SELECT COUNT(*)
+            FROM entry e, websearch_to_tsquery('simple', :ftsQuery) q
+            WHERE e.project_id = :projectId
+              AND (:workItemId IS NULL OR e.work_item_id = :workItemId)
+              AND (e.search_vec @@ q OR e.body % :rawQuery)
+            """)
+    long countSearchInProject(@Param("projectId") String projectId,
+                              @Param("workItemId") String workItemId,
+                              @Param("ftsQuery") String ftsQuery,
+                              @Param("rawQuery") String rawQuery);
+
+    @Query("""
+            SELECT e.id, e.project_id, e.work_item_id, e.sort_index, e.author_user_id, e.type, e.body, e.created_at, e.updated_at
+            FROM entry e
+            WHERE e.project_id = :projectId
+              AND e.work_item_id = :workItemId
+              AND e.body = :body
+            ORDER BY e.created_at DESC, e.id
+            LIMIT :limit OFFSET :offset
+            """)
+    List<Entry> findExactPageByProjectAndWorkItemId(@Param("projectId") String projectId,
+                                                    @Param("workItemId") String workItemId,
+                                                    @Param("body") String body,
+                                                    @Param("limit") int limit,
+                                                    @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM entry WHERE project_id = :projectId AND work_item_id = :workItemId AND body = :body")
+    long countExactByProjectAndWorkItemId(@Param("projectId") String projectId,
+                                          @Param("workItemId") String workItemId,
+                                          @Param("body") String body);
+
     @Query("SELECT COALESCE(MAX(sort_index), 0) FROM entry WHERE project_id = :projectId AND work_item_id = :workItemId")
     int maxSortIndex(@Param("projectId") String projectId, @Param("workItemId") String workItemId);
 

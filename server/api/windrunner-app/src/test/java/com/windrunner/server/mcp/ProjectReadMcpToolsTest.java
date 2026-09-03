@@ -3,6 +3,8 @@ package com.windrunner.server.mcp;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.tools.work.FetchProjectSummaryTool;
 import com.windrunner.server.tools.work.FetchWorkItemsTool;
+import com.windrunner.server.tools.work.FindRelationshipsExactTool;
+import com.windrunner.server.tools.work.SearchEntriesTool;
 import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.user.domain.AppUser;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,10 @@ class ProjectReadMcpToolsTest {
     private com.windrunner.server.tools.work.FetchProjectBlockersTool blockers;
     @Mock
     private FetchProjectSummaryTool summary;
+    @Mock
+    private SearchEntriesTool searchEntries;
+    @Mock
+    private FindRelationshipsExactTool exactRelationships;
 
     @Test
     void listWorkItemsAuthorizesProjectAndPassesPageArguments() throws Exception {
@@ -77,7 +83,8 @@ class ProjectReadMcpToolsTest {
     }
 
     private ProjectReadMcpTools tools() {
-        return new ProjectReadMcpTools(authorization, workItems, entries, relationships, blockers, summary);
+        return new ProjectReadMcpTools(authorization, workItems, entries, relationships, blockers, summary,
+                searchEntries, exactRelationships);
     }
 
     private AppUser actor() {
