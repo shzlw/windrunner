@@ -32,6 +32,11 @@ public class FetchWorkItemsTool implements Tool<FetchWorkItemsTool.Parameters> {
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("fetch-work-items-tool.md");
     }

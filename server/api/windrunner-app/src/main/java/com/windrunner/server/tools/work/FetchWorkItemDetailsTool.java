@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 @Component
@@ -24,7 +25,12 @@ public class FetchWorkItemDetailsTool {
     private final EntryRepository entries;
     private final RelationshipRepository relationships;
 
+    /**
+     * The callback may be invoked concurrently when multiple detail calls are
+     * returned in one model response, so callers must provide a thread-safe callback.
+     */
     public LlmTool<Parameters> forProject(String projectId, Consumer<String> onWorkItemRead) {
+        Objects.requireNonNull(onWorkItemRead, "Work item read callback is required");
         return new LlmTool<>(
                 "fetch_work_item_details",
                 "Fetch one related WorkItem with its direct children, recent updates, and relationships. Use only when the supplied WorkItem context is not enough.",
@@ -47,7 +53,8 @@ public class FetchWorkItemDetailsTool {
                             children.stream().map(this::workItemSummary).toList(),
                             itemEntries.stream().map(this::entrySummary).toList(),
                             itemRelationships.stream().map(this::relationshipSummary).toList());
-                });
+                },
+                true);
     }
 
     private boolean blank(String value) {

@@ -29,6 +29,11 @@ public class FetchProjectAssigneesTool implements Tool<FetchProjectAssigneesTool
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("fetch-project-assignees-tool.md");
     }

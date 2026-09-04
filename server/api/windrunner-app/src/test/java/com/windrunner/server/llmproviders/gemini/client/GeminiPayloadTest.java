@@ -49,14 +49,21 @@ class GeminiPayloadTest {
         GeminiRequest request = new GeminiRequest(
                 "gemini-3.1-flash-lite",
                 "Be helpful",
-                List.of(GeminiRequest.StepInput.functionResult("call_123", "propose_work_item_revision", "recorded")),
+                List.of(
+                        GeminiRequest.StepInput.functionResult("call_123", "propose_work_item_revision", "recorded"),
+                        GeminiRequest.StepInput.functionResult("call_456", "fetch_work_item_details", "details")),
                 List.of(GeminiRequest.Tool.function("propose_work_item_revision", "Propose revision", null)),
                 new GeminiRequest.Config(2048, 1.0f),
                 "v1_int123"
         );
 
         String payload = objectMapper.writeValueAsString(request);
-        assertThat(payload).contains("\"type\":\"function_result\"", "\"call_id\":\"call_123\"", "\"name\":\"propose_work_item_revision\"");
+        assertThat(payload).contains(
+                "\"type\":\"function_result\"",
+                "\"call_id\":\"call_123\"",
+                "\"call_id\":\"call_456\"",
+                "\"name\":\"propose_work_item_revision\"",
+                "\"result\":[{\"type\":\"text\",\"text\":\"recorded\"}]");
         assertThat(payload).contains("\"type\":\"function\"", "\"name\":\"propose_work_item_revision\"");
         assertThat(payload).contains("\"generation_config\":{\"max_output_tokens\":2048,\"temperature\":1.0}");
         assertThat(payload).doesNotContain("\"config\":");

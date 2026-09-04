@@ -44,7 +44,8 @@ public class FetchEntryContextTool {
                             new WorkItemSummary(parent.getId(), parent.getParentWorkItemId(), parent.getType(),
                                     parent.getTitle(), parent.getStatus(), parent.getDueDate(), parent.getPriority()),
                             relatedEntries, relatedRelationships);
-                });
+                },
+                true);
     }
 
     private RelationshipSummary relationshipSummary(Relationship relationship) {

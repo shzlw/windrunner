@@ -23,6 +23,11 @@ public class FetchEntriesTool implements Tool<FetchEntriesTool.Parameters> {
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("fetch-entries-tool.md");
     }

@@ -16,7 +16,9 @@ public record OpenAIResponseRequest(
         Reasoning reasoning,
         List<FunctionTool> tools,
         @JsonProperty("parallel_tool_calls")
-        Boolean parallelToolCalls
+        Boolean parallelToolCalls,
+        @JsonProperty("previous_response_id")
+        String previousResponseId
 ) {
 
     public record Reasoning(String effort) {

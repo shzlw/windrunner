@@ -23,6 +23,8 @@ public class ClaudeProperties {
 
     private int maxToolRounds = 8;
 
+    private Duration parallelToolTimeout = Duration.ofSeconds(30);
+
     private Duration connectTimeout = Duration.ofSeconds(10);
 
     private Duration readTimeout = Duration.ofMinutes(2);

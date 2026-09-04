@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 @Component
@@ -15,7 +16,12 @@ import java.util.function.Consumer;
 public class SearchWorkItemsForBlockerTool {
     private final ProjectSearchService projectSearch;
 
+    /**
+     * The callback may be invoked concurrently when multiple search calls are
+     * returned in one model response, so callers must provide a thread-safe callback.
+     */
     public LlmTool<Parameters> forProject(String projectId, String currentWorkItemId, Consumer<String> onWorkItemRead) {
+        Objects.requireNonNull(onWorkItemRead, "Work item read callback is required");
         return new LlmTool<>(
                 "search_work_items_for_blocker",
                 "Search this project for WorkItems that may be relevant blockers. Use a focused query derived from the current WorkItem; only returned IDs may be proposed as blockers.",
@@ -30,7 +36,8 @@ public class SearchWorkItemsForBlockerTool {
                             .toList();
                     results.forEach(item -> onWorkItemRead.accept(item.getId()));
                     return results.stream().map(this::workItemSummary).toList();
-                });
+                },
+                true);
     }
 
     private boolean blank(String value) {

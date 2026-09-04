@@ -10,10 +10,20 @@ public record LlmTool<T>(
         String name,
         String description,
         Class<T> parametersType,
-        LlmToolHandler<T> handler
+        LlmToolHandler<T> handler,
+        boolean parallelSafe
 ) {
 
     private static final Pattern VALID_NAME = Pattern.compile("[a-zA-Z0-9_-]{1,64}");
+
+    public LlmTool(
+            String name,
+            String description,
+            Class<T> parametersType,
+            LlmToolHandler<T> handler
+    ) {
+        this(name, description, parametersType, handler, false);
+    }
 
     public LlmTool {
         if (name == null || !VALID_NAME.matcher(name).matches()) {

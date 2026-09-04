@@ -31,6 +31,11 @@ public class FindRelationshipsExactTool implements Tool<FindRelationshipsExactTo
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("find-relationships-exact-tool.md");
     }

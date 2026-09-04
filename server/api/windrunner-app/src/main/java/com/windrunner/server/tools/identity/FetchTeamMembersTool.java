@@ -36,6 +36,11 @@ public class FetchTeamMembersTool implements Tool<FetchTeamMembersTool.Parameter
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("fetch-team-members-tool.md");
     }

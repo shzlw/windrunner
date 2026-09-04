@@ -29,6 +29,11 @@ public class FetchProjectSummaryTool implements Tool<FetchProjectSummaryTool.Par
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("fetch-project-summary-tool.md");
     }

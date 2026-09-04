@@ -28,6 +28,11 @@ public class FetchTeamsTool implements Tool<FetchTeamsTool.Parameters> {
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt(PROMPT_NAME);
     }

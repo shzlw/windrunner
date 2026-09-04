@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import tools.jackson.databind.JsonNode;
 
 import java.util.List;
-import java.util.Map;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GeminiRequest(
@@ -26,7 +25,7 @@ public record GeminiRequest(
             String callId,
             String name,
             List<ContentPart> content,
-            Map<String, Object> result
+            Object result
     ) {
         public static StepInput userInput(String text) {
             return new StepInput("user_input", null, null, List.of(new ContentPart("text", text)), null);
@@ -37,7 +36,8 @@ public record GeminiRequest(
         }
 
         public static StepInput functionResult(String callId, String name, String output) {
-            return new StepInput("function_result", callId, name, null, Map.of("result", output));
+            return new StepInput("function_result", callId, name, null,
+                    List.of(new ContentPart("text", output)));
         }
     }
 

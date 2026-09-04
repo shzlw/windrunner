@@ -35,6 +35,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -100,7 +101,8 @@ public class ChatMessageController {
         final String promptContext = context;
         final ToolExecutionContext toolContext = new ToolExecutionContext(actor, session.getId(), allowedProjectIds);
 
-        Thread.startVirtualThread(() -> {
+        AtomicBoolean completedByWorker = new AtomicBoolean();
+        Thread worker = Thread.ofVirtual().unstarted(() -> {
             long startNanos = System.nanoTime();
             try {
                 send(emitter, "started", new ChatStarted(titleFromMessage(sourceMessage.getContent())));
@@ -117,20 +119,39 @@ public class ChatMessageController {
                 ChatMessage assistantMessage = chatService.addMessage(session.getId(), "assistant", llmResult.output());
                 send(emitter, "delta", new ChatDelta(llmResult.output()));
                 send(emitter, "done", new ChatDone(session.getId(), sourceMessage.getId(), assistantMessage.getId()));
+                completedByWorker.set(true);
                 emitter.complete();
             } catch (Exception exception) {
                 if (isClientDisconnect(exception)) {
                     log.debug("Global chat client disconnected for sessionId={}", session.getId());
+                    completedByWorker.set(true);
                     emitter.complete();
                     return;
                 }
                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
                 llmUsageService.recordFailure(new LlmUsageContext(actor.getId(), usageProjectId, LlmUsageFeature.CHAT), exception.getMessage(), durationMs);
                 log.warn("Global chat failed for sessionId={}", session.getId(), exception);
-                try { send(emitter, "error", new ChatError(userFacingMessage(exception))); emitter.complete(); }
-                catch (Exception ignored) { emitter.completeWithError(exception); }
+                try {
+                    send(emitter, "error", new ChatError(userFacingMessage(exception)));
+                    completedByWorker.set(true);
+                    emitter.complete();
+                } catch (Exception ignored) {
+                    completedByWorker.set(true);
+                    emitter.completeWithError(exception);
+                }
+            } finally {
+                completedByWorker.set(true);
             }
         });
+        Runnable cancelWorker = () -> {
+            if (!completedByWorker.get()) {
+                worker.interrupt();
+            }
+        };
+        emitter.onTimeout(cancelWorker);
+        emitter.onError(ignored -> cancelWorker.run());
+        emitter.onCompletion(cancelWorker);
+        worker.start();
         return emitter;
     }
 

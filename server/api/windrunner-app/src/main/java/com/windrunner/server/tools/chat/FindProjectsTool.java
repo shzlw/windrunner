@@ -37,7 +37,8 @@ public class FindProjectsTool {
                             matches.stream().map(project -> new ProjectMatch(project.getId(), project.getName())).toList(),
                             matches.size(),
                             limit);
-                });
+                },
+                true);
     }
 
     private String normalizeQuery(String query) {

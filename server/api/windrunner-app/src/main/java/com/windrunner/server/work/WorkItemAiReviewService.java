@@ -20,7 +20,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -54,7 +53,7 @@ public class WorkItemAiReviewService {
                 .filter(relationship -> "WORK_ITEM".equals(relationship.getToEntityType()))
                 .map(Relationship::getToEntityId)
                 .collect(java.util.stream.Collectors.toSet());
-        Set<String> availableBlockerIds = new HashSet<>();
+        Set<String> availableBlockerIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
         AtomicReference<ProposeWorkItemRevisionTool.Parameters> proposalRef = new AtomicReference<>();
         LlmTool<?> fetchDetailsTool = fetchWorkItemDetailsTool.forProject(projectId, availableBlockerIds::add);
         LlmTool<?> searchBlockerCandidatesTool = searchWorkItemsForBlockerTool.forProject(

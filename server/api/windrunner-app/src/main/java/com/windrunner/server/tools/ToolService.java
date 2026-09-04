@@ -43,7 +43,8 @@ public class ToolService implements ToolRegistry {
                 tool.name(),
                 tool.description(),
                 tool.parametersType(),
-                parameters -> tool.execute(parameters, context)
+                parameters -> tool.execute(parameters, context),
+                tool.parallelSafe()
         );
     }
 }

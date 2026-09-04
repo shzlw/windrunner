@@ -36,6 +36,11 @@ public class FetchTeamProjectsTool implements Tool<FetchTeamProjectsTool.Paramet
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("fetch-team-projects-tool.md");
     }

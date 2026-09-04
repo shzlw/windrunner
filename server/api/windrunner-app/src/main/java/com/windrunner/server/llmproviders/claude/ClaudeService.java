@@ -68,6 +68,7 @@ public class ClaudeService implements LlmService {
                 "Claude",
                 safeTools,
                 properties.getMaxToolRounds(),
+                properties.getParallelToolTimeout(),
                 new AgentService.AgentLoop<>() {
                     @Override
                     public ClaudeResponse callModel() {
@@ -88,9 +89,10 @@ public class ClaudeService implements LlmService {
                     }
 
                     @Override
-                    public void appendToolResult(LlmToolCall toolCall, String output) {
-                        executedTool.set(true);
-                        ClaudeService.this.appendToolResult(toolCall, output, conversationMessages);
+                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                        executedTool.set(!results.isEmpty());
+                        results.forEach(result -> ClaudeService.this.appendToolResult(
+                                result.toolCall(), result.output(), conversationMessages));
                     }
                 }
         );

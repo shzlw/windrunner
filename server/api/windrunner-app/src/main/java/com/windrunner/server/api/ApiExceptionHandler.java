@@ -1,5 +1,6 @@
 package com.windrunner.server.api;
 
+import com.windrunner.server.llm.LlmBusyException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,19 @@ import java.util.UUID;
 public class ApiExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(LlmBusyException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLlmBusyException(LlmBusyException exception,
+                                                                     HttpServletRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header("Retry-After", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(ApiResponse.error(
+                        ApiError.of("SERVICE_UNAVAILABLE", "The AI service is busy. Please try again shortly."),
+                        ApiMeta.request(requestId(request))
+                ));
+    }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ApiResponse<Void>> handleResponseStatusException(ResponseStatusException exception,

@@ -9,4 +9,12 @@ public interface Tool<T> {
     Class<T> parametersType();
 
     Object execute(T parameters, ToolExecutionContext context) throws Exception;
+
+    /**
+     * Whether independent calls to this tool may run concurrently.
+     * Stateful or mutating tools must keep the default.
+     */
+    default boolean parallelSafe() {
+        return false;
+    }
 }

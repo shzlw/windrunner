@@ -61,26 +61,26 @@ public class GeminiService implements LlmService {
         UsageTotals usageTotals = new UsageTotals();
         AtomicBoolean executedTool = new AtomicBoolean();
         AtomicReference<String> previousInteractionId = new AtomicReference<>();
-        AtomicReference<LlmToolCall> pendingToolCall = new AtomicReference<>();
-        AtomicReference<String> pendingToolOutput = new AtomicReference<>();
+        AtomicReference<List<AgentService.ToolResult>> pendingToolResults = new AtomicReference<>(List.of());
 
         GeminiResponse response = agentService.run(
                 "Gemini",
                 safeTools,
                 properties.getMaxToolRounds(),
+                properties.getParallelToolTimeout(),
                 new AgentService.AgentLoop<>() {
                     @Override
                     public GeminiResponse callModel() {
                         GeminiRequest request;
-                        if (previousInteractionId.get() != null && pendingToolCall.get() != null) {
-                            LlmToolCall toolCall = pendingToolCall.get();
-                            String toolOutput = pendingToolOutput.get();
-                            GeminiRequest.StepInput functionResult = GeminiRequest.StepInput.functionResult(
-                                    toolCall.id(),
-                                    toolCall.name(),
-                                    toolOutput
-                            );
-                            request = buildToolResultRequest(previousInteractionId.get(), functionResult, instructions, geminiTools);
+                        if (previousInteractionId.get() != null && !pendingToolResults.get().isEmpty()) {
+                            List<GeminiRequest.StepInput> functionResults = pendingToolResults.get().stream()
+                                    .map(result -> GeminiRequest.StepInput.functionResult(
+                                            result.toolCall().id(),
+                                            result.toolCall().name(),
+                                            result.output()))
+                                    .toList();
+                            request = buildToolResultRequest(
+                                    previousInteractionId.get(), functionResults, instructions, geminiTools);
                         } else {
                             request = buildInitialRequest(initialInputs, instructions, geminiTools);
                         }
@@ -104,10 +104,9 @@ public class GeminiService implements LlmService {
                     }
 
                     @Override
-                    public void appendToolResult(LlmToolCall toolCall, String output) {
-                        executedTool.set(true);
-                        pendingToolCall.set(toolCall);
-                        pendingToolOutput.set(output);
+                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                        executedTool.set(!results.isEmpty());
+                        pendingToolResults.set(List.copyOf(results));
                     }
                 }
         );
@@ -162,7 +161,7 @@ public class GeminiService implements LlmService {
 
     private GeminiRequest buildToolResultRequest(
             String previousInteractionId,
-            GeminiRequest.StepInput functionResultInput,
+            List<GeminiRequest.StepInput> functionResultInputs,
             String instructions,
             List<GeminiRequest.Tool> tools
     ) {
@@ -176,7 +175,7 @@ public class GeminiService implements LlmService {
         return new GeminiRequest(
                 properties.getModel(),
                 StringUtils.hasText(instructions) ? instructions : null,
-                List.of(functionResultInput),
+                functionResultInputs,
                 geminiTools,
                 config,
                 previousInteractionId

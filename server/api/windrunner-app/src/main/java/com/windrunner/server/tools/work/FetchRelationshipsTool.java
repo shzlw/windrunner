@@ -23,6 +23,11 @@ public class FetchRelationshipsTool implements Tool<FetchRelationshipsTool.Param
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("fetch-relationships-tool.md");
     }

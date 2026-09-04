@@ -29,6 +29,11 @@ public class SearchEntriesTool implements Tool<SearchEntriesTool.Parameters> {
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("search-entries-tool.md");
     }

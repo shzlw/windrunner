@@ -28,6 +28,11 @@ public class FetchUsersTool implements Tool<FetchUsersTool.Parameters> {
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt(PROMPT_NAME);
     }

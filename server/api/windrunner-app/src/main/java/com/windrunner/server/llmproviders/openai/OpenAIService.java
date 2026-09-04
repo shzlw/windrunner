@@ -15,6 +15,7 @@ import tools.jackson.databind.node.ArrayNode;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class OpenAIService implements LlmService {
@@ -57,7 +58,8 @@ public class OpenAIService implements LlmService {
                 .map(this::toFunctionTool)
                 .toList();
 
-        ArrayNode conversationInput = input.deepCopy();
+        AtomicReference<ArrayNode> pendingInput = new AtomicReference<>(input);
+        AtomicReference<String> previousResponseId = new AtomicReference<>();
         UsageTotals usageTotals = new UsageTotals();
         AtomicBoolean executedTool = new AtomicBoolean();
 
@@ -65,12 +67,19 @@ public class OpenAIService implements LlmService {
                 "OpenAI",
                 safeTools,
                 properties.getMaxToolRounds(),
+                properties.getParallelToolTimeout(),
                 new AgentService.AgentLoop<>() {
                     @Override
                     public OpenAIResponse callModel() {
                         OpenAIResponse response = callOpenAI(
-                                buildRequest(conversationInput, openAITools, instructions)
+                                buildRequest(
+                                        pendingInput.get(),
+                                        openAITools,
+                                        instructions,
+                                        previousResponseId.get())
                         );
+                        previousResponseId.set(response.id());
+                        pendingInput.set(objectMapper.createArrayNode());
                         usageTotals.add(response.usage());
                         return response;
                     }
@@ -82,13 +91,14 @@ public class OpenAIService implements LlmService {
 
                     @Override
                     public void preserveModelResponse(OpenAIResponse response) {
-                        preserveOutput(response, conversationInput);
+                        // Response state is maintained server-side via previous_response_id.
                     }
 
                     @Override
-                    public void appendToolResult(LlmToolCall toolCall, String output) {
-                        executedTool.set(true);
-                        appendFunctionCallOutput(conversationInput, toolCall, output);
+                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                        executedTool.set(!results.isEmpty());
+                        results.forEach(result -> appendFunctionCallOutput(
+                                pendingInput.get(), result.toolCall(), result.output()));
                     }
                 }
         );
@@ -125,7 +135,8 @@ public class OpenAIService implements LlmService {
     private OpenAIResponseRequest buildRequest(
             Object input,
             List<OpenAIResponseRequest.FunctionTool> tools,
-            String instructions
+            String instructions,
+            String previousResponseId
     ) {
         boolean hasTools = !tools.isEmpty();
 
@@ -138,7 +149,8 @@ public class OpenAIService implements LlmService {
                         ? new OpenAIResponseRequest.Reasoning(properties.getReasoningEffort())
                         : null,
                 hasTools ? tools : null,
-                hasTools ? Boolean.FALSE : null
+                hasTools ? properties.isParallelToolCalls() : null,
+                previousResponseId
         );
     }
 
@@ -174,10 +186,6 @@ public class OpenAIService implements LlmService {
                 .toList();
     }
 
-    private void preserveOutput(OpenAIResponse response, ArrayNode conversationInput) {
-        response.output().forEach(outputItem -> conversationInput.add(outputItem.deepCopy()));
-    }
-
     private String requireOutputText(OpenAIResponse response, boolean allowEmptyAfterToolCall) {
         for (JsonNode outputItem : response.output()) {
             JsonNode content = outputItem.path("content");
@@ -205,6 +213,9 @@ public class OpenAIService implements LlmService {
     private void requireCompleteResponse(OpenAIResponse response) {
         if (response == null) {
             throw new LlmException("OpenAI returned an empty response");
+        }
+        if (!StringUtils.hasText(response.id())) {
+            throw new LlmException("OpenAI response did not contain an id");
         }
         if ("incomplete".equals(response.status())) {
             String reason = response.incompleteDetails() != null

@@ -26,6 +26,11 @@ public class FetchProjectBlockersTool implements Tool<FetchProjectBlockersTool.P
     }
 
     @Override
+    public boolean parallelSafe() {
+        return true;
+    }
+
+    @Override
     public String description() {
         return FileUtils.loadSystemPrompt("fetch-project-blockers-tool.md");
     }
