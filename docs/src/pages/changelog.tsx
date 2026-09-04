@@ -12,6 +12,47 @@ export default function Changelog(): ReactNode {
 
         <article style={{marginTop: '3rem', paddingBottom: '2rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)'}}>
           <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem'}}>
+            <h2 style={{margin: 0}}>2.0</h2>
+            <span style={{fontSize: '0.9rem', color: 'var(--ifm-color-emphasis-600)'}}>August 2026 · Major release</span>
+          </div>
+          <p style={{marginTop: '1rem'}}>
+            Windrunner 2.0 introduces a redesigned workspace and expanded AI and integration
+            capabilities.
+          </p>
+          <ul style={{marginTop: '1rem'}}>
+            <li>
+              <strong>New Ask AI experience</strong>: A dedicated interface for AI conversations
+              across Windrunner.
+            </li>
+            <li>
+              <strong>Chat session history</strong>: Create, switch between, rename, and delete
+              multiple chat sessions with automatically generated titles.
+            </li>
+            <li>
+              <strong>Redesigned workspace UI</strong>: New adaptive layouts, split workspace
+              views, refreshed navigation, and updated visual styling.
+            </li>
+            <li>
+              <strong>CLI and REST API</strong>: A new command-line interface and expanded
+              REST/OpenAPI APIs for working with Windrunner data and workflows.
+            </li>
+            <li>
+              <strong>Expanded MCP tools</strong>: More tools for AI agents to retrieve context,
+              work with assignees, and check for duplicates.
+            </li>
+            <li>
+              <strong>Richer team and user profiles</strong>: Add descriptions for teams and
+              titles and bios for users.
+            </li>
+            <li>
+              <strong>Bug fixes and refinements</strong>: Improved reliability across chat,
+              boards, navigation, audit logs, APIs, and deployment.
+            </li>
+          </ul>
+        </article>
+
+        <article style={{marginTop: '3rem', paddingBottom: '2rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)'}}>
+          <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem'}}>
             <h2 style={{margin: 0}}>1.1</h2>
             <span style={{fontSize: '0.9rem', color: 'var(--ifm-color-emphasis-600)'}}>August 2026</span>
           </div>

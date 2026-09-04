@@ -1,0 +1,63 @@
+---
+sidebar_position: 3
+title: AI providers
+description: Select and configure the chat AI provider used by Windrunner.
+---
+
+# AI providers
+
+Windrunner uses one configured provider for chat AI requests. Set
+`WINDRUNNER_LLM_PROVIDER` to `openai`, `gemini`, `claude`, or `none`.
+
+The provider is `none` by default in the application. The local startup script
+selects `openai` unless you override it. Voice transcription is configured
+independently; see [Voice transcription](voice-transcription).
+
+## Provider selection
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `WINDRUNNER_LLM_PROVIDER` | `none` in the application; `openai` in `start-local.sh` | Selects the active chat AI provider. |
+
+## OpenAI
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | — | API key. Required when OpenAI is selected. |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible API base URL. |
+| `OPENAI_MODEL` | `gpt-5.6-luna` | Model name. |
+| `OPENAI_MAX_OUTPUT_TOKENS` | `2048` | Maximum output tokens. |
+| `OPENAI_REASONING_EFFORT` | `low` | Reasoning effort sent to the provider. |
+| `OPENAI_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
+| `WINDRUNNER_LLM_OPENAI_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
+| `WINDRUNNER_LLM_OPENAI_READ_TIMEOUT` | `2m` | Response read timeout. |
+
+## Gemini
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | — | API key. Required when Gemini is selected. |
+| `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini API base URL. |
+| `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Model name. |
+| `GEMINI_MAX_OUTPUT_TOKENS` | `2048` | Maximum output tokens. |
+| `GEMINI_TEMPERATURE` | `1.0` | Sampling temperature. |
+| `GEMINI_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
+| `WINDRUNNER_LLM_GEMINI_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
+| `WINDRUNNER_LLM_GEMINI_READ_TIMEOUT` | `2m` | Response read timeout. |
+
+## Claude
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `CLAUDE_API_KEY` | — | API key. Required when Claude is selected. |
+| `CLAUDE_BASE_URL` | `https://api.anthropic.com/v1` | Anthropic API base URL. |
+| `CLAUDE_MODEL` | `claude-sonnet-5` | Model name. |
+| `CLAUDE_MAX_OUTPUT_TOKENS` | `2048` | Maximum output tokens. |
+| `CLAUDE_TEMPERATURE` | `1.0` | Sampling temperature. |
+| `CLAUDE_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
+| `WINDRUNNER_LLM_CLAUDE_ANTHROPIC_VERSION` | `2023-06-01` | Anthropic API version header. |
+| `WINDRUNNER_LLM_CLAUDE_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
+| `WINDRUNNER_LLM_CLAUDE_READ_TIMEOUT` | `2m` | Response read timeout. |
+
+The short provider variables are the recommended form. The longer timeout
+variables use Spring's `windrunner.llm.<provider>` configuration namespace.

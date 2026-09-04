@@ -1,22 +1,23 @@
 ---
 sidebar_position: 2
 title: Configuration
-description: Configure Windrunner with environment variables for Docker Compose, AI providers, security, and application behavior.
+description: Configure Windrunner with environment variables for databases, authentication, and application behavior.
 ---
 
 # Configuration
 
-Windrunner is configured with environment variables. The variables below are
-the application settings and startup options supported by the repository. When
-running with Docker Compose, put them in the `.env` file next to
-`docker-compose.yml`.
+Windrunner is configured with environment variables. This page covers the
+general application settings. Configuration for AI providers, voice
+transcription, and server deployment is organized on separate reference pages.
+
+When running with Docker Compose, put environment variables in the `.env` file
+next to `docker-compose.yml`.
 
 Windrunner is a Spring Boot application, so standard Spring Boot properties can
-also be supplied through environment variables. For additional framework
-settings, see the official [Spring Boot application properties reference](https://docs.spring.io/spring-boot/appendix/application-properties/index.html).
-For example, `spring.example-setting` becomes `SPRING_EXAMPLE_SETTING` when
-set as an environment variable. The Windrunner-specific variables below are
-the ones used directly by this application and its startup scripts.
+also be supplied through environment variables. For example,
+`spring.example-setting` becomes `SPRING_EXAMPLE_SETTING`. The Windrunner-
+specific variables below are the ones used directly by this application and its
+startup scripts.
 
 Keep passwords and API keys out of source control.
 
@@ -58,148 +59,10 @@ Change the password after the first login.
 | `WINDRUNNER_AUTH_COOKIE_SECURE` | `true` in the application; `false` in Docker Compose and local startup | Marks authentication cookies as Secure. Use `true` behind HTTPS and `false` for direct local HTTP. |
 | `WINDRUNNER_AUTH_COOKIE_SAME_SITE` | `Lax` | SameSite policy for authentication cookies. |
 
-## AI provider
+## Related configuration
 
-Set `WINDRUNNER_LLM_PROVIDER` to `openai`, `gemini`, `claude`, or `none`.
-The provider is `none` by default in the application. The local startup script
-selects `openai` unless you override it.
+- [AI providers](ai-providers): Select the chat provider and configure OpenAI, Gemini, or Claude.
+- [Voice transcription](voice-transcription): Enable voice dictation and configure OpenAI or Gemini transcription.
+- [Server and deployment](server-and-deployment): Configure HTTP, uploads, Docker Compose, and advanced Spring settings.
 
-### Provider selection
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `WINDRUNNER_LLM_PROVIDER` | `none` in the application; `openai` in `start-local.sh` | Selects the active AI provider. |
-
-### OpenAI
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | — | API key. Required when OpenAI is selected. |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI-compatible API base URL. |
-| `OPENAI_MODEL` | `gpt-5.6-luna` | Model name. |
-| `OPENAI_MAX_OUTPUT_TOKENS` | `2048` | Maximum output tokens. |
-| `OPENAI_REASONING_EFFORT` | `low` | Reasoning effort sent to the provider. |
-| `OPENAI_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
-| `WINDRUNNER_LLM_OPENAI_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
-| `WINDRUNNER_LLM_OPENAI_READ_TIMEOUT` | `2m` | Response read timeout. |
-
-### Voice transcription
-
-Voice dictation uses the provider selected by
-`WINDRUNNER_AUDIO_TRANSCRIPTION_PROVIDER`, independently of the chat
-provider. Set `WINDRUNNER_AUDIO_TRANSCRIPTION_ENABLED=true` and configure the
-selected provider to show the microphone control in Ask AI. Recordings are
-handled as temporary multipart uploads and are not persisted by Windrunner.
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `WINDRUNNER_AUDIO_TRANSCRIPTION_ENABLED` | `false` | Enables voice dictation in the chat composer. |
-| `WINDRUNNER_AUDIO_TRANSCRIPTION_PROVIDER` | `openai` | Selects the transcription provider. |
-| `WINDRUNNER_AUDIO_TRANSCRIPTION_MAX_DURATION_SECONDS` | `120` | Maximum browser recording duration. |
-| `WINDRUNNER_AUDIO_TRANSCRIPTION_MAX_FILE_SIZE_BYTES` | `10485760` | Maximum uploaded audio size. |
-| `WINDRUNNER_AUDIO_TRANSCRIPTION_CONNECT_TIMEOUT` | `10s` | Provider connection timeout. |
-| `WINDRUNNER_AUDIO_TRANSCRIPTION_READ_TIMEOUT` | `2m` | Provider response timeout. |
-| `OPENAI_TRANSCRIPTION_API_KEY` | Falls back to `OPENAI_API_KEY` | Optional provider-specific API key. |
-| `OPENAI_TRANSCRIPTION_BASE_URL` | `https://api.openai.com/v1` | OpenAI transcription API base URL. |
-| `OPENAI_TRANSCRIPTION_MODEL` | `gpt-transcribe` | OpenAI transcription model. |
-| `GEMINI_TRANSCRIPTION_API_KEY` | Falls back to `GEMINI_API_KEY` | Optional provider-specific API key. |
-| `GEMINI_TRANSCRIPTION_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini transcription API base URL. |
-| `GEMINI_TRANSCRIPTION_MODEL` | `gemini-2.5-flash` | Gemini transcription model. |
-| `WINDRUNNER_UPLOAD_TEMP_DIR` | Java temporary directory | Directory used for transient multipart uploads. |
-
-### Gemini
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `GEMINI_API_KEY` | — | API key. Required when Gemini is selected. |
-| `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini API base URL. |
-| `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Model name. |
-| `GEMINI_MAX_OUTPUT_TOKENS` | `2048` | Maximum output tokens. |
-| `GEMINI_TEMPERATURE` | `1.0` | Sampling temperature. |
-| `GEMINI_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
-| `WINDRUNNER_LLM_GEMINI_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
-| `WINDRUNNER_LLM_GEMINI_READ_TIMEOUT` | `2m` | Response read timeout. |
-
-### Claude
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `CLAUDE_API_KEY` | — | API key. Required when Claude is selected. |
-| `CLAUDE_BASE_URL` | `https://api.anthropic.com/v1` | Claude API base URL. |
-| `CLAUDE_MODEL` | `claude-sonnet-5` | Model name. |
-| `CLAUDE_MAX_OUTPUT_TOKENS` | `2048` | Maximum output tokens. |
-| `CLAUDE_TEMPERATURE` | `1.0` | Sampling temperature. |
-| `CLAUDE_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
-| `WINDRUNNER_LLM_CLAUDE_ANTHROPIC_VERSION` | `2023-06-01` | Anthropic API version header. |
-| `WINDRUNNER_LLM_CLAUDE_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
-| `WINDRUNNER_LLM_CLAUDE_READ_TIMEOUT` | `2m` | Response read timeout. |
-
-The short provider variables are the recommended form. The longer timeout
-variables use Spring's `windrunner.llm.<provider>` configuration namespace.
-
-## Server and API features
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `SERVER_PORT` | `8066` | HTTP port used by the application. |
-| `SERVER_SHUTDOWN` | `graceful` | Shutdown behavior. |
-| `SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE` | `20s` | Maximum wait for graceful shutdown. |
-| `SERVER_FORWARD_HEADERS_STRATEGY` | `framework` | Handles forwarded headers when behind a proxy. |
-| `SERVER_COMPRESSION_ENABLED` | `true` | Enables HTTP response compression. |
-| `SERVER_COMPRESSION_MIN_RESPONSE_SIZE` | `2KB` | Minimum response size for compression. |
-| `SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE` | `10MB` | Maximum uploaded file size. |
-| `SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE` | `10MB` | Maximum multipart request size. |
-| `SPRING_FLYWAY_ENABLED` | `true` | Enables database migrations at startup. |
-| `SPRING_FLYWAY_LOCATIONS` | `classpath:db/migration` | Flyway migration location. |
-| `WINDRUNNER_MCP_ENABLED` | `true` | Enables the MCP server. See [MCP server](mcp). |
-| `WINDRUNNER_OPENAPI_ENABLED` | `true` | Enables the external OpenAPI document at `/api/openapi.json`. |
-
-## Advanced Spring Boot settings
-
-The following settings are available for deployments that need to adjust
-server metadata, health endpoints, MCP metadata, or OpenAPI discovery. Most
-deployments can keep their defaults.
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `SPRING_MAIN_BANNER_MODE` | `off` | Controls the Spring startup banner. |
-| `SPRING_APPLICATION_NAME` | `windrunner` | Application name used by Spring and server metadata. |
-| `SPRING_JMX_ENABLED` | `false` | Enables Spring JMX. |
-| `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE` | `health` | Actuator endpoints exposed over HTTP. |
-| `MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS` | `never` | Controls health response details. |
-| `MANAGEMENT_INFO_ENV_ENABLED` | `false` | Controls environment information in the `info` endpoint. |
-| `SPRING_AI_MCP_SERVER_ENABLED` | `true` | Direct Spring setting for MCP availability; `WINDRUNNER_MCP_ENABLED` is the recommended alias. |
-| `SPRING_AI_MCP_SERVER_PROTOCOL` | `STATELESS` | MCP transport protocol. |
-| `SPRING_AI_MCP_SERVER_NAME` | `windrunner` | MCP server name. |
-| `SPRING_AI_MCP_SERVER_VERSION` | `2.0` | MCP server version advertised to clients. |
-| `SPRINGDOC_API_DOCS_ENABLED` | `true` | Direct Springdoc setting for OpenAPI availability; `WINDRUNNER_OPENAPI_ENABLED` is the recommended alias. |
-| `SPRINGDOC_API_DOCS_PATH` | `/api/openapi.json` | OpenAPI document path. |
-| `SPRINGDOC_PACKAGES_TO_SCAN` | `com.windrunner.server.external.v1.api` | Packages included in the OpenAPI document. |
-| `SPRINGDOC_PATHS_TO_MATCH` | `/api/v1/**` | API paths included in the OpenAPI document. |
-
-## Docker Compose variables
-
-These variables are used by `server/docker-compose.yml` to configure the
-container deployment:
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `POSTGRES_USER` | `windrunner` | Database user created by the PostgreSQL container. |
-| `POSTGRES_PASSWORD` | `windrunner` | Database password used by the PostgreSQL container and app. |
-| `APP_PORT` | `8066` | Host port mapped to the application container. |
-
-`WINDRUNNER_BOOTSTRAP_*`, `WINDRUNNER_AUTH_COOKIE_SECURE`, and
-`SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` are also read by the Compose file.
-
-## Source build and startup scripts
-
-These variables affect the repository's helper scripts rather than the
-running application:
-
-| Variable | Used by | Description |
-| --- | --- | --- |
-| `SKIP_NPM_CI` | `server/build.sh` | Set to `1` to skip frontend dependency installation when dependencies are already installed. |
-| `JAR_PATH` | `server/start.sh` | Overrides the server JAR path. |
-
-See [Build from source](../getting-started/build-from-source) for the complete
-local setup.
+For additional framework settings, see the official [Spring Boot application properties reference](https://docs.spring.io/spring-boot/appendix/application-properties/index.html).

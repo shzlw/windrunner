@@ -46,7 +46,17 @@ const sidebars: SidebarsConfig = {
       items: [
         'reference/api-keys-and-scopes',
         'reference/cli',
-        'reference/configuration',
+        {
+          type: 'category',
+          label: 'Configuration',
+          link: {type: 'doc', id: 'reference/configuration'},
+          items: [
+            'reference/configuration',
+            'reference/ai-providers',
+            'reference/voice-transcription',
+            'reference/server-and-deployment',
+          ],
+        },
         'reference/mcp',
         'reference/internationalization',
       ],

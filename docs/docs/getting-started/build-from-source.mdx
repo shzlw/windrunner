@@ -70,6 +70,19 @@ Gemini and Claude are also supported. Use `none` to run without AI:
 export WINDRUNNER_LLM_PROVIDER=none
 ```
 
+The local startup script enables voice transcription by default. The OpenAI
+key above can also be used for transcription. To select Gemini transcription,
+set the provider and its key before starting:
+
+```bash
+export WINDRUNNER_AUDIO_TRANSCRIPTION_PROVIDER=gemini
+export GEMINI_TRANSCRIPTION_API_KEY=your-gemini-api-key
+```
+
+Set `WINDRUNNER_AUDIO_TRANSCRIPTION_ENABLED=false` to disable voice
+transcription. See [Voice transcription configuration](../reference/voice-transcription)
+for all transcription settings.
+
 See [Configuration](../reference/configuration) for supported variables.
 
 ## Common fixes

@@ -1,0 +1,76 @@
+---
+sidebar_position: 5
+title: Server and deployment
+description: Configure Windrunner HTTP behavior, uploads, Docker Compose, and advanced Spring settings.
+---
+
+# Server and deployment
+
+This page contains settings for the running server, uploads, Docker Compose,
+and advanced Spring Boot behavior.
+
+## Server and API features
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SERVER_PORT` | `8066` | HTTP port used by the application. |
+| `SERVER_SHUTDOWN` | `graceful` | Shutdown behavior. |
+| `SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE` | `20s` | Maximum wait for graceful shutdown. |
+| `SERVER_FORWARD_HEADERS_STRATEGY` | `framework` | Handles forwarded headers when behind a proxy. |
+| `SERVER_COMPRESSION_ENABLED` | `true` | Enables HTTP response compression. |
+| `SERVER_COMPRESSION_MIN_RESPONSE_SIZE` | `2KB` | Minimum response size for compression. |
+| `SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE` | `10MB` | Maximum uploaded file size. |
+| `SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE` | `10MB` | Maximum multipart request size. |
+| `SPRING_FLYWAY_ENABLED` | `true` | Enables database migrations at startup. |
+| `SPRING_FLYWAY_LOCATIONS` | `classpath:db/migration` | Flyway migration location. |
+| `WINDRUNNER_MCP_ENABLED` | `true` | Enables the MCP server. See [MCP server](mcp). |
+| `WINDRUNNER_OPENAPI_ENABLED` | `true` | Enables the external OpenAPI document at `/api/openapi.json`. |
+
+## Advanced Spring Boot settings
+
+The following settings are available for deployments that need to adjust
+server metadata, health endpoints, MCP metadata, or OpenAPI discovery. Most
+deployments can keep their defaults.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SPRING_MAIN_BANNER_MODE` | `off` | Controls the Spring startup banner. |
+| `SPRING_APPLICATION_NAME` | `windrunner` | Application name used by Spring and server metadata. |
+| `MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE` | `health` | Actuator endpoints exposed over HTTP. |
+| `MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS` | `never` | Controls health response details. |
+| `MANAGEMENT_INFO_ENV_ENABLED` | `false` | Controls environment information in the `info` endpoint. |
+| `SPRING_AI_MCP_SERVER_ENABLED` | `true` | Direct Spring setting for MCP availability; `WINDRUNNER_MCP_ENABLED` is the recommended alias. |
+| `SPRING_AI_MCP_SERVER_PROTOCOL` | `STATELESS` | MCP transport protocol. |
+| `SPRING_AI_MCP_SERVER_NAME` | `windrunner` | MCP server name. |
+| `SPRING_AI_MCP_SERVER_VERSION` | `2.0` | MCP server version advertised to clients. |
+| `SPRINGDOC_API_DOCS_ENABLED` | `true` | Direct Springdoc setting for OpenAPI availability; `WINDRUNNER_OPENAPI_ENABLED` is the recommended alias. |
+| `SPRINGDOC_API_DOCS_PATH` | `/api/openapi.json` | OpenAPI document path. |
+| `SPRINGDOC_PACKAGES_TO_SCAN` | `com.windrunner.server.external.v1.api` | Packages included in the OpenAPI document. |
+| `SPRINGDOC_PATHS_TO_MATCH` | `/api/v1/**` | API paths included in the OpenAPI document. |
+
+## Docker Compose variables
+
+These variables are used by `server/docker-compose.yml` to configure the
+container deployment:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `POSTGRES_USER` | `windrunner` | Database user created by the PostgreSQL container. |
+| `POSTGRES_PASSWORD` | `windrunner` | Database password used by the PostgreSQL container and app. |
+| `APP_PORT` | `8066` | Host port mapped to the application container. |
+
+`WINDRUNNER_BOOTSTRAP_*`, `WINDRUNNER_AUTH_COOKIE_SECURE`, and
+`SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE` are also read by the Compose file.
+
+## Source build and startup scripts
+
+These variables affect the repository's helper scripts rather than the
+running application:
+
+| Variable | Used by | Description |
+| --- | --- | --- |
+| `SKIP_NPM_CI` | `server/build.sh` | Set to `1` to skip frontend dependency installation when dependencies are already installed. |
+| `JAR_PATH` | `server/start.sh` | Overrides the server JAR path. |
+
+See [Build from source](../getting-started/build-from-source) for the complete
+local setup.

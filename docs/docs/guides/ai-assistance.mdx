@@ -26,10 +26,17 @@ decisions, and point to the records it used.
 
 ## Dictate a message
 
-When voice transcription is enabled, select the microphone control in the Ask
-AI composer and speak. Stop the recording to transcribe it, then review or
-edit the text before sending. Voice recordings are not saved as chat
+When voice transcription is available, select the microphone control beside
+Send in the Home or Ask AI composer and speak. The browser asks for microphone
+permission the first time you use it. While you record, a live waveform and
+timer show the audio being captured. Stop the recording to transcribe it, then
+review or edit the text before sending. Voice recordings are not saved as chat
 attachments.
+
+Windrunner supports OpenAI transcription with `gpt-transcribe` and Gemini
+transcription with `gemini-2.5-flash`. Voice transcription is configured
+independently from the chat AI provider. See [Voice transcription configuration](../reference/voice-transcription)
+to enable a provider.
 
 ## Review changes
 

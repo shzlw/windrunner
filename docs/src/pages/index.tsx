@@ -18,49 +18,65 @@ import {
 const collaborationFeatures = [
   {
     icon: ListTree,
-    title: 'Shared project workspace',
+    title: 'Structured project work',
     description:
-      'Keep work items, decisions, answers, blockers, and supporting context together in one shared workspace.',
+      'Organize hierarchical work items with entries for decisions, findings, answers, and evidence.',
     to: '/docs/core-concepts/projects-workspace',
     accent: 'accent-violet',
   },
   {
     icon: TrendingUp,
-    title: 'Progress at a glance',
+    title: 'Status and dependencies',
     description:
-      'See status, priority, due dates, assignments, blockers, and activity without losing the project context behind them.',
+      'Track status, priority, due dates, assignments, blockers, and typed relationships between work.',
     to: '/docs/core-concepts/projects-workspace',
     accent: 'accent-cyan',
   },
   {
     icon: MessageSquareText,
-    title: 'AI that understands the project',
+    title: 'Ask AI with context',
     description:
-      "Ask what's next, what's blocked, or how work is progressing with the relevant project context built in.",
+      'Ask questions from Home or a project workspace and add project, team, user, or work-item context.',
     to: '/docs/guides/ai-assistance',
     accent: 'accent-blue',
   },
   {
     icon: Bot,
-    title: 'Reviewable AI updates',
+    title: 'Reviewable AI changes',
     description:
-      'AI can suggest updates to work items and entries, while people stay in control of what gets accepted.',
+      'Review proposed changes to work items, entries, and relationships before applying them.',
     to: '/docs/guides/ai-assistance',
     accent: 'accent-amber',
   },
   {
-    icon: ListTodo,
-    title: 'Stay aligned',
+    icon: MessageSquareText,
+    title: 'Multiple chat sessions',
     description:
-      'Create, organize, assign, search, filter, and follow work so everyone knows what needs attention.',
-    to: '/docs/guides/following-work',
+      'Create, switch between, rename, delete, and continue separate Ask AI conversations.',
+    to: '/docs/guides/home-and-ask-ai',
+    accent: 'accent-emerald',
+  },
+  {
+    icon: ListTree,
+    title: 'Split workspace views',
+    description:
+      'Keep Ask AI and the selected project or artifact visible together with adaptive workspace layouts.',
+    to: '/docs/guides/home-and-ask-ai',
+    accent: 'accent-indigo',
+  },
+  {
+    icon: ListTodo,
+    title: 'Search, history, and notifications',
+    description:
+      'Find work with full-text search, inspect item history, and follow assignments and activity.',
+    to: '/docs/guides/search-and-filtering',
     accent: 'accent-emerald',
   },
   {
     icon: KeyRound,
-    title: 'Teams and access',
+    title: 'Teams, profiles, and access',
     description:
-      'Give the right people access to projects and keep collaboration focused on the work that matters.',
+      'Manage teams, memberships, project roles, user titles and bios, and team descriptions.',
     to: '/docs/guides/users-and-teams',
     accent: 'accent-indigo',
   },
@@ -69,41 +85,57 @@ const collaborationFeatures = [
 const stackFeatures = [
   {
     icon: Bot,
-    title: 'Bring your own AI provider',
+    title: 'Configurable AI providers',
     description:
       'Use supported providers with your own credentials, models, and limits.',
-    to: '/docs/reference/configuration',
+    to: '/docs/reference/ai-providers',
     accent: 'accent-indigo',
   },
   {
     icon: TrendingUp,
-    title: 'Measure AI impact',
+    title: 'AI usage analytics',
     description:
-      'Track usage, acceptance rates, and estimated time saved by project, provider, and feature.',
+      'Review request and token usage, reliability, accepted changes, and acceptance rates.',
     to: '/docs/guides/ai-assistance',
     accent: 'accent-cyan',
   },
   {
     icon: Plug,
-    title: 'Connect agents through MCP',
+    title: 'MCP server and agent tools',
     description:
-      'Let Codex, Claude Desktop, Cursor, and other agents search work, read context, record findings, and update status.',
+      'Connect AI clients to search work, read bounded context, record findings, update status, and create links.',
     to: '/docs/reference/mcp',
     accent: 'accent-violet',
   },
   {
     icon: Terminal,
-    title: 'Automate with API and CLI',
+    title: 'REST and OpenAPI',
     description:
-      'Connect existing tools and automate projects, work items, entries, and search with REST and the CLI.',
+      'Integrate projects, work items, entries, relationships, teams, users, search, and audit logs.',
     to: '/api',
     accent: 'accent-blue',
   },
   {
-    icon: Server,
-    title: 'Self-host your workspace',
+    icon: Terminal,
+    title: 'Windrunner CLI',
     description:
-      'Deploy with Docker Compose and PostgreSQL, keeping project data in your infrastructure.',
+      'Script the REST API from a terminal for local workflows, automation, and agent access.',
+    to: '/docs/reference/cli',
+    accent: 'accent-blue',
+  },
+  {
+    icon: KeyRound,
+    title: 'Scoped API keys',
+    description:
+      'Use separate keys with project-level access and resource-specific scopes for REST and MCP.',
+    to: '/docs/reference/api-keys-and-scopes',
+    accent: 'accent-amber',
+  },
+  {
+    icon: Server,
+    title: 'Self-hosted deployment',
+    description:
+      'Run Windrunner with Docker Compose and PostgreSQL in infrastructure you control.',
     to: '/docs/getting-started/installation',
     accent: 'accent-slate',
   },

@@ -1,0 +1,81 @@
+---
+sidebar_position: 4
+title: Voice transcription
+description: Enable voice dictation and configure OpenAI or Gemini transcription for Windrunner AI composers.
+---
+
+# Voice transcription
+
+Voice transcription adds microphone dictation to the Home and Ask AI
+composers. It is independent of the chat AI provider and currently supports:
+
+- OpenAI with `gpt-transcribe`
+- Gemini with `gemini-2.5-flash`
+
+The microphone control appears only when the selected transcription provider is
+available and the browser supports microphone recording.
+
+## Enable voice transcription
+
+Set the feature flag and select a provider:
+
+```bash
+export WINDRUNNER_AUDIO_TRANSCRIPTION_ENABLED=true
+export WINDRUNNER_AUDIO_TRANSCRIPTION_PROVIDER=openai
+export OPENAI_TRANSCRIPTION_API_KEY=your-openai-api-key
+```
+
+`OPENAI_TRANSCRIPTION_API_KEY` falls back to `OPENAI_API_KEY` when it is not
+set. For Gemini, use:
+
+```bash
+export WINDRUNNER_AUDIO_TRANSCRIPTION_ENABLED=true
+export WINDRUNNER_AUDIO_TRANSCRIPTION_PROVIDER=gemini
+export GEMINI_TRANSCRIPTION_API_KEY=your-gemini-api-key
+```
+
+`GEMINI_TRANSCRIPTION_API_KEY` falls back to `GEMINI_API_KEY`. The application
+default is disabled; `server/start-local.sh` enables voice transcription by
+default.
+
+## Common settings
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_ENABLED` | `false` | Enables voice dictation. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_PROVIDER` | `openai` | Selects `openai` or `gemini` for transcription. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_MAX_DURATION_SECONDS` | `120` | Maximum browser recording duration. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_MAX_FILE_SIZE_BYTES` | `10485760` | Maximum uploaded audio size. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_CONNECT_TIMEOUT` | `10s` | Provider connection timeout. |
+| `WINDRUNNER_AUDIO_TRANSCRIPTION_READ_TIMEOUT` | `2m` | Provider response timeout. |
+| `WINDRUNNER_UPLOAD_TEMP_DIR` | Java temporary directory | Directory used for transient multipart uploads. |
+
+## OpenAI transcription
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OPENAI_TRANSCRIPTION_API_KEY` | Falls back to `OPENAI_API_KEY` | Provider-specific API key. |
+| `OPENAI_TRANSCRIPTION_BASE_URL` | `https://api.openai.com/v1` | OpenAI transcription API base URL. |
+| `OPENAI_TRANSCRIPTION_MODEL` | `gpt-transcribe` | OpenAI transcription model. |
+
+## Gemini transcription
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `GEMINI_TRANSCRIPTION_API_KEY` | Falls back to `GEMINI_API_KEY` | Provider-specific API key. |
+| `GEMINI_TRANSCRIPTION_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini transcription API base URL. |
+| `GEMINI_TRANSCRIPTION_MODEL` | `gemini-2.5-flash` | Gemini transcription model. |
+
+## Using voice dictation
+
+Select the microphone control beside Send. The browser asks for microphone
+permission the first time. While recording, the composer shows a live waveform
+and timer. Stop the recording to transcribe it, then review or edit the text
+before sending.
+
+If microphone access is denied, allow it in the browser's site settings and try
+again. Voice recordings are uploaded as temporary multipart data and are not
+saved as chat attachments.
+
+Admins can see the configured transcription provider, model, and availability
+in Account → System information.
