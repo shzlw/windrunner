@@ -4,6 +4,7 @@ import com.windrunner.server.llmproviders.claude.config.ClaudeProperties;
 import com.windrunner.server.llmproviders.gemini.config.GeminiProperties;
 import com.windrunner.server.llmproviders.openai.config.OpenAIProperties;
 import com.windrunner.server.llmproviders.openrouter.config.OpenRouterProperties;
+import com.windrunner.server.llmproviders.ollama.config.OllamaProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ public class LlmAvailabilityService {
     private final ObjectProvider<LlmService> llmServiceProvider;
     private final ObjectProvider<OpenAIProperties> openAIProperties;
     private final ObjectProvider<OpenRouterProperties> openRouterProperties;
+    private final ObjectProvider<OllamaProperties> ollamaProperties;
     private final ObjectProvider<ClaudeProperties> claudeProperties;
     private final ObjectProvider<GeminiProperties> geminiProperties;
 
@@ -34,6 +36,7 @@ public class LlmAvailabilityService {
         return switch (provider()) {
             case "openai" -> valueOrUnknown(openAIProperties.getIfAvailable(), OpenAIProperties::getModel);
             case "openrouter" -> valueOrUnknown(openRouterProperties.getIfAvailable(), OpenRouterProperties::getModel);
+            case "ollama" -> valueOrUnknown(ollamaProperties.getIfAvailable(), OllamaProperties::getModel);
             case "claude" -> valueOrUnknown(claudeProperties.getIfAvailable(), ClaudeProperties::getModel);
             case "gemini" -> valueOrUnknown(geminiProperties.getIfAvailable(), GeminiProperties::getModel);
             default -> "—";

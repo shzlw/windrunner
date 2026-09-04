@@ -78,6 +78,18 @@ export OPENROUTER_API_KEY=your-openrouter-key
 export OPENROUTER_MODEL=provider/model
 ```
 
+To use Ollama, start Ollama, pull a local model, and select it:
+
+```bash
+ollama pull llama3.2
+export WINDRUNNER_LLM_PROVIDER=ollama
+export OLLAMA_MODEL=llama3.2
+```
+
+Ollama uses `http://localhost:11434/v1` by default. If Windrunner runs in
+Docker, configure `OLLAMA_BASE_URL` with an address reachable from the app
+container.
+
 The local startup script enables voice transcription by default. The OpenAI
 key above can also be used for transcription. To select Gemini transcription,
 set the provider and its key before starting:

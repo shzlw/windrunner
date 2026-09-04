@@ -7,8 +7,8 @@ description: Select and configure the chat AI provider used by Windrunner.
 # AI providers
 
 Windrunner uses one configured provider for chat AI requests. Set
-`WINDRUNNER_LLM_PROVIDER` to `openai`, `openrouter`, `gemini`, `claude`, or
-`none`.
+`WINDRUNNER_LLM_PROVIDER` to `openai`, `openrouter`, `ollama`, `gemini`,
+`claude`, or `none`.
 
 The provider is `none` by default in the application. The local startup script
 selects `openai` unless you override it. Voice transcription is configured
@@ -52,6 +52,28 @@ so a model must support the parameters used by Windrunner's tool loop.
 | `OPENROUTER_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
 | `WINDRUNNER_LLM_OPENROUTER_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
 | `WINDRUNNER_LLM_OPENROUTER_READ_TIMEOUT` | `2m` | Response read timeout. |
+
+## Ollama
+
+Ollama connects to local models through its OpenAI-compatible Chat Completions
+API. Start Ollama, pull the model locally, then select `ollama`. The default
+base URL is suitable when Windrunner runs directly on the same machine as
+Ollama.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Ollama OpenAI-compatible API base URL. |
+| `OLLAMA_MODEL` | — | Local model name, such as `llama3.2`; it must already be pulled. |
+| `OLLAMA_API_KEY` | — | Optional API key for a secured or hosted Ollama endpoint. |
+| `OLLAMA_MAX_OUTPUT_TOKENS` | `2048` | Maximum output tokens. |
+| `OLLAMA_REASONING_EFFORT` | — | Optional reasoning effort; use only when the selected model supports it. |
+| `OLLAMA_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
+| `WINDRUNNER_LLM_OLLAMA_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
+| `WINDRUNNER_LLM_OLLAMA_READ_TIMEOUT` | `2m` | Response read timeout. |
+
+When Windrunner runs in Docker and Ollama runs on the host, set
+`OLLAMA_BASE_URL` to an address reachable from the container. On Docker
+Desktop, `http://host.docker.internal:11434/v1` is commonly used.
 
 ## Gemini
 

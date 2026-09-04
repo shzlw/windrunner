@@ -14,6 +14,8 @@ import com.windrunner.server.llmproviders.openai.OpenAIService;
 import com.windrunner.server.llmproviders.openai.config.OpenAIProperties;
 import com.windrunner.server.llmproviders.openrouter.OpenRouterService;
 import com.windrunner.server.llmproviders.openrouter.config.OpenRouterProperties;
+import com.windrunner.server.llmproviders.ollama.OllamaService;
+import com.windrunner.server.llmproviders.ollama.config.OllamaProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -170,6 +172,68 @@ class ProviderToolLoopIntegrationTest {
                         {
                           "id": "router_resp_2",
                           "model": "openrouter-test",
+                          "choices": [{
+                            "message": {"role":"assistant","content":"Done"},
+                            "finish_reason": "stop"
+                          }],
+                          "usage": {"prompt_tokens":20,"completion_tokens":3,"total_tokens":23}
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        LlmResult<String> result = service.runChatWithTools(
+                List.of(new LlmMessage("user", "Question")), "Be helpful", tools());
+
+        assertThat(result.output()).isEqualTo("Done");
+        assertThat(result.inputTokens()).isEqualTo(30);
+        assertThat(result.outputTokens()).isEqualTo(5);
+        server.verify();
+    }
+
+    @Test
+    void ollamaUsesTheSharedChatCompletionsToolLoop() {
+        RestClient.Builder restClientBuilder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
+        OllamaProperties properties = new OllamaProperties();
+        properties.setModel("llama-test");
+        properties.setMaxToolRounds(2);
+        OllamaService service = new OllamaService(
+                restClientBuilder.build(), properties, objectMapper, agentService);
+
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.messages[0].role").value("system"))
+                .andExpect(jsonPath("$.messages[0].content").value("Be helpful"))
+                .andExpect(jsonPath("$.messages[1].content").value("Question"))
+                .andExpect(jsonPath("$.parallel_tool_calls").value(false))
+                .andRespond(withSuccess("""
+                        {
+                          "id": "ollama_resp_1",
+                          "model": "llama-test",
+                          "choices": [{
+                            "message": {
+                              "role": "assistant",
+                              "content": null,
+                              "tool_calls": [
+                                {"id":"call_1","type":"function","function":{"name":"first","arguments":"{\\\"value\\\":\\\"x\\\"}"}},
+                                {"id":"call_2","type":"function","function":{"name":"second","arguments":"{\\\"value\\\":\\\"y\\\"}"}}
+                              ]
+                            },
+                            "finish_reason": "tool_calls"
+                          }],
+                          "usage": {"prompt_tokens":10,"completion_tokens":2,"total_tokens":12}
+                        }
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.messages.length()").value(5))
+                .andExpect(jsonPath("$.messages[2].role").value("assistant"))
+                .andExpect(jsonPath("$.messages[2].tool_calls.length()").value(2))
+                .andExpect(jsonPath("$.messages[3].tool_call_id").value("call_1"))
+                .andExpect(jsonPath("$.messages[4].tool_call_id").value("call_2"))
+                .andRespond(withSuccess("""
+                        {
+                          "id": "ollama_resp_2",
+                          "model": "llama-test",
                           "choices": [{
                             "message": {"role":"assistant","content":"Done"},
                             "finish_reason": "stop"

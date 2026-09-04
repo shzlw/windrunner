@@ -17,7 +17,7 @@ project context.
 - Manual workflows for assigning, searching, filtering, following, and reviewing work.
 - Teams, access controls, notifications, subscriptions, and audit logs.
 - REST API, OpenAPI, CLI, and MCP integrations for tools and agents.
-- Configurable OpenAI, OpenRouter, Gemini, and Claude providers.
+- Configurable OpenAI, OpenRouter, Ollama, Gemini, and Claude providers.
 - Docker Compose and PostgreSQL deployment.
 - English and Simplified Chinese web interfaces.
 
