@@ -115,7 +115,7 @@ class ProviderToolLoopIntegrationTest {
     }
 
     @Test
-    void openRouterSendsBothToolResultsWithThePreviousResponseId() {
+    void openRouterSendsAssistantToolCallsAndResultsAsChatMessages() {
         RestClient.Builder restClientBuilder = RestClient.builder().baseUrl(BASE_URL);
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
         OpenRouterProperties properties = new OpenRouterProperties();
@@ -124,41 +124,57 @@ class ProviderToolLoopIntegrationTest {
         OpenRouterService service = new OpenRouterService(
                 restClientBuilder.build(), properties, objectMapper, agentService);
 
-        server.expect(requestTo(BASE_URL + "/responses"))
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(jsonPath("$.input[0].content").value("Question"))
+                .andExpect(jsonPath("$.messages[0].role").value("system"))
+                .andExpect(jsonPath("$.messages[0].content").value("Be helpful"))
+                .andExpect(jsonPath("$.messages[1].role").value("user"))
+                .andExpect(jsonPath("$.messages[1].content").value("Question"))
                 .andExpect(jsonPath("$.previous_response_id").doesNotExist())
                 .andExpect(jsonPath("$.parallel_tool_calls").value(true))
-                .andExpect(jsonPath("$.reasoning").doesNotExist())
+                .andExpect(jsonPath("$.reasoning_effort").doesNotExist())
                 .andRespond(withSuccess("""
                         {
                           "id": "router_resp_1",
                           "model": "openrouter-test",
-                          "status": "completed",
-                          "output": [
-                            {"type":"function_call","call_id":"call_1","name":"first","arguments":"{\\\"value\\\":\\\"x\\\"}"},
-                            {"type":"function_call","call_id":"call_2","name":"second","arguments":"{\\\"value\\\":\\\"y\\\"}"}
-                          ],
-                          "usage": {"input_tokens":10,"output_tokens":2,"total_tokens":12}
+                          "choices": [{
+                            "message": {
+                              "role": "assistant",
+                              "content": null,
+                              "tool_calls": [
+                                {"id":"call_1","type":"function","function":{"name":"first","arguments":"{\\\"value\\\":\\\"x\\\"}"}},
+                                {"id":"call_2","type":"function","function":{"name":"second","arguments":"{\\\"value\\\":\\\"y\\\"}"}}
+                              ]
+                            },
+                            "finish_reason": "tool_calls"
+                          }],
+                          "usage": {"prompt_tokens":10,"completion_tokens":2,"total_tokens":12}
                         }
                         """, MediaType.APPLICATION_JSON));
-        server.expect(requestTo(BASE_URL + "/responses"))
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(jsonPath("$.previous_response_id").value("router_resp_1"))
-                .andExpect(jsonPath("$.instructions").value("Be helpful"))
+                .andExpect(jsonPath("$.previous_response_id").doesNotExist())
                 .andExpect(jsonPath("$.tools.length()").value(2))
-                .andExpect(jsonPath("$.input.length()").value(2))
-                .andExpect(jsonPath("$.input[0].call_id").value("call_1"))
-                .andExpect(jsonPath("$.input[0].output").value("first:x"))
-                .andExpect(jsonPath("$.input[1].call_id").value("call_2"))
-                .andExpect(jsonPath("$.input[1].output").value("second:y"))
+                .andExpect(jsonPath("$.messages.length()").value(5))
+                .andExpect(jsonPath("$.messages[2].role").value("assistant"))
+                .andExpect(jsonPath("$.messages[2].tool_calls.length()").value(2))
+                .andExpect(jsonPath("$.messages[2].tool_calls[0].id").value("call_1"))
+                .andExpect(jsonPath("$.messages[2].tool_calls[0].function.name").value("first"))
+                .andExpect(jsonPath("$.messages[3].role").value("tool"))
+                .andExpect(jsonPath("$.messages[3].tool_call_id").value("call_1"))
+                .andExpect(jsonPath("$.messages[3].content").value("first:x"))
+                .andExpect(jsonPath("$.messages[4].role").value("tool"))
+                .andExpect(jsonPath("$.messages[4].tool_call_id").value("call_2"))
+                .andExpect(jsonPath("$.messages[4].content").value("second:y"))
                 .andRespond(withSuccess("""
                         {
                           "id": "router_resp_2",
                           "model": "openrouter-test",
-                          "status": "completed",
-                          "output": [{"type":"message","content":[{"type":"output_text","text":"Done"}] }],
-                          "usage": {"input_tokens":20,"output_tokens":3,"total_tokens":23}
+                          "choices": [{
+                            "message": {"role":"assistant","content":"Done"},
+                            "finish_reason": "stop"
+                          }],
+                          "usage": {"prompt_tokens":20,"completion_tokens":3,"total_tokens":23}
                         }
                         """, MediaType.APPLICATION_JSON));
 

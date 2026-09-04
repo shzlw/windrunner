@@ -2,19 +2,15 @@ package com.windrunner.server.llmproviders.compatible;
 
 import com.windrunner.server.llm.*;
 import com.windrunner.server.llmproviders.openai.client.OpenAIJsonSchema;
-import com.windrunner.server.llmproviders.openai.client.OpenAIResponse;
-import com.windrunner.server.llmproviders.openai.client.OpenAIResponseRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Shared implementation for providers that expose an OpenAI-compatible LLM API.
@@ -56,51 +52,43 @@ public class OpenAICompatibleLlmService implements LlmService {
             List<LlmTool<?>> tools
     ) {
         List<LlmTool<?>> safeTools = tools == null ? List.of() : tools;
-        List<OpenAIResponseRequest.FunctionTool> responseTools = safeTools.stream()
+        List<OpenAICompatibleChatRequest.FunctionTool> chatTools = safeTools.stream()
                 .map(this::toFunctionTool)
                 .toList();
 
-        AtomicReference<ArrayNode> pendingInput = new AtomicReference<>(input);
-        AtomicReference<String> previousResponseId = new AtomicReference<>();
+        ArrayNode conversation = input;
         UsageTotals usageTotals = new UsageTotals();
         AtomicBoolean executedTool = new AtomicBoolean();
 
-        OpenAIResponse response = agentService.run(
+        OpenAICompatibleChatResponse response = agentService.run(
                 settings.providerName(),
                 safeTools,
                 settings.maxToolRounds(),
                 settings.parallelToolTimeout(),
                 new AgentService.AgentLoop<>() {
                     @Override
-                    public OpenAIResponse callModel() {
-                        OpenAIResponse response = callResponsesApi(
-                                buildRequest(
-                                        pendingInput.get(),
-                                        responseTools,
-                                        instructions,
-                                        previousResponseId.get())
-                        );
-                        previousResponseId.set(response.id());
-                        pendingInput.set(objectMapper.createArrayNode());
+                    public OpenAICompatibleChatResponse callModel() {
+                        OpenAICompatibleChatResponse response = callChatCompletions(
+                                buildRequest(conversation, chatTools, instructions));
                         usageTotals.add(response.usage());
                         return response;
                     }
 
                     @Override
-                    public List<LlmToolCall> findToolCalls(OpenAIResponse response) {
+                    public List<LlmToolCall> findToolCalls(OpenAICompatibleChatResponse response) {
                         return OpenAICompatibleLlmService.this.findToolCalls(response);
                     }
 
                     @Override
-                    public void preserveModelResponse(OpenAIResponse response) {
-                        // Response state is maintained server-side via previous_response_id.
+                    public void preserveModelResponse(OpenAICompatibleChatResponse response) {
+                        appendAssistantMessage(conversation, response);
                     }
 
                     @Override
                     public void appendToolResults(List<AgentService.ToolResult> results) {
                         executedTool.set(!results.isEmpty());
-                        results.forEach(result -> appendFunctionCallOutput(
-                                pendingInput.get(), result.toolCall(), result.output()));
+                        results.forEach(result -> appendToolResult(
+                                conversation, result.toolCall(), result.output()));
                     }
                 }
         );
@@ -110,11 +98,36 @@ public class OpenAICompatibleLlmService implements LlmService {
         return result(response, output, usageTotals);
     }
 
-    private void appendFunctionCallOutput(ArrayNode conversationInput, LlmToolCall toolCall, String output) {
-        conversationInput.addObject()
-                .put("type", "function_call_output")
-                .put("call_id", toolCall.id())
-                .put("output", output);
+    private void appendAssistantMessage(
+            ArrayNode conversation,
+            OpenAICompatibleChatResponse response
+    ) {
+        OpenAICompatibleChatResponse.Message message = firstChoice(response).message();
+        var assistantMessage = conversation.addObject()
+                .put("role", "assistant");
+        if (message.content() != null) {
+            assistantMessage.put("content", message.content());
+        } else {
+            assistantMessage.putNull("content");
+        }
+        if (message.toolCalls() != null && !message.toolCalls().isEmpty()) {
+            var toolCalls = assistantMessage.putArray("tool_calls");
+            for (OpenAICompatibleChatResponse.ToolCall toolCall : message.toolCalls()) {
+                var serializedToolCall = toolCalls.addObject()
+                        .put("id", toolCall.id())
+                        .put("type", toolCall.type());
+                serializedToolCall.putObject("function")
+                        .put("name", toolCall.function().name())
+                        .put("arguments", toolCall.function().arguments());
+            }
+        }
+    }
+
+    private void appendToolResult(ArrayNode conversation, LlmToolCall toolCall, String output) {
+        conversation.addObject()
+                .put("role", "tool")
+                .put("tool_call_id", toolCall.id())
+                .put("content", output);
     }
 
     private ArrayNode createChatInput(List<LlmMessage> messages) {
@@ -134,78 +147,73 @@ public class OpenAICompatibleLlmService implements LlmService {
         return input;
     }
 
-    private OpenAIResponseRequest buildRequest(
-            Object input,
-            List<OpenAIResponseRequest.FunctionTool> tools,
-            String instructions,
-            String previousResponseId
+    private OpenAICompatibleChatRequest buildRequest(
+            ArrayNode messages,
+            List<OpenAICompatibleChatRequest.FunctionTool> tools,
+            String instructions
     ) {
         boolean hasTools = !tools.isEmpty();
 
-        return new OpenAIResponseRequest(
+        if (StringUtils.hasText(instructions)) {
+            ArrayNode messagesWithInstructions = objectMapper.createArrayNode();
+            messagesWithInstructions.addObject()
+                    .put("role", "system")
+                    .put("content", instructions);
+            messagesWithInstructions.addAll(messages);
+            messages = messagesWithInstructions;
+        }
+
+        return new OpenAICompatibleChatRequest(
                 settings.model(),
-                input,
-                StringUtils.hasText(instructions) ? instructions : null,
+                messages,
                 settings.maxOutputTokens(),
                 StringUtils.hasText(settings.reasoningEffort())
-                        ? new OpenAIResponseRequest.Reasoning(settings.reasoningEffort())
+                        ? settings.reasoningEffort()
                         : null,
                 hasTools ? tools : null,
-                hasTools ? settings.parallelToolCalls() : null,
-                previousResponseId
+                hasTools ? settings.parallelToolCalls() : null
         );
     }
 
-    private OpenAIResponse callResponsesApi(OpenAIResponseRequest request) {
-        OpenAIResponse response = restClient.post()
-                .uri("/responses")
+    private OpenAICompatibleChatResponse callChatCompletions(OpenAICompatibleChatRequest request) {
+        OpenAICompatibleChatResponse response = restClient.post()
+                .uri("/chat/completions")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
-                .body(OpenAIResponse.class);
+                .body(OpenAICompatibleChatResponse.class);
         requireCompleteResponse(response);
         return response;
     }
 
-    private OpenAIResponseRequest.FunctionTool toFunctionTool(LlmTool<?> function) {
-        return new OpenAIResponseRequest.FunctionTool(
+    private OpenAICompatibleChatRequest.FunctionTool toFunctionTool(LlmTool<?> function) {
+        return new OpenAICompatibleChatRequest.FunctionTool(
                 "function",
-                function.name(),
-                function.description(),
-                true,
-                jsonSchema.generate(function.parametersType())
+                new OpenAICompatibleChatRequest.FunctionDefinition(
+                        function.name(),
+                        function.description(),
+                        jsonSchema.generate(function.parametersType()))
         );
     }
 
-    private List<LlmToolCall> findToolCalls(OpenAIResponse response) {
-        return response.output().stream()
-                .filter(outputItem -> "function_call".equals(outputItem.path("type").asString()))
-                .map(outputItem -> new LlmToolCall(
-                        outputItem.path("call_id").asString(),
-                        outputItem.path("name").asString(),
-                        outputItem.path("arguments").asString()
+    private List<LlmToolCall> findToolCalls(OpenAICompatibleChatResponse response) {
+        OpenAICompatibleChatResponse.Message message = firstChoice(response).message();
+        if (message.toolCalls() == null) {
+            return List.of();
+        }
+        return message.toolCalls().stream()
+                .map(toolCall -> new LlmToolCall(
+                        toolCall.id(),
+                        toolCall.function().name(),
+                        toolCall.function().arguments()
                 ))
                 .toList();
     }
 
-    private String requireOutputText(OpenAIResponse response, boolean allowEmptyAfterToolCall) {
-        for (JsonNode outputItem : response.output()) {
-            JsonNode content = outputItem.path("content");
-            if (!content.isArray()) {
-                continue;
-            }
-            for (JsonNode contentItem : content) {
-                String type = contentItem.path("type").asString();
-                if ("refusal".equals(type) && StringUtils.hasText(contentItem.path("refusal").asString())) {
-                    throw new LlmException(
-                            settings.providerName() + " refused the request: "
-                                    + contentItem.path("refusal").asString()
-                    );
-                }
-                if ("output_text".equals(type) && StringUtils.hasText(contentItem.path("text").asString())) {
-                    return contentItem.path("text").asString();
-                }
-            }
+    private String requireOutputText(OpenAICompatibleChatResponse response, boolean allowEmptyAfterToolCall) {
+        OpenAICompatibleChatResponse.Message message = firstChoice(response).message();
+        if (StringUtils.hasText(message.content())) {
+            return message.content();
         }
         if (allowEmptyAfterToolCall) {
             return "";
@@ -213,25 +221,29 @@ public class OpenAICompatibleLlmService implements LlmService {
         throw new LlmException(settings.providerName() + " response did not contain output text");
     }
 
-    private void requireCompleteResponse(OpenAIResponse response) {
+    private OpenAICompatibleChatResponse.Choice firstChoice(OpenAICompatibleChatResponse response) {
+        requireCompleteResponse(response);
+        if (response.choices() == null || response.choices().isEmpty()
+                || response.choices().getFirst() == null
+                || response.choices().getFirst().message() == null) {
+            throw new LlmException(settings.providerName() + " response did not contain a message choice");
+        }
+        return response.choices().getFirst();
+    }
+
+    private void requireCompleteResponse(OpenAICompatibleChatResponse response) {
         if (response == null) {
             throw new LlmException(settings.providerName() + " returned an empty response");
         }
         if (!StringUtils.hasText(response.id())) {
             throw new LlmException(settings.providerName() + " response did not contain an id");
         }
-        if ("incomplete".equals(response.status())) {
-            String reason = response.incompleteDetails() != null
-                    ? response.incompleteDetails().reason()
-                    : "unknown reason";
-            throw new LlmException(settings.providerName() + " response was incomplete: " + reason);
-        }
-        if (response.output() == null) {
-            throw new LlmException(settings.providerName() + " response did not contain output");
+        if (response.choices() == null) {
+            throw new LlmException(settings.providerName() + " response did not contain choices");
         }
     }
 
-    private <T> LlmResult<T> result(OpenAIResponse response, T output, UsageTotals usage) {
+    private <T> LlmResult<T> result(OpenAICompatibleChatResponse response, T output, UsageTotals usage) {
         return new LlmResult<>(
                 response.id(),
                 response.model(),
@@ -242,11 +254,11 @@ public class OpenAICompatibleLlmService implements LlmService {
         );
     }
 
-    private void logCompletion(OpenAIResponse response) {
-        OpenAIResponse.Usage usage = response.usage();
-        log.info("{} Responses API completed with responseId={}, inputTokens={}, outputTokens={}, model={}",
-                settings.providerName(), response.id(), usage != null ? usage.inputTokens() : null,
-                usage != null ? usage.outputTokens() : null, response.model());
+    private void logCompletion(OpenAICompatibleChatResponse response) {
+        OpenAICompatibleChatResponse.Usage usage = response.usage();
+        log.info("{} Chat Completions API completed with responseId={}, inputTokens={}, outputTokens={}, model={}",
+                settings.providerName(), response.id(), usage != null ? usage.promptTokens() : null,
+                usage != null ? usage.completionTokens() : null, response.model());
     }
 
     private static final class UsageTotals {
@@ -256,13 +268,13 @@ public class OpenAICompatibleLlmService implements LlmService {
         private long totalTokens;
         private boolean present;
 
-        private void add(OpenAIResponse.Usage usage) {
+        private void add(OpenAICompatibleChatResponse.Usage usage) {
             if (usage == null) {
                 return;
             }
             present = true;
-            inputTokens += usage.inputTokens() != null ? usage.inputTokens() : 0;
-            outputTokens += usage.outputTokens() != null ? usage.outputTokens() : 0;
+            inputTokens += usage.promptTokens() != null ? usage.promptTokens() : 0;
+            outputTokens += usage.completionTokens() != null ? usage.completionTokens() : 0;
             totalTokens += usage.totalTokens() != null ? usage.totalTokens() : 0;
         }
 
