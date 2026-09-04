@@ -7,8 +7,8 @@ description: Select and configure the chat AI provider used by Windrunner.
 # AI providers
 
 Windrunner uses one configured provider for chat AI requests. Set
-`WINDRUNNER_LLM_PROVIDER` to `openai`, `openrouter`, `ollama`, `gemini`,
-`claude`, or `none`.
+`WINDRUNNER_LLM_PROVIDER` to `openai`, `openrouter`, `ollama`, `groq`,
+`gemini`, `claude`, or `none`.
 
 The provider is `none` by default in the application. The local startup script
 selects `openai` unless you override it. Voice transcription is configured
@@ -52,6 +52,24 @@ so a model must support the parameters used by Windrunner's tool loop.
 | `OPENROUTER_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
 | `WINDRUNNER_LLM_OPENROUTER_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
 | `WINDRUNNER_LLM_OPENROUTER_READ_TIMEOUT` | `2m` | Response read timeout. |
+
+## Groq
+
+Groq uses its OpenAI-compatible Chat Completions API. Select `groq` and choose
+a model available to your GroqCloud account. The default model is
+`openai/gpt-oss-20b`, which is suitable for testing tool calls on the free
+plan. Model availability and rate limits can change by account and model.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `GROQ_API_KEY` | — | API key. Required when Groq is selected. |
+| `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` | Groq API base URL. |
+| `GROQ_MODEL` | `openai/gpt-oss-20b` | Groq model name. |
+| `GROQ_MAX_OUTPUT_TOKENS` | `2048` | Maximum output tokens. |
+| `GROQ_REASONING_EFFORT` | — | Optional reasoning effort; use only when the selected model supports it. |
+| `GROQ_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
+| `WINDRUNNER_LLM_GROQ_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
+| `WINDRUNNER_LLM_GROQ_READ_TIMEOUT` | `2m` | Response read timeout. |
 
 ## Ollama
 

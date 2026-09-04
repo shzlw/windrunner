@@ -2,6 +2,7 @@ package com.windrunner.server.llm;
 
 import com.windrunner.server.llmproviders.claude.config.ClaudeProperties;
 import com.windrunner.server.llmproviders.gemini.config.GeminiProperties;
+import com.windrunner.server.llmproviders.groq.config.GroqProperties;
 import com.windrunner.server.llmproviders.openai.config.OpenAIProperties;
 import com.windrunner.server.llmproviders.openrouter.config.OpenRouterProperties;
 import com.windrunner.server.llmproviders.ollama.config.OllamaProperties;
@@ -20,6 +21,7 @@ public class LlmAvailabilityService {
     private final ObjectProvider<OpenAIProperties> openAIProperties;
     private final ObjectProvider<OpenRouterProperties> openRouterProperties;
     private final ObjectProvider<OllamaProperties> ollamaProperties;
+    private final ObjectProvider<GroqProperties> groqProperties;
     private final ObjectProvider<ClaudeProperties> claudeProperties;
     private final ObjectProvider<GeminiProperties> geminiProperties;
 
@@ -37,6 +39,7 @@ public class LlmAvailabilityService {
             case "openai" -> valueOrUnknown(openAIProperties.getIfAvailable(), OpenAIProperties::getModel);
             case "openrouter" -> valueOrUnknown(openRouterProperties.getIfAvailable(), OpenRouterProperties::getModel);
             case "ollama" -> valueOrUnknown(ollamaProperties.getIfAvailable(), OllamaProperties::getModel);
+            case "groq" -> valueOrUnknown(groqProperties.getIfAvailable(), GroqProperties::getModel);
             case "claude" -> valueOrUnknown(claudeProperties.getIfAvailable(), ClaudeProperties::getModel);
             case "gemini" -> valueOrUnknown(geminiProperties.getIfAvailable(), GeminiProperties::getModel);
             default -> "—";
