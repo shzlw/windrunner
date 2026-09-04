@@ -14,6 +14,7 @@
 
 - Use Spring Boot Starter Data JDBC for all SQL-related functions.
 - For inserts, do not use `repository.save`; write explicit `INSERT` SQL statements.
+- When an environment variable is the standard Spring Boot relaxed-binding name for a property, set the default directly in `application.properties` instead of duplicating it as `${ENV_VAR:default}`; environment variables override file defaults automatically. Use placeholders only for intentional custom aliases or fallback chains.
 
 ## Postgres
 
