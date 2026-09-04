@@ -7,7 +7,8 @@ description: Select and configure the chat AI provider used by Windrunner.
 # AI providers
 
 Windrunner uses one configured provider for chat AI requests. Set
-`WINDRUNNER_LLM_PROVIDER` to `openai`, `gemini`, `claude`, or `none`.
+`WINDRUNNER_LLM_PROVIDER` to `openai`, `openrouter`, `gemini`, `claude`, or
+`none`.
 
 The provider is `none` by default in the application. The local startup script
 selects `openai` unless you override it. Voice transcription is configured
@@ -31,6 +32,26 @@ independently; see [Voice transcription](voice-transcription).
 | `OPENAI_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
 | `WINDRUNNER_LLM_OPENAI_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
 | `WINDRUNNER_LLM_OPENAI_READ_TIMEOUT` | `2m` | Response read timeout. |
+
+## OpenRouter
+
+OpenRouter uses its OpenAI-compatible Responses API. Select `openrouter` and
+choose an OpenRouter model slug that supports tool calling, such as the model
+shown in OpenRouter's model catalog. Model capabilities vary, so a model must
+support the parameters used by Windrunner's tool loop.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OPENROUTER_API_KEY` | — | API key. Required when OpenRouter is selected. |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | OpenRouter API base URL. |
+| `OPENROUTER_MODEL` | — | OpenRouter model slug, for example `openai/gpt-4o`. |
+| `OPENROUTER_SITE_URL` | — | Optional site URL sent as `HTTP-Referer`. |
+| `OPENROUTER_SITE_NAME` | — | Optional application name sent as `X-OpenRouter-Title`. |
+| `OPENROUTER_MAX_OUTPUT_TOKENS` | `2048` | Maximum output tokens. |
+| `OPENROUTER_REASONING_EFFORT` | — | Optional reasoning effort; use only when the selected model supports it. |
+| `OPENROUTER_MAX_TOOL_ROUNDS` | `8` | Maximum tool-call rounds for one request. |
+| `WINDRUNNER_LLM_OPENROUTER_CONNECT_TIMEOUT` | `10s` | Connection timeout. |
+| `WINDRUNNER_LLM_OPENROUTER_READ_TIMEOUT` | `2m` | Response read timeout. |
 
 ## Gemini
 

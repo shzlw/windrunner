@@ -70,6 +70,14 @@ Gemini and Claude are also supported. Use `none` to run without AI:
 export WINDRUNNER_LLM_PROVIDER=none
 ```
 
+To use OpenRouter, select it explicitly and configure an OpenRouter model slug:
+
+```bash
+export WINDRUNNER_LLM_PROVIDER=openrouter
+export OPENROUTER_API_KEY=your-openrouter-key
+export OPENROUTER_MODEL=provider/model
+```
+
 The local startup script enables voice transcription by default. The OpenAI
 key above can also be used for transcription. To select Gemini transcription,
 set the provider and its key before starting:

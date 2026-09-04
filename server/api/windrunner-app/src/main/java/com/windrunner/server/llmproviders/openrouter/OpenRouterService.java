@@ -1,11 +1,11 @@
-package com.windrunner.server.llmproviders.openai;
+package com.windrunner.server.llmproviders.openrouter;
 
 import com.windrunner.server.llm.AgentService;
 import com.windrunner.server.llm.LlmMessage;
 import com.windrunner.server.llm.LlmResult;
 import com.windrunner.server.llm.LlmService;
 import com.windrunner.server.llm.LlmTool;
-import com.windrunner.server.llmproviders.openai.config.OpenAIProperties;
+import com.windrunner.server.llmproviders.openrouter.config.OpenRouterProperties;
 import com.windrunner.server.llmproviders.compatible.OpenAICompatibleLlmService;
 import com.windrunner.server.llmproviders.compatible.OpenAICompatibleSettings;
 import org.springframework.web.client.RestClient;
@@ -13,20 +13,20 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
-public class OpenAIService implements LlmService {
+public class OpenRouterService implements LlmService {
 
     private final OpenAICompatibleLlmService delegate;
 
-    public OpenAIService(
+    public OpenRouterService(
             RestClient restClient,
-            OpenAIProperties properties,
+            OpenRouterProperties properties,
             ObjectMapper objectMapper,
             AgentService agentService
     ) {
         this.delegate = new OpenAICompatibleLlmService(
                 restClient,
                 new OpenAICompatibleSettings(
-                        "OpenAI",
+                        "OpenRouter",
                         properties.getModel(),
                         properties.getMaxOutputTokens(),
                         properties.getReasoningEffort(),

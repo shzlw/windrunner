@@ -12,6 +12,8 @@ import com.windrunner.server.llmproviders.gemini.GeminiService;
 import com.windrunner.server.llmproviders.gemini.config.GeminiProperties;
 import com.windrunner.server.llmproviders.openai.OpenAIService;
 import com.windrunner.server.llmproviders.openai.config.OpenAIProperties;
+import com.windrunner.server.llmproviders.openrouter.OpenRouterService;
+import com.windrunner.server.llmproviders.openrouter.config.OpenRouterProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,6 +101,63 @@ class ProviderToolLoopIntegrationTest {
                           "model": "openai-test",
                           "status": "completed",
                           "output": [{"type":"message","content":[{"type":"output_text","text":"Done"}]}],
+                          "usage": {"input_tokens":20,"output_tokens":3,"total_tokens":23}
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        LlmResult<String> result = service.runChatWithTools(
+                List.of(new LlmMessage("user", "Question")), "Be helpful", tools());
+
+        assertThat(result.output()).isEqualTo("Done");
+        assertThat(result.inputTokens()).isEqualTo(30);
+        assertThat(result.outputTokens()).isEqualTo(5);
+        server.verify();
+    }
+
+    @Test
+    void openRouterSendsBothToolResultsWithThePreviousResponseId() {
+        RestClient.Builder restClientBuilder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
+        OpenRouterProperties properties = new OpenRouterProperties();
+        properties.setModel("openrouter-test");
+        properties.setMaxToolRounds(2);
+        OpenRouterService service = new OpenRouterService(
+                restClientBuilder.build(), properties, objectMapper, agentService);
+
+        server.expect(requestTo(BASE_URL + "/responses"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.input[0].content").value("Question"))
+                .andExpect(jsonPath("$.previous_response_id").doesNotExist())
+                .andExpect(jsonPath("$.parallel_tool_calls").value(true))
+                .andExpect(jsonPath("$.reasoning").doesNotExist())
+                .andRespond(withSuccess("""
+                        {
+                          "id": "router_resp_1",
+                          "model": "openrouter-test",
+                          "status": "completed",
+                          "output": [
+                            {"type":"function_call","call_id":"call_1","name":"first","arguments":"{\\\"value\\\":\\\"x\\\"}"},
+                            {"type":"function_call","call_id":"call_2","name":"second","arguments":"{\\\"value\\\":\\\"y\\\"}"}
+                          ],
+                          "usage": {"input_tokens":10,"output_tokens":2,"total_tokens":12}
+                        }
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE_URL + "/responses"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.previous_response_id").value("router_resp_1"))
+                .andExpect(jsonPath("$.instructions").value("Be helpful"))
+                .andExpect(jsonPath("$.tools.length()").value(2))
+                .andExpect(jsonPath("$.input.length()").value(2))
+                .andExpect(jsonPath("$.input[0].call_id").value("call_1"))
+                .andExpect(jsonPath("$.input[0].output").value("first:x"))
+                .andExpect(jsonPath("$.input[1].call_id").value("call_2"))
+                .andExpect(jsonPath("$.input[1].output").value("second:y"))
+                .andRespond(withSuccess("""
+                        {
+                          "id": "router_resp_2",
+                          "model": "openrouter-test",
+                          "status": "completed",
+                          "output": [{"type":"message","content":[{"type":"output_text","text":"Done"}] }],
                           "usage": {"input_tokens":20,"output_tokens":3,"total_tokens":23}
                         }
                         """, MediaType.APPLICATION_JSON));
