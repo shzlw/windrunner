@@ -180,7 +180,7 @@ function AskSessionsSidebar({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto px-0 py-2 group-data-[collapsible=icon]:no-scrollbar">
-        {isLoading ? (
+        {isLoading && sessions.length === 0 ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
@@ -344,20 +344,15 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const menuItems = baseMenuItems
   const accountLabel = currentUser?.displayName || currentUser?.username || 'account'
   const refreshChatSessions = useCallback(async (preferredSessionId?: string) => {
-    setIsLoadingChatSessions(true)
-    try {
-      const page = await listChatSessions('', 20, 0)
-      const nextSessions = page.items
-      setAskSessions(nextSessions)
-      setSessionsOffset(nextSessions.length)
-      setSessionsHasMore(page.hasMore)
-      setSelectedAskSessionId((current) => {
-        if (preferredSessionId && nextSessions.some((session) => session.id === preferredSessionId)) return preferredSessionId
-        return current
-      })
-    } finally {
-      setIsLoadingChatSessions(false)
-    }
+    const page = await listChatSessions('', 20, 0)
+    const nextSessions = page.items
+    setAskSessions(nextSessions)
+    setSessionsOffset(nextSessions.length)
+    setSessionsHasMore(page.hasMore)
+    setSelectedAskSessionId((current) => {
+      if (preferredSessionId && nextSessions.some((session) => session.id === preferredSessionId)) return preferredSessionId
+      return current
+    })
   }, [])
 
   const loadMoreChatSessions = useCallback(async () => {
@@ -373,14 +368,24 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   }, [sessionsOffset])
 
   const renameChatSession = useCallback(async (sessionId: string, title: string) => {
-    await renameChatSessionRequest(sessionId, title)
-    await refreshChatSessions(sessionId)
-  }, [refreshChatSessions])
+    const normalizedTitle = title.replace(/\s+/g, ' ').trim()
+    await renameChatSessionRequest(sessionId, normalizedTitle)
+    setAskSessions((current) => current.map((session) => session.id === sessionId ? { ...session, title: normalizedTitle } : session))
+  }, [])
 
   const deleteChatSession = useCallback(async (sessionId: string) => {
     await deleteChatSessionRequest(sessionId)
-    await refreshChatSessions()
-  }, [refreshChatSessions])
+    setAskSessions((current) => current.filter((session) => session.id !== sessionId))
+    setSessionsOffset((current) => Math.max(0, current - 1))
+    setSelectedAskSessionId((current) => current === sessionId ? null : current)
+
+    const params = new URLSearchParams(location.search)
+    if (params.get('chatSessionId') === sessionId) {
+      params.delete('chatSessionId')
+      const query = params.toString()
+      navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, { replace: true })
+    }
+  }, [location.hash, location.pathname, location.search, navigate])
 
   useEffect(() => {
     let isMounted = true
