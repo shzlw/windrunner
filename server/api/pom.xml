@@ -47,6 +47,7 @@
 	</dependencyManagement>
 
 	<modules>
+		<module>windrunner-ai</module>
 		<module>windrunner-app</module>
 	</modules>
 

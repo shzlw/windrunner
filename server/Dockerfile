@@ -21,6 +21,7 @@ WORKDIR /workspace/api
 # Copy poms first so dependency downloads are cached independently of source.
 COPY VERSION /workspace/VERSION
 COPY api/pom.xml ./
+COPY api/windrunner-ai/pom.xml windrunner-ai/pom.xml
 COPY api/windrunner-app/pom.xml windrunner-app/pom.xml
 RUN APP_VERSION="$(tr -d '\r\n' < /workspace/VERSION)" \
     && mvn --batch-mode --no-transfer-progress -q \
