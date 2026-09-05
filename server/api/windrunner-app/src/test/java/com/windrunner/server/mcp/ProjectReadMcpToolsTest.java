@@ -3,6 +3,9 @@ package com.windrunner.server.mcp;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.tools.work.FetchProjectSummaryTool;
+import com.windrunner.server.tools.work.FetchEntriesTool;
+import com.windrunner.server.tools.work.FetchRelationshipsTool;
+import com.windrunner.server.tools.work.FetchProjectBlockersTool;
 import com.windrunner.server.tools.work.FetchWorkItemsTool;
 import com.windrunner.server.tools.work.FindRelationshipsExactTool;
 import com.windrunner.server.tools.work.SearchEntriesTool;
@@ -29,11 +32,11 @@ class ProjectReadMcpToolsTest {
     @Mock
     private FetchWorkItemsTool workItems;
     @Mock
-    private com.windrunner.server.tools.work.FetchEntriesTool entries;
+    private FetchEntriesTool entries;
     @Mock
-    private com.windrunner.server.tools.work.FetchRelationshipsTool relationships;
+    private FetchRelationshipsTool relationships;
     @Mock
-    private com.windrunner.server.tools.work.FetchProjectBlockersTool blockers;
+    private FetchProjectBlockersTool blockers;
     @Mock
     private FetchProjectSummaryTool summary;
     @Mock

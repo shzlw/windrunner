@@ -4,13 +4,16 @@ import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.audit.AuditLogService;
 import com.windrunner.server.external.auth.ExternalAccessService;
+import com.windrunner.server.external.v1.dto.ExternalProjectMemberResponse;
 import com.windrunner.server.external.v1.dto.ExternalProjectResponse;
+import com.windrunner.server.external.v1.dto.ExternalProjectTeamResponse;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectContentDeletionService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.api.CreateProjectRequest;
 import com.windrunner.server.project.domain.Project;
+import com.windrunner.server.project.domain.ProjectMember;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.team.domain.ProjectTeam;
@@ -145,12 +148,12 @@ class ExternalProjectControllerTest {
         when(projectRepository.findById("proj-1")).thenReturn(Optional.of(persistedProject()));
         when(projectTeamRepository.findPageByProjectId("proj-1", 100, 100L)).thenReturn(List.of(new ProjectTeam()));
         when(projectTeamRepository.countByProjectId("proj-1")).thenReturn(101L);
-        when(projectMemberRepository.findPageByProjectId("proj-1", 100, 100L)).thenReturn(List.of(new com.windrunner.server.project.domain.ProjectMember()));
+        when(projectMemberRepository.findPageByProjectId("proj-1", 100, 100L)).thenReturn(List.of(new ProjectMember()));
         when(projectMemberRepository.countByProjectId("proj-1")).thenReturn(101L);
 
-        ApiResponse<List<com.windrunner.server.external.v1.dto.ExternalProjectTeamResponse>> teams =
+        ApiResponse<List<ExternalProjectTeamResponse>> teams =
                 controller().listProjectTeams("proj-1", 1, 500, request);
-        ApiResponse<List<com.windrunner.server.external.v1.dto.ExternalProjectMemberResponse>> members =
+        ApiResponse<List<ExternalProjectMemberResponse>> members =
                 controller().listProjectMembers("proj-1", 1, 500, request);
 
         assertThat(teams.meta().page()).isEqualTo(1);

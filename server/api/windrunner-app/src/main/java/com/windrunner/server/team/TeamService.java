@@ -20,6 +20,7 @@ import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
+import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -44,7 +45,7 @@ public class TeamService {
 
     private final EntityIdGenerator idGenerator;
 
-    private final com.windrunner.server.work.persistence.WorkItemAssigneeRepository workItemAssigneeRepository;
+    private final WorkItemAssigneeRepository workItemAssigneeRepository;
 
     public List<Team> listTeams(String currentUserId) {
         List<Team> teams = teamRepository.findAllOrdered();

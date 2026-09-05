@@ -10,6 +10,7 @@ import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.EntryService;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.persistence.WorkItemRepository;
+import com.windrunner.server.work.persistence.EntryRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,7 @@ import java.util.List;
 public class ExternalEntryController {
 
     private final EntryService entries;
-    private final com.windrunner.server.work.persistence.EntryRepository entryRepository;
+    private final EntryRepository entryRepository;
     private final WorkItemRepository workItems;
     private final ExternalAccessService externalAccessService;
     private final ProjectAccessService projectAccessService;
@@ -35,7 +36,7 @@ public class ExternalEntryController {
     public ApiResponse<List<ExternalEntryResponse>> list(@PathVariable("workItemId") String workItemId,
                                                          @RequestParam(name = "page", defaultValue = "0") int page,
                                                          @RequestParam(name = "size", defaultValue = "50") int size,
-                                                         @RequestParam(name = "updated_after", required = false)
+                                                         @RequestParam(name = "updatedAfter", required = false)
                                                          @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
                                                          java.time.OffsetDateTime updatedAfter,
                                                          HttpServletRequest request) {

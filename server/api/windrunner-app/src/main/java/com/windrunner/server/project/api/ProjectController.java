@@ -8,6 +8,7 @@ import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectContentDeletionService;
+import com.windrunner.server.project.ProjectMembershipService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.domain.ProjectMember;
@@ -43,7 +44,7 @@ public class ProjectController {
     private final AuthService authService;
     private final EntityIdGenerator idGenerator;
     private final ProjectContentDeletionService projectContentDeletionService;
-    private final com.windrunner.server.project.ProjectMembershipService memberships;
+    private final ProjectMembershipService memberships;
 
     @GetMapping
     public ApiResponse<List<Project>> listProjects(HttpServletRequest request) {

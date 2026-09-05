@@ -1,5 +1,6 @@
 package com.windrunner.server.llm.persistence;
 
+import com.windrunner.server.llm.domain.LlmUsage;
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
@@ -11,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface LlmUsageRepository extends CrudRepository<com.windrunner.server.llm.domain.LlmUsage, String> {
+public interface LlmUsageRepository extends CrudRepository<LlmUsage, String> {
 
     record TotalsRow(long requests, long inputTokens, long outputTokens, long successes, double avgDurationMs) {
     }

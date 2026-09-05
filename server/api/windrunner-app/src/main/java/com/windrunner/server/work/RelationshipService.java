@@ -3,11 +3,15 @@ package com.windrunner.server.work;
 import com.windrunner.server.audit.*;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
+import com.windrunner.server.notification.NotificationService;
+import com.windrunner.server.notification.WorkItemNotificationAudience;
+import com.windrunner.server.search.SearchNormalizer;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.Relationship;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.RelationshipRepository;
+import com.windrunner.server.work.persistence.WorkItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,10 +28,10 @@ public class RelationshipService {
     private final EntryRepository entries;
     private final EntityIdGenerator ids;
     private final AuditLogService auditLogService;
-    private final com.windrunner.server.search.SearchNormalizer searchNormalizer;
-    private final com.windrunner.server.notification.NotificationService notificationService;
-    private final com.windrunner.server.notification.WorkItemNotificationAudience notificationAudience;
-    private final com.windrunner.server.work.persistence.WorkItemRepository workItemRepository;
+    private final SearchNormalizer searchNormalizer;
+    private final NotificationService notificationService;
+    private final WorkItemNotificationAudience notificationAudience;
+    private final WorkItemRepository workItemRepository;
 
     public java.util.List<Relationship> list(String projectId) {
         return relationships.findByProjectId(projectId);

@@ -10,6 +10,7 @@ import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.api.CreateTeamRequest;
 import com.windrunner.server.team.api.TeamLinkRequest;
 import com.windrunner.server.team.domain.Team;
+import com.windrunner.server.team.persistence.TeamRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,7 @@ import java.util.List;
 public class ExternalTeamController {
 
     private final TeamService teamService;
-    private final com.windrunner.server.team.persistence.TeamRepository teamRepository;
+    private final TeamRepository teamRepository;
     private final ExternalAccessService externalAccessService;
 
     @GetMapping

@@ -585,7 +585,7 @@
             }
           },
           {
-            "name": "updated_after",
+            "name": "updatedAfter",
             "in": "query",
             "required": false,
             "schema": {
@@ -934,7 +934,7 @@
             }
           },
           {
-            "name": "updated_after",
+            "name": "updatedAfter",
             "in": "query",
             "required": false,
             "schema": {
@@ -1039,7 +1039,7 @@
             }
           },
           {
-            "name": "created_after",
+            "name": "createdAfter",
             "in": "query",
             "required": false,
             "schema": {

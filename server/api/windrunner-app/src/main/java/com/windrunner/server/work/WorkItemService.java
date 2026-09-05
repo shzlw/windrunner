@@ -6,6 +6,8 @@ import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.notification.NotificationService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
+import com.windrunner.server.search.SearchNormalizer;
+import com.windrunner.server.subscription.persistence.SubscriptionRepository;
 import com.windrunner.server.team.persistence.ProjectTeamRepository;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.work.api.WorkItemMoveRequest;
@@ -16,6 +18,7 @@ import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.RelationshipRepository;
 import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
 import com.windrunner.server.work.persistence.WorkItemRepository;
+import com.windrunner.server.notification.WorkItemNotificationAudience;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -37,10 +40,10 @@ public class WorkItemService {
     private final ContentOrderService contentOrder;
     private final EntityIdGenerator ids;
     private final AuditLogService auditLogService;
-    private final com.windrunner.server.search.SearchNormalizer searchNormalizer;
-    private final com.windrunner.server.subscription.persistence.SubscriptionRepository subscriptions;
+    private final SearchNormalizer searchNormalizer;
+    private final SubscriptionRepository subscriptions;
     private final NotificationService notificationService;
-    private final com.windrunner.server.notification.WorkItemNotificationAudience notificationAudience;
+    private final WorkItemNotificationAudience notificationAudience;
 
     public List<WorkItem> list(String projectId) {
         return workItems.findByProjectId(projectId);

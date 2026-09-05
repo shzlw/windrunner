@@ -9,6 +9,7 @@ import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.RelationshipService;
 import com.windrunner.server.work.domain.Relationship;
+import com.windrunner.server.work.persistence.RelationshipRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,7 @@ import java.util.List;
 public class ExternalRelationshipController {
 
     private final RelationshipService relationships;
-    private final com.windrunner.server.work.persistence.RelationshipRepository relationshipRepository;
+    private final RelationshipRepository relationshipRepository;
     private final ExternalAccessService externalAccessService;
     private final ProjectAccessService projectAccessService;
 
@@ -34,7 +35,7 @@ public class ExternalRelationshipController {
                                                                 @RequestParam(name = "page", defaultValue = "0") int page,
                                                                 @RequestParam(name = "size", defaultValue = "50") int size,
                                                                 @RequestParam(name = "type", required = false) String type,
-                                                                @RequestParam(name = "created_after", required = false)
+                                                                @RequestParam(name = "createdAfter", required = false)
                                                                 @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
                                                                 java.time.OffsetDateTime createdAfter,
                                                                 HttpServletRequest request) {

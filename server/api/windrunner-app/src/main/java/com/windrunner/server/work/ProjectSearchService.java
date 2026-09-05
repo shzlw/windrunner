@@ -1,5 +1,6 @@
 package com.windrunner.server.work;
 
+import com.windrunner.server.search.SearchNormalizer;
 import com.windrunner.server.work.api.ProjectSearchResult;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.Relationship;
@@ -22,7 +23,7 @@ public class ProjectSearchService {
     private final WorkItemRepository workItems;
     private final EntryRepository entries;
     private final RelationshipRepository relationships;
-    private final com.windrunner.server.search.SearchNormalizer searchNormalizer;
+    private final SearchNormalizer searchNormalizer;
 
     public ProjectSearchResult search(String projectId, String query, Integer limit) {
         String trimmed = query == null ? "" : query.trim();

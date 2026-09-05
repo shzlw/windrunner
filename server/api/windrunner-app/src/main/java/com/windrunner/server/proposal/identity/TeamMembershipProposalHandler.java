@@ -1,5 +1,6 @@
 package com.windrunner.server.proposal.identity;
 
+import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.proposal.ProposalHandler;
 import com.windrunner.server.proposal.ProposalPreparedChange;
 import com.windrunner.server.proposal.ProposalService;
@@ -67,7 +68,7 @@ final class TeamMembershipProposalHandler implements ProposalHandler<ProposalSer
 
     private AppUser memberUser(String id) {
         AppUser user = appUserRepository.findById(id).orElseThrow(() -> error(HttpStatus.NOT_FOUND, "User not found"));
-        if (com.windrunner.server.auth.security.AppRoles.isSuperAdmin(user.getGlobalRole())) {
+        if (AppRoles.isSuperAdmin(user.getGlobalRole())) {
             throw bad("Super admin users cannot be members");
         }
         return user;

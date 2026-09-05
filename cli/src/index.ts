@@ -568,7 +568,7 @@ Examples:
         status: options.status,
         type: options.type,
         priority: options.priority,
-        updated_after: options.updatedAfter,
+        updatedAfter: options.updatedAfter,
       })}`,
     );
     printResponse(response, globalOptions);
@@ -767,7 +767,7 @@ Example:
       `/work-items/${encode(workItemId)}/entries${queryString({
         page: numberValue(options.page, "page"),
         size: numberValue(options.size, "size"),
-        updated_after: options.updatedAfter,
+        updatedAfter: options.updatedAfter,
       })}`,
     );
     printResponse(response, globalOptions);
@@ -911,7 +911,7 @@ Example:
           page: numberValue(options.page, "page"),
           size: numberValue(options.size, "size"),
           type: options.type,
-          created_after: options.createdAfter,
+          createdAfter: options.createdAfter,
         })}`,
       ),
       globalOptions,

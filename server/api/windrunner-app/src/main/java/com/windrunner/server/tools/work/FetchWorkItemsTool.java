@@ -5,6 +5,7 @@ import com.windrunner.server.tools.Tool;
 import com.windrunner.server.tools.ToolAuthorizationService;
 import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
+import com.windrunner.server.work.WorkTypes;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.domain.WorkItemAssignee;
 import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
@@ -95,7 +96,7 @@ public class FetchWorkItemsTool implements Tool<FetchWorkItemsTool.Parameters> {
             return null;
         }
         String normalized = type.trim().toUpperCase(java.util.Locale.ROOT);
-        if (!com.windrunner.server.work.WorkTypes.WORK_ITEM_TYPES.contains(normalized)) {
+        if (!WorkTypes.WORK_ITEM_TYPES.contains(normalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type is invalid");
         }
         return normalized;

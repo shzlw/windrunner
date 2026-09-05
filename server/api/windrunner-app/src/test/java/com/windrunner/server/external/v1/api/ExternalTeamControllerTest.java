@@ -8,6 +8,7 @@ import com.windrunner.server.external.v1.dto.ExternalTeamMemberResponse;
 import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.domain.ProjectTeam;
 import com.windrunner.server.team.domain.TeamMember;
+import com.windrunner.server.team.persistence.TeamRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +27,7 @@ class ExternalTeamControllerTest {
     @Mock
     private TeamService teamService;
     @Mock
-    private com.windrunner.server.team.persistence.TeamRepository teamRepository;
+    private TeamRepository teamRepository;
     @Mock
     private ExternalAccessService externalAccessService;
     @Mock

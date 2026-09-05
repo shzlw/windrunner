@@ -3,6 +3,9 @@ package com.windrunner.server.work;
 import com.windrunner.server.audit.*;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
+import com.windrunner.server.notification.NotificationService;
+import com.windrunner.server.notification.WorkItemNotificationAudience;
+import com.windrunner.server.search.SearchNormalizer;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.work.domain.Entry;
@@ -29,9 +32,9 @@ public class EntryService {
     private final EntityIdGenerator ids;
     private final AuditLogService auditLogService;
     private final AppUserRepository users;
-    private final com.windrunner.server.search.SearchNormalizer searchNormalizer;
-    private final com.windrunner.server.notification.NotificationService notificationService;
-    private final com.windrunner.server.notification.WorkItemNotificationAudience notificationAudience;
+    private final SearchNormalizer searchNormalizer;
+    private final NotificationService notificationService;
+    private final WorkItemNotificationAudience notificationAudience;
 
     public List<Entry> list(String projectId) {
         return populateAuthorDisplayNames(entries.findByProjectId(projectId));

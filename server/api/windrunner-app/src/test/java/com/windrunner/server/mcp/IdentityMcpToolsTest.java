@@ -2,6 +2,8 @@ package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.tools.identity.FetchTeamMembersTool;
+import com.windrunner.server.tools.identity.FetchTeamDetailsTool;
+import com.windrunner.server.tools.identity.FetchTeamProjectsTool;
 import com.windrunner.server.tools.identity.FetchTeamsTool;
 import com.windrunner.server.tools.identity.FetchUserDetailsTool;
 import com.windrunner.server.tools.identity.FetchUsersTool;
@@ -27,11 +29,11 @@ class IdentityMcpToolsTest {
     @Mock
     private FetchTeamsTool teams;
     @Mock
-    private com.windrunner.server.tools.identity.FetchTeamDetailsTool teamDetails;
+    private FetchTeamDetailsTool teamDetails;
     @Mock
     private FetchTeamMembersTool teamMembers;
     @Mock
-    private com.windrunner.server.tools.identity.FetchTeamProjectsTool teamProjects;
+    private FetchTeamProjectsTool teamProjects;
     @Mock
     private FetchUsersTool users;
     @Mock

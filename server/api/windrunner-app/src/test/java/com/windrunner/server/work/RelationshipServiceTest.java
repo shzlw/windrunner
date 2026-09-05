@@ -2,11 +2,15 @@ package com.windrunner.server.work;
 
 import com.windrunner.server.audit.AuditLogService;
 import com.windrunner.server.id.EntityIdGenerator;
+import com.windrunner.server.notification.NotificationService;
+import com.windrunner.server.notification.WorkItemNotificationAudience;
+import com.windrunner.server.search.SearchNormalizer;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.Relationship;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.RelationshipRepository;
+import com.windrunner.server.work.persistence.WorkItemRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,13 +38,13 @@ class RelationshipServiceTest {
     @Mock
     private AuditLogService auditLogService;
     @Mock
-    private com.windrunner.server.search.SearchNormalizer searchNormalizer;
+    private SearchNormalizer searchNormalizer;
     @Mock
-    private com.windrunner.server.notification.NotificationService notificationService;
+    private NotificationService notificationService;
     @Mock
-    private com.windrunner.server.notification.WorkItemNotificationAudience notificationAudience;
+    private WorkItemNotificationAudience notificationAudience;
     @Mock
-    private com.windrunner.server.work.persistence.WorkItemRepository workItemRepository;
+    private WorkItemRepository workItemRepository;
     private RelationshipService service;
 
     @BeforeEach

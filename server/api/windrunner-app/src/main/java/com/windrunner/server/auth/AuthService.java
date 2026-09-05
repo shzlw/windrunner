@@ -119,7 +119,7 @@ public class AuthService {
             }
         }
 
-        com.windrunner.server.user.PasswordPolicy.assertValid(request.getNewPassword());
+        PasswordPolicy.assertValid(request.getNewPassword());
 
         Map<String, Object> before = authUserSnapshot(user);
         var now = DateUtils.now();

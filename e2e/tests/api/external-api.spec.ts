@@ -183,7 +183,7 @@ test.describe('External API: work items and entries', () => {
       expect(note.workItem.type).toBe('NOTE');
 
       const listed = await readPage<WorkItem>(await authenticated.api.get(
-        `/api/v1/projects/${project.id}/work-items?page=-1&size=500&status=open&type=task&priority=high&updated_after=1970-01-01T00:00:00Z`,
+        `/api/v1/projects/${project.id}/work-items?page=-1&size=500&status=open&type=task&priority=high&updatedAfter=1970-01-01T00:00:00Z`,
         {headers: bearer(authenticated)},
       ), 0, 100);
       expect(listed.map(item => item.workItem.id)).toEqual(expect.arrayContaining([root.workItem.id, second.workItem.id]));
@@ -245,7 +245,7 @@ test.describe('External API: work items and entries', () => {
       const entry = await createEntry(authenticated, workItem.workItem.id, `${uniqueName('entry')} initial`);
 
       const listed = await readPage<Entry>(await authenticated.api.get(
-        `/api/v1/work-items/${workItem.workItem.id}/entries?page=0&size=25&updated_after=1970-01-01T00:00:00Z`,
+        `/api/v1/work-items/${workItem.workItem.id}/entries?page=0&size=25&updatedAfter=1970-01-01T00:00:00Z`,
         {headers: bearer(authenticated)},
       ), 0, 25);
       expect(listed).toEqual(expect.arrayContaining([expect.objectContaining({id: entry.id, workItemId: workItem.workItem.id})]));
@@ -300,7 +300,7 @@ test.describe('External API: relationships, search, and content order', () => {
       });
 
       const listed = await readPage<Relationship>(await authenticated.api.get(
-        `/api/v1/projects/${project.id}/relationships?page=0&size=25&type=blocked_by&created_after=1970-01-01T00:00:00Z`,
+        `/api/v1/projects/${project.id}/relationships?page=0&size=25&type=blocked_by&createdAfter=1970-01-01T00:00:00Z`,
         {headers: bearer(authenticated)},
       ), 0, 25);
       expect(listed).toEqual(expect.arrayContaining([expect.objectContaining({id: relationship.id, type: 'BLOCKED_BY'})]));

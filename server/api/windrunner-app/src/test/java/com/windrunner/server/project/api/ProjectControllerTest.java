@@ -5,6 +5,7 @@ import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectContentDeletionService;
+import com.windrunner.server.project.ProjectMembershipService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
@@ -101,7 +102,7 @@ class ProjectControllerTest {
                 auditLogService,
                 authService,
                 new EntityIdGenerator(),
-                projectContentDeletionService, org.mockito.Mockito.mock(com.windrunner.server.project.ProjectMembershipService.class));
+                projectContentDeletionService, mock(ProjectMembershipService.class));
     }
 
     private AppUser actor() {

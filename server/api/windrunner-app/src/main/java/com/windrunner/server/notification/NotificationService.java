@@ -5,6 +5,7 @@ import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.notification.api.UserNotificationView;
 import com.windrunner.server.notification.domain.UserNotification;
 import com.windrunner.server.notification.persistence.UserNotificationRepository;
+import com.windrunner.server.user.persistence.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +21,7 @@ public class NotificationService {
     private static final String WORK_ITEM_ACTIVITY = "WORK_ITEM_ACTIVITY";
 
     private final UserNotificationRepository notifications;
-    private final com.windrunner.server.user.persistence.AppUserRepository users;
+    private final AppUserRepository users;
     private final EntityIdGenerator ids;
 
     @Transactional

@@ -41,7 +41,7 @@ public class ExternalWorkItemController {
                                                             @RequestParam(name = "status", required = false) String status,
                                                             @RequestParam(name = "type", required = false) String type,
                                                             @RequestParam(name = "priority", required = false) String priority,
-                                                            @RequestParam(name = "updated_after", required = false)
+                                                            @RequestParam(name = "updatedAfter", required = false)
                                                             @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
                                                             java.time.OffsetDateTime updatedAfter,
                                                             HttpServletRequest request) {
@@ -51,7 +51,7 @@ public class ExternalWorkItemController {
         int normalizedSize = Math.max(1, Math.min(size, 100));
         List<WorkItem> items = workItemsPage(projectId, normalizedSize, (long) normalizedPage * normalizedSize, status, type, priority, updatedAfter);
         long totalItems = workItemsCount(projectId, status, type, priority, updatedAfter);
-        Map<String, List<com.windrunner.server.work.domain.WorkItemAssignee>> assigneesByWorkItemId =
+        Map<String, List<WorkItemAssignee>> assigneesByWorkItemId =
                 workItems.assigneesByWorkItemIds(items.stream().map(WorkItem::getId).toList());
         return ApiResponse.page(
                 items.stream().map(item -> ExternalWorkItemResponse.from(item,
