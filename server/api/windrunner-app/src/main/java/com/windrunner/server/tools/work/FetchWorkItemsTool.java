@@ -1,5 +1,6 @@
 package com.windrunner.server.tools.work;
 
+import com.windrunner.server.search.SearchNormalizer;
 import com.windrunner.server.tools.Tool;
 import com.windrunner.server.tools.ToolAuthorizationService;
 import com.windrunner.server.tools.ToolExecutionContext;
@@ -8,7 +9,6 @@ import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.domain.WorkItemAssignee;
 import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
 import com.windrunner.server.work.persistence.WorkItemRepository;
-import com.windrunner.server.search.SearchNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;

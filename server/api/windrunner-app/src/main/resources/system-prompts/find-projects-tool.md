@@ -6,8 +6,8 @@ Find projects that the current user can access.
 The tool input must be a JSON object with this exact shape:
 
 {
-  "query": string | null,
-  "limit": number | null
+"query": string | null,
+"limit": number | null
 }
 </input_format>
 
@@ -21,13 +21,13 @@ If one clear match is returned, report its name to the user and ask them to add 
 The tool returns:
 
 {
-  "projects": [
-    {
-      "id": string,
-      "name": string
-    }
-  ],
-  "count": number,
-  "limit": number
+"projects": [
+{
+"id": string,
+"name": string
+}
+],
+"count": number,
+"limit": number
 }
 </output_format>

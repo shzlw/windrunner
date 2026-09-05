@@ -64,7 +64,8 @@ public class FetchProjectBlockersTool implements Tool<FetchProjectBlockersTool.P
     public record Parameters(String projectId, Integer limit, Integer offset) {
     }
 
-    public record Response(String projectId, int count, long total, int limit, long offset, boolean hasMore, List<Blocker> blockers) {
+    public record Response(String projectId, int count, long total, int limit, long offset, boolean hasMore,
+                           List<Blocker> blockers) {
     }
 
     public record Blocker(

@@ -19,7 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.Map;
+import java.util.Objects;
 
 @RequiredArgsConstructor
 @org.springframework.stereotype.Service
@@ -32,6 +33,7 @@ public class ProjectMembershipService {
     private final ProjectAccessService projectAccessService;
     private final AuditLogService auditLogService;
     private final AuthService authService;
+
     @Transactional
     public ProjectMember upsertProjectMember(String id, TeamLinkRequest linkRequest, AppUser actor) {
         actor = authService.requireActiveActor(actor);
@@ -89,7 +91,7 @@ public class ProjectMembershipService {
                 null,
                 null,
                 auditLogService.json(Map.of("operation", "REMOVE_MEMBER", "userId", userId))));
-        
+
     }
 
     @Transactional
@@ -151,7 +153,7 @@ public class ProjectMembershipService {
                 null,
                 null,
                 auditLogService.json(Map.of("operation", "UNASSIGN_TEAM", "teamId", teamId))));
-        
+
     }
 
     @Transactional
@@ -247,19 +249,27 @@ public class ProjectMembershipService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Membership has no usable concurrency revision. Ask AI to review it again.");
         }
     }
+
     private Project requireProject(String id) {
         return projectRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
     }
+
     private String requireText(String value, String message) {
         if (value == null || value.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
         return value.trim();
     }
+
     private String normalizeProjectRole(String role) {
-        try { return ProjectRoles.normalize(role); }
-        catch (IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage()); }
+        try {
+            return ProjectRoles.normalize(role);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
+
     private void requireAssignableProjectMember(String id) {
         AppUser user = appUserRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        if (AppRoles.isSuperAdmin(user.getGlobalRole())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Super admin users cannot be added as project members");
+        if (AppRoles.isSuperAdmin(user.getGlobalRole()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Super admin users cannot be added as project members");
     }
 }

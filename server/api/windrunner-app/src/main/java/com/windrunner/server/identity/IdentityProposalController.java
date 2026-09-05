@@ -15,15 +15,17 @@ public class IdentityProposalController {
 
     @GetMapping
     public ApiResponse<IdentityProposalService.Page> list(@PathVariable String sessionId,
-            @RequestParam(defaultValue = "50") int limit, @RequestParam(defaultValue = "0") int offset,
-            HttpServletRequest request) {
+                                                          @RequestParam(defaultValue = "50") int limit, @RequestParam(defaultValue = "0") int offset,
+                                                          HttpServletRequest request) {
         return ApiResponse.success(proposals.list(sessionId, auth.requireCurrentUser(request), limit, offset));
     }
 
     @PostMapping("/{id}/decision")
     public ApiResponse<IdentityProposalService.View> decide(@PathVariable String sessionId, @PathVariable String id,
-            @RequestBody Decision decision, HttpServletRequest request) {
+                                                            @RequestBody Decision decision, HttpServletRequest request) {
         return ApiResponse.success(proposals.decide(sessionId, id, decision == null ? null : decision.decision(), auth.requireCurrentUser(request)));
     }
-    public record Decision(String decision) { }
+
+    public record Decision(String decision) {
+    }
 }

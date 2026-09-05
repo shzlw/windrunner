@@ -19,6 +19,7 @@ public class FetchTeamDetailsTool implements Tool<FetchTeamDetailsTool.Parameter
 
     private final TeamRepository teamRepository;
     private final ToolAuthorizationService authorization;
+
     @Override
     public String name() {
         return "fetch_team_details";
@@ -52,9 +53,11 @@ public class FetchTeamDetailsTool implements Tool<FetchTeamDetailsTool.Parameter
         return new Result(team.getId(), team.getName(), truncate(team.getDescription()));
     }
 
-    public record Parameters(String teamId) { }
+    public record Parameters(String teamId) {
+    }
 
-    public record Result(String id, String name, String description) { }
+    public record Result(String id, String name, String description) {
+    }
 
     private static String truncate(String value) {
         return value != null && value.length() > MAX_TEXT_LENGTH

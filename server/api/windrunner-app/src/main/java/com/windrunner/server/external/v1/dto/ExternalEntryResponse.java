@@ -2,6 +2,7 @@ package com.windrunner.server.external.v1.dto;
 
 import com.windrunner.server.work.domain.Entry;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
 @Schema(name = "Entry", description = "A chronological record attached to a work item.")

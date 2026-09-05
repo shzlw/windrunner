@@ -55,16 +55,21 @@ public class FetchEntryContextTool {
                 AiReviewLimits.bounded(relationship.getReason(), AiReviewLimits.MAX_TEXT_LENGTH));
     }
 
-    public record EmptyInput() { }
+    public record EmptyInput() {
+    }
 
     public record EntryContext(WorkItemSummary parentWorkItem, List<EntrySummary> relatedEntries,
-                               List<RelationshipSummary> relationships) { }
+                               List<RelationshipSummary> relationships) {
+    }
 
     public record WorkItemSummary(String id, String parentWorkItemId, String type, String title,
-                                  String status, LocalDate dueDate, String priority) { }
+                                  String status, LocalDate dueDate, String priority) {
+    }
 
-    public record EntrySummary(String id, String type, String body, OffsetDateTime createdAt) { }
+    public record EntrySummary(String id, String type, String body, OffsetDateTime createdAt) {
+    }
 
     public record RelationshipSummary(String id, String type, String fromEntityType, String fromEntityId,
-                                      String toEntityType, String toEntityId, String reason) { }
+                                      String toEntityType, String toEntityId, String reason) {
+    }
 }

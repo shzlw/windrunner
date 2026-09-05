@@ -1,7 +1,7 @@
 package com.windrunner.server.audio;
 
-import com.windrunner.server.audio.gemini.config.GeminiTranscriptionProperties;
 import com.windrunner.server.audio.config.AudioTranscriptionProperties;
+import com.windrunner.server.audio.gemini.config.GeminiTranscriptionProperties;
 import com.windrunner.server.audio.openai.config.OpenAITranscriptionProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

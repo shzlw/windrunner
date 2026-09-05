@@ -1,12 +1,13 @@
 package com.windrunner.server.llmproviders.claude.client;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ClaudePayloadTest {
 

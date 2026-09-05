@@ -6,7 +6,7 @@ Fetch detailed profile information for one or more known active app users.
 The tool input must be a JSON object with this exact shape:
 
 {
-  "userIds": [string]
+"userIds": [string]
 }
 </input_format>
 
@@ -21,17 +21,17 @@ Only active users are returned. Very long bios are truncated. Do not infer detai
 The tool returns:
 
 {
-  "users": [
-    {
-      "id": string,
-      "username": string,
-      "displayName": string | null,
-      "email": string | null,
-      "title": string | null,
-      "bio": string | null
-    }
-  ],
-  "count": number,
-  "requestedCount": number
+"users": [
+{
+"id": string,
+"username": string,
+"displayName": string | null,
+"email": string | null,
+"title": string | null,
+"bio": string | null
+}
+],
+"count": number,
+"requestedCount": number
 }
 </output_format>

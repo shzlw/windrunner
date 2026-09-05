@@ -31,13 +31,13 @@ public class ExternalRelationshipController {
 
     @GetMapping("/projects/{projectId}/relationships")
     public ApiResponse<List<ExternalRelationshipResponse>> list(@PathVariable("projectId") String projectId,
-                                                @RequestParam(name = "page", defaultValue = "0") int page,
-                                                @RequestParam(name = "size", defaultValue = "50") int size,
-                                                @RequestParam(name = "type", required = false) String type,
-                                                @RequestParam(name = "created_after", required = false)
-                                                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
-                                                java.time.OffsetDateTime createdAfter,
-                                                HttpServletRequest request) {
+                                                                @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                @RequestParam(name = "size", defaultValue = "50") int size,
+                                                                @RequestParam(name = "type", required = false) String type,
+                                                                @RequestParam(name = "created_after", required = false)
+                                                                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
+                                                                java.time.OffsetDateTime createdAfter,
+                                                                HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.RELATIONSHIPS_READ);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
         int normalizedPage = Math.max(page, 0);
@@ -57,8 +57,8 @@ public class ExternalRelationshipController {
     @PostMapping("/projects/{projectId}/relationships")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<ExternalRelationshipResponse> create(@PathVariable("projectId") String projectId,
-                                            @RequestBody Relationship relationship,
-                                            HttpServletRequest request) {
+                                                            @RequestBody Relationship relationship,
+                                                            HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.RELATIONSHIPS_WRITE);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
         if (relationship == null) {
@@ -76,8 +76,8 @@ public class ExternalRelationshipController {
 
     @PutMapping("/relationships/{id}/reason")
     public ApiResponse<ExternalRelationshipResponse> updateReason(@PathVariable("id") String id,
-                                                  @RequestBody RelationshipReasonRequest body,
-                                                  HttpServletRequest request) {
+                                                                  @RequestBody RelationshipReasonRequest body,
+                                                                  HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.RELATIONSHIPS_WRITE);
         Relationship current = requireRelationship(id);
         projectAccessService.requireProjectRole(current.getProjectId(), actor, ProjectRoles.EDITOR);

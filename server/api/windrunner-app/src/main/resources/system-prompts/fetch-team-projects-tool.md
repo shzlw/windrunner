@@ -9,9 +9,9 @@ Request a larger limit only when the user asks for the complete project list. If
 
 <input_format>
 {
-  "teamId": string,
-  "limit": number | null,
-  "offset": number | null
+"teamId": string,
+"limit": number | null,
+"offset": number | null
 }
 </input_format>
 

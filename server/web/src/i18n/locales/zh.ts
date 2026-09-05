@@ -4,6 +4,7 @@ const zh = {
   "loadError": "无法加载提案。",
   "decisionError": "无法处理提案。",
   "appliedToast": "变更已应用",
+  "appliedMessage": "已成功应用，变更已生效。",
   "accept": "接受变更",
   "reject": "拒绝",
   "loadMore": "加载更多提案",

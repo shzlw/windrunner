@@ -33,12 +33,12 @@ public class ExternalEntryController {
 
     @GetMapping("/work-items/{workItemId}/entries")
     public ApiResponse<List<ExternalEntryResponse>> list(@PathVariable("workItemId") String workItemId,
-                                         @RequestParam(name = "page", defaultValue = "0") int page,
-                                         @RequestParam(name = "size", defaultValue = "50") int size,
-                                         @RequestParam(name = "updated_after", required = false)
-                                         @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
-                                         java.time.OffsetDateTime updatedAfter,
-                                         HttpServletRequest request) {
+                                                         @RequestParam(name = "page", defaultValue = "0") int page,
+                                                         @RequestParam(name = "size", defaultValue = "50") int size,
+                                                         @RequestParam(name = "updated_after", required = false)
+                                                         @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
+                                                         java.time.OffsetDateTime updatedAfter,
+                                                         HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.ENTRIES_READ);
         String projectId = requireProjectId(workItemId);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
@@ -58,8 +58,8 @@ public class ExternalEntryController {
     @PostMapping("/work-items/{workItemId}/entries")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<ExternalEntryResponse> create(@PathVariable("workItemId") String workItemId,
-                                     @RequestBody Entry entry,
-                                     HttpServletRequest request) {
+                                                     @RequestBody Entry entry,
+                                                     HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.ENTRIES_WRITE);
         String projectId = requireProjectId(workItemId);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
@@ -73,7 +73,7 @@ public class ExternalEntryController {
 
     @GetMapping("/entries/{id}")
     public ApiResponse<ExternalEntryResponse> get(@PathVariable("id") String id,
-                                  HttpServletRequest request) {
+                                                  HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.ENTRIES_READ);
         Entry entry = requireEntry(id);
         projectAccessService.requireProjectRole(entry.getProjectId(), actor, ProjectRoles.VIEWER);
@@ -82,8 +82,8 @@ public class ExternalEntryController {
 
     @PutMapping("/entries/{id}")
     public ApiResponse<ExternalEntryResponse> update(@PathVariable("id") String id,
-                                     @RequestBody Entry entry,
-                                     HttpServletRequest request) {
+                                                     @RequestBody Entry entry,
+                                                     HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.ENTRIES_WRITE);
         Entry current = requireEntry(id);
         projectAccessService.requireProjectRole(current.getProjectId(), actor, ProjectRoles.EDITOR);

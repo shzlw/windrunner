@@ -1,23 +1,19 @@
 package com.windrunner.server.llmproviders;
 
-import com.windrunner.server.llm.AgentService;
-import com.windrunner.server.llm.LlmMessage;
-import com.windrunner.server.llm.LlmProperties;
-import com.windrunner.server.llm.LlmResult;
-import com.windrunner.server.llm.LlmTool;
+import com.windrunner.server.llm.*;
 import com.windrunner.server.llm.config.LlmExecutionConfig;
 import com.windrunner.server.llmproviders.claude.ClaudeService;
 import com.windrunner.server.llmproviders.claude.config.ClaudeProperties;
 import com.windrunner.server.llmproviders.gemini.GeminiService;
 import com.windrunner.server.llmproviders.gemini.config.GeminiProperties;
+import com.windrunner.server.llmproviders.groq.GroqService;
+import com.windrunner.server.llmproviders.groq.config.GroqProperties;
+import com.windrunner.server.llmproviders.ollama.OllamaService;
+import com.windrunner.server.llmproviders.ollama.config.OllamaProperties;
 import com.windrunner.server.llmproviders.openai.OpenAIService;
 import com.windrunner.server.llmproviders.openai.config.OpenAIProperties;
 import com.windrunner.server.llmproviders.openrouter.OpenRouterService;
 import com.windrunner.server.llmproviders.openrouter.config.OpenRouterProperties;
-import com.windrunner.server.llmproviders.ollama.OllamaService;
-import com.windrunner.server.llmproviders.ollama.config.OllamaProperties;
-import com.windrunner.server.llmproviders.groq.GroqService;
-import com.windrunner.server.llmproviders.groq.config.GroqProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,9 +28,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class ProviderToolLoopIntegrationTest {

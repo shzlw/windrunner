@@ -8,8 +8,8 @@ Use this for project-level blocker questions. The result is aggregated server-si
 
 <input_format>
 {
-  "projectId": string,
-  "limit": number | null,
-  "offset": number | null
+"projectId": string,
+"limit": number | null,
+"offset": number | null
 }
 </input_format>

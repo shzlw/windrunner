@@ -2,7 +2,9 @@ package com.windrunner.server.proposal;
 
 import com.windrunner.server.user.domain.AppUser;
 
-/** Domain-specific validation and application for one proposal entity type. */
+/**
+ * Domain-specific validation and application for one proposal entity type.
+ */
 public interface ProposalHandler<T> {
     String entityType();
 

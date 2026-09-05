@@ -10,11 +10,7 @@ import com.windrunner.server.user.persistence.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.windrunner.server.identity.IdentityProposalSupport.*;
 
@@ -38,7 +34,8 @@ final class TeamProposalHandler implements ProposalHandler<IdentityProposalServi
     public ProposalPreparedChange prepare(IdentityProposalService.Draft draft, AppUser actor) {
         if ("REMOVE".equals(draft.action())) throw bad("Team deletion is not supported by this tool");
         if ("ADD".equals(draft.action()) && draft.teamId() != null) throw bad("ADD must not supply an existing teamId");
-        if ("UPDATE".equals(draft.action()) && draft.ownerUserIds() != null) throw bad("Use team membership proposals to change owners");
+        if ("UPDATE".equals(draft.action()) && draft.ownerUserIds() != null)
+            throw bad("Use team membership proposals to change owners");
 
         Map<String, String> requested = fields(draft, java.util.Set.of("name", "description"));
         Map<String, String> before = new LinkedHashMap<>();

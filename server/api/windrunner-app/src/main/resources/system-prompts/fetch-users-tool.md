@@ -6,8 +6,8 @@ Find active app users by name, username, email, title, or bio.
 The tool input must be a JSON object with this exact shape:
 
 {
-  "query": string | null,
-  "limit": number | null
+"query": string | null,
+"limit": number | null
 }
 </input_format>
 
@@ -27,15 +27,15 @@ Do not create an Entry or Relationship merely to represent assignment.
 The tool returns:
 
 {
-  "users": [
-    {
-      "id": string,
-      "username": string,
-      "displayName": string | null,
-      "email": string | null
-    }
-  ],
-  "count": number,
-  "limit": number
+"users": [
+{
+"id": string,
+"username": string,
+"displayName": string | null,
+"email": string | null
+}
+],
+"count": number,
+"limit": number
 }
 </output_format>

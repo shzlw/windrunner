@@ -1,9 +1,9 @@
 package com.windrunner.server.tools.chat;
 
-import com.windrunner.server.work.WorkspaceChangeProposalService;
-import com.windrunner.server.work.api.WorkspaceChangeProposalView;
 import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.user.domain.AppUser;
+import com.windrunner.server.work.WorkspaceChangeProposalService;
+import com.windrunner.server.work.api.WorkspaceChangeProposalView;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -23,7 +23,7 @@ class ProposeWorkspaceChangesToolTest {
         WorkspaceChangeProposalService proposals = new WorkspaceChangeProposalService(null, null, null, null, null, null) {
             @Override
             public WorkspaceChangeProposalView create(String project, String session, String message, String text,
-                                                       WorkspaceChangeProposalService.ProposalDraft draft) {
+                                                      WorkspaceChangeProposalService.ProposalDraft draft) {
                 projectId.set(project);
                 chatSessionId.set(session);
                 sourceMessageId.set(message);

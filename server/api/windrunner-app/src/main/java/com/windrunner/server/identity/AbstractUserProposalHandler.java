@@ -10,11 +10,7 @@ import com.windrunner.server.user.api.UserResponse;
 import com.windrunner.server.user.domain.AppUser;
 import org.springframework.http.HttpStatus;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static com.windrunner.server.identity.IdentityProposalSupport.*;
 
@@ -71,7 +67,8 @@ abstract class AbstractUserProposalHandler implements ProposalHandler<IdentityPr
         after.put("email", request.getEmail());
         after.put("timezone", request.getTimezone());
         after.put("status", request.getStatus());
-        if (requested.containsKey("globalRole")) after.put("globalRole", request.getGlobalRole().trim().toUpperCase(Locale.ROOT));
+        if (requested.containsKey("globalRole"))
+            after.put("globalRole", request.getGlobalRole().trim().toUpperCase(Locale.ROOT));
         return new ProposalPreparedChange(before, after);
     }
 

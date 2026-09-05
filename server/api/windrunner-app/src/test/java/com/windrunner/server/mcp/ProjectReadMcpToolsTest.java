@@ -1,11 +1,11 @@
 package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
+import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.tools.work.FetchProjectSummaryTool;
 import com.windrunner.server.tools.work.FetchWorkItemsTool;
 import com.windrunner.server.tools.work.FindRelationshipsExactTool;
 import com.windrunner.server.tools.work.SearchEntriesTool;
-import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.user.domain.AppUser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

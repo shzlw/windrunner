@@ -29,7 +29,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(LlmBusyException.class)
     public ResponseEntity<ApiResponse<Void>> handleLlmBusyException(LlmBusyException exception,
-                                                                     HttpServletRequest request) {
+                                                                    HttpServletRequest request) {
         return ResponseEntity
                 .status(HttpStatus.SERVICE_UNAVAILABLE)
                 .header("Retry-After", "1")
@@ -60,7 +60,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException exception,
-                                                                           HttpServletRequest request) {
+                                                                         HttpServletRequest request) {
         return ResponseEntity
                 .status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -90,7 +90,7 @@ public class ApiExceptionHandler {
             ServletRequestBindingException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(Exception exception,
-                                                               HttpServletRequest request) {
+                                                              HttpServletRequest request) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .contentType(MediaType.APPLICATION_JSON)

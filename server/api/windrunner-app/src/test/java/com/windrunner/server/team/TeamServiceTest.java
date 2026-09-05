@@ -1,12 +1,5 @@
 package com.windrunner.server.team;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
 import com.windrunner.server.audit.AuditLogService;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.project.ProjectAccessService;
@@ -20,8 +13,6 @@ import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
-import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +21,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TeamServiceTest {
@@ -156,7 +155,8 @@ class TeamServiceTest {
     void upsertCannotDemoteLastOwner() {
         when(teamRepository.findById("team-1")).thenReturn(Optional.of(team("team-1")));
         when(appUserRepository.findById("user-1")).thenReturn(Optional.of(user("user-1")));
-        TeamMember owner = new TeamMember(); owner.setRole(TeamRoles.TEAM_OWNER);
+        TeamMember owner = new TeamMember();
+        owner.setRole(TeamRoles.TEAM_OWNER);
         when(teamMemberRepository.findByTeamIdAndUserId("team-1", "user-1")).thenReturn(Optional.of(owner));
         when(teamMemberRepository.countOwners("team-1")).thenReturn(1L);
         ResponseStatusException exception = org.junit.jupiter.api.Assertions.assertThrows(ResponseStatusException.class,

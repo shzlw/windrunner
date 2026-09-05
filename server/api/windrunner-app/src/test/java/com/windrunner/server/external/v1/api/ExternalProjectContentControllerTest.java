@@ -1,12 +1,5 @@
 package com.windrunner.server.external.v1.api;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.external.auth.ExternalAccessService;
@@ -24,13 +17,19 @@ import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.Relationship;
 import com.windrunner.server.work.domain.WorkItem;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ExternalProjectContentControllerTest {

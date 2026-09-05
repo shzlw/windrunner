@@ -23,8 +23,8 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
             LIMIT :limit
             """)
     List<AppUser> findManageableCandidates(@Param("query") String query,
-                                         @Param("includeAdmins") boolean includeAdmins,
-                                         @Param("limit") int limit);
+                                           @Param("includeAdmins") boolean includeAdmins,
+                                           @Param("limit") int limit);
 
     @Modifying
     @Query("""

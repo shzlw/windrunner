@@ -11,7 +11,6 @@ import com.windrunner.server.work.api.EntryAiNewReviewRequest;
 import com.windrunner.server.work.api.EntryAiReviewDecisionRequest;
 import com.windrunner.server.work.api.EntryAiReviewResponse;
 import com.windrunner.server.work.domain.Entry;
-import com.windrunner.server.work.domain.WorkItem;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;

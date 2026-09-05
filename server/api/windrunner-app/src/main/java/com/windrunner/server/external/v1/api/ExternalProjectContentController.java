@@ -11,20 +11,14 @@ import com.windrunner.server.work.ContentOrderService;
 import com.windrunner.server.work.ProjectSearchService;
 import com.windrunner.server.work.api.ContentOrderItem;
 import com.windrunner.server.work.api.ContentReorderRequest;
-import com.windrunner.server.work.api.ProjectSearchResult;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -39,9 +33,9 @@ public class ExternalProjectContentController {
 
     @GetMapping("/search")
     public ApiResponse<ExternalSearchResultResponse> search(@PathVariable("projectId") String projectId,
-                                                   @RequestParam(value = "q", defaultValue = "") String query,
-                                                   @RequestParam(value = "limit", required = false) Integer limit,
-                                                   HttpServletRequest request) {
+                                                            @RequestParam(value = "q", defaultValue = "") String query,
+                                                            @RequestParam(value = "limit", required = false) Integer limit,
+                                                            HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScopes(request,
                 ApiKeyScopes.WORK_ITEMS_READ,
                 ApiKeyScopes.ENTRIES_READ,

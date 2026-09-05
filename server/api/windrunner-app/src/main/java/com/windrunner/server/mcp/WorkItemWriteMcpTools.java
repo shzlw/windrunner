@@ -17,9 +17,9 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -143,7 +143,9 @@ public class WorkItemWriteMcpTools {
                 created.getFromEntityId(), created.getToEntityId(), created.getReason());
     }
 
-    /** Enforces the tool's scope and returns the acting user. */
+    /**
+     * Enforces the tool's scope and returns the acting user.
+     */
     private AppUser requireScope(String scope) {
         if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "MCP API key is required");

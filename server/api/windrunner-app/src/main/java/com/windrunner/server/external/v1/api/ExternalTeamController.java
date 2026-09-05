@@ -9,9 +9,7 @@ import com.windrunner.server.external.v1.dto.ExternalTeamResponse;
 import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.api.CreateTeamRequest;
 import com.windrunner.server.team.api.TeamLinkRequest;
-import com.windrunner.server.team.domain.ProjectTeam;
 import com.windrunner.server.team.domain.Team;
-import com.windrunner.server.team.domain.TeamMember;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -64,8 +62,8 @@ public class ExternalTeamController {
 
     @PutMapping("/{id}")
     public ApiResponse<ExternalTeamResponse> updateTeam(@PathVariable("id") String id,
-                                        @RequestBody Team team,
-                                        HttpServletRequest request) {
+                                                        @RequestBody Team team,
+                                                        HttpServletRequest request) {
         validateTeamInput(team);
         return ApiResponse.success(ExternalTeamResponse.from(teamService.updateTeam(
                 id,
@@ -89,17 +87,17 @@ public class ExternalTeamController {
         int normalizedSize = Math.max(1, Math.min(size, 100));
         long totalItems = teamService.countMembers(id);
         return ApiResponse.page(teamService.listMembersPage(id, normalizedSize,
-                        (long) normalizedPage * normalizedSize).stream()
-                .map(ExternalTeamMemberResponse::from)
-                .toList(), normalizedPage, normalizedSize, totalItems,
+                                (long) normalizedPage * normalizedSize).stream()
+                        .map(ExternalTeamMemberResponse::from)
+                        .toList(), normalizedPage, normalizedSize, totalItems,
                 (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @PostMapping("/{id}/members")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<ExternalTeamMemberResponse> addMember(@PathVariable("id") String id,
-                                             @RequestBody TeamLinkRequest linkRequest,
-                                             HttpServletRequest request) {
+                                                             @RequestBody TeamLinkRequest linkRequest,
+                                                             HttpServletRequest request) {
         validateMemberLink(linkRequest);
         return ApiResponse.success(ExternalTeamMemberResponse.from(teamService.addMember(
                 id,
@@ -117,17 +115,17 @@ public class ExternalTeamController {
 
     @GetMapping("/{id}/projects")
     public ApiResponse<List<ExternalProjectTeamResponse>> listProjects(@PathVariable("id") String id,
-                                                                        @RequestParam(name = "page", defaultValue = "0") int page,
-                                                                        @RequestParam(name = "size", defaultValue = "50") int size,
-                                                                        HttpServletRequest request) {
+                                                                       @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                       @RequestParam(name = "size", defaultValue = "50") int size,
+                                                                       HttpServletRequest request) {
         externalAccessService.requireScope(request, ApiKeyScopes.TEAM_PROJECTS_READ);
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.max(1, Math.min(size, 100));
         long totalItems = teamService.countProjects(id);
         return ApiResponse.page(teamService.listProjectsPage(id, normalizedSize,
-                        (long) normalizedPage * normalizedSize).stream()
-                .map(ExternalProjectTeamResponse::from)
-                .toList(), normalizedPage, normalizedSize, totalItems,
+                                (long) normalizedPage * normalizedSize).stream()
+                        .map(ExternalProjectTeamResponse::from)
+                        .toList(), normalizedPage, normalizedSize, totalItems,
                 (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 

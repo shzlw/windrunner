@@ -52,6 +52,7 @@ public class FetchRelationshipsTool implements Tool<FetchRelationshipsTool.Param
     public record Parameters(String projectId, String entityId, Integer limit, Integer offset) {
     }
 
-    public record Response(List<Relationship> relationships, int count, long total, int limit, long offset, boolean hasMore) {
+    public record Response(List<Relationship> relationships, int count, long total, int limit, long offset,
+                           boolean hasMore) {
     }
 }

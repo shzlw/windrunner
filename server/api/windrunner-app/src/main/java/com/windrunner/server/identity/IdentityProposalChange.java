@@ -9,7 +9,8 @@ import java.time.OffsetDateTime;
 @Data
 @Table("proposal_change")
 public class IdentityProposalChange {
-    @Id private String id;
+    @Id
+    private String id;
     private String proposalId;
     private Integer sortIndex;
     private String entityType;

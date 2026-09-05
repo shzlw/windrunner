@@ -2,6 +2,7 @@ package com.windrunner.server.external.v1.dto;
 
 import com.windrunner.server.project.domain.ProjectMember;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.OffsetDateTime;
 
 @Schema(name = "ProjectMember", description = "A user's membership in a project.")

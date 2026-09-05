@@ -1,9 +1,5 @@
 package com.windrunner.server.work.api;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
@@ -12,11 +8,16 @@ import com.windrunner.server.work.WorkItemAiReviewService;
 import com.windrunner.server.work.WorkItemService;
 import com.windrunner.server.work.domain.WorkItem;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class WorkItemControllerTest {

@@ -4,9 +4,9 @@ Find active users and linked teams currently eligible for WorkItem assignment in
 
 <input_format>
 {
-  "projectId": string,
-  "query": string | null,
-  "limit": number | null
+"projectId": string,
+"query": string | null,
+"limit": number | null
 }
 </input_format>
 

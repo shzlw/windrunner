@@ -1,7 +1,7 @@
 package com.windrunner.server.mcp;
 
-import com.windrunner.server.external.auth.ExternalAccessService;
 import com.windrunner.server.auth.security.AppRoles;
+import com.windrunner.server.external.auth.ExternalAccessService;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.persistence.ProjectRepository;

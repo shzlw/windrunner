@@ -6,7 +6,7 @@ Fetch the basic current details for one Team.
 The tool input must be a JSON object with this exact shape:
 
 {
-  "teamId": string
+"teamId": string
 }
 </input_format>
 
@@ -17,5 +17,6 @@ Do not use this tool to change team membership or project links. Those changes a
 </usage>
 
 <output_format>
-The tool returns the Team id, name, and description. A missing description is returned as null; very long descriptions are truncated.
+The tool returns the Team id, name, and description. A missing description is returned as null; very long descriptions
+are truncated.
 </output_format>

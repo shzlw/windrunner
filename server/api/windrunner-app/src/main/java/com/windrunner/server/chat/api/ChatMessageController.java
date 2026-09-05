@@ -71,7 +71,8 @@ public class ChatMessageController {
         UserContext user = authService.requireUserContext(httpRequest);
         ChatSession session = chatService.getSessionForChat(sessionId, user.userId());
         LlmService llmService = llmServiceProvider.getIfAvailable();
-        if (llmService == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI chat is unavailable");
+        if (llmService == null)
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI chat is unavailable");
 
         List<LlmMessage> messages = validateMessages(request);
         persistRequestedProjectContexts(session, user, actor, request == null ? null : request.projectIds());
@@ -81,7 +82,8 @@ public class ChatMessageController {
         if (request != null && request.targetProjectId() != null && !request.targetProjectId().isBlank()) {
             String targetProjectId = request.targetProjectId().trim();
             projectAccessService.requireProjectRole(targetProjectId, actor, ProjectRoles.EDITOR);
-            if (!contextProjectIds.contains(targetProjectId)) contextProjectIds = appendProject(contextProjectIds, targetProjectId);
+            if (!contextProjectIds.contains(targetProjectId))
+                contextProjectIds = appendProject(contextProjectIds, targetProjectId);
         }
         List<Project> contextProjects = requireContextProjects(contextProjectIds, actor);
         ChatContext requestedContext = request == null ? null : request.context();
@@ -93,7 +95,8 @@ public class ChatMessageController {
                 : (contextProjects.isEmpty() ? selectedWorkItemContext(targetProjectId(request), requestedContext) : selectedProjectContext(contextProjects));
         context = appendGenericContexts(context, contextViews);
         String targetProjectId = request == null ? null : blankToNull(request.targetProjectId());
-        if (targetProjectId == null && contextProjects.size() == 1) targetProjectId = contextProjects.getFirst().getId();
+        if (targetProjectId == null && contextProjects.size() == 1)
+            targetProjectId = contextProjects.getFirst().getId();
         Project targetProject = targetProjectId == null ? null : projects.findById(targetProjectId).orElse(null);
         ChatMessage sourceMessage = chatService.addMessage(session.getId(), "user", messages.getLast().content());
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MILLIS);
@@ -160,7 +163,8 @@ public class ChatMessageController {
     private void persistRequestedProjectContexts(ChatSession session, UserContext user, AppUser actor, List<String> projectIds) {
         if (projectIds == null) return;
         for (String projectId : new LinkedHashSet<>(projectIds)) {
-            if (projectId != null && !projectId.isBlank()) chatService.addContext(session.getId(), user.userId(), actor, "PROJECT", projectId.trim());
+            if (projectId != null && !projectId.isBlank())
+                chatService.addContext(session.getId(), user.userId(), actor, "PROJECT", projectId.trim());
         }
     }
 
@@ -174,14 +178,16 @@ public class ChatMessageController {
                 ids.add(item.getProjectId());
             }
         }
-        if (ids.size() > MAX_CONTEXT_PROJECTS) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A maximum of 10 projects can be used as context");
+        if (ids.size() > MAX_CONTEXT_PROJECTS)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A maximum of 10 projects can be used as context");
         return List.copyOf(ids);
     }
 
     private List<String> appendProject(List<String> projectIds, String projectId) {
         LinkedHashSet<String> ids = new LinkedHashSet<>(projectIds);
         ids.add(projectId);
-        if (ids.size() > MAX_CONTEXT_PROJECTS) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A maximum of 10 projects can be used as context");
+        if (ids.size() > MAX_CONTEXT_PROJECTS)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A maximum of 10 projects can be used as context");
         return List.copyOf(ids);
     }
 
@@ -198,16 +204,22 @@ public class ChatMessageController {
     }
 
     private List<LlmMessage> validateMessages(ChatRequest request) {
-        if (request == null || request.messages() == null || request.messages().isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one chat message is required");
-        if (request.messages().size() > MAX_MESSAGES) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat history is too long");
+        if (request == null || request.messages() == null || request.messages().isEmpty())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one chat message is required");
+        if (request.messages().size() > MAX_MESSAGES)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat history is too long");
         int totalLength = 0;
         for (LlmMessage message : request.messages()) {
-            if (message == null || !ALLOWED_ROLES.contains(message.role()) || message.content() == null || message.content().isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat messages require a user or assistant role and content");
-            if (message.content().length() > MAX_MESSAGE_LENGTH) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A chat message is too long");
+            if (message == null || !ALLOWED_ROLES.contains(message.role()) || message.content() == null || message.content().isBlank())
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat messages require a user or assistant role and content");
+            if (message.content().length() > MAX_MESSAGE_LENGTH)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A chat message is too long");
             totalLength += message.content().length();
         }
-        if (totalLength > MAX_TOTAL_LENGTH) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat history is too large");
-        if (!"user".equals(request.messages().getLast().role())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The final chat message must be from the user");
+        if (totalLength > MAX_TOTAL_LENGTH)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat history is too large");
+        if (!"user".equals(request.messages().getLast().role()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The final chat message must be from the user");
         return List.copyOf(request.messages());
     }
 
@@ -228,7 +240,8 @@ public class ChatMessageController {
     }
 
     private String selectedWorkItemContext(String projectId, ChatContext context) {
-        if (projectId == null || projectId.isBlank() || context == null || context.selectedNodeId() == null || context.selectedNodeId().isBlank()) return "No specific artifact is selected. For project-scoped requests, use find_projects before any project read tool; for other requests, use the appropriate identity tools and ask a concise clarification when the request is ambiguous.";
+        if (projectId == null || projectId.isBlank() || context == null || context.selectedNodeId() == null || context.selectedNodeId().isBlank())
+            return "No specific artifact is selected. For project-scoped requests, use find_projects before any project read tool; for other requests, use the appropriate identity tools and ask a concise clarification when the request is ambiguous.";
         WorkItem item = workItems.get(projectId, context.selectedNodeId().trim());
         return "Selected WorkItem context (selected item only; fetch related data with the available read tools):\n"
                 + "- WorkItem: " + item.getTitle() + " [id=" + item.getId() + ", projectId=" + projectId
@@ -248,8 +261,14 @@ public class ChatMessageController {
                 .replace("{{selectedContext}}", selectedContext);
     }
 
-    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
-    private void send(SseEmitter emitter, String eventName, Object data) throws IOException { emitter.send(SseEmitter.event().name(eventName).data(data)); }
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private void send(SseEmitter emitter, String eventName, Object data) throws IOException {
+        emitter.send(SseEmitter.event().name(eventName).data(data));
+    }
+
     private boolean isClientDisconnect(Throwable exception) {
         Throwable current = exception;
         while (current != null) {
@@ -268,16 +287,31 @@ public class ChatMessageController {
                 || normalized.contains("connection aborted");
     }
 
-    static String userFacingMessage(Exception exception) { return GENERIC_CHAT_ERROR; }
+    static String userFacingMessage(Exception exception) {
+        return GENERIC_CHAT_ERROR;
+    }
+
     private String titleFromMessage(String content) {
         String title = content.replaceAll("\\s+", " ").trim();
         return title.length() > 120 ? title.substring(0, 117) + "..." : title;
     }
 
-    public record ChatRequest(List<LlmMessage> messages, ChatContext context, List<String> projectIds, String targetProjectId) { }
-    public record ChatContext(String selectedNodeId, String selectedProposalId, String selectedProposalChangeId) { }
-    public record ChatDelta(String text) { }
-    public record ChatStarted(String title) { }
-    public record ChatDone(String chatSessionId, String sourceMessageId, String assistantMessageId) { }
-    public record ChatError(String message) { }
+    public record ChatRequest(List<LlmMessage> messages, ChatContext context, List<String> projectIds,
+                              String targetProjectId) {
+    }
+
+    public record ChatContext(String selectedNodeId, String selectedProposalId, String selectedProposalChangeId) {
+    }
+
+    public record ChatDelta(String text) {
+    }
+
+    public record ChatStarted(String title) {
+    }
+
+    public record ChatDone(String chatSessionId, String sourceMessageId, String assistantMessageId) {
+    }
+
+    public record ChatError(String message) {
+    }
 }

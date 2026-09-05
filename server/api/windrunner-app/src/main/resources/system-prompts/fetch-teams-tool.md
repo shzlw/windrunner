@@ -6,8 +6,8 @@ Find teams by name or description.
 The tool input must be a JSON object with this exact shape:
 
 {
-  "query": string | null,
-  "limit": number | null
+"query": string | null,
+"limit": number | null
 }
 </input_format>
 
@@ -27,14 +27,14 @@ Do not create an Entry or Relationship merely to represent assignment.
 Descriptions may be truncated when they are very long. The tool returns:
 
 {
-  "teams": [
-    {
-      "id": string,
-      "name": string,
-      "description": string | null
-    }
-  ],
-  "count": number,
-  "limit": number
+"teams": [
+{
+"id": string,
+"name": string,
+"description": string | null
+}
+],
+"count": number,
+"limit": number
 }
 </output_format>

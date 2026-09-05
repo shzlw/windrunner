@@ -12,7 +12,8 @@ DROP INDEX IF EXISTS chat_session_active_user_project_idx;
 
 -- 2.0 sessions are user-scoped; project scope lives only in chat_session_context.
 ALTER TABLE chat_session
-    DROP COLUMN IF EXISTS project_id;
+DROP
+COLUMN IF EXISTS project_id;
 
 CREATE INDEX IF NOT EXISTS chat_session_user_status_idx
     ON chat_session (user_id, status, updated_at DESC, id);
@@ -22,14 +23,37 @@ CREATE INDEX IF NOT EXISTS chat_session_user_updated_idx
 
 CREATE TABLE IF NOT EXISTS chat_session_context
 (
-    id              TEXT PRIMARY KEY,
-    chat_session_id TEXT NOT NULL,
-    entity_type     TEXT NOT NULL,
-    entity_id       TEXT NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    UNIQUE (chat_session_id, entity_type, entity_id)
-);
+    id
+    TEXT
+    PRIMARY
+    KEY,
+    chat_session_id
+    TEXT
+    NOT
+    NULL,
+    entity_type
+    TEXT
+    NOT
+    NULL,
+    entity_id
+    TEXT
+    NOT
+    NULL,
+    created_at
+    TIMESTAMPTZ
+    NOT
+    NULL
+    DEFAULT
+    NOW
+(
+),
+    UNIQUE
+(
+    chat_session_id,
+    entity_type,
+    entity_id
+)
+    );
 
 CREATE INDEX IF NOT EXISTS chat_session_context_session_idx
     ON chat_session_context (chat_session_id, created_at, id);
@@ -53,8 +77,8 @@ CREATE INDEX IF NOT EXISTS relationship_project_created_idx
 CREATE INDEX IF NOT EXISTS relationship_project_blocked_by_idx
     ON relationship (project_id, from_entity_id, to_entity_id)
     WHERE type = 'BLOCKED_BY'
-      AND from_entity_type = 'WORK_ITEM'
-      AND to_entity_type = 'WORK_ITEM';
+    AND from_entity_type = 'WORK_ITEM'
+    AND to_entity_type = 'WORK_ITEM';
 
 CREATE INDEX IF NOT EXISTS project_member_project_role_idx
     ON project_member (project_id, role, user_id);

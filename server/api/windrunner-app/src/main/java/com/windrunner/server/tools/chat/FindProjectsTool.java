@@ -51,9 +51,12 @@ public class FindProjectsTool {
         return requestedLimit == null ? DEFAULT_LIMIT : Math.max(1, Math.min(requestedLimit, MAX_LIMIT));
     }
 
-    public record Parameters(String query, Integer limit) { }
+    public record Parameters(String query, Integer limit) {
+    }
 
-    public record Result(List<ProjectMatch> projects, int count, int limit) { }
+    public record Result(List<ProjectMatch> projects, int count, int limit) {
+    }
 
-    public record ProjectMatch(String id, String name) { }
+    public record ProjectMatch(String id, String name) {
+    }
 }

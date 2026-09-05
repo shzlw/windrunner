@@ -1,10 +1,10 @@
 package com.windrunner.server.tools;
 
+import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.team.persistence.ProjectTeamRepository;
-import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.user.domain.AppUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;

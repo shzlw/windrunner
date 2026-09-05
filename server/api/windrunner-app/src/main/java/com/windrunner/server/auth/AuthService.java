@@ -12,8 +12,8 @@ import com.windrunner.server.auth.persistence.AuthSessionRepository;
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
-import com.windrunner.server.user.UserStatuses;
 import com.windrunner.server.user.PasswordPolicy;
+import com.windrunner.server.user.UserStatuses;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.utils.DateUtils;
@@ -32,7 +32,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.*;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -170,7 +173,9 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required"));
     }
 
-    /** Reload an actor for work that may outlive the original HTTP request. */
+    /**
+     * Reload an actor for work that may outlive the original HTTP request.
+     */
     public AppUser requireActiveActor(AppUser actor) {
         if (actor == null || actor.getId() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");

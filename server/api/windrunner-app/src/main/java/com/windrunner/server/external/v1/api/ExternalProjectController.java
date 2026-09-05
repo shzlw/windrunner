@@ -53,8 +53,8 @@ public class ExternalProjectController {
 
     @GetMapping
     public ApiResponse<List<ExternalProjectResponse>> listProjects(@RequestParam(name = "page", defaultValue = "0") int page,
-                                                   @RequestParam(name = "size", defaultValue = "50") int size,
-                                                   HttpServletRequest request) {
+                                                                   @RequestParam(name = "size", defaultValue = "50") int size,
+                                                                   HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_READ);
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.max(1, Math.min(size, 100));
@@ -139,8 +139,8 @@ public class ExternalProjectController {
     @PutMapping("/{id}")
     @Transactional
     public ApiResponse<ExternalProjectResponse> updateProject(@PathVariable("id") String id,
-                                              @RequestBody Project project,
-                                              HttpServletRequest request) {
+                                                              @RequestBody Project project,
+                                                              HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_WRITE);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
         Project beforeProject = requireProject(id);
@@ -194,9 +194,9 @@ public class ExternalProjectController {
 
     @GetMapping("/{id}/teams")
     public ApiResponse<List<ExternalProjectTeamResponse>> listProjectTeams(@PathVariable("id") String id,
-                                                                            @RequestParam(name = "page", defaultValue = "0") int page,
-                                                                            @RequestParam(name = "size", defaultValue = "50") int size,
-                                                                            HttpServletRequest request) {
+                                                                           @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                           @RequestParam(name = "size", defaultValue = "50") int size,
+                                                                           HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_READ);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.VIEWER);
         requireProject(id);
@@ -204,17 +204,17 @@ public class ExternalProjectController {
         int normalizedSize = Math.max(1, Math.min(size, 100));
         long totalItems = projectTeamRepository.countByProjectId(id);
         return ApiResponse.page(projectTeamRepository.findPageByProjectId(id, normalizedSize,
-                        (long) normalizedPage * normalizedSize).stream()
-                .map(ExternalProjectTeamResponse::from)
-                .toList(), normalizedPage, normalizedSize, totalItems,
+                                (long) normalizedPage * normalizedSize).stream()
+                        .map(ExternalProjectTeamResponse::from)
+                        .toList(), normalizedPage, normalizedSize, totalItems,
                 (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
     @GetMapping("/{id}/members")
     public ApiResponse<List<ExternalProjectMemberResponse>> listProjectMembers(@PathVariable("id") String id,
-                                                                                @RequestParam(name = "page", defaultValue = "0") int page,
-                                                                                @RequestParam(name = "size", defaultValue = "50") int size,
-                                                                                HttpServletRequest request) {
+                                                                               @RequestParam(name = "page", defaultValue = "0") int page,
+                                                                               @RequestParam(name = "size", defaultValue = "50") int size,
+                                                                               HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_READ);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.VIEWER);
         requireProject(id);
@@ -222,9 +222,9 @@ public class ExternalProjectController {
         int normalizedSize = Math.max(1, Math.min(size, 100));
         long totalItems = projectMemberRepository.countByProjectId(id);
         return ApiResponse.page(projectMemberRepository.findPageByProjectId(id, normalizedSize,
-                        (long) normalizedPage * normalizedSize).stream()
-                .map(ExternalProjectMemberResponse::from)
-                .toList(), normalizedPage, normalizedSize, totalItems,
+                                (long) normalizedPage * normalizedSize).stream()
+                        .map(ExternalProjectMemberResponse::from)
+                        .toList(), normalizedPage, normalizedSize, totalItems,
                 (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
@@ -232,8 +232,8 @@ public class ExternalProjectController {
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     public ApiResponse<ExternalProjectMemberResponse> upsertProjectMember(@PathVariable("id") String id,
-                                                          @RequestBody TeamLinkRequest linkRequest,
-                                                          HttpServletRequest request) {
+                                                                          @RequestBody TeamLinkRequest linkRequest,
+                                                                          HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_WRITE);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
         Project project = requireProject(id);
@@ -300,8 +300,8 @@ public class ExternalProjectController {
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
     public ApiResponse<ExternalProjectTeamResponse> assignTeam(@PathVariable("id") String id,
-                                               @RequestBody TeamLinkRequest linkRequest,
-                                               HttpServletRequest request) {
+                                                               @RequestBody TeamLinkRequest linkRequest,
+                                                               HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECT_ACCESS_WRITE);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
         Project project = requireProject(id);

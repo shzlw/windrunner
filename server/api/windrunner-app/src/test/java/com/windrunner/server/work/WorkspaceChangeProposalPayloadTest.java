@@ -1,15 +1,16 @@
 package com.windrunner.server.work;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import com.windrunner.server.utils.JsonUtils;
 import com.windrunner.server.llmproviders.openai.client.OpenAIJsonSchema;
+import com.windrunner.server.utils.JsonUtils;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.domain.WorkItemAssignee;
-import java.time.LocalDate;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class WorkspaceChangeProposalPayloadTest {
 

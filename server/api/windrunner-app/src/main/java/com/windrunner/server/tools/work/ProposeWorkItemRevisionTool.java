@@ -23,7 +23,9 @@ public class ProposeWorkItemRevisionTool {
 
     public record Parameters(String proposedTitle, String proposedType, String proposedStatus, String proposedDueDate,
                              String proposedPriority, List<WorkItemAssignee> proposedAssignees,
-                             List<ProposedBlocker> proposedBlockers, String rationale) { }
+                             List<ProposedBlocker> proposedBlockers, String rationale) {
+    }
 
-    public record ProposedBlocker(String workItemId, String reason) { }
+    public record ProposedBlocker(String workItemId, String reason) {
+    }
 }

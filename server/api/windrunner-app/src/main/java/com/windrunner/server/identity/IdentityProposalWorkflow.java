@@ -33,7 +33,8 @@ public final class IdentityProposalWorkflow implements ProposalWorkflow<Identity
     @Override
     public ProposalHandler<IdentityProposalService.Draft> handler(String entityType) {
         ProposalHandler<IdentityProposalService.Draft> handler = handlers.get(entityType);
-        if (handler == null) throw new IllegalArgumentException("Unsupported identity proposal entity type: " + entityType);
+        if (handler == null)
+            throw new IllegalArgumentException("Unsupported identity proposal entity type: " + entityType);
         return handler;
     }
 }

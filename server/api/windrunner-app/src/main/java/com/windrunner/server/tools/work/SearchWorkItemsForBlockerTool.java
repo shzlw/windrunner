@@ -50,8 +50,10 @@ public class SearchWorkItemsForBlockerTool {
                 item.getType(), item.getStatus(), item.getDueDate(), item.getPriority());
     }
 
-    public record Parameters(String query) { }
+    public record Parameters(String query) {
+    }
 
     public record WorkItemSummary(String id, String parentWorkItemId, String title, String type, String status,
-                                  java.time.LocalDate dueDate, String priority) { }
+                                  java.time.LocalDate dueDate, String priority) {
+    }
 }

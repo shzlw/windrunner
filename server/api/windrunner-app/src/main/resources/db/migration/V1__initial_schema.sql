@@ -1,27 +1,28 @@
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE
+EXTENSION IF NOT EXISTS pg_trgm;
 
 CREATE TABLE app_user
 (
     id                   TEXT PRIMARY KEY,
-    username             TEXT NOT NULL UNIQUE,
+    username             TEXT    NOT NULL UNIQUE,
     email                TEXT UNIQUE,
     display_name         TEXT,
-    timezone             TEXT NOT NULL DEFAULT 'UTC',
-    password_hash        TEXT NOT NULL,
-    status               TEXT NOT NULL,
-    global_role          TEXT NOT NULL,
+    timezone             TEXT    NOT NULL DEFAULT 'UTC',
+    password_hash        TEXT    NOT NULL,
+    status               TEXT    NOT NULL,
+    global_role          TEXT    NOT NULL,
     must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at           TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at           TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    created_at           TIMESTAMPTZ      DEFAULT NOW() NOT NULL,
+    updated_at           TIMESTAMPTZ      DEFAULT NOW() NOT NULL
 );
 
 CREATE TABLE auth_session
 (
     id                 TEXT PRIMARY KEY,
-    user_id            TEXT NOT NULL,
-    session_token_hash TEXT NOT NULL,
-    csrf_token         TEXT NOT NULL,
-    expires_at         TIMESTAMPTZ NOT NULL,
+    user_id            TEXT                      NOT NULL,
+    session_token_hash TEXT                      NOT NULL,
+    csrf_token         TEXT                      NOT NULL,
+    expires_at         TIMESTAMPTZ               NOT NULL,
     created_at         TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at         TIMESTAMPTZ DEFAULT NOW() NOT NULL,
 
@@ -31,10 +32,10 @@ CREATE TABLE auth_session
 CREATE TABLE api_key
 (
     id            TEXT PRIMARY KEY,
-    owner_user_id TEXT NOT NULL,
-    name          TEXT NOT NULL,
-    key_hash      TEXT NOT NULL,
-    status        TEXT NOT NULL,
+    owner_user_id TEXT                      NOT NULL,
+    name          TEXT                      NOT NULL,
+    key_hash      TEXT                      NOT NULL,
+    status        TEXT                      NOT NULL,
     created_at    TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     last_used_at  TIMESTAMPTZ,
     revoked_at    TIMESTAMPTZ,
@@ -55,8 +56,8 @@ CREATE TABLE api_key_scope
 CREATE TABLE project
 (
     id                 TEXT PRIMARY KEY,
-    name               TEXT NOT NULL,
-    created_by_user_id TEXT NOT NULL,
+    name               TEXT                      NOT NULL,
+    created_by_user_id TEXT                      NOT NULL,
     created_at         TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at         TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     archived_at        TIMESTAMPTZ
@@ -65,16 +66,16 @@ CREATE TABLE project
 CREATE TABLE team
 (
     id         TEXT PRIMARY KEY,
-    name       TEXT NOT NULL UNIQUE,
+    name       TEXT                      NOT NULL UNIQUE,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
 CREATE TABLE team_member
 (
-    team_id    TEXT NOT NULL,
-    user_id    TEXT NOT NULL,
-    role       TEXT NOT NULL,
+    team_id    TEXT                      NOT NULL,
+    user_id    TEXT                      NOT NULL,
+    role       TEXT                      NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     PRIMARY KEY (team_id, user_id)
 );
@@ -85,23 +86,22 @@ CREATE INDEX team_member_user_idx
 CREATE TABLE team_join_request
 (
     id                 TEXT PRIMARY KEY,
-    team_id            TEXT NOT NULL,
-    user_id            TEXT NOT NULL,
-    status             TEXT NOT NULL,
+    team_id            TEXT                      NOT NULL,
+    user_id            TEXT                      NOT NULL,
+    status             TEXT                      NOT NULL,
     created_at         TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     decided_at         TIMESTAMPTZ,
     decided_by_user_id TEXT
 );
 
 CREATE UNIQUE INDEX team_join_request_pending_user_idx
-    ON team_join_request (team_id, user_id)
-    WHERE status = 'PENDING';
+    ON team_join_request (team_id, user_id) WHERE status = 'PENDING';
 
 CREATE TABLE project_member
 (
-    project_id TEXT NOT NULL,
-    user_id    TEXT NOT NULL,
-    role       TEXT NOT NULL,
+    project_id TEXT                      NOT NULL,
+    user_id    TEXT                      NOT NULL,
+    role       TEXT                      NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     PRIMARY KEY (project_id, user_id)
 );
@@ -111,9 +111,9 @@ CREATE INDEX project_member_user_idx
 
 CREATE TABLE project_team
 (
-    project_id TEXT NOT NULL,
-    team_id    TEXT NOT NULL,
-    role       TEXT NOT NULL,
+    project_id TEXT                      NOT NULL,
+    team_id    TEXT                      NOT NULL,
+    role       TEXT                      NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     PRIMARY KEY (project_id, team_id)
 );
@@ -124,24 +124,23 @@ CREATE INDEX project_team_team_idx
 CREATE TABLE chat_session
 (
     id          TEXT PRIMARY KEY,
-    project_id  TEXT NOT NULL,
-    user_id     TEXT NOT NULL,
-    status      TEXT NOT NULL,
+    project_id  TEXT                      NOT NULL,
+    user_id     TEXT                      NOT NULL,
+    status      TEXT                      NOT NULL,
     created_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     archived_at TIMESTAMPTZ
 );
 
 CREATE UNIQUE INDEX chat_session_active_user_project_idx
-    ON chat_session (project_id, user_id)
-    WHERE status = 'ACTIVE';
+    ON chat_session (project_id, user_id) WHERE status = 'ACTIVE';
 
 CREATE TABLE chat_message
 (
     id              TEXT PRIMARY KEY,
-    chat_session_id TEXT NOT NULL,
-    role            TEXT NOT NULL,
-    content         TEXT NOT NULL,
+    chat_session_id TEXT                      NOT NULL,
+    role            TEXT                      NOT NULL,
+    content         TEXT                      NOT NULL,
     created_at      TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
@@ -151,15 +150,15 @@ CREATE INDEX chat_message_session_idx
 CREATE TABLE work_item
 (
     id                  TEXT PRIMARY KEY,
-    project_id          TEXT NOT NULL,
+    project_id          TEXT        NOT NULL,
     parent_work_item_id TEXT,
-    sort_index          INTEGER NOT NULL DEFAULT 0,
-    type                TEXT NOT NULL,
-    title               TEXT NOT NULL,
-    status              TEXT NOT NULL DEFAULT 'OPEN',
+    sort_index          INTEGER     NOT NULL DEFAULT 0,
+    type                TEXT        NOT NULL,
+    title               TEXT        NOT NULL,
+    status              TEXT        NOT NULL DEFAULT 'OPEN',
     due_date            DATE,
     priority            TEXT,
-    created_by_user_id  TEXT NOT NULL,
+    created_by_user_id  TEXT        NOT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     search_vec          TSVECTOR
@@ -180,9 +179,9 @@ CREATE INDEX work_item_title_trgm_idx
 CREATE TABLE work_item_assignee
 (
     id            TEXT PRIMARY KEY,
-    work_item_id  TEXT NOT NULL,
-    assignee_type TEXT NOT NULL,
-    assignee_id   TEXT NOT NULL,
+    work_item_id  TEXT        NOT NULL,
+    assignee_type TEXT        NOT NULL,
+    assignee_id   TEXT        NOT NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (work_item_id, assignee_type, assignee_id)
 );
@@ -193,12 +192,12 @@ CREATE INDEX work_item_assignee_lookup_idx
 CREATE TABLE entry
 (
     id             TEXT PRIMARY KEY,
-    project_id     TEXT NOT NULL,
-    work_item_id   TEXT NOT NULL,
-    sort_index     INTEGER NOT NULL,
-    author_user_id TEXT NOT NULL,
-    type           TEXT NOT NULL,
-    body           TEXT NOT NULL,
+    project_id     TEXT        NOT NULL,
+    work_item_id   TEXT        NOT NULL,
+    sort_index     INTEGER     NOT NULL,
+    author_user_id TEXT        NOT NULL,
+    type           TEXT        NOT NULL,
+    body           TEXT        NOT NULL,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     search_vec     TSVECTOR
@@ -218,18 +217,18 @@ CREATE INDEX entry_body_trgm_idx
 
 CREATE TABLE relationship
 (
-    id               TEXT PRIMARY KEY,
-    project_id       TEXT NOT NULL,
-    from_entity_type TEXT NOT NULL,
-    from_entity_id   TEXT NOT NULL,
-    to_entity_type   TEXT NOT NULL,
-    to_entity_id     TEXT NOT NULL,
-    type             TEXT NOT NULL,
-    reason           TEXT,
-    source_entry_id  TEXT,
-    created_by_user_id TEXT NOT NULL,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    search_vec       TSVECTOR
+    id                 TEXT PRIMARY KEY,
+    project_id         TEXT        NOT NULL,
+    from_entity_type   TEXT        NOT NULL,
+    from_entity_id     TEXT        NOT NULL,
+    to_entity_type     TEXT        NOT NULL,
+    to_entity_id       TEXT        NOT NULL,
+    type               TEXT        NOT NULL,
+    reason             TEXT,
+    source_entry_id    TEXT,
+    created_by_user_id TEXT        NOT NULL,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    search_vec         TSVECTOR
 );
 
 CREATE INDEX relationship_project_from_idx
@@ -247,11 +246,11 @@ CREATE INDEX relationship_reason_trgm_idx
 CREATE TABLE workspace_change_proposal
 (
     id                TEXT PRIMARY KEY,
-    project_id        TEXT NOT NULL,
-    chat_session_id   TEXT NOT NULL,
-    source_message_id TEXT NOT NULL,
-    source_text       TEXT NOT NULL,
-    status            TEXT NOT NULL DEFAULT 'PENDING',
+    project_id        TEXT        NOT NULL,
+    chat_session_id   TEXT        NOT NULL,
+    source_message_id TEXT        NOT NULL,
+    source_text       TEXT        NOT NULL,
+    status            TEXT        NOT NULL DEFAULT 'PENDING',
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -261,21 +260,21 @@ CREATE INDEX workspace_change_proposal_project_idx
 
 CREATE TABLE workspace_change
 (
-    id               TEXT PRIMARY KEY,
-    proposal_id      TEXT NOT NULL,
-    project_id       TEXT NOT NULL,
-    sort_index       INTEGER NOT NULL,
-    entity_type      TEXT NOT NULL,
-    action           TEXT NOT NULL,
-    target_id        TEXT NOT NULL,
-    summary          TEXT NOT NULL,
-    payload_json     JSONB,
-    previous_json    JSONB,
-    status           TEXT NOT NULL DEFAULT 'PENDING',
-    feedback         TEXT,
-    applied_at       TIMESTAMPTZ,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id            TEXT PRIMARY KEY,
+    proposal_id   TEXT        NOT NULL,
+    project_id    TEXT        NOT NULL,
+    sort_index    INTEGER     NOT NULL,
+    entity_type   TEXT        NOT NULL,
+    action        TEXT        NOT NULL,
+    target_id     TEXT        NOT NULL,
+    summary       TEXT        NOT NULL,
+    payload_json  JSONB,
+    previous_json JSONB,
+    status        TEXT        NOT NULL DEFAULT 'PENDING',
+    feedback      TEXT,
+    applied_at    TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX workspace_change_proposal_order_idx
@@ -286,19 +285,19 @@ CREATE INDEX workspace_change_project_status_idx
 
 CREATE TABLE audit_log
 (
-    id             TEXT PRIMARY KEY,
-    occurred_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    actor_user_id  TEXT,
-    action         TEXT NOT NULL,
-    entity_type    TEXT NOT NULL,
-    entity_id      TEXT,
-    project_id     TEXT,
-    outcome        TEXT NOT NULL DEFAULT 'SUCCESS',
-    summary        TEXT NOT NULL,
-    before_json    JSONB,
-    after_json     JSONB,
-    changes_json   JSONB,
-    metadata_json  JSONB
+    id            TEXT PRIMARY KEY,
+    occurred_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    actor_user_id TEXT,
+    action        TEXT        NOT NULL,
+    entity_type   TEXT        NOT NULL,
+    entity_id     TEXT,
+    project_id    TEXT,
+    outcome       TEXT        NOT NULL DEFAULT 'SUCCESS',
+    summary       TEXT        NOT NULL,
+    before_json   JSONB,
+    after_json    JSONB,
+    changes_json  JSONB,
+    metadata_json JSONB
 );
 
 CREATE INDEX audit_log_occurred_at_idx
@@ -318,13 +317,13 @@ CREATE TABLE llm_usage
     id            TEXT PRIMARY KEY,
     user_id       TEXT,
     project_id    TEXT,
-    feature       TEXT NOT NULL,
-    provider      TEXT NOT NULL,
+    feature       TEXT        NOT NULL,
+    provider      TEXT        NOT NULL,
     model         TEXT,
     input_tokens  BIGINT,
     output_tokens BIGINT,
     total_tokens  BIGINT,
-    outcome       TEXT NOT NULL DEFAULT 'SUCCESS',
+    outcome       TEXT        NOT NULL DEFAULT 'SUCCESS',
     error_message TEXT,
     duration_ms   BIGINT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -342,9 +341,9 @@ CREATE INDEX llm_usage_user_idx
 CREATE TABLE user_setting
 (
     id         TEXT PRIMARY KEY,
-    user_id    TEXT NOT NULL,
-    key        TEXT NOT NULL,
-    value      JSONB NOT NULL DEFAULT '{}'::jsonb,
+    user_id    TEXT        NOT NULL,
+    key        TEXT        NOT NULL,
+    value      JSONB       NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (user_id, key)
@@ -356,9 +355,9 @@ CREATE INDEX user_setting_user_idx
 CREATE TABLE work_item_subscription
 (
     id           TEXT PRIMARY KEY,
-    user_id      TEXT NOT NULL,
-    project_id   TEXT NOT NULL,
-    work_item_id TEXT NOT NULL,
+    user_id      TEXT        NOT NULL,
+    project_id   TEXT        NOT NULL,
+    work_item_id TEXT        NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (user_id, work_item_id)
 );
@@ -369,13 +368,13 @@ CREATE INDEX work_item_subscription_user_idx
 CREATE TABLE user_notification
 (
     id                TEXT PRIMARY KEY,
-    recipient_user_id TEXT NOT NULL,
-    notification_type TEXT NOT NULL,
+    recipient_user_id TEXT        NOT NULL,
+    notification_type TEXT        NOT NULL,
     actor_user_id     TEXT,
     project_id        TEXT,
     work_item_id      TEXT,
-    title             TEXT NOT NULL,
-    message           TEXT NOT NULL,
+    title             TEXT        NOT NULL,
+    message           TEXT        NOT NULL,
     read_at           TIMESTAMPTZ,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -384,5 +383,4 @@ CREATE INDEX user_notification_recipient_created_idx
     ON user_notification (recipient_user_id, created_at DESC, id DESC);
 
 CREATE INDEX user_notification_unread_idx
-    ON user_notification (recipient_user_id, created_at DESC)
-    WHERE read_at IS NULL;
+    ON user_notification (recipient_user_id, created_at DESC) WHERE read_at IS NULL;

@@ -71,8 +71,8 @@ public class ChatSessionController {
 
     @DeleteMapping("/{sessionId}/context/{contextId}")
     public ApiResponse<Void> deleteContext(@PathVariable String sessionId,
-                                            @PathVariable String contextId,
-                                            HttpServletRequest request) {
+                                           @PathVariable String contextId,
+                                           HttpServletRequest request) {
         UserContext user = authService.requireUserContext(request);
         chatService.deleteContext(sessionId, contextId, user.userId());
         return ApiResponse.success();
@@ -85,5 +85,6 @@ public class ChatSessionController {
         return ApiResponse.success();
     }
 
-    public record RenameChatSessionRequest(String title) { }
+    public record RenameChatSessionRequest(String title) {
+    }
 }

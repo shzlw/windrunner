@@ -19,5 +19,6 @@ public class ProposeEntryRevisionTool {
                 });
     }
 
-    public record Parameters(String proposedBody, String proposedType, String rationale) { }
+    public record Parameters(String proposedBody, String proposedType, String rationale) {
+    }
 }

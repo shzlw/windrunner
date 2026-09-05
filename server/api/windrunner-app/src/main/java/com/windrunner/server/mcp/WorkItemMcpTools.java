@@ -11,7 +11,6 @@ import com.windrunner.server.tools.work.FetchRelationshipsTool;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.AssignedWorkService;
 import com.windrunner.server.work.ProjectSearchService;
-import com.windrunner.server.work.api.AssignedWorkItemView;
 import com.windrunner.server.work.api.ProjectSearchResult;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.Relationship;

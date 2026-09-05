@@ -80,9 +80,13 @@ public class FetchTeamProjectsTool implements Tool<FetchTeamProjectsTool.Paramet
         return new Result(team.getId(), team.getName(), projects, projects.size(), total, limit, offset, offset + projects.size() < total);
     }
 
-    public record Parameters(String teamId, Integer limit, Integer offset) { }
+    public record Parameters(String teamId, Integer limit, Integer offset) {
+    }
 
-    public record Result(String teamId, String teamName, List<LinkedProject> projects, int count, long total, int limit, long offset, boolean hasMore) { }
+    public record Result(String teamId, String teamName, List<LinkedProject> projects, int count, long total, int limit,
+                         long offset, boolean hasMore) {
+    }
 
-    public record LinkedProject(String projectId, String name, String role) { }
+    public record LinkedProject(String projectId, String name, String role) {
+    }
 }

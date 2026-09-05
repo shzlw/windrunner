@@ -1,14 +1,14 @@
 package com.windrunner.server.tools;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import java.util.List;
 import com.windrunner.server.llm.LlmTool;
 import com.windrunner.server.user.domain.AppUser;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ToolServiceTest {
 
@@ -51,7 +51,8 @@ class ToolServiceTest {
                 .hasMessage("Tool execution context is required");
     }
 
-    private record TestTool(String name, AtomicReference<ToolExecutionContext> receivedContext) implements Tool<Parameters> {
+    private record TestTool(String name,
+                            AtomicReference<ToolExecutionContext> receivedContext) implements Tool<Parameters> {
 
         private TestTool(String name) {
             this(name, new AtomicReference<>());

@@ -3,12 +3,7 @@ package com.windrunner.server.project;
 import com.windrunner.server.chat.persistence.ChatSessionContextRepository;
 import com.windrunner.server.notification.persistence.UserNotificationRepository;
 import com.windrunner.server.subscription.persistence.SubscriptionRepository;
-import com.windrunner.server.work.persistence.EntryRepository;
-import com.windrunner.server.work.persistence.RelationshipRepository;
-import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
-import com.windrunner.server.work.persistence.WorkItemRepository;
-import com.windrunner.server.work.persistence.WorkspaceChangeProposalRepository;
-import com.windrunner.server.work.persistence.WorkspaceChangeRepository;
+import com.windrunner.server.work.persistence.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -19,15 +14,24 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class ProjectContentDeletionServiceTest {
 
-    @Mock private WorkspaceChangeRepository workspaceChanges;
-    @Mock private WorkspaceChangeProposalRepository proposals;
-    @Mock private WorkItemAssigneeRepository assignees;
-    @Mock private RelationshipRepository relationships;
-    @Mock private EntryRepository entries;
-    @Mock private SubscriptionRepository subscriptions;
-    @Mock private UserNotificationRepository notifications;
-    @Mock private ChatSessionContextRepository contexts;
-    @Mock private WorkItemRepository workItems;
+    @Mock
+    private WorkspaceChangeRepository workspaceChanges;
+    @Mock
+    private WorkspaceChangeProposalRepository proposals;
+    @Mock
+    private WorkItemAssigneeRepository assignees;
+    @Mock
+    private RelationshipRepository relationships;
+    @Mock
+    private EntryRepository entries;
+    @Mock
+    private SubscriptionRepository subscriptions;
+    @Mock
+    private UserNotificationRepository notifications;
+    @Mock
+    private ChatSessionContextRepository contexts;
+    @Mock
+    private WorkItemRepository workItems;
 
     @Test
     void deletesProjectOwnedOperationalDataButNotHistoryTables() {

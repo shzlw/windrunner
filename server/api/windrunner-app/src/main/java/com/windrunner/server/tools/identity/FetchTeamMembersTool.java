@@ -81,11 +81,15 @@ public class FetchTeamMembersTool implements Tool<FetchTeamMembersTool.Parameter
         return new Result(team.getId(), team.getName(), members, members.size(), total, limit, offset, offset + members.size() < total);
     }
 
-    public record Parameters(String teamId, Integer limit, Integer offset) { }
+    public record Parameters(String teamId, Integer limit, Integer offset) {
+    }
 
-    public record Result(String teamId, String teamName, List<Member> members, int count, long total, int limit, long offset, boolean hasMore) { }
+    public record Result(String teamId, String teamName, List<Member> members, int count, long total, int limit,
+                         long offset, boolean hasMore) {
+    }
 
-    public record Member(String userId, String username, String displayName, String title, String bio, String role) { }
+    public record Member(String userId, String username, String displayName, String title, String bio, String role) {
+    }
 
     private static String truncate(String value) {
         return value != null && value.length() > MAX_TEXT_LENGTH

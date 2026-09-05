@@ -1,17 +1,11 @@
 package com.windrunner.server.work;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.windrunner.server.work.api.ContentOrderItem;
 import com.windrunner.server.work.api.ContentOrderItemRef;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.WorkItemRepository;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,10 +14,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 @ExtendWith(MockitoExtension.class)
 class ContentOrderServiceTest {
-    @Mock private WorkItemRepository workItems;
-    @Mock private EntryRepository entries;
+    @Mock
+    private WorkItemRepository workItems;
+    @Mock
+    private EntryRepository entries;
     private ContentOrderService service;
 
     @BeforeEach

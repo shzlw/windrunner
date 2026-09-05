@@ -9,12 +9,13 @@ The returned member profile fields include title and bio when set. Request a lar
 
 <input_format>
 {
-  "teamId": string,
-  "limit": number | null,
-  "offset": number | null
+"teamId": string,
+"limit": number | null,
+"offset": number | null
 }
 </input_format>
 
 <output_format>
-The tool returns one page of member user IDs, names, roles, titles, and bios for the requested Team, plus `total`, `offset`, `limit`, and `hasMore`. Very long bios are truncated.
+The tool returns one page of member user IDs, names, roles, titles, and bios for the requested Team, plus `total`,
+`offset`, `limit`, and `hasMore`. Very long bios are truncated.
 </output_format>

@@ -6,8 +6,8 @@ import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.jdbc.core.DataClassRowMapper;
 
 import javax.sql.rowset.CachedRowSet;
-import javax.sql.rowset.RowSetProvider;
 import javax.sql.rowset.RowSetMetaDataImpl;
+import javax.sql.rowset.RowSetProvider;
 import java.lang.reflect.Method;
 import java.sql.Types;
 

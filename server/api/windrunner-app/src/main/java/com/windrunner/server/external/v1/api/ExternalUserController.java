@@ -11,7 +11,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RequiredArgsConstructor
@@ -25,7 +28,7 @@ public class ExternalUserController {
 
     @GetMapping("/{id}")
     public ApiResponse<ExternalUserIdentityResponse> getUser(@PathVariable("id") String id,
-                                                              HttpServletRequest request) {
+                                                             HttpServletRequest request) {
         externalAccessService.requireScope(request, ApiKeyScopes.USERS_READ);
         AppUser user = appUserRepository.findById(id)
                 .filter(candidate -> UserStatuses.ACTIVE.equalsIgnoreCase(candidate.getStatus()))

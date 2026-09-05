@@ -83,16 +83,21 @@ public class FetchWorkItemDetailsTool {
                 AiReviewLimits.bounded(relationship.getReason(), AiReviewLimits.MAX_TEXT_LENGTH));
     }
 
-    public record Parameters(String workItemId) { }
+    public record Parameters(String workItemId) {
+    }
 
     public record WorkItemDetails(WorkItemSummary workItem, List<WorkItemSummary> children,
-                                  List<EntrySummary> updates, List<RelationshipSummary> relationships) { }
+                                  List<EntrySummary> updates, List<RelationshipSummary> relationships) {
+    }
 
     public record WorkItemSummary(String id, String parentWorkItemId, String title, String type, String status,
-                                  LocalDate dueDate, String priority) { }
+                                  LocalDate dueDate, String priority) {
+    }
 
-    public record EntrySummary(String id, String type, String body, java.time.OffsetDateTime createdAt) { }
+    public record EntrySummary(String id, String type, String body, java.time.OffsetDateTime createdAt) {
+    }
 
     public record RelationshipSummary(String id, String type, String fromEntityType, String fromEntityId,
-                                      String toEntityType, String toEntityId, String reason) { }
+                                      String toEntityType, String toEntityId, String reason) {
+    }
 }

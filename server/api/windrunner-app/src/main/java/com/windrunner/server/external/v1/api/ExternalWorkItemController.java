@@ -10,7 +10,6 @@ import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.WorkItemService;
 import com.windrunner.server.work.api.WorkItemMoveRequest;
 import com.windrunner.server.work.api.WorkItemRequest;
-import com.windrunner.server.work.api.WorkItemView;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.domain.WorkItemAssignee;
 import com.windrunner.server.work.persistence.WorkItemRepository;
@@ -37,15 +36,15 @@ public class ExternalWorkItemController {
 
     @GetMapping("/projects/{projectId}/work-items")
     public ApiResponse<List<ExternalWorkItemResponse>> list(@PathVariable("projectId") String projectId,
-                                                @RequestParam(name = "page", defaultValue = "0") int page,
-                                                @RequestParam(name = "size", defaultValue = "50") int size,
-                                                @RequestParam(name = "status", required = false) String status,
-                                                @RequestParam(name = "type", required = false) String type,
-                                                @RequestParam(name = "priority", required = false) String priority,
-                                                @RequestParam(name = "updated_after", required = false)
-                                                @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
-                                                java.time.OffsetDateTime updatedAfter,
-                                                HttpServletRequest request) {
+                                                            @RequestParam(name = "page", defaultValue = "0") int page,
+                                                            @RequestParam(name = "size", defaultValue = "50") int size,
+                                                            @RequestParam(name = "status", required = false) String status,
+                                                            @RequestParam(name = "type", required = false) String type,
+                                                            @RequestParam(name = "priority", required = false) String priority,
+                                                            @RequestParam(name = "updated_after", required = false)
+                                                            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
+                                                            java.time.OffsetDateTime updatedAfter,
+                                                            HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
         int normalizedPage = Math.max(page, 0);
@@ -96,8 +95,8 @@ public class ExternalWorkItemController {
     @PostMapping("/projects/{projectId}/work-items")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<ExternalWorkItemResponse> create(@PathVariable("projectId") String projectId,
-                                            @RequestBody WorkItemRequest body,
-                                            HttpServletRequest request) {
+                                                        @RequestBody WorkItemRequest body,
+                                                        HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_WRITE);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
         if (body == null || body.workItem() == null) {
@@ -111,7 +110,7 @@ public class ExternalWorkItemController {
 
     @GetMapping("/work-items/{id}")
     public ApiResponse<ExternalWorkItemResponse> get(@PathVariable("id") String id,
-                                         HttpServletRequest request) {
+                                                     HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ);
         WorkItem item = requireWorkItem(id);
         projectAccessService.requireProjectRole(item.getProjectId(), actor, ProjectRoles.VIEWER);
@@ -120,8 +119,8 @@ public class ExternalWorkItemController {
 
     @PutMapping("/work-items/{id}")
     public ApiResponse<ExternalWorkItemResponse> update(@PathVariable("id") String id,
-                                            @RequestBody WorkItemRequest body,
-                                            HttpServletRequest request) {
+                                                        @RequestBody WorkItemRequest body,
+                                                        HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_WRITE);
         WorkItem current = requireWorkItem(id);
         projectAccessService.requireProjectRole(current.getProjectId(), actor, ProjectRoles.EDITOR);
@@ -136,8 +135,8 @@ public class ExternalWorkItemController {
 
     @PutMapping("/work-items/{id}/move")
     public ApiResponse<ExternalWorkItemResponse> move(@PathVariable("id") String id,
-                                          @RequestBody WorkItemMoveRequest body,
-                                          HttpServletRequest request) {
+                                                      @RequestBody WorkItemMoveRequest body,
+                                                      HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_WRITE);
         WorkItem current = requireWorkItem(id);
         projectAccessService.requireProjectRole(current.getProjectId(), actor, ProjectRoles.EDITOR);

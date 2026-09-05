@@ -1,6 +1,9 @@
 package com.windrunner.server.chat;
 
-import com.windrunner.server.chat.api.*;
+import com.windrunner.server.chat.api.ChatSessionContextView;
+import com.windrunner.server.chat.api.ChatSessionPageView;
+import com.windrunner.server.chat.api.ChatSessionSummaryView;
+import com.windrunner.server.chat.api.ChatSessionView;
 import com.windrunner.server.chat.domain.ChatMessage;
 import com.windrunner.server.chat.domain.ChatSession;
 import com.windrunner.server.chat.domain.ChatSessionContext;
@@ -134,7 +137,8 @@ public class ChatService {
         requireSession(sessionId, userId);
         String entityType = normalizeEntityType(requestedType);
         String entityId = requestedEntityId == null ? "" : requestedEntityId.trim();
-        if (entityId.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Context entity id is required");
+        if (entityId.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Context entity id is required");
         ContextDescriptor descriptor = resolveContext(entityType, entityId, actor);
         if (contextRepository.findBySessionId(sessionId).size() >= MAX_CONTEXTS_PER_SESSION) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A maximum of 50 context items can be added");
@@ -150,7 +154,8 @@ public class ChatService {
     @Transactional
     public void deleteContext(String sessionId, String contextId, String userId) {
         requireSession(sessionId, userId);
-        if (contextRepository.delete(contextId, sessionId) == 0) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session context not found");
+        if (contextRepository.delete(contextId, sessionId) == 0)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session context not found");
     }
 
     public List<ChatSessionContext> contextsForChat(String sessionId, String userId, AppUser actor) {
@@ -160,8 +165,10 @@ public class ChatService {
 
     @Transactional
     public ChatMessage addMessage(String chatSessionId, String role, String content) {
-        if (chatSessionId == null || chatSessionId.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat session id is required");
-        if (content == null || content.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat message content is required");
+        if (chatSessionId == null || chatSessionId.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat session id is required");
+        if (content == null || content.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat message content is required");
         String id = idGenerator.generate(EntityIdType.CHAT_MESSAGE);
         messageRepository.insert(id, chatSessionId, role, content);
         if ("user".equalsIgnoreCase(role)) {
@@ -177,7 +184,8 @@ public class ChatService {
 
     private String normalizeEntityType(String requestedType) {
         String value = requestedType == null ? "" : requestedType.trim().toUpperCase(Locale.ROOT);
-        if (!List.of("PROJECT", "TEAM", "USER", "WORK_ITEM").contains(value)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported chat context type");
+        if (!List.of("PROJECT", "TEAM", "USER", "WORK_ITEM").contains(value))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported chat context type");
         return value;
     }
 
@@ -220,11 +228,14 @@ public class ChatService {
         }
     }
 
-    private ResponseStatusException notFound(String type) { return new ResponseStatusException(HttpStatus.NOT_FOUND, type + " not found"); }
+    private ResponseStatusException notFound(String type) {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND, type + " not found");
+    }
 
     private ChatSessionSummaryView toSummary(ChatSession session, ChatMessage firstUserMessage) {
         String title = session.getTitle();
-        if (title == null || title.isBlank()) title = firstUserMessage == null || firstUserMessage.getContent() == null ? "New conversation" : firstUserMessage.getContent().replaceAll("\\s+", " ").trim();
+        if (title == null || title.isBlank())
+            title = firstUserMessage == null || firstUserMessage.getContent() == null ? "New conversation" : firstUserMessage.getContent().replaceAll("\\s+", " ").trim();
         title = title.replaceAll("\\s+", " ").trim();
         if (title.length() > MAX_TITLE_LENGTH) title = title.substring(0, 117) + "...";
         return new ChatSessionSummaryView(session.getId(), session.getStatus(), session.getCreatedAt(), session.getUpdatedAt(), title.isBlank() ? "New conversation" : title);
@@ -240,5 +251,6 @@ public class ChatService {
         return new ChatSessionView(session.getId(), session.getStatus(), session.getCreatedAt(), List.copyOf(messageRepository.findBySessionIdOrdered(session.getId())), listContexts(session.getId(), session.getUserId(), actor));
     }
 
-    private record ContextDescriptor(String label, String projectId) { }
+    private record ContextDescriptor(String label, String projectId) {
+    }
 }

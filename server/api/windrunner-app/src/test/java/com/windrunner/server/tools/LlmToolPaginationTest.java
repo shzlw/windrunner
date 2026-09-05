@@ -2,20 +2,17 @@ package com.windrunner.server.tools;
 
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectRepository;
+import com.windrunner.server.search.SearchNormalizer;
 import com.windrunner.server.team.domain.ProjectTeam;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.domain.TeamMember;
 import com.windrunner.server.team.persistence.ProjectTeamRepository;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
+import com.windrunner.server.tools.identity.FetchProjectAssigneesTool;
 import com.windrunner.server.tools.identity.FetchTeamMembersTool;
 import com.windrunner.server.tools.identity.FetchTeamProjectsTool;
-import com.windrunner.server.tools.identity.FetchProjectAssigneesTool;
-import com.windrunner.server.tools.work.FetchEntriesTool;
-import com.windrunner.server.tools.work.FetchProjectBlockersTool;
-import com.windrunner.server.tools.work.FetchProjectSummaryTool;
-import com.windrunner.server.tools.work.FetchRelationshipsTool;
-import com.windrunner.server.tools.work.FetchWorkItemsTool;
+import com.windrunner.server.tools.work.*;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.work.EntryService;
@@ -28,7 +25,6 @@ import com.windrunner.server.work.persistence.EntryRepository;
 import com.windrunner.server.work.persistence.RelationshipRepository;
 import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
 import com.windrunner.server.work.persistence.WorkItemRepository;
-import com.windrunner.server.search.SearchNormalizer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -38,9 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class LlmToolPaginationTest {

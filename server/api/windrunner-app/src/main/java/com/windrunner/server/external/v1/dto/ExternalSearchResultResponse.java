@@ -2,6 +2,7 @@ package com.windrunner.server.external.v1.dto;
 
 import com.windrunner.server.work.api.ProjectSearchResult;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.util.List;
 
 @Schema(name = "SearchResult", description = "Hybrid full-text search matches across a project, grouped by entity type.")

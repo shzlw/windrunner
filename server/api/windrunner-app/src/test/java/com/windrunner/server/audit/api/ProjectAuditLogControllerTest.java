@@ -1,9 +1,5 @@
 package com.windrunner.server.audit.api;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.audit.AuditLogEnrichmentService;
 import com.windrunner.server.audit.domain.AuditLog;
@@ -13,11 +9,16 @@ import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectAuditLogControllerTest {

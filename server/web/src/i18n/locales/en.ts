@@ -4,6 +4,7 @@ const en = {
   "loadError": "Could not load proposals.",
   "decisionError": "Could not decide proposal.",
   "appliedToast": "Change applied",
+  "appliedMessage": "Applied successfully. The change is now live.",
   "accept": "Accept change",
   "reject": "Reject",
   "loadMore": "Load more proposals",

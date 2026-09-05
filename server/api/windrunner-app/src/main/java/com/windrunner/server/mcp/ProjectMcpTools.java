@@ -1,7 +1,7 @@
 package com.windrunner.server.mcp;
 
-import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.apikey.ApiKeyScopes;
+import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.user.domain.AppUser;
