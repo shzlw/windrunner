@@ -233,9 +233,7 @@ public class AgentService {
                 }
             }
             List<ToolResult> orderedResults = new ArrayList<>(results.length);
-            for (ToolResult result : results) {
-                orderedResults.add(result);
-            }
+            Collections.addAll(orderedResults, results);
             return List.copyOf(orderedResults);
         } catch (RejectedExecutionException exception) {
             cancel(futures);

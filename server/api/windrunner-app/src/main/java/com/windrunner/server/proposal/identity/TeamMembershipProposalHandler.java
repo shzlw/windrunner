@@ -1,7 +1,8 @@
-package com.windrunner.server.identity;
+package com.windrunner.server.proposal.identity;
 
 import com.windrunner.server.proposal.ProposalHandler;
 import com.windrunner.server.proposal.ProposalPreparedChange;
+import com.windrunner.server.proposal.ProposalService;
 import com.windrunner.server.team.TeamRoles;
 import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.domain.Team;
@@ -16,36 +17,36 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.windrunner.server.identity.IdentityProposalSupport.*;
+import static com.windrunner.server.proposal.identity.IdentityProposalSupport.*;
 
 @Component
 @RequiredArgsConstructor
-final class TeamMembershipProposalHandler implements ProposalHandler<IdentityProposalService.Draft> {
-    private final TeamService teams;
-    private final TeamMemberRepository teamMembers;
-    private final AppUserRepository users;
+final class TeamMembershipProposalHandler implements ProposalHandler<ProposalService.Draft> {
+    private final TeamService teamService;
+    private final TeamMemberRepository teamMemberRepository;
+    private final AppUserRepository appUserRepository;
 
     @Override
     public String entityType() {
-        return IdentityProposalService.Kind.TEAM_MEMBERSHIP.name();
+        return ProposalService.Kind.TEAM_MEMBERSHIP.name();
     }
 
     @Override
-    public void authorize(IdentityProposalService.Draft draft, AppUser actor) {
-        teams.requireAdmin(actor);
+    public void authorize(ProposalService.Draft draft, AppUser actor) {
+        teamService.requireAdmin(actor);
     }
 
     @Override
-    public ProposalPreparedChange prepare(IdentityProposalService.Draft draft, AppUser actor) {
+    public ProposalPreparedChange prepare(ProposalService.Draft draft, AppUser actor) {
         String teamId = required(draft.teamId(), "Team ID");
         String userId = required(draft.userId(), "User ID");
-        Team team = teams.getTeam(teamId);
+        Team team = teamService.getTeam(teamId);
         AppUser user = memberUser(userId);
-        TeamMember existing = teamMembers.findByTeamIdAndUserId(teamId, userId).orElse(null);
+        TeamMember existing = teamMemberRepository.findByTeamIdAndUserId(teamId, userId).orElse(null);
         String oldRole = existing == null ? null : existing.getRole();
         membershipAction(draft.action(), oldRole);
         String newRole = "REMOVE".equals(draft.action()) ? null : teamRole(draft.role());
-        if (TeamRoles.TEAM_OWNER.equals(oldRole) && !TeamRoles.TEAM_OWNER.equals(newRole) && teamMembers.countOwners(teamId) <= 1) {
+        if (TeamRoles.TEAM_OWNER.equals(oldRole) && !TeamRoles.TEAM_OWNER.equals(newRole) && teamMemberRepository.countOwners(teamId) <= 1) {
             throw bad("At least one team owner is required");
         }
 
@@ -59,13 +60,13 @@ final class TeamMembershipProposalHandler implements ProposalHandler<IdentityPro
     }
 
     @Override
-    public void apply(IdentityProposalService.Draft draft, ProposalPreparedChange prepared, AppUser actor) {
-        teams.applyMembershipOptimistic(draft.teamId(), draft.userId(), prepared.after().get("role"), draft.action(),
+    public void apply(ProposalService.Draft draft, ProposalPreparedChange prepared, AppUser actor) {
+        teamService.applyMembershipOptimistic(draft.teamId(), draft.userId(), prepared.after().get("role"), draft.action(),
                 timestamp(prepared.before().get("updatedAt")), timestamp(prepared.before().get("membershipUpdatedAt")), actor);
     }
 
     private AppUser memberUser(String id) {
-        AppUser user = users.findById(id).orElseThrow(() -> error(HttpStatus.NOT_FOUND, "User not found"));
+        AppUser user = appUserRepository.findById(id).orElseThrow(() -> error(HttpStatus.NOT_FOUND, "User not found"));
         if (com.windrunner.server.auth.security.AppRoles.isSuperAdmin(user.getGlobalRole())) {
             throw bad("Super admin users cannot be members");
         }

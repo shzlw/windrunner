@@ -58,7 +58,7 @@ public final class GeminiJsonSchema {
             return;
         }
         if (node.isObject()) {
-            for (Map.Entry<String, JsonNode> property : ((ObjectNode) node).properties()) {
+            for (Map.Entry<String, JsonNode> property : node.properties()) {
                 addGeminiRequiredTypes(property.getValue());
             }
             return;

@@ -1,4 +1,4 @@
-package com.windrunner.server.identity;
+package com.windrunner.server.proposal;
 
 import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
@@ -8,15 +8,15 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface IdentityProposalRepository extends CrudRepository<IdentityProposal, String> {
+public interface ProposalRepository extends CrudRepository<Proposal, String> {
     String COLUMNS = "id, workflow_type, chat_session_id, source_message_id, actor_id, status, reviewed_by_actor_id, reviewed_at, applied_at, created_at, updated_at";
 
-    @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = 'IDENTITY' AND chat_session_id = :sessionId AND actor_id = :actorId ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset")
-    List<IdentityProposal> page(@Param("sessionId") String sessionId, @Param("actorId") String actorId,
+    @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = :workflowType AND chat_session_id = :sessionId AND actor_id = :actorId ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset")
+    List<Proposal> page(@Param("workflowType") String workflowType, @Param("sessionId") String sessionId, @Param("actorId") String actorId,
                                 @Param("limit") int limit, @Param("offset") int offset);
 
-    @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = 'IDENTITY' AND id = :id AND chat_session_id = :sessionId AND actor_id = :actorId")
-    Optional<IdentityProposal> findForDecision(@Param("id") String id, @Param("sessionId") String sessionId,
+    @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = :workflowType AND id = :id AND chat_session_id = :sessionId AND actor_id = :actorId")
+    Optional<Proposal> findForDecision(@Param("workflowType") String workflowType, @Param("id") String id, @Param("sessionId") String sessionId,
                                                @Param("actorId") String actorId);
 
     @Modifying
@@ -28,8 +28,8 @@ public interface IdentityProposalRepository extends CrudRepository<IdentityPropo
      * The generic parent stores workflow metadata; entity-specific data belongs to proposal_change.
      */
     @Modifying
-    @Query("INSERT INTO proposal (id, workflow_type, chat_session_id, source_message_id, actor_id, status) VALUES (:id, 'IDENTITY', :sessionId, :messageId, :actorId, 'PENDING')")
-    void insert(@Param("id") String id, @Param("sessionId") String sessionId, @Param("messageId") String messageId,
+    @Query("INSERT INTO proposal (id, workflow_type, chat_session_id, source_message_id, actor_id, status) VALUES (:id, :workflowType, :sessionId, :messageId, :actorId, 'PENDING')")
+    void insert(@Param("id") String id, @Param("workflowType") String workflowType, @Param("sessionId") String sessionId, @Param("messageId") String messageId,
                 @Param("actorId") String actorId, @Param("kind") String kind, @Param("draft") String draft,
                 @Param("before") String before, @Param("after") String after);
 

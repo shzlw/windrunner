@@ -1,4 +1,4 @@
-package com.windrunner.server.identity;
+package com.windrunner.server.proposal;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;
@@ -8,7 +8,7 @@ import java.time.OffsetDateTime;
 
 @Data
 @Table("proposal_change")
-public class IdentityProposalChange {
+public class ProposalChange {
     @Id
     private String id;
     private String proposalId;

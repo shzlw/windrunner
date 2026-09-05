@@ -1,5 +1,6 @@
-package com.windrunner.server.identity;
+package com.windrunner.server.proposal.identity;
 
+import com.windrunner.server.proposal.ProposalService;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectMembershipService;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
@@ -17,18 +18,18 @@ import static org.mockito.Mockito.mock;
 class IdentityProposalWorkflowTest {
     @Test
     void resolvesEveryIdentityEntityTypeToItsTypedHandler() {
-        TeamService teams = mock(TeamService.class);
-        AppUserRepository users = mock(AppUserRepository.class);
+        TeamService teamService = mock(TeamService.class);
+        AppUserRepository appUserRepository = mock(AppUserRepository.class);
         IdentityProposalWorkflow workflow = new IdentityProposalWorkflow(
-                new TeamProposalHandler(teams, users),
-                new TeamMembershipProposalHandler(teams, mock(TeamMemberRepository.class), users),
+                new TeamProposalHandler(teamService, appUserRepository),
+                new TeamMembershipProposalHandler(teamService, mock(TeamMemberRepository.class), appUserRepository),
                 new ProjectMembershipProposalHandler(mock(ProjectAccessService.class), mock(ProjectMembershipService.class),
-                        mock(ProjectRepository.class), mock(ProjectMemberRepository.class), mock(ProjectTeamRepository.class), teams, users),
-                new UserProfileProposalHandler(mock(UserAdminService.class), teams),
-                new UserAccessProposalHandler(mock(UserAdminService.class), teams));
+                        mock(ProjectRepository.class), mock(ProjectMemberRepository.class), mock(ProjectTeamRepository.class), teamService, appUserRepository),
+                new UserProfileProposalHandler(mock(UserAdminService.class), teamService),
+                new UserAccessProposalHandler(mock(UserAdminService.class), teamService));
 
         assertThat(workflow.workflowType()).isEqualTo("IDENTITY");
-        for (IdentityProposalService.Kind kind : IdentityProposalService.Kind.values()) {
+        for (ProposalService.Kind kind : ProposalService.Kind.values()) {
             assertThat(workflow.handler(kind.name()).entityType()).isEqualTo(kind.name());
         }
     }

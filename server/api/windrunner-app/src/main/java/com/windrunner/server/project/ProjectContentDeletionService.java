@@ -16,26 +16,26 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProjectContentDeletionService {
 
-    private final WorkspaceChangeRepository workspaceChanges;
-    private final WorkspaceChangeProposalRepository workspaceChangeProposals;
-    private final WorkItemAssigneeRepository workItemAssignees;
-    private final RelationshipRepository relationships;
-    private final EntryRepository entries;
-    private final SubscriptionRepository subscriptions;
-    private final UserNotificationRepository notifications;
-    private final ChatSessionContextRepository chatContexts;
-    private final WorkItemRepository workItems;
+    private final WorkspaceChangeRepository workspaceChangeRepository;
+    private final WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
+    private final WorkItemAssigneeRepository workItemAssigneeRepository;
+    private final RelationshipRepository relationshipRepository;
+    private final EntryRepository entryRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final UserNotificationRepository userNotificationRepository;
+    private final ChatSessionContextRepository chatSessionContextRepository;
+    private final WorkItemRepository workItemRepository;
 
     @Transactional
     public void deleteProjectContent(String projectId) {
-        workspaceChanges.deleteByProjectId(projectId);
-        workspaceChangeProposals.deleteByProjectId(projectId);
-        workItemAssignees.deleteByProjectId(projectId);
-        relationships.deleteByProjectId(projectId);
-        entries.deleteByProjectId(projectId);
-        subscriptions.deleteByProjectId(projectId);
-        notifications.deleteByProjectId(projectId);
-        chatContexts.deleteByEntity("PROJECT", projectId);
-        workItems.deleteByProjectId(projectId);
+        workspaceChangeRepository.deleteByProjectId(projectId);
+        workspaceChangeProposalRepository.deleteByProjectId(projectId);
+        workItemAssigneeRepository.deleteByProjectId(projectId);
+        relationshipRepository.deleteByProjectId(projectId);
+        entryRepository.deleteByProjectId(projectId);
+        subscriptionRepository.deleteByProjectId(projectId);
+        userNotificationRepository.deleteByProjectId(projectId);
+        chatSessionContextRepository.deleteByEntity("PROJECT", projectId);
+        workItemRepository.deleteByProjectId(projectId);
     }
 }

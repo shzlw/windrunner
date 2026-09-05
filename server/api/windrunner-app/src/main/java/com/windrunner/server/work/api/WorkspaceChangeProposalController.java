@@ -15,15 +15,15 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/internal-api/v1/projects/{projectId}/graph-change-proposals")
 public class WorkspaceChangeProposalController {
-    private final WorkspaceChangeProposalService service;
-    private final AuthService auth;
-    private final ProjectAccessService access;
+    private final WorkspaceChangeProposalService workspaceChangeProposalService;
+    private final AuthService authService;
+    private final ProjectAccessService projectAccessService;
 
     @GetMapping
     public ApiResponse<List<WorkspaceChangeProposalView>> list(@PathVariable("projectId") String projectId,
                                                                jakarta.servlet.http.HttpServletRequest request) {
-        access.requireProjectRole(projectId, auth.requireCurrentUser(request), ProjectRoles.VIEWER);
-        return ApiResponse.success(service.list(projectId));
+        projectAccessService.requireProjectRole(projectId, authService.requireCurrentUser(request), ProjectRoles.VIEWER);
+        return ApiResponse.success(workspaceChangeProposalService.list(projectId));
     }
 
     @PostMapping("/{proposalId}/changes/{changeId}/decision")
@@ -32,8 +32,8 @@ public class WorkspaceChangeProposalController {
                                                            @PathVariable("changeId") String changeId,
                                                            @RequestBody WorkspaceChangeProposalService.DecisionRequest body,
                                                            jakarta.servlet.http.HttpServletRequest request) {
-        AppUser actor = auth.requireCurrentUser(request);
-        access.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
-        return ApiResponse.success(service.decide(projectId, proposalId, changeId, body, actor.getId()));
+        AppUser actor = authService.requireCurrentUser(request);
+        projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
+        return ApiResponse.success(workspaceChangeProposalService.decide(projectId, proposalId, changeId, body, actor.getId()));
     }
 }

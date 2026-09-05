@@ -16,6 +16,7 @@ import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectRepository;
+import com.windrunner.server.proposal.ProposalRepository;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.user.UserStatuses;
@@ -46,15 +47,15 @@ public class ChatService {
     private final ChatSessionRepository sessionRepository;
     private final ChatSessionContextRepository contextRepository;
     private final ChatMessageRepository messageRepository;
-    private final WorkspaceChangeProposalRepository proposalRepository;
-    private final WorkspaceChangeRepository changeRepository;
+    private final WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
+    private final WorkspaceChangeRepository workspaceChangeRepository;
     private final EntityIdGenerator idGenerator;
-    private final com.windrunner.server.identity.IdentityProposalRepository identityProposals;
-    private final ProjectRepository projects;
+    private final ProposalRepository proposalRepository;
+    private final ProjectRepository projectRepository;
     private final ProjectAccessService projectAccessService;
-    private final TeamRepository teams;
-    private final AppUserRepository users;
-    private final WorkItemRepository workItems;
+    private final TeamRepository teamRepository;
+    private final AppUserRepository appUserRepository;
+    private final WorkItemRepository workItemRepository;
 
     @Transactional
     public ChatSessionView createSession(String userId, AppUser actor) {
@@ -113,11 +114,11 @@ public class ChatService {
     @Transactional
     public void deleteSession(String sessionId, String userId) {
         requireSession(sessionId, userId);
-        identityProposals.deleteChangesBySessionId(sessionId);
-        identityProposals.deleteBySessionId(sessionId);
+        proposalRepository.deleteChangesBySessionId(sessionId);
+        proposalRepository.deleteBySessionId(sessionId);
         contextRepository.deleteBySessionId(sessionId);
-        changeRepository.deleteByChatSessionId(sessionId);
-        proposalRepository.deleteByChatSessionId(sessionId);
+        workspaceChangeRepository.deleteByChatSessionId(sessionId);
+        workspaceChangeProposalRepository.deleteByChatSessionId(sessionId);
         messageRepository.deleteBySessionId(sessionId);
         if (sessionRepository.deleteSession(sessionId, userId) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session not found");
@@ -193,20 +194,20 @@ public class ChatService {
         switch (entityType) {
             case "PROJECT" -> {
                 projectAccessService.requireProjectRole(entityId, actor, ProjectRoles.VIEWER);
-                Project project = projects.findById(entityId).orElseThrow(() -> notFound("Project"));
+                Project project = projectRepository.findById(entityId).orElseThrow(() -> notFound("Project"));
                 return new ContextDescriptor(project.getName(), project.getId());
             }
             case "TEAM" -> {
-                Team team = teams.findById(entityId).orElseThrow(() -> notFound("Team"));
+                Team team = teamRepository.findById(entityId).orElseThrow(() -> notFound("Team"));
                 return new ContextDescriptor(team.getName(), null);
             }
             case "USER" -> {
-                AppUser user = users.findById(entityId).orElseThrow(() -> notFound("User"));
+                AppUser user = appUserRepository.findById(entityId).orElseThrow(() -> notFound("User"));
                 if (!UserStatuses.ACTIVE.equalsIgnoreCase(user.getStatus())) throw notFound("User");
                 return new ContextDescriptor(user.getDisplayName() == null || user.getDisplayName().isBlank() ? user.getUsername() : user.getDisplayName(), null);
             }
             case "WORK_ITEM" -> {
-                WorkItem item = workItems.findById(entityId).orElseThrow(() -> notFound("Work item"));
+                WorkItem item = workItemRepository.findById(entityId).orElseThrow(() -> notFound("Work item"));
                 projectAccessService.requireProjectRole(item.getProjectId(), actor, ProjectRoles.VIEWER);
                 return new ContextDescriptor(item.getTitle(), item.getProjectId());
             }

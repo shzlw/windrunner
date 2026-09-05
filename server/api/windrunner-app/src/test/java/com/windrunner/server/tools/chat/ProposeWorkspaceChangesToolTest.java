@@ -20,7 +20,7 @@ class ProposeWorkspaceChangesToolTest {
         AtomicReference<String> sourceMessageId = new AtomicReference<>();
         AtomicReference<String> sourceText = new AtomicReference<>();
         AtomicReference<WorkspaceChangeProposalService.ProposalDraft> receivedDraft = new AtomicReference<>();
-        WorkspaceChangeProposalService proposals = new WorkspaceChangeProposalService(null, null, null, null, null, null) {
+        WorkspaceChangeProposalService workspaceChangeProposalService = new WorkspaceChangeProposalService(null, null, null, null, null, null) {
             @Override
             public WorkspaceChangeProposalView create(String project, String session, String message, String text,
                                                       WorkspaceChangeProposalService.ProposalDraft draft) {
@@ -34,7 +34,7 @@ class ProposeWorkspaceChangesToolTest {
         };
         AppUser actor = new AppUser();
         actor.setId("user-1");
-        var tool = new ProposeWorkspaceChangesTool(proposals).forMessage(
+        var tool = new ProposeWorkspaceChangesTool(workspaceChangeProposalService).forMessage(
                 new ToolExecutionContext(actor, "session-1", List.of("project-1")),
                 "project-1", "session-1", "message-1", "Create a task");
         var draft = new WorkspaceChangeProposalService.ProposalDraft(List.of(

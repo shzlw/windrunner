@@ -21,12 +21,12 @@ public class WorkspaceChangeProposalService {
     private static final Set<String> ENTITY_TYPES = Set.of("WORK_ITEM", "ENTRY", "RELATIONSHIP");
     private static final Set<String> ACTIONS = Set.of("ADD", "UPDATE", "DELETE");
 
-    private final WorkspaceChangeProposalRepository proposals;
-    private final WorkspaceChangeRepository changes;
-    private final WorkItemService workItems;
-    private final EntryService entries;
-    private final RelationshipService relationships;
-    private final EntityIdGenerator ids;
+    private final WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
+    private final WorkspaceChangeRepository workspaceChangeRepository;
+    private final WorkItemService workItemService;
+    private final EntryService entryService;
+    private final RelationshipService relationshipService;
+    private final EntityIdGenerator entityIdGenerator;
 
     @Transactional
     public WorkspaceChangeProposalView create(String projectId, String chatSessionId, String sourceMessageId,
@@ -36,14 +36,14 @@ public class WorkspaceChangeProposalService {
         }
         if (draft.changes().size() > 100) throw WorkItemService.bad("A proposal can contain at most 100 changes");
 
-        String proposalId = ids.generate(EntityIdType.WORKSPACE_CHANGE_PROPOSAL);
-        proposals.insert(proposalId, projectId, chatSessionId, sourceMessageId, sourceText);
+        String proposalId = entityIdGenerator.generate(EntityIdType.WORKSPACE_CHANGE_PROPOSAL);
+        workspaceChangeProposalRepository.insert(proposalId, projectId, chatSessionId, sourceMessageId, sourceText);
 
         Map<String, String> reservedIds = reserveIds(draft.changes());
         int sortIndex = 0;
         for (ChangeDraft requested : draft.changes()) {
             NormalizedChange normalized = normalize(projectId, requested, reservedIds);
-            changes.insert(ids.generate(EntityIdType.WORKSPACE_CHANGE), proposalId, projectId, sortIndex++,
+            workspaceChangeRepository.insert(entityIdGenerator.generate(EntityIdType.WORKSPACE_CHANGE), proposalId, projectId, sortIndex++,
                     normalized.entityType(), normalized.action(), normalized.targetId(), normalized.summary(),
                     normalized.payloadJson(), normalized.previousJson());
         }
@@ -51,13 +51,13 @@ public class WorkspaceChangeProposalService {
     }
 
     public List<WorkspaceChangeProposalView> list(String projectId) {
-        return proposals.findByProjectId(projectId).stream().map(proposal -> view(proposal, changes.findByProposalId(proposal.getId()))).toList();
+        return workspaceChangeProposalRepository.findByProjectId(projectId).stream().map(proposal -> view(proposal, workspaceChangeRepository.findByProposalId(proposal.getId()))).toList();
     }
 
     public WorkspaceChangeProposalView get(String projectId, String proposalId) {
-        WorkspaceChangeProposal proposal = proposals.findInProject(proposalId, projectId)
+        WorkspaceChangeProposal proposal = workspaceChangeProposalRepository.findInProject(proposalId, projectId)
                 .orElseThrow(() -> WorkItemService.notFound("Workspace proposal not found"));
-        return view(proposal, changes.findByProposalId(proposalId));
+        return view(proposal, workspaceChangeRepository.findByProposalId(proposalId));
     }
 
     @Transactional
@@ -65,7 +65,7 @@ public class WorkspaceChangeProposalService {
                                               DecisionRequest request, String actorId) {
         if (request == null || WorkItemService.blank(request.decision()))
             throw WorkItemService.bad("Proposal decision is required");
-        WorkspaceChange change = changes.findInProposal(changeId, proposalId, projectId)
+        WorkspaceChange change = workspaceChangeRepository.findInProposal(changeId, proposalId, projectId)
                 .orElseThrow(() -> WorkItemService.notFound("Workspace proposal change not found"));
         if (!Set.of("PENDING", "NEEDS_UPDATE").contains(change.getStatus())) {
             throw WorkItemService.bad("This proposal change has already been decided");
@@ -85,7 +85,7 @@ public class WorkspaceChangeProposalService {
         } else {
             throw WorkItemService.bad("Proposal decision must be ACCEPT, REJECT, or REQUEST_UPDATE");
         }
-        changes.decide(changeId, proposalId, projectId, status,
+        workspaceChangeRepository.decide(changeId, proposalId, projectId, status,
                 WorkItemService.blank(request.feedback()) ? null : request.feedback().trim());
         refreshProposalStatus(projectId, proposalId);
         return get(projectId, proposalId);
@@ -103,44 +103,44 @@ public class WorkspaceChangeProposalService {
     private void applyWorkItem(String projectId, WorkspaceChange change, String actorId) {
         WorkItemPayload payload = read(change.getPayloadJson(), WorkItemPayload.class);
         if ("ADD".equals(change.getAction())) {
-            workItems.createWithId(projectId, change.getTargetId(), payload.workItem(), payload.assignees(), actorId);
+            workItemService.createWithId(projectId, change.getTargetId(), payload.workItem(), payload.assignees(), actorId);
         } else if ("UPDATE".equals(change.getAction())) {
             requireUnchangedWorkItem(projectId, change);
-            workItems.update(projectId, change.getTargetId(), payload.workItem(), payload.assignees(), actorId);
+            workItemService.update(projectId, change.getTargetId(), payload.workItem(), payload.assignees(), actorId);
         } else {
             requireUnchangedWorkItem(projectId, change);
-            workItems.delete(projectId, change.getTargetId(), actorId);
+            workItemService.delete(projectId, change.getTargetId(), actorId);
         }
     }
 
     private void applyEntry(String projectId, WorkspaceChange change, String actorId) {
         Entry payload = read(change.getPayloadJson(), Entry.class);
-        if ("ADD".equals(change.getAction())) entries.createWithId(projectId, change.getTargetId(), payload, actorId);
+        if ("ADD".equals(change.getAction())) entryService.createWithId(projectId, change.getTargetId(), payload, actorId);
         else if ("UPDATE".equals(change.getAction())) {
             requireUnchangedEntry(projectId, change);
-            entries.update(projectId, change.getTargetId(), payload, actorId);
+            entryService.update(projectId, change.getTargetId(), payload, actorId);
         } else {
             requireUnchangedEntry(projectId, change);
-            entries.delete(projectId, change.getTargetId(), actorId);
+            entryService.delete(projectId, change.getTargetId(), actorId);
         }
     }
 
     private void applyRelationship(String projectId, WorkspaceChange change, String actorId) {
         Relationship payload = read(change.getPayloadJson(), Relationship.class);
         if ("ADD".equals(change.getAction()))
-            relationships.createWithId(projectId, change.getTargetId(), payload, actorId);
+            relationshipService.createWithId(projectId, change.getTargetId(), payload, actorId);
         else if ("UPDATE".equals(change.getAction())) {
             requireUnchangedRelationship(projectId, change);
-            relationships.updateReason(projectId, change.getTargetId(), payload.getReason(), actorId);
+            relationshipService.updateReason(projectId, change.getTargetId(), payload.getReason(), actorId);
         } else {
             requireUnchangedRelationship(projectId, change);
-            relationships.delete(projectId, change.getTargetId(), actorId);
+            relationshipService.delete(projectId, change.getTargetId(), actorId);
         }
     }
 
     private void requireUnchangedWorkItem(String projectId, WorkspaceChange change) {
         WorkItemPayload before = read(change.getPreviousJson(), WorkItemPayload.class);
-        WorkItem current = workItems.get(projectId, change.getTargetId());
+        WorkItem current = workItemService.get(projectId, change.getTargetId());
         if (!Objects.equals(current.getUpdatedAt(), before.workItem().getUpdatedAt())) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
                     "Work item changed after this AI suggestion was created. Ask AI to review it again.");
@@ -149,7 +149,7 @@ public class WorkspaceChangeProposalService {
 
     private void requireUnchangedEntry(String projectId, WorkspaceChange change) {
         Entry before = read(change.getPreviousJson(), Entry.class);
-        Entry current = entries.get(projectId, change.getTargetId());
+        Entry current = entryService.get(projectId, change.getTargetId());
         if (!Objects.equals(current.getUpdatedAt(), before.getUpdatedAt())) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
                     "Entry changed after this AI suggestion was created. Ask AI to review it again.");
@@ -158,7 +158,7 @@ public class WorkspaceChangeProposalService {
 
     private void requireUnchangedRelationship(String projectId, WorkspaceChange change) {
         Relationship before = read(change.getPreviousJson(), Relationship.class);
-        Relationship current = relationships.list(projectId).stream().filter(candidate -> change.getTargetId().equals(candidate.getId())).findFirst()
+        Relationship current = relationshipService.list(projectId).stream().filter(candidate -> change.getTargetId().equals(candidate.getId())).findFirst()
                 .orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
         if (!Objects.equals(current, before)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
@@ -173,9 +173,9 @@ public class WorkspaceChangeProposalService {
             String entityType = normalizeEntityType(change.entityType());
             if (WorkItemService.blank(change.clientRef())) throw WorkItemService.bad("New records require a clientRef");
             String reserved = switch (entityType) {
-                case "WORK_ITEM" -> ids.generate(EntityIdType.WORK_ITEM);
-                case "ENTRY" -> ids.generate(EntityIdType.ENTRY);
-                case "RELATIONSHIP" -> ids.generate(EntityIdType.RELATIONSHIP);
+                case "WORK_ITEM" -> entityIdGenerator.generate(EntityIdType.WORK_ITEM);
+                case "ENTRY" -> entityIdGenerator.generate(EntityIdType.ENTRY);
+                case "RELATIONSHIP" -> entityIdGenerator.generate(EntityIdType.RELATIONSHIP);
                 default -> throw WorkItemService.bad("Unsupported proposal entity type");
             };
             if (result.putIfAbsent(change.clientRef().trim(), reserved) != null) {
@@ -222,8 +222,8 @@ public class WorkspaceChangeProposalService {
             item.setParentWorkItemId(resolveNullableRef(draft.parentWorkItemId(), reservedIds));
             assignees = assignees(draft.assignees());
         } else {
-            WorkItem current = workItems.get(projectId, targetId);
-            List<WorkItemAssignee> currentAssignees = workItems.assignees(targetId);
+            WorkItem current = workItemService.get(projectId, targetId);
+            List<WorkItemAssignee> currentAssignees = workItemService.assignees(targetId);
             previous = new WorkItemPayload(current, currentAssignees);
             item = copy(current);
             assignees = currentAssignees;
@@ -259,7 +259,7 @@ public class WorkspaceChangeProposalService {
             entry.setType(valueOr(draft.type(), "COMMENT"));
             entry.setBody(draft.body().trim());
         } else {
-            previous = entries.get(projectId, targetId);
+            previous = entryService.get(projectId, targetId);
             entry = copy(previous);
             if (!"DELETE".equals(action)) {
                 if (draft == null) throw WorkItemService.bad("Entry updates require proposed values");
@@ -287,7 +287,7 @@ public class WorkspaceChangeProposalService {
             relationship.setReason(blankToNull(draft.reason()));
             relationship.setSourceEntryId(resolveNullableRef(draft.sourceEntryId(), reservedIds));
         } else {
-            previous = relationships.list(projectId).stream().filter(candidate -> targetId.equals(candidate.getId())).findFirst()
+            previous = relationshipService.list(projectId).stream().filter(candidate -> targetId.equals(candidate.getId())).findFirst()
                     .orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
             relationship = copy(previous);
             if ("UPDATE".equals(action) && draft != null && draft.reason() != null)
@@ -297,9 +297,9 @@ public class WorkspaceChangeProposalService {
     }
 
     private void refreshProposalStatus(String projectId, String proposalId) {
-        List<WorkspaceChange> all = changes.findByProposalId(proposalId);
+        List<WorkspaceChange> all = workspaceChangeRepository.findByProposalId(proposalId);
         String status = all.stream().anyMatch(change -> Set.of("PENDING", "NEEDS_UPDATE").contains(change.getStatus())) ? "PENDING" : "COMPLETED";
-        proposals.updateStatus(proposalId, projectId, status);
+        workspaceChangeProposalRepository.updateStatus(proposalId, projectId, status);
     }
 
     private WorkspaceChangeProposalView view(WorkspaceChangeProposal proposal, List<WorkspaceChange> storedChanges) {

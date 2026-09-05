@@ -42,7 +42,7 @@ public final class ClaudeJsonSchema {
             return;
         }
         if (node.isObject()) {
-            for (Map.Entry<String, JsonNode> property : ((ObjectNode) node).properties()) {
+            for (Map.Entry<String, JsonNode> property : node.properties()) {
                 addClaudeRequiredTypes(property.getValue());
             }
             return;

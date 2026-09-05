@@ -77,8 +77,8 @@ class ProviderToolLoopIntegrationTest {
                           "model": "openai-test",
                           "status": "completed",
                           "output": [
-                            {"type":"function_call","call_id":"call_1","name":"first","arguments":"{\\\"value\\\":\\\"x\\\"}"},
-                            {"type":"function_call","call_id":"call_2","name":"second","arguments":"{\\\"value\\\":\\\"y\\\"}"}
+                            {"type":"function_call","call_id":"call_1","name":"first","arguments":"{\\"value\\":\\"x\\"}"},
+                            {"type":"function_call","call_id":"call_2","name":"second","arguments":"{\\"value\\":\\"y\\"}"}
                           ],
                           "usage": {"input_tokens":10,"output_tokens":2,"total_tokens":12}
                         }
@@ -140,8 +140,8 @@ class ProviderToolLoopIntegrationTest {
                               "role": "assistant",
                               "content": null,
                               "tool_calls": [
-                                {"id":"call_1","type":"function","function":{"name":"first","arguments":"{\\\"value\\\":\\\"x\\\"}"}},
-                                {"id":"call_2","type":"function","function":{"name":"second","arguments":"{\\\"value\\\":\\\"y\\\"}"}}
+                                {"id":"call_1","type":"function","function":{"name":"first","arguments":"{\\"value\\":\\"x\\"}"}},
+                                {"id":"call_2","type":"function","function":{"name":"second","arguments":"{\\"value\\":\\"y\\"}"}}
                               ]
                             },
                             "finish_reason": "tool_calls"
@@ -210,8 +210,8 @@ class ProviderToolLoopIntegrationTest {
                               "role": "assistant",
                               "content": null,
                               "tool_calls": [
-                                {"id":"call_1","type":"function","function":{"name":"first","arguments":"{\\\"value\\\":\\\"x\\\"}"}},
-                                {"id":"call_2","type":"function","function":{"name":"second","arguments":"{\\\"value\\\":\\\"y\\\"}"}}
+                                {"id":"call_1","type":"function","function":{"name":"first","arguments":"{\\"value\\":\\"x\\"}"}},
+                                {"id":"call_2","type":"function","function":{"name":"second","arguments":"{\\"value\\":\\"y\\"}"}}
                               ]
                             },
                             "finish_reason": "tool_calls"
@@ -272,8 +272,8 @@ class ProviderToolLoopIntegrationTest {
                               "role": "assistant",
                               "content": null,
                               "tool_calls": [
-                                {"id":"call_1","type":"function","function":{"name":"first","arguments":"{\\\"value\\\":\\\"x\\\"}"}},
-                                {"id":"call_2","type":"function","function":{"name":"second","arguments":"{\\\"value\\\":\\\"y\\\"}"}}
+                                {"id":"call_1","type":"function","function":{"name":"first","arguments":"{\\"value\\":\\"x\\"}"}},
+                                {"id":"call_2","type":"function","function":{"name":"second","arguments":"{\\"value\\":\\"y\\"}"}}
                               ]
                             },
                             "finish_reason": "tool_calls"

@@ -111,7 +111,7 @@ class FocusedWorkspaceLookupToolsTest {
     private void authorizeProjectRead() {
         when(authorization.requireProject(any(), any()))
                 .thenAnswer(invocation -> ((ToolExecutionContext) invocation.getArgument(0))
-                        .requireProjectId((String) invocation.getArgument(1)));
+                        .requireProjectId(invocation.getArgument(1)));
     }
 
     private static ToolExecutionContext context() {

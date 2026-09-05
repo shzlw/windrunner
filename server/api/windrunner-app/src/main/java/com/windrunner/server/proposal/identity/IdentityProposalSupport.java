@@ -1,5 +1,6 @@
-package com.windrunner.server.identity;
+package com.windrunner.server.proposal.identity;
 
+import com.windrunner.server.proposal.ProposalService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.team.TeamRoles;
 import com.windrunner.server.user.api.UpdateUserRequest;
@@ -26,7 +27,7 @@ final class IdentityProposalSupport {
         return value != null && !value.isBlank();
     }
 
-    static Map<String, String> fields(IdentityProposalService.Draft draft, Set<String> allowed) {
+    static Map<String, String> fields(ProposalService.Draft draft, Set<String> allowed) {
         if (draft.fields() == null || draft.fields().isEmpty() || !allowed.containsAll(draft.fields().keySet())) {
             throw bad("Unsupported or empty fields");
         }
@@ -79,7 +80,7 @@ final class IdentityProposalSupport {
         }
     }
 
-    static UpdateUserRequest userRequest(IdentityProposalService.Draft draft, Map<String, String> values) {
+    static UpdateUserRequest userRequest(ProposalService.Draft draft, Map<String, String> values) {
         UpdateUserRequest request = new UpdateUserRequest();
         request.setUsername(values.get("username"));
         request.setEmail(values.get("email"));

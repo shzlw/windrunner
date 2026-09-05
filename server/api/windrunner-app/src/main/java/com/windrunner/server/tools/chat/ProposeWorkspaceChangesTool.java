@@ -14,7 +14,7 @@ import java.util.Objects;
 @Component
 @RequiredArgsConstructor
 public class ProposeWorkspaceChangesTool {
-    private final WorkspaceChangeProposalService proposals;
+    private final WorkspaceChangeProposalService workspaceChangeProposalService;
 
     public LlmTool<WorkspaceChangeProposalService.ProposalDraft> forMessage(
             ToolExecutionContext context,
@@ -28,6 +28,6 @@ public class ProposeWorkspaceChangesTool {
                 "propose_workspace_changes",
                 FileUtils.loadSystemPrompt("propose-workspace-changes-tool.md"),
                 WorkspaceChangeProposalService.ProposalDraft.class,
-                draft -> proposals.create(authorizedProjectId, chatSessionId, sourceMessageId, sourceText, draft));
+                draft -> workspaceChangeProposalService.create(authorizedProjectId, chatSessionId, sourceMessageId, sourceText, draft));
     }
 }

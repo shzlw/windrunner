@@ -25,9 +25,9 @@ import static org.mockito.Mockito.when;
 class WorkspaceChangeProposalServiceTest {
 
     @Mock
-    private WorkspaceChangeProposalRepository proposals;
+    private WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
     @Mock
-    private WorkspaceChangeRepository changes;
+    private WorkspaceChangeRepository workspaceChangeRepository;
     @Mock
     private WorkItemService workItems;
     @Mock
@@ -35,7 +35,7 @@ class WorkspaceChangeProposalServiceTest {
     @Mock
     private RelationshipService relationships;
     @Mock
-    private EntityIdGenerator ids;
+    private EntityIdGenerator entityIdGenerator;
 
     @Test
     void relationshipUpdateWithNullReasonPreservesExistingReason() {
@@ -67,24 +67,24 @@ class WorkspaceChangeProposalServiceTest {
         proposal.setProjectId("project-1");
         proposal.setStatus("PENDING");
 
-        when(ids.generate(EntityIdType.WORKSPACE_CHANGE_PROPOSAL)).thenReturn("proposal-1");
-        when(ids.generate(EntityIdType.WORKSPACE_CHANGE)).thenReturn("change-1");
+        when(entityIdGenerator.generate(EntityIdType.WORKSPACE_CHANGE_PROPOSAL)).thenReturn("proposal-1");
+        when(entityIdGenerator.generate(EntityIdType.WORKSPACE_CHANGE)).thenReturn("change-1");
         when(relationships.list("project-1")).thenReturn(List.of(current));
-        when(proposals.findInProject("proposal-1", "project-1")).thenReturn(Optional.of(proposal));
-        when(changes.findByProposalId("proposal-1")).thenReturn(List.of());
+        when(workspaceChangeProposalRepository.findInProject("proposal-1", "project-1")).thenReturn(Optional.of(proposal));
+        when(workspaceChangeRepository.findByProposalId("proposal-1")).thenReturn(List.of());
 
-        WorkspaceChangeProposalService service = new WorkspaceChangeProposalService(
-                proposals, changes, workItems, entries, relationships, ids);
+        WorkspaceChangeProposalService workspaceChangeProposalService = new WorkspaceChangeProposalService(
+                workspaceChangeProposalRepository, workspaceChangeRepository, workItems, entries, relationships, entityIdGenerator);
         var relationshipDraft = new WorkspaceChangeProposalService.RelationshipDraft(
                 null, null, null, null, null, requestedReason, null);
         var changeDraft = new WorkspaceChangeProposalService.ChangeDraft(
                 "RELATIONSHIP", "UPDATE", "relationship-1", null, "Update relationship", null, null,
                 relationshipDraft);
-        service.create("project-1", "chat-1", "message-1", "Update it",
+        workspaceChangeProposalService.create("project-1", "chat-1", "message-1", "Update it",
                 new WorkspaceChangeProposalService.ProposalDraft(List.of(changeDraft)));
 
         ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
-        verify(changes).insert(eq("change-1"), eq("proposal-1"), eq("project-1"), anyInt(),
+        verify(workspaceChangeRepository).insert(eq("change-1"), eq("proposal-1"), eq("project-1"), anyInt(),
                 eq("RELATIONSHIP"), eq("UPDATE"), eq("relationship-1"), anyString(), payload.capture(), any());
         return JsonUtils.fromJson(payload.getValue(), Relationship.class);
     }

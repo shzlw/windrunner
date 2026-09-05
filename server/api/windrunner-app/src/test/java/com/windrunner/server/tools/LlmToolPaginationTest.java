@@ -291,7 +291,7 @@ class LlmToolPaginationTest {
     private void authorizeProjectRead() {
         when(authorization.requireProject(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(invocation -> ((ToolExecutionContext) invocation.getArgument(0))
-                        .requireProjectId((String) invocation.getArgument(1)));
+                        .requireProjectId(invocation.getArgument(1)));
     }
 
     private static WorkItem workItem(String id) {

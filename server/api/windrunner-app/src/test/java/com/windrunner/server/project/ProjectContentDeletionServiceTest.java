@@ -15,37 +15,37 @@ import static org.mockito.Mockito.verify;
 class ProjectContentDeletionServiceTest {
 
     @Mock
-    private WorkspaceChangeRepository workspaceChanges;
+    private WorkspaceChangeRepository workspaceChangeRepository;
     @Mock
-    private WorkspaceChangeProposalRepository proposals;
+    private WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
     @Mock
-    private WorkItemAssigneeRepository assignees;
+    private WorkItemAssigneeRepository workItemAssigneeRepository;
     @Mock
-    private RelationshipRepository relationships;
+    private RelationshipRepository relationshipRepository;
     @Mock
-    private EntryRepository entries;
+    private EntryRepository entryRepository;
     @Mock
-    private SubscriptionRepository subscriptions;
+    private SubscriptionRepository subscriptionRepository;
     @Mock
-    private UserNotificationRepository notifications;
+    private UserNotificationRepository userNotificationRepository;
     @Mock
-    private ChatSessionContextRepository contexts;
+    private ChatSessionContextRepository chatSessionContextRepository;
     @Mock
-    private WorkItemRepository workItems;
+    private WorkItemRepository workItemRepository;
 
     @Test
     void deletesProjectOwnedOperationalDataButNotHistoryTables() {
-        new ProjectContentDeletionService(workspaceChanges, proposals, assignees, relationships, entries,
-                subscriptions, notifications, contexts, workItems).deleteProjectContent("proj-1");
+        new ProjectContentDeletionService(workspaceChangeRepository, workspaceChangeProposalRepository, workItemAssigneeRepository, relationshipRepository, entryRepository,
+                subscriptionRepository, userNotificationRepository, chatSessionContextRepository, workItemRepository).deleteProjectContent("proj-1");
 
-        verify(workspaceChanges).deleteByProjectId("proj-1");
-        verify(proposals).deleteByProjectId("proj-1");
-        verify(assignees).deleteByProjectId("proj-1");
-        verify(relationships).deleteByProjectId("proj-1");
-        verify(entries).deleteByProjectId("proj-1");
-        verify(subscriptions).deleteByProjectId("proj-1");
-        verify(notifications).deleteByProjectId("proj-1");
-        verify(contexts).deleteByEntity("PROJECT", "proj-1");
-        verify(workItems).deleteByProjectId("proj-1");
+        verify(workspaceChangeRepository).deleteByProjectId("proj-1");
+        verify(workspaceChangeProposalRepository).deleteByProjectId("proj-1");
+        verify(workItemAssigneeRepository).deleteByProjectId("proj-1");
+        verify(relationshipRepository).deleteByProjectId("proj-1");
+        verify(entryRepository).deleteByProjectId("proj-1");
+        verify(subscriptionRepository).deleteByProjectId("proj-1");
+        verify(userNotificationRepository).deleteByProjectId("proj-1");
+        verify(chatSessionContextRepository).deleteByEntity("PROJECT", "proj-1");
+        verify(workItemRepository).deleteByProjectId("proj-1");
     }
 }

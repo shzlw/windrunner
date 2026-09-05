@@ -16,6 +16,7 @@ import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.tools.ToolRegistry;
 import com.windrunner.server.tools.chat.FindProjectsTool;
 import com.windrunner.server.tools.chat.ProposeWorkspaceChangesTool;
+import com.windrunner.server.tools.proposal.ProposalTools;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.utils.FileUtils;
 import com.windrunner.server.work.WorkItemService;
@@ -61,7 +62,7 @@ public class ChatMessageController {
     private final WorkItemRepository workItemRepository;
     private final ProposeWorkspaceChangesTool proposeWorkspaceChangesTool;
     private final LlmUsageService llmUsageService;
-    private final com.windrunner.server.tools.identity.IdentityProposalTools identityProposalTools;
+    private final ProposalTools proposalTools;
 
     @PostMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamChat(@PathVariable String sessionId,
@@ -112,7 +113,7 @@ public class ChatMessageController {
                 send(emitter, "started", new ChatStarted(titleFromMessage(sourceMessage.getContent())));
                 List<LlmTool<?>> availableTools = new ArrayList<>(toolRegistry.llmTools(toolContext));
                 availableTools.add(findProjectsTool.forContext(toolContext));
-                availableTools.addAll(identityProposalTools.forMessage(toolContext, sourceMessage.getId()));
+                availableTools.addAll(proposalTools.forMessage(toolContext, sourceMessage.getId()));
                 if (targetProject != null) availableTools.add(proposeWorkspaceChangesTool.forMessage(
                         toolContext, targetProject.getId(), session.getId(), sourceMessage.getId(), sourceMessage.getContent()));
                 LlmResult<String> llmResult = llmService.runChatWithTools(
