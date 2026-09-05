@@ -1,8 +1,8 @@
 package com.windrunner.server.system.api;
 
 import com.windrunner.server.api.ApiResponse;
+import com.windrunner.server.audio.AudioTranscriptionAvailabilityService;
 import com.windrunner.server.audio.AudioTranscriptionService;
-import com.windrunner.server.audio.config.AudioTranscriptionProperties;
 import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.llm.LlmAvailabilityService;
 import com.windrunner.server.user.domain.AppUser;
@@ -21,7 +21,7 @@ public class SystemInformationController {
 
     private final AuthService authService;
     private final LlmAvailabilityService llmAvailabilityService;
-    private final AudioTranscriptionProperties audioTranscriptionProperties;
+    private final AudioTranscriptionAvailabilityService audioTranscriptionAvailabilityService;
     private final ObjectProvider<AudioTranscriptionService> audioTranscriptionService;
     private final ObjectProvider<BuildProperties> buildProperties;
 
@@ -40,10 +40,10 @@ public class SystemInformationController {
                 llmAvailabilityService.model(),
                 llmAvailabilityService.available(),
                 audioService == null
-                        ? audioTranscriptionProperties.configuredProvider()
+                        ? audioTranscriptionAvailabilityService.provider()
                         : audioService.provider(),
                 audioService == null
-                        ? audioTranscriptionProperties.configuredModel()
+                        ? audioTranscriptionAvailabilityService.model()
                         : audioService.model(),
                 audioService != null));
     }

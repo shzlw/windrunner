@@ -1,7 +1,8 @@
-package com.windrunner.server.audio.config;
+package com.windrunner.server.audio.gemini.config;
 
 import com.windrunner.server.audio.AudioTranscriptionProvider;
-import com.windrunner.server.audio.GeminiTranscriptionProvider;
+import com.windrunner.server.audio.config.AudioTranscriptionProperties;
+import com.windrunner.server.audio.gemini.GeminiTranscriptionProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -16,8 +17,10 @@ public class GeminiTranscriptionConfig {
 
     @Bean
     @ConditionalOnProperty(prefix = "windrunner.audio.transcription", name = "enabled", havingValue = "true")
-    public RestClient geminiTranscriptionRestClient(AudioTranscriptionProperties properties) {
-        AudioTranscriptionProperties.GeminiProperties gemini = properties.getGemini();
+    public RestClient geminiTranscriptionRestClient(
+            AudioTranscriptionProperties properties,
+            GeminiTranscriptionProperties gemini
+    ) {
         if (!StringUtils.hasText(gemini.getApiKey())) {
             throw new IllegalStateException(
                     "Missing Gemini transcription API key: configure GEMINI_TRANSCRIPTION_API_KEY or GEMINI_API_KEY");
@@ -44,8 +47,8 @@ public class GeminiTranscriptionConfig {
     @ConditionalOnProperty(prefix = "windrunner.audio.transcription", name = "enabled", havingValue = "true")
     public AudioTranscriptionProvider geminiTranscriptionProvider(
             @Qualifier("geminiTranscriptionRestClient") RestClient restClient,
-            AudioTranscriptionProperties properties
+            GeminiTranscriptionProperties properties
     ) {
-        return new GeminiTranscriptionProvider(restClient, properties.getGemini());
+        return new GeminiTranscriptionProvider(restClient, properties);
     }
 }

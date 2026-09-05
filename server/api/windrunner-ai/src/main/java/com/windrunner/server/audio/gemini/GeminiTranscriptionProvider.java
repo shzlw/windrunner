@@ -1,8 +1,11 @@
-package com.windrunner.server.audio;
+package com.windrunner.server.audio.gemini;
 
-import com.windrunner.server.audio.client.GeminiTranscriptionRequest;
-import com.windrunner.server.audio.client.GeminiTranscriptionResponse;
-import com.windrunner.server.audio.config.AudioTranscriptionProperties;
+import com.windrunner.server.audio.AudioTranscriptionException;
+import com.windrunner.server.audio.AudioTranscriptionProvider;
+import com.windrunner.server.audio.AudioTranscriptionRequest;
+import com.windrunner.server.audio.gemini.client.GeminiTranscriptionRequest;
+import com.windrunner.server.audio.gemini.client.GeminiTranscriptionResponse;
+import com.windrunner.server.audio.gemini.config.GeminiTranscriptionProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -11,11 +14,11 @@ import org.springframework.web.client.RestClient;
 public class GeminiTranscriptionProvider implements AudioTranscriptionProvider {
 
     private final RestClient restClient;
-    private final AudioTranscriptionProperties.GeminiProperties properties;
+    private final GeminiTranscriptionProperties properties;
 
     public GeminiTranscriptionProvider(
             RestClient restClient,
-            AudioTranscriptionProperties.GeminiProperties properties
+            GeminiTranscriptionProperties properties
     ) {
         this.restClient = restClient;
         this.properties = properties;

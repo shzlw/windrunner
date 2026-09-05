@@ -2,6 +2,8 @@ package com.windrunner.server.audio.config;
 
 import com.windrunner.server.audio.AudioTranscriptionProvider;
 import com.windrunner.server.audio.AudioTranscriptionService;
+import com.windrunner.server.audio.gemini.config.GeminiTranscriptionProperties;
+import com.windrunner.server.audio.openai.config.OpenAITranscriptionProperties;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -9,7 +11,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(AudioTranscriptionProperties.class)
+@EnableConfigurationProperties({
+        AudioTranscriptionProperties.class,
+        OpenAITranscriptionProperties.class,
+        GeminiTranscriptionProperties.class
+})
 public class AudioTranscriptionConfig {
 
     @Bean

@@ -1,6 +1,7 @@
-package com.windrunner.server.audio;
+package com.windrunner.server.audio.gemini;
 
-import com.windrunner.server.audio.config.AudioTranscriptionProperties;
+import com.windrunner.server.audio.AudioTranscriptionRequest;
+import com.windrunner.server.audio.gemini.config.GeminiTranscriptionProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,16 +28,16 @@ class GeminiTranscriptionProviderTest {
 
     @BeforeEach
     void setUp() {
-        AudioTranscriptionProperties properties = new AudioTranscriptionProperties();
-        properties.getGemini().setApiKey("test-key");
-        properties.getGemini().setBaseUrl("https://api.test/v1beta");
-        properties.getGemini().setModel("gemini-2.5-flash");
+        GeminiTranscriptionProperties properties = new GeminiTranscriptionProperties();
+        properties.setApiKey("test-key");
+        properties.setBaseUrl("https://api.test/v1beta");
+        properties.setModel("gemini-2.5-flash");
 
         restClientBuilder = RestClient.builder()
-                .baseUrl(properties.getGemini().getBaseUrl())
-                .defaultHeader("x-goog-api-key", properties.getGemini().getApiKey());
+                .baseUrl(properties.getBaseUrl())
+                .defaultHeader("x-goog-api-key", properties.getApiKey());
         server = MockRestServiceServer.bindTo(restClientBuilder).build();
-        provider = new GeminiTranscriptionProvider(restClientBuilder.build(), properties.getGemini());
+        provider = new GeminiTranscriptionProvider(restClientBuilder.build(), properties);
     }
 
     @AfterEach

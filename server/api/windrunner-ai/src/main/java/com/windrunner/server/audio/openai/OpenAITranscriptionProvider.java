@@ -1,7 +1,10 @@
-package com.windrunner.server.audio;
+package com.windrunner.server.audio.openai;
 
-import com.windrunner.server.audio.client.OpenAITranscriptionResponse;
-import com.windrunner.server.audio.config.AudioTranscriptionProperties;
+import com.windrunner.server.audio.AudioTranscriptionException;
+import com.windrunner.server.audio.AudioTranscriptionProvider;
+import com.windrunner.server.audio.AudioTranscriptionRequest;
+import com.windrunner.server.audio.openai.client.OpenAITranscriptionResponse;
+import com.windrunner.server.audio.openai.config.OpenAITranscriptionProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
@@ -12,11 +15,11 @@ import org.springframework.web.client.RestClient;
 public class OpenAITranscriptionProvider implements AudioTranscriptionProvider {
 
     private final RestClient restClient;
-    private final AudioTranscriptionProperties.OpenAIProperties properties;
+    private final OpenAITranscriptionProperties properties;
 
     public OpenAITranscriptionProvider(
             RestClient restClient,
-            AudioTranscriptionProperties.OpenAIProperties properties
+            OpenAITranscriptionProperties properties
     ) {
         this.restClient = restClient;
         this.properties = properties;

@@ -1,4 +1,4 @@
-package com.windrunner.server.audio.client;
+package com.windrunner.server.audio.gemini.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

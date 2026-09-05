@@ -1,4 +1,4 @@
-package com.windrunner.server.audio.client;
+package com.windrunner.server.audio.openai.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

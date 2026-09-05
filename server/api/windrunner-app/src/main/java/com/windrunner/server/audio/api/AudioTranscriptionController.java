@@ -1,6 +1,7 @@
 package com.windrunner.server.audio.api;
 
 import com.windrunner.server.api.ApiResponse;
+import com.windrunner.server.audio.AudioTranscriptionAvailabilityService;
 import com.windrunner.server.audio.AudioTranscriptionException;
 import com.windrunner.server.audio.AudioTranscriptionService;
 import com.windrunner.server.audio.config.AudioTranscriptionProperties;
@@ -46,6 +47,7 @@ public class AudioTranscriptionController {
     private static final int MAX_LANGUAGE_LENGTH = 16;
 
     private final ObjectProvider<AudioTranscriptionService> transcriptionServiceProvider;
+    private final AudioTranscriptionAvailabilityService availabilityService;
     private final AudioTranscriptionProperties properties;
     private final AuthService authService;
 
@@ -54,8 +56,8 @@ public class AudioTranscriptionController {
         AudioTranscriptionService service = transcriptionServiceProvider.getIfAvailable();
         return ApiResponse.success(new TranscriptionStatus(
                 service != null,
-                service == null ? properties.configuredProvider() : service.provider(),
-                service == null ? properties.configuredModel() : service.model(),
+                service == null ? availabilityService.provider() : service.provider(),
+                service == null ? availabilityService.model() : service.model(),
                 properties.getMaxDurationSeconds(),
                 properties.getMaxFileSizeBytes()));
     }

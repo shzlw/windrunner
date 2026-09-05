@@ -1,6 +1,7 @@
-package com.windrunner.server.audio;
+package com.windrunner.server.audio.openai;
 
-import com.windrunner.server.audio.config.AudioTranscriptionProperties;
+import com.windrunner.server.audio.AudioTranscriptionRequest;
+import com.windrunner.server.audio.openai.config.OpenAITranscriptionProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,16 +27,16 @@ class OpenAITranscriptionProviderTest {
 
     @BeforeEach
     void setUp() {
-        AudioTranscriptionProperties properties = new AudioTranscriptionProperties();
-        properties.getOpenai().setApiKey("test-key");
-        properties.getOpenai().setBaseUrl("https://api.test/v1");
-        properties.getOpenai().setModel("gpt-transcribe");
+        OpenAITranscriptionProperties properties = new OpenAITranscriptionProperties();
+        properties.setApiKey("test-key");
+        properties.setBaseUrl("https://api.test/v1");
+        properties.setModel("gpt-transcribe");
 
         restClientBuilder = RestClient.builder()
-                .baseUrl(properties.getOpenai().getBaseUrl())
-                .defaultHeader("Authorization", "Bearer " + properties.getOpenai().getApiKey());
+                .baseUrl(properties.getBaseUrl())
+                .defaultHeader("Authorization", "Bearer " + properties.getApiKey());
         server = MockRestServiceServer.bindTo(restClientBuilder).build();
-        provider = new OpenAITranscriptionProvider(restClientBuilder.build(), properties.getOpenai());
+        provider = new OpenAITranscriptionProvider(restClientBuilder.build(), properties);
     }
 
     @AfterEach
