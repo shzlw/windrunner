@@ -60,6 +60,12 @@ public class WorkspaceChangeProposalService {
         return view(proposal, changes.findByProposalId(proposalId));
     }
 
+    public List<WorkspaceChangeProposalView> listForMessage(String chatSessionId, String sourceMessageId) {
+        return proposals.findForMessage(chatSessionId, sourceMessageId).stream()
+                .map(proposal -> view(proposal, changes.findByProposalId(proposal.getId())))
+                .toList();
+    }
+
     @Transactional
     public WorkspaceChangeProposalView decide(String projectId, String proposalId, String changeId,
                                               DecisionRequest request, String actorId) {

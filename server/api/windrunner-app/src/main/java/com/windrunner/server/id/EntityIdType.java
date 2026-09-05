@@ -4,6 +4,7 @@ public enum EntityIdType {
     API_KEY("akey"),
     AUDIT_LOG("audt"),
     AUTH_SESSION("sess"),
+    AGENT_MESSAGE_REQUEST("amrq"),
     CHAT_MESSAGE("cmsg"),
     CHAT_SESSION("cses"),
     CHAT_SESSION_CONTEXT("csct"),

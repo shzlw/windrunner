@@ -70,6 +70,44 @@ public interface ProjectRepository extends CrudRepository<Project, String> {
                                            @Param("limit") int limit);
 
     @Query("""
+            SELECT DISTINCT p.id, p.name, p.created_by_user_id, p.created_at, p.updated_at, p.archived_at
+            FROM project p
+            WHERE CHAR_LENGTH(BTRIM(p.name)) >= 3
+              AND POSITION(LOWER(p.name) IN LOWER(:message)) > 0
+              AND (
+                    EXISTS (
+                        SELECT 1
+                        FROM project_member pm
+                        WHERE pm.project_id = p.id
+                          AND pm.user_id = :userId
+                    )
+                 OR EXISTS (
+                        SELECT 1
+                        FROM project_team pt
+                        JOIN team_member tm ON tm.team_id = pt.team_id
+                        WHERE pt.project_id = p.id
+                          AND tm.user_id = :userId
+                    )
+              )
+            ORDER BY p.name ASC, p.id ASC
+            LIMIT :limit
+            """)
+    List<Project> findVisibleMentionedInText(@Param("userId") String userId,
+                                             @Param("message") String message,
+                                             @Param("limit") int limit);
+
+    @Query("""
+            SELECT id, name, created_by_user_id, created_at, updated_at, archived_at
+            FROM project
+            WHERE CHAR_LENGTH(BTRIM(name)) >= 3
+              AND POSITION(LOWER(name) IN LOWER(:message)) > 0
+            ORDER BY name ASC, id ASC
+            LIMIT :limit
+            """)
+    List<Project> findMentionedInText(@Param("message") String message,
+                                      @Param("limit") int limit);
+
+    @Query("""
             SELECT id, name, created_by_user_id, created_at, updated_at, archived_at
             FROM project
             WHERE :query IS NULL

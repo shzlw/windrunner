@@ -20,6 +20,16 @@ public interface WorkspaceChangeProposalRepository extends CrudRepository<Worksp
     @Query("SELECT " + COLUMNS + " FROM workspace_change_proposal WHERE id = :id AND project_id = :projectId")
     Optional<WorkspaceChangeProposal> findInProject(@Param("id") String id, @Param("projectId") String projectId);
 
+    @Query("""
+            SELECT """ + COLUMNS + """
+            FROM workspace_change_proposal
+            WHERE chat_session_id = :chatSessionId
+              AND source_message_id = :sourceMessageId
+            ORDER BY created_at ASC, id ASC
+            """)
+    List<WorkspaceChangeProposal> findForMessage(@Param("chatSessionId") String chatSessionId,
+                                                  @Param("sourceMessageId") String sourceMessageId);
+
     @Modifying
     @Query("INSERT INTO workspace_change_proposal (id, project_id, chat_session_id, source_message_id, source_text, status) VALUES (:id, :projectId, :chatSessionId, :sourceMessageId, :sourceText, 'PENDING')")
     void insert(@Param("id") String id, @Param("projectId") String projectId, @Param("chatSessionId") String chatSessionId,

@@ -1,5 +1,6 @@
 package com.windrunner.server.chat;
 
+import com.windrunner.server.agent.persistence.AgentMessageRequestRepository;
 import com.windrunner.server.chat.api.*;
 import com.windrunner.server.chat.domain.ChatMessage;
 import com.windrunner.server.chat.domain.ChatSession;
@@ -43,6 +44,7 @@ public class ChatService {
     private final ChatSessionRepository sessionRepository;
     private final ChatSessionContextRepository contextRepository;
     private final ChatMessageRepository messageRepository;
+    private final AgentMessageRequestRepository agentMessageRequestRepository;
     private final WorkspaceChangeProposalRepository proposalRepository;
     private final WorkspaceChangeRepository changeRepository;
     private final EntityIdGenerator idGenerator;
@@ -112,6 +114,7 @@ public class ChatService {
         contextRepository.deleteBySessionId(sessionId);
         changeRepository.deleteByChatSessionId(sessionId);
         proposalRepository.deleteByChatSessionId(sessionId);
+        agentMessageRequestRepository.deleteByChatSessionId(sessionId);
         messageRepository.deleteBySessionId(sessionId);
         if (sessionRepository.deleteSession(sessionId, userId) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session not found");

@@ -35,6 +35,17 @@ public interface ChatSessionRepository extends CrudRepository<ChatSession, Strin
             SELECT id, user_id, title, status, created_at, updated_at, archived_at
             FROM chat_session
             WHERE user_id = :userId
+              AND status = 'ACTIVE'
+            ORDER BY updated_at DESC NULLS LAST, id DESC
+            LIMIT :limit
+            """)
+    List<ChatSession> findRecentActiveByUserId(@Param("userId") String userId,
+                                               @Param("limit") int limit);
+
+    @Query("""
+            SELECT id, user_id, title, status, created_at, updated_at, archived_at
+            FROM chat_session
+            WHERE user_id = :userId
               AND (
                     :query IS NULL
                  OR :query = ''
