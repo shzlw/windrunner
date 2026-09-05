@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 @Component
 public class FetchTeamDetailsTool implements Tool<FetchTeamDetailsTool.Parameters> {
+    private static final int MAX_TEXT_LENGTH = 4000;
 
     private final TeamRepository teamRepository;
     private final ToolAuthorizationService authorization;
@@ -44,14 +45,20 @@ public class FetchTeamDetailsTool implements Tool<FetchTeamDetailsTool.Parameter
         if (teamId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Team id is required");
         }
-        authorization.requireContext(context);
+        authorization.requireActor(context);
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
 
-        return new Result(team.getId(), team.getName(), team.getDescription());
+        return new Result(team.getId(), team.getName(), truncate(team.getDescription()));
     }
 
     public record Parameters(String teamId) { }
 
     public record Result(String id, String name, String description) { }
+
+    private static String truncate(String value) {
+        return value != null && value.length() > MAX_TEXT_LENGTH
+                ? value.substring(0, MAX_TEXT_LENGTH) + "…"
+                : value;
+    }
 }

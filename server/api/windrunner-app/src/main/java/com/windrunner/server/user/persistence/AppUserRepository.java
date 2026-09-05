@@ -12,6 +12,19 @@ import java.util.Optional;
 
 @Repository
 public interface AppUserRepository extends CrudRepository<AppUser, String> {
+    @Query("""
+            SELECT id, username, email, display_name, status, global_role
+            FROM app_user
+            WHERE (global_role = 'USER' OR (:includeAdmins AND global_role = 'ADMIN'))
+              AND (LOWER(username) LIKE CONCAT('%', LOWER(:query), '%')
+                   OR LOWER(COALESCE(display_name, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                   OR LOWER(COALESCE(email, '')) LIKE CONCAT('%', LOWER(:query), '%'))
+            ORDER BY LOWER(username), id
+            LIMIT :limit
+            """)
+    List<AppUser> findManageableCandidates(@Param("query") String query,
+                                         @Param("includeAdmins") boolean includeAdmins,
+                                         @Param("limit") int limit);
 
     @Modifying
     @Query("""
@@ -84,6 +97,33 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
                           @Param("status") String status,
                           @Param("globalRole") String globalRole,
                           @Param("updatedAt") java.time.OffsetDateTime updatedAt);
+
+    @Modifying
+    @Query("""
+            UPDATE app_user
+            SET username = :username,
+                email = :email,
+                display_name = :displayName,
+                title = :title,
+                bio = :bio,
+                timezone = :timezone,
+                status = :status,
+                global_role = :globalRole,
+                updated_at = :updatedAt
+            WHERE id = :id
+              AND updated_at = :expectedUpdatedAt
+            """)
+    int updateUserProfileIfUnchanged(@Param("id") String id,
+                                     @Param("username") String username,
+                                     @Param("email") String email,
+                                     @Param("displayName") String displayName,
+                                     @Param("title") String title,
+                                     @Param("bio") String bio,
+                                     @Param("timezone") String timezone,
+                                     @Param("status") String status,
+                                     @Param("globalRole") String globalRole,
+                                     @Param("updatedAt") java.time.OffsetDateTime updatedAt,
+                                     @Param("expectedUpdatedAt") java.time.OffsetDateTime expectedUpdatedAt);
 
     @Modifying
     @Query("""

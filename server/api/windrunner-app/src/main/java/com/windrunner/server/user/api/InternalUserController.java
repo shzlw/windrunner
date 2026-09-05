@@ -23,7 +23,7 @@ public class InternalUserController {
     public ApiResponse<List<UserResponse>> listUsers(@RequestParam(name = "page", defaultValue = "0") int page,
                                                      @RequestParam(name = "size", defaultValue = "20") int size,
                                                      HttpServletRequest request) {
-        AppUser currentUser = authService.requireCurrentUser(request);
+        AppUser currentUser = authService.requireAdmin(request);
         UserPageResponse response = userAdminService.listUsers(page, size, currentUser);
         return ApiResponse.page(
                 response.items(),

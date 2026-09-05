@@ -102,7 +102,7 @@ class ProjectControllerTest {
                 auditLogService,
                 authService,
                 new EntityIdGenerator(),
-                projectContentDeletionService);
+                projectContentDeletionService, org.mockito.Mockito.mock(com.windrunner.server.project.ProjectMembershipService.class));
     }
 
     private AppUser actor() {

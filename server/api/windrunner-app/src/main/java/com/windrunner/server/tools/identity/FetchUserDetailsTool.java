@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public class FetchUserDetailsTool implements Tool<FetchUserDetailsTool.Parameters> {
 
     private static final int MAX_USER_IDS = 100;
+    private static final int MAX_TEXT_LENGTH = 4000;
     private static final String PROMPT_NAME = "fetch-user-details-tool.md";
 
     private final AppUserRepository appUserRepository;
@@ -62,7 +63,7 @@ public class FetchUserDetailsTool implements Tool<FetchUserDetailsTool.Parameter
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At most 100 user ids can be requested");
         }
 
-        authorization.requireContext(context);
+        authorization.requireActor(context);
         Map<String, AppUser> usersById = appUserRepository.findActiveUsersByIds(userIds).stream()
                 .collect(Collectors.toMap(AppUser::getId, Function.identity()));
         List<ResultUser> users = userIds.stream()
@@ -82,7 +83,13 @@ public class FetchUserDetailsTool implements Tool<FetchUserDetailsTool.Parameter
     public record ResultUser(String id, String username, String displayName, String email, String title, String bio) {
 
         static ResultUser from(AppUser user) {
-            return new ResultUser(user.getId(), user.getUsername(), user.getDisplayName(), user.getEmail(), user.getTitle(), user.getBio());
+            return new ResultUser(user.getId(), user.getUsername(), user.getDisplayName(), user.getEmail(), user.getTitle(), truncate(user.getBio()));
+        }
+
+        private static String truncate(String value) {
+            return value != null && value.length() > MAX_TEXT_LENGTH
+                    ? value.substring(0, MAX_TEXT_LENGTH) + "…"
+                    : value;
         }
     }
 }

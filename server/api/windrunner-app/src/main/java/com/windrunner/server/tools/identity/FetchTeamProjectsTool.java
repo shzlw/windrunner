@@ -56,7 +56,7 @@ public class FetchTeamProjectsTool implements Tool<FetchTeamProjectsTool.Paramet
         if (teamId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Team id is required");
         }
-        authorization.requireContext(context);
+        authorization.requireActor(context);
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
         Integer requestedLimit = parameters == null ? null : parameters.limit();

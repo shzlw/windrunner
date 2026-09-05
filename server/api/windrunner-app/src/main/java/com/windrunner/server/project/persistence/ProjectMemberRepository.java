@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface ProjectMemberRepository extends CrudRepository<ProjectMember, String> {
 
     @Query("""
-            SELECT project_id, user_id, role, created_at
+            SELECT project_id, user_id, role, created_at, updated_at
             FROM project_member
             WHERE project_id = :projectId
             ORDER BY role ASC, user_id ASC
@@ -22,7 +22,7 @@ public interface ProjectMemberRepository extends CrudRepository<ProjectMember, S
     List<ProjectMember> findByProjectId(@Param("projectId") String projectId);
 
     @Query("""
-            SELECT project_id, user_id, role, created_at
+            SELECT project_id, user_id, role, created_at, updated_at
             FROM project_member
             WHERE project_id = :projectId
             ORDER BY role ASC, user_id ASC
@@ -36,7 +36,7 @@ public interface ProjectMemberRepository extends CrudRepository<ProjectMember, S
     long countByProjectId(@Param("projectId") String projectId);
 
     @Query("""
-            SELECT project_id, user_id, role, created_at
+            SELECT project_id, user_id, role, created_at, updated_at
             FROM project_member
             WHERE project_id IN (:projectIds)
               AND role = 'OWNER'
@@ -45,7 +45,7 @@ public interface ProjectMemberRepository extends CrudRepository<ProjectMember, S
     List<ProjectMember> findOwnersByProjectIds(@Param("projectIds") List<String> projectIds);
 
     @Query("""
-            SELECT project_id, user_id, role, created_at
+            SELECT project_id, user_id, role, created_at, updated_at
             FROM project_member
             WHERE user_id = :userId
             ORDER BY project_id ASC
@@ -53,7 +53,7 @@ public interface ProjectMemberRepository extends CrudRepository<ProjectMember, S
     List<ProjectMember> findByUserId(@Param("userId") String userId);
 
     @Query("""
-            SELECT project_id, user_id, role, created_at
+            SELECT project_id, user_id, role, created_at, updated_at
             FROM project_member
             WHERE project_id = :projectId
               AND user_id = :userId
@@ -109,11 +109,25 @@ public interface ProjectMemberRepository extends CrudRepository<ProjectMember, S
                 :role
             )
             ON CONFLICT (project_id, user_id)
-            DO UPDATE SET role = EXCLUDED.role
+            DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()
             """)
     void upsert(@Param("projectId") String projectId,
                 @Param("userId") String userId,
                 @Param("role") String role);
+
+    @Modifying
+    @Query("INSERT INTO project_member (project_id, user_id, role, updated_at) VALUES (:projectId, :userId, :role, NOW()) ON CONFLICT (project_id, user_id) DO NOTHING")
+    int insertIfAbsent(@Param("projectId") String projectId, @Param("userId") String userId, @Param("role") String role);
+
+    @Modifying
+    @Query("UPDATE project_member SET role = :role, updated_at = NOW() WHERE project_id = :projectId AND user_id = :userId AND updated_at = :expectedUpdatedAt")
+    int updateRoleIfUnchanged(@Param("projectId") String projectId, @Param("userId") String userId,
+                              @Param("role") String role, @Param("expectedUpdatedAt") java.time.OffsetDateTime expectedUpdatedAt);
+
+    @Modifying
+    @Query("DELETE FROM project_member WHERE project_id = :projectId AND user_id = :userId AND updated_at = :expectedUpdatedAt")
+    int deleteIfUnchanged(@Param("projectId") String projectId, @Param("userId") String userId,
+                          @Param("expectedUpdatedAt") java.time.OffsetDateTime expectedUpdatedAt);
 
     @Modifying
     @Query("""

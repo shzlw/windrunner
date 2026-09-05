@@ -46,6 +46,7 @@ public class ChatService {
     private final WorkspaceChangeProposalRepository proposalRepository;
     private final WorkspaceChangeRepository changeRepository;
     private final EntityIdGenerator idGenerator;
+    private final com.windrunner.server.identity.IdentityProposalRepository identityProposals;
     private final ProjectRepository projects;
     private final ProjectAccessService projectAccessService;
     private final TeamRepository teams;
@@ -109,6 +110,8 @@ public class ChatService {
     @Transactional
     public void deleteSession(String sessionId, String userId) {
         requireSession(sessionId, userId);
+        identityProposals.deleteChangesBySessionId(sessionId);
+        identityProposals.deleteBySessionId(sessionId);
         contextRepository.deleteBySessionId(sessionId);
         changeRepository.deleteByChatSessionId(sessionId);
         proposalRepository.deleteByChatSessionId(sessionId);

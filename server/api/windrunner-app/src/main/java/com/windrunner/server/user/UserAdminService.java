@@ -9,7 +9,10 @@ import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.domain.ProjectMember;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
+import com.windrunner.server.project.persistence.ProjectRepository;
+import com.windrunner.server.team.TeamRoles;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
+import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.user.api.*;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
@@ -23,6 +26,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DateTimeException;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,11 +45,16 @@ public class UserAdminService {
     private final PasswordEncoder passwordEncoder;
     private final TeamMemberRepository teamMemberRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final ProjectRepository projectRepository;
+    private final TeamRepository teamRepository;
     private final ProjectAccessService projectAccessService;
     private final AuditLogService auditLogService;
     private final EntityIdGenerator idGenerator;
 
     public UserPageResponse listUsers(int page, int size, AppUser currentUser) {
+        if (currentUser == null || !AppRoles.isAdminLike(currentUser.getGlobalRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access is required");
+        }
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.max(1, Math.min(size, 100));
         boolean superAdmin = AppRoles.isSuperAdmin(currentUser.getGlobalRole());
@@ -66,6 +75,17 @@ public class UserAdminService {
                 .totalItems(totalItems)
                 .totalPages((int) Math.ceil(totalItems / (double) normalizedSize))
                 .build();
+    }
+
+    public List<UserResponse> findManageableUsers(String query, int limit, AppUser actor) {
+        if (actor == null || !AppRoles.isAdminLike(actor.getGlobalRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access is required");
+        }
+        if (query == null || query.isBlank() || query.length() > 200) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A focused query of 1-200 characters is required");
+        }
+        return appUserRepository.findManageableCandidates(query.trim(), AppRoles.isSuperAdmin(actor.getGlobalRole()),
+                Math.max(1, Math.min(21, limit))).stream().map(this::toResponse).toList();
     }
 
     public UserResponse getUser(String id, AppUser currentUser) {
@@ -136,6 +156,9 @@ public class UserAdminService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
         }
 
+        AppUser target = requireManageableUser(id, currentUser);
+        normalizeUpdatableRole(updateRequest.getGlobalRole(), target.getGlobalRole(), currentUser);
+        validateUpdate(id, updateRequest, currentUser);
         AppUser user = requireManageableUser(id, currentUser);
         Map<String, Object> before = userSnapshot(user);
         String normalizedUsername = normalizeUsername(updateRequest.getUsername());
@@ -186,6 +209,49 @@ public class UserAdminService {
     }
 
     @Transactional
+    public UserResponse updateUserIfUnchanged(String id, UpdateUserRequest updateRequest,
+                                              OffsetDateTime expectedUpdatedAt, AppUser currentUser) {
+        if (updateRequest == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
+        }
+        AppUser target = requireManageableUser(id, currentUser);
+        if (expectedUpdatedAt == null || target.getUpdatedAt() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This user has no usable concurrency revision. Ask AI to review it again.");
+        }
+        validateUpdate(id, updateRequest, currentUser);
+        AppUser user = requireManageableUser(id, currentUser);
+        Map<String, Object> before = userSnapshot(user);
+        String normalizedUsername = normalizeUsername(updateRequest.getUsername());
+        String normalizedEmail = normalizeEmail(updateRequest.getEmail());
+        String normalizedTimezone = normalizeTimezone(updateRequest.getTimezone());
+        String normalizedRole = normalizeUpdatableRole(updateRequest.getGlobalRole(), user.getGlobalRole(), currentUser);
+        ensureUniqueUser(normalizedUsername, normalizedEmail, id);
+
+        user.setUsername(normalizedUsername);
+        user.setEmail(normalizedEmail);
+        user.setDisplayName(StringUtils.hasText(updateRequest.getDisplayName()) ? updateRequest.getDisplayName().trim() : null);
+        user.setTitle(normalizeOptionalText(updateRequest.getTitle()));
+        user.setBio(normalizeOptionalText(updateRequest.getBio()));
+        user.setTimezone(normalizedTimezone);
+        user.setStatus(normalizeStatus(updateRequest.getStatus()));
+        user.setGlobalRole(normalizedRole);
+        user.setUpdatedAt(DateUtils.now());
+        int updated = appUserRepository.updateUserProfileIfUnchanged(
+                user.getId(), user.getUsername(), user.getEmail(), user.getDisplayName(), user.getTitle(),
+                user.getBio(), user.getTimezone(), user.getStatus(), user.getGlobalRole(), user.getUpdatedAt(), expectedUpdatedAt);
+        if (updated != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This user changed after the proposal was created. Ask AI to review it again.");
+        }
+        AppUser savedUser = authService.findExistingUser(user.getId());
+        Map<String, Object> after = userSnapshot(savedUser);
+        auditLogService.logAfterCommit(new AuditLogEntry(
+                currentUser.getId(), AuditActions.UPDATE, AuditEntityTypes.USER, savedUser.getId(), null,
+                AuditOutcomes.SUCCESS, "Updated user " + savedUser.getUsername(), auditLogService.json(before),
+                auditLogService.json(after), auditLogService.changes(before, after), null));
+        return toResponse(savedUser);
+    }
+
+    @Transactional
     public UserResponse updatePassword(String id, UpdateUserPasswordRequest updateRequest, AppUser currentUser) {
         if (updateRequest == null || !StringUtils.hasText(updateRequest.getNewPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New password is required");
@@ -232,7 +298,15 @@ public class UserAdminService {
                     projectMember.getProjectId(),
                     ProjectRoles.OWNER.equals(projectMember.getRole())
             );
+            projectRepository.updateRevision(projectMember.getProjectId());
         }
+        teamMemberRepository.findByUserId(id).forEach(teamMember -> {
+            if (TeamRoles.TEAM_OWNER.equals(teamMember.getRole())
+                    && teamMemberRepository.countOwners(teamMember.getTeamId()) <= 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one team owner is required");
+            }
+            teamRepository.updateRevision(teamMember.getTeamId());
+        });
         projectMemberRepository.deleteByUserId(id);
         teamMemberRepository.deleteByUserId(id);
         authService.revokeUserSessions(id);
@@ -253,6 +327,22 @@ public class UserAdminService {
                 null,
                 null,
                 null));
+    }
+
+    public void validateUpdate(String id, UpdateUserRequest request, AppUser actor) {
+        AppUser user = requireManageableUser(id, actor);
+        if (request == null || !StringUtils.hasText(request.getUsername())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username is required");
+        }
+        normalizeUpdatableRole(request.getGlobalRole(), user.getGlobalRole(), actor);
+        request.setUsername(normalizeUsername(request.getUsername()));
+        request.setEmail(normalizeEmail(request.getEmail()));
+        request.setTimezone(normalizeTimezone(request.getTimezone()));
+        request.setStatus(normalizeStatus(request.getStatus()));
+        if (!List.of(UserStatuses.ACTIVE, UserStatuses.INACTIVE).contains(request.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACTIVE or INACTIVE");
+        }
+        ensureUniqueUser(request.getUsername(), request.getEmail(), id);
     }
 
     private void validateCreateRequest(CreateUserRequest request) {
@@ -338,6 +428,9 @@ public class UserAdminService {
     }
 
     private AppUser requireManageableUser(String id, AppUser currentUser) {
+        if (currentUser == null || !AppRoles.isAdminLike(currentUser.getGlobalRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access is required");
+        }
         AppUser user = authService.findExistingUser(id);
         if (AppRoles.isSuperAdmin(user.getGlobalRole())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");

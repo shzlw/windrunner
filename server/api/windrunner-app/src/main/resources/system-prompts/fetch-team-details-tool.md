@@ -17,5 +17,5 @@ Do not use this tool to change team membership or project links. Those changes a
 </usage>
 
 <output_format>
-The tool returns the Team id, name, and description. A missing description is returned as null.
+The tool returns the Team id, name, and description. A missing description is returned as null; very long descriptions are truncated.
 </output_format>

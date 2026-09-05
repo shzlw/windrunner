@@ -24,7 +24,7 @@ Do not create an Entry or Relationship merely to represent assignment.
 </usage>
 
 <output_format>
-The tool returns:
+Descriptions may be truncated when they are very long. The tool returns:
 
 {
   "teams": [

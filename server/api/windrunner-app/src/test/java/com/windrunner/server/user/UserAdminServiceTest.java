@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import com.windrunner.server.audit.AuditLogService;
@@ -14,7 +15,11 @@ import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
+import com.windrunner.server.project.persistence.ProjectRepository;
+import com.windrunner.server.team.TeamRoles;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
+import com.windrunner.server.team.persistence.TeamRepository;
+import com.windrunner.server.team.domain.TeamMember;
 import com.windrunner.server.user.api.UpdateUserRequest;
 import com.windrunner.server.user.api.UserResponse;
 import com.windrunner.server.user.domain.AppUser;
@@ -43,6 +48,10 @@ class UserAdminServiceTest {
     @Mock
     private ProjectMemberRepository projectMemberRepository;
     @Mock
+    private ProjectRepository projectRepository;
+    @Mock
+    private TeamRepository teamRepository;
+    @Mock
     private ProjectAccessService projectAccessService;
     @Mock
     private AuditLogService auditLogService;
@@ -57,6 +66,8 @@ class UserAdminServiceTest {
                 passwordEncoder,
                 teamMemberRepository,
                 projectMemberRepository,
+                projectRepository,
+                teamRepository,
                 projectAccessService,
                 auditLogService,
                 new EntityIdGenerator());
@@ -123,6 +134,60 @@ class UserAdminServiceTest {
 
         assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         verifyNoInteractions(appUserRepository);
+    }
+
+    @Test
+    void ordinaryUserCannotManageAnotherUserThroughService() {
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> userAdminService.getUser("other", user("actor", AppRoles.USER)));
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verifyNoInteractions(authService, appUserRepository);
+    }
+
+    @Test
+    void ordinaryUserCannotListUsersThroughService() {
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> userAdminService.listUsers(0, 20, user("actor", AppRoles.USER)));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verifyNoInteractions(appUserRepository);
+    }
+
+    @Test
+    void adminCannotManageAdminAccount() {
+        when(authService.findExistingUser("target")).thenReturn(user("target", AppRoles.ADMIN));
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> userAdminService.getUser("target", user("actor", AppRoles.ADMIN)));
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void deletingLastTeamOwnerIsRejected() {
+        AppUser target = user("target", AppRoles.USER);
+        AppUser actor = user("admin-1", AppRoles.ADMIN);
+        TeamMember owner = new TeamMember();
+        owner.setTeamId("team-1");
+        owner.setUserId(target.getId());
+        owner.setRole(TeamRoles.TEAM_OWNER);
+        when(authService.findExistingUser(target.getId())).thenReturn(target);
+        when(projectMemberRepository.findByUserId(target.getId())).thenReturn(java.util.List.of());
+        when(teamMemberRepository.findByUserId(target.getId())).thenReturn(java.util.List.of(owner));
+        when(teamMemberRepository.countOwners("team-1")).thenReturn(1L);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> userAdminService.deleteUser(target.getId(), actor));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(projectRepository, teamRepository);
+        verify(appUserRepository, never()).updateUserStatus(any(), any(), any());
+    }
+
+    @Test
+    void superadminAccountCannotBeManaged() {
+        when(authService.findExistingUser("target")).thenReturn(user("target", AppRoles.SUPERADMIN));
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> userAdminService.getUser("target", user("actor", AppRoles.SUPERADMIN)));
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     private AppUser user(String id, String globalRole) {

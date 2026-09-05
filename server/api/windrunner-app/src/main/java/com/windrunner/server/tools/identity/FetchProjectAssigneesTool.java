@@ -18,6 +18,8 @@ import java.util.List;
 public class FetchProjectAssigneesTool implements Tool<FetchProjectAssigneesTool.Parameters> {
     private static final int DEFAULT_LIMIT = 20;
     private static final int MAX_LIMIT = 100;
+    private static final int MAX_QUERY_LENGTH = 200;
+    private static final int MAX_TEXT_LENGTH = 4000;
 
     private final AppUserRepository users;
     private final TeamRepository teams;
@@ -47,8 +49,13 @@ public class FetchProjectAssigneesTool implements Tool<FetchProjectAssigneesTool
     public Object execute(Parameters parameters, ToolExecutionContext context) {
         String projectId = authorization.requireProject(
                 context, parameters == null ? null : parameters.projectId());
-        String query = parameters.query() == null || parameters.query().isBlank() ? null : parameters.query().trim();
-        int limit = parameters.limit() == null ? DEFAULT_LIMIT : Math.max(1, Math.min(parameters.limit(), MAX_LIMIT));
+        String query = parameters == null || parameters.query() == null || parameters.query().isBlank()
+                ? null
+                : parameters.query().trim();
+        if (query != null && query.length() > MAX_QUERY_LENGTH) query = query.substring(0, MAX_QUERY_LENGTH);
+        int limit = parameters == null || parameters.limit() == null
+                ? DEFAULT_LIMIT
+                : Math.max(1, Math.min(parameters.limit(), MAX_LIMIT));
         List<UserCandidate> userCandidates = users.findAssignableUsersForProject(projectId, query, limit).stream()
                 .map(UserCandidate::from)
                 .toList();
@@ -73,7 +80,13 @@ public class FetchProjectAssigneesTool implements Tool<FetchProjectAssigneesTool
 
     public record TeamCandidate(String id, String name, String description) {
         static TeamCandidate from(Team team) {
-            return new TeamCandidate(team.getId(), team.getName(), team.getDescription());
+            return new TeamCandidate(team.getId(), team.getName(), truncate(team.getDescription()));
         }
+    }
+
+    private static String truncate(String value) {
+        return value != null && value.length() > MAX_TEXT_LENGTH
+                ? value.substring(0, MAX_TEXT_LENGTH) + "…"
+                : value;
     }
 }

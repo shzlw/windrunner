@@ -16,6 +16,7 @@ import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import VoiceWaveform from '@/components/VoiceWaveform'
+import IdentityProposalCards from '@/IdentityProposalCards'
 import { cn } from '@/lib/utils'
 import { translateStatus, translateWorkItemType } from '@/i18n/labels'
 import useVoiceTranscription, { formatRecordingTime } from '@/hooks/use-voice-transcription'
@@ -733,6 +734,7 @@ export default function ChatPanel({
               </Message>
             ))
           )}
+          {sessionId && <IdentityProposalCards key={sessionId} sessionId={sessionId} isStreaming={isStreaming} onApplied={() => { void onGraphChangeProposalSaved?.() }} />}
         </div>
 
         {messages.length > 0 ? <div className="shrink-0 border-t px-3 py-3">{renderComposer()}</div> : null}

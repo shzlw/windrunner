@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface TeamMemberRepository extends CrudRepository<TeamMember, String> {
 
     @Query("""
-            SELECT team_id, user_id, role, created_at
+            SELECT team_id, user_id, role, created_at, updated_at
             FROM team_member
             WHERE team_id = :teamId
             ORDER BY user_id ASC
@@ -22,7 +22,7 @@ public interface TeamMemberRepository extends CrudRepository<TeamMember, String>
     List<TeamMember> findByTeamId(@Param("teamId") String teamId);
 
     @Query("""
-            SELECT team_id, user_id, role, created_at
+            SELECT team_id, user_id, role, created_at, updated_at
             FROM team_member
             WHERE team_id = :teamId
             ORDER BY user_id ASC
@@ -35,7 +35,7 @@ public interface TeamMemberRepository extends CrudRepository<TeamMember, String>
     @Query("SELECT COUNT(*) FROM team_member WHERE team_id = :teamId")
     long countByTeamId(@Param("teamId") String teamId);
 
-    @Query("SELECT team_id, user_id, role, created_at FROM team_member WHERE team_id = :teamId AND user_id = :userId")
+    @Query("SELECT team_id, user_id, role, created_at, updated_at FROM team_member WHERE team_id = :teamId AND user_id = :userId")
     Optional<TeamMember> findByTeamIdAndUserId(@Param("teamId") String teamId,
                                                @Param("userId") String userId);
 
@@ -43,7 +43,7 @@ public interface TeamMemberRepository extends CrudRepository<TeamMember, String>
     long countOwners(@Param("teamId") String teamId);
 
     @Query("""
-            SELECT team_id, user_id, role, created_at
+            SELECT team_id, user_id, role, created_at, updated_at
             FROM team_member
             WHERE team_id IN (:teamIds)
             ORDER BY team_id ASC, user_id ASC
@@ -51,7 +51,7 @@ public interface TeamMemberRepository extends CrudRepository<TeamMember, String>
     List<TeamMember> findByTeamIds(@Param("teamIds") List<String> teamIds);
 
     @Query("""
-            SELECT team_id, user_id, role, created_at
+            SELECT team_id, user_id, role, created_at, updated_at
             FROM team_member
             WHERE user_id = :userId
             ORDER BY team_id ASC
@@ -75,19 +75,40 @@ public interface TeamMemberRepository extends CrudRepository<TeamMember, String>
             INSERT INTO team_member (
                 team_id,
                 user_id,
-                role
+                role,
+                updated_at
             )
             VALUES (
                 :teamId,
                 :userId,
-                :role
+                :role,
+                NOW()
             )
             ON CONFLICT (team_id, user_id)
-            DO UPDATE SET role = EXCLUDED.role
+            DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()
             """)
     void insert(@Param("teamId") String teamId,
                 @Param("userId") String userId,
                 @Param("role") String role);
+
+    @Modifying
+    @Query("INSERT INTO team_member (team_id, user_id, role, updated_at) VALUES (:teamId, :userId, :role, NOW()) ON CONFLICT (team_id, user_id) DO NOTHING")
+    int insertIfAbsent(@Param("teamId") String teamId, @Param("userId") String userId, @Param("role") String role);
+
+    @Modifying
+    @Query("UPDATE team_member SET role = :role, updated_at = NOW() WHERE team_id = :teamId AND user_id = :userId AND updated_at = :expectedUpdatedAt")
+    int updateRoleIfUnchanged(@Param("teamId") String teamId, @Param("userId") String userId,
+                              @Param("role") String role, @Param("expectedUpdatedAt") java.time.OffsetDateTime expectedUpdatedAt);
+
+    @Modifying
+    @Query("DELETE FROM team_member WHERE team_id = :teamId AND user_id = :userId AND updated_at = :expectedUpdatedAt")
+    int deleteIfUnchanged(@Param("teamId") String teamId, @Param("userId") String userId,
+                          @Param("expectedUpdatedAt") java.time.OffsetDateTime expectedUpdatedAt);
+
+    @Modifying
+    @Query("DELETE FROM team_member WHERE team_id = :teamId AND user_id = :userId AND updated_at = :expectedUpdatedAt AND (role <> 'TEAM_OWNER' OR (SELECT COUNT(*) FROM team_member WHERE team_id = :teamId AND role = 'TEAM_OWNER') > 1)")
+    int deleteIfUnchangedAndNotLastOwner(@Param("teamId") String teamId, @Param("userId") String userId,
+                                         @Param("expectedUpdatedAt") java.time.OffsetDateTime expectedUpdatedAt);
 
     @Modifying
     @Query("""

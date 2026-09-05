@@ -43,6 +43,7 @@ public class ProjectController {
     private final AuthService authService;
     private final EntityIdGenerator idGenerator;
     private final ProjectContentDeletionService projectContentDeletionService;
+    private final com.windrunner.server.project.ProjectMembershipService memberships;
 
     @GetMapping
     public ApiResponse<List<Project>> listProjects(HttpServletRequest request) {
@@ -228,36 +229,7 @@ public class ProjectController {
     public ApiResponse<ProjectMember> upsertProjectMember(@PathVariable("id") String id,
                                                           @RequestBody TeamLinkRequest linkRequest,
                                                           HttpServletRequest request) {
-        AppUser actor = authService.requireCurrentUser(request);
-        projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
-        Project project = requireProject(id);
-        String userId = requireText(linkRequest == null ? null : linkRequest.userId(), "User id is required");
-        requireAssignableProjectMember(userId);
-        String role = normalizeProjectRole(linkRequest == null ? null : linkRequest.role());
-        ProjectMember existing = projectMemberRepository.findByProjectIdAndUserId(id, userId).orElse(null);
-        projectAccessService.requireAnotherOwnerBeforeRemovingOwner(
-                id,
-                existing != null && ProjectRoles.OWNER.equals(existing.getRole()) && !ProjectRoles.OWNER.equals(role)
-        );
-        projectMemberRepository.upsert(id, userId, role);
-
-        ProjectMember projectMember = new ProjectMember();
-        projectMember.setProjectId(id);
-        projectMember.setUserId(userId);
-        projectMember.setRole(role);
-        auditLogService.logAfterCommit(new AuditLogEntry(
-                actor.getId(),
-                AuditActions.UPDATE,
-                AuditEntityTypes.PROJECT,
-                id,
-                id,
-                AuditOutcomes.SUCCESS,
-                "Updated project member for " + project.getName(),
-                null,
-                null,
-                null,
-                auditLogService.json(Map.of("operation", "UPSERT_MEMBER", "userId", userId, "role", role))));
-        return ApiResponse.success(projectMember);
+        return ApiResponse.success(memberships.upsertProjectMember(id, linkRequest, authService.requireCurrentUser(request)));
     }
 
     @DeleteMapping("/{id}/members/{userId}")
@@ -265,25 +237,7 @@ public class ProjectController {
     public ApiResponse<Void> removeProjectMember(@PathVariable("id") String id,
                                                  @PathVariable("userId") String userId,
                                                  HttpServletRequest request) {
-        AppUser actor = authService.requireCurrentUser(request);
-        projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
-        Project project = requireProject(id);
-        ProjectMember existing = projectMemberRepository.findByProjectIdAndUserId(id, userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project member not found"));
-        projectAccessService.requireAnotherOwnerBeforeRemovingOwner(id, ProjectRoles.OWNER.equals(existing.getRole()));
-        projectMemberRepository.delete(id, userId);
-        auditLogService.logAfterCommit(new AuditLogEntry(
-                actor.getId(),
-                AuditActions.UPDATE,
-                AuditEntityTypes.PROJECT,
-                id,
-                id,
-                AuditOutcomes.SUCCESS,
-                "Removed project member from " + project.getName(),
-                null,
-                null,
-                null,
-                auditLogService.json(Map.of("operation", "REMOVE_MEMBER", "userId", userId))));
+        memberships.removeProjectMember(id, userId, authService.requireCurrentUser(request));
         return ApiResponse.success();
     }
 
@@ -293,38 +247,7 @@ public class ProjectController {
     public ApiResponse<ProjectTeam> assignTeam(@PathVariable("id") String id,
                                                @RequestBody TeamLinkRequest linkRequest,
                                                HttpServletRequest request) {
-        AppUser actor = authService.requireCurrentUser(request);
-        projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
-        Project project = requireProject(id);
-        String teamId = requireText(linkRequest == null ? null : linkRequest.teamId(), "Team id is required");
-        if (!teamRepository.existsById(teamId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found");
-        }
-        String role = normalizeProjectRole(linkRequest == null ? null : linkRequest.role());
-        ProjectTeam existing = projectTeamRepository.findByProjectIdAndTeamId(id, teamId).orElse(null);
-        projectAccessService.requireAnotherOwnerBeforeRemovingOwner(
-                id,
-                existing != null && ProjectRoles.OWNER.equals(existing.getRole()) && !ProjectRoles.OWNER.equals(role)
-        );
-        projectTeamRepository.upsert(id, teamId, role);
-
-        ProjectTeam projectTeam = new ProjectTeam();
-        projectTeam.setProjectId(id);
-        projectTeam.setTeamId(teamId);
-        projectTeam.setRole(role);
-        auditLogService.logAfterCommit(new AuditLogEntry(
-                actor.getId(),
-                AuditActions.UPDATE,
-                AuditEntityTypes.PROJECT,
-                id,
-                id,
-                AuditOutcomes.SUCCESS,
-                "Assigned team to project " + project.getName(),
-                null,
-                null,
-                null,
-                auditLogService.json(Map.of("operation", "ASSIGN_TEAM", "teamId", teamId, "role", role))));
-        return ApiResponse.success(projectTeam);
+        return ApiResponse.success(memberships.assignTeam(id, linkRequest, authService.requireCurrentUser(request)));
     }
 
     @DeleteMapping("/{id}/teams/{teamId}")
@@ -332,25 +255,7 @@ public class ProjectController {
     public ApiResponse<Void> unassignTeam(@PathVariable("id") String id,
                                           @PathVariable("teamId") String teamId,
                                           HttpServletRequest request) {
-        AppUser actor = authService.requireCurrentUser(request);
-        projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
-        Project project = requireProject(id);
-        ProjectTeam existing = projectTeamRepository.findByProjectIdAndTeamId(id, teamId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project team not found"));
-        projectAccessService.requireAnotherOwnerBeforeRemovingOwner(id, ProjectRoles.OWNER.equals(existing.getRole()));
-        projectTeamRepository.delete(id, teamId);
-        auditLogService.logAfterCommit(new AuditLogEntry(
-                actor.getId(),
-                AuditActions.UPDATE,
-                AuditEntityTypes.PROJECT,
-                id,
-                id,
-                AuditOutcomes.SUCCESS,
-                "Unassigned team from project " + project.getName(),
-                null,
-                null,
-                null,
-                auditLogService.json(Map.of("operation", "UNASSIGN_TEAM", "teamId", teamId))));
+        memberships.unassignTeam(id, teamId, authService.requireCurrentUser(request));
         return ApiResponse.success();
     }
 
@@ -396,11 +301,5 @@ public class ProjectController {
         return List.copyOf(normalized);
     }
 
-    private String normalizeProjectRole(String role) {
-        try {
-            return ProjectRoles.normalize(role);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
-        }
-    }
+
 }

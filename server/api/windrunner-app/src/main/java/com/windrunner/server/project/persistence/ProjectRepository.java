@@ -7,11 +7,11 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Repository
 public interface ProjectRepository extends CrudRepository<Project, String> {
-
     @Query("SELECT id, name, created_by_user_id, created_at, updated_at, archived_at FROM project ORDER BY name ASC, id ASC")
     List<Project> findAllByOrderByNameAscIdAsc();
 
@@ -164,4 +164,12 @@ public interface ProjectRepository extends CrudRepository<Project, String> {
             WHERE id = :id
             """)
     int update(@Param("id") String id, @Param("name") String name);
+
+    @Modifying
+    @Query("UPDATE project SET updated_at = NOW() WHERE id = :id AND updated_at = :expectedUpdatedAt")
+    int updateRevisionIfUnchanged(@Param("id") String id, @Param("expectedUpdatedAt") OffsetDateTime expectedUpdatedAt);
+
+    @Modifying
+    @Query("UPDATE project SET updated_at = NOW() WHERE id = :id")
+    int updateRevision(@Param("id") String id);
 }

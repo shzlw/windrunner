@@ -24,7 +24,7 @@ public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, Strin
     }
 
     @Query("""
-            SELECT project_id, team_id, role, created_at
+            SELECT project_id, team_id, role, created_at, updated_at
             FROM project_team
             WHERE team_id = :teamId
             ORDER BY project_id ASC
@@ -32,7 +32,7 @@ public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, Strin
     List<ProjectTeam> findByTeamId(@Param("teamId") String teamId);
 
     @Query("""
-            SELECT project_id, team_id, role, created_at
+            SELECT project_id, team_id, role, created_at, updated_at
             FROM project_team
             WHERE team_id = :teamId
             ORDER BY project_id ASC
@@ -46,7 +46,7 @@ public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, Strin
     long countByTeamId(@Param("teamId") String teamId);
 
     @Query("""
-            SELECT project_id, team_id, role, created_at
+            SELECT project_id, team_id, role, created_at, updated_at
             FROM project_team
             WHERE team_id IN (:teamIds)
             ORDER BY team_id ASC, project_id ASC
@@ -54,7 +54,7 @@ public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, Strin
     List<ProjectTeam> findByTeamIds(@Param("teamIds") List<String> teamIds);
 
     @Query("""
-            SELECT project_id, team_id, role, created_at
+            SELECT project_id, team_id, role, created_at, updated_at
             FROM project_team
             WHERE project_id = :projectId
             ORDER BY team_id ASC
@@ -75,7 +75,7 @@ public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, Strin
     List<ProjectTeamWithName> findByProjectIdWithTeamName(@Param("projectId") String projectId);
 
     @Query("""
-            SELECT project_id, team_id, role, created_at
+            SELECT project_id, team_id, role, created_at, updated_at
             FROM project_team
             WHERE project_id = :projectId
             ORDER BY team_id ASC
@@ -89,7 +89,7 @@ public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, Strin
     long countByProjectId(@Param("projectId") String projectId);
 
     @Query("""
-            SELECT project_id, team_id, role, created_at
+            SELECT project_id, team_id, role, created_at, updated_at
             FROM project_team
             WHERE project_id = :projectId
               AND team_id = :teamId
@@ -118,11 +118,25 @@ public interface ProjectTeamRepository extends CrudRepository<ProjectTeam, Strin
                 :role
             )
             ON CONFLICT (project_id, team_id)
-            DO UPDATE SET role = EXCLUDED.role
+            DO UPDATE SET role = EXCLUDED.role, updated_at = NOW()
             """)
     void upsert(@Param("projectId") String projectId,
                 @Param("teamId") String teamId,
                 @Param("role") String role);
+
+    @Modifying
+    @Query("INSERT INTO project_team (project_id, team_id, role, updated_at) VALUES (:projectId, :teamId, :role, NOW()) ON CONFLICT (project_id, team_id) DO NOTHING")
+    int insertIfAbsent(@Param("projectId") String projectId, @Param("teamId") String teamId, @Param("role") String role);
+
+    @Modifying
+    @Query("UPDATE project_team SET role = :role, updated_at = NOW() WHERE project_id = :projectId AND team_id = :teamId AND updated_at = :expectedUpdatedAt")
+    int updateRoleIfUnchanged(@Param("projectId") String projectId, @Param("teamId") String teamId,
+                              @Param("role") String role, @Param("expectedUpdatedAt") OffsetDateTime expectedUpdatedAt);
+
+    @Modifying
+    @Query("DELETE FROM project_team WHERE project_id = :projectId AND team_id = :teamId AND updated_at = :expectedUpdatedAt")
+    int deleteIfUnchanged(@Param("projectId") String projectId, @Param("teamId") String teamId,
+                          @Param("expectedUpdatedAt") OffsetDateTime expectedUpdatedAt);
 
     @Modifying
     @Query("""

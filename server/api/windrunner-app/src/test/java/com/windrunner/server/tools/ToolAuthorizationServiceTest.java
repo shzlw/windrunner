@@ -4,6 +4,7 @@ import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.team.persistence.ProjectTeamRepository;
+import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.user.domain.AppUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
@@ -13,6 +14,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class ToolAuthorizationServiceTest {
 
@@ -51,7 +55,9 @@ class ToolAuthorizationServiceTest {
         });
         ProjectTeamRepository projectTeams = proxy(ProjectTeamRepository.class,
                 (method, args) -> unsupported(method));
-        return new ToolAuthorizationService(new ProjectAccessService(projects, members, projectTeams));
+        AuthService authService = mock(AuthService.class);
+        when(authService.requireActiveActor(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        return new ToolAuthorizationService(new ProjectAccessService(projects, members, projectTeams), authService);
     }
 
     private ToolExecutionContext context() {

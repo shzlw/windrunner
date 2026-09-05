@@ -8,11 +8,11 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 @Repository
 public interface TeamRepository extends CrudRepository<Team, String> {
-
     @Query("""
             SELECT id, name, description, created_at, updated_at
             FROM team
@@ -100,4 +100,19 @@ public interface TeamRepository extends CrudRepository<Team, String> {
     int update(@Param("id") String id,
                @Param("name") String name,
                @Param("description") String description);
+
+    @Modifying
+    @Query("UPDATE team SET name = :name, description = :description, updated_at = NOW() WHERE id = :id AND updated_at = :expectedUpdatedAt")
+    int updateIfUnchanged(@Param("id") String id,
+                          @Param("name") String name,
+                          @Param("description") String description,
+                          @Param("expectedUpdatedAt") OffsetDateTime expectedUpdatedAt);
+
+    @Modifying
+    @Query("UPDATE team SET updated_at = NOW() WHERE id = :id AND updated_at = :expectedUpdatedAt")
+    int updateRevisionIfUnchanged(@Param("id") String id, @Param("expectedUpdatedAt") OffsetDateTime expectedUpdatedAt);
+
+    @Modifying
+    @Query("UPDATE team SET updated_at = NOW() WHERE id = :id")
+    int updateRevision(@Param("id") String id);
 }

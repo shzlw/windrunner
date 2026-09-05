@@ -1,4 +1,49 @@
 const en = {
+  identityProposals: {
+  "heading": "Team and user proposals",
+  "loadError": "Could not load proposals.",
+  "decisionError": "Could not decide proposal.",
+  "appliedToast": "Change applied",
+  "accept": "Accept change",
+  "reject": "Reject",
+  "loadMore": "Load more proposals",
+  "changes": "changes",
+  "notSet": "Not set",
+  "teamImpact": "Membership changes can change access to projects linked to this team.",
+  "projectImpact": "This changes the direct membership. Access through other memberships can remain.",
+  "kinds": {
+    "TEAM": "Team",
+    "TEAM_MEMBERSHIP": "Team membership",
+    "PROJECT_MEMBERSHIP": "Project access",
+    "USER_PROFILE": "User profile",
+    "USER_ACCESS": "Account access"
+  },
+  "actions": {
+    "ADD": "Add",
+    "UPDATE": "Update",
+    "REMOVE": "Remove"
+  },
+  "statuses": {
+    "PENDING": "Pending review",
+    "APPLYING": "Applying",
+    "APPLIED": "Applied",
+    "REJECTED": "Rejected"
+  },
+  "fields": {
+    "name": "Name",
+    "description": "Description",
+    "ownerNames": "Initial owners",
+    "role": "Role",
+    "username": "Username",
+    "email": "Email",
+    "displayName": "Display name",
+    "title": "Title",
+    "bio": "Bio",
+    "timezone": "Timezone",
+    "status": "Account status",
+    "globalRole": "Global role"
+  }
+},
   common: {
     cancel: 'Cancel',
     close: 'Close',

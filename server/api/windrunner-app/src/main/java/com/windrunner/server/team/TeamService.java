@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.*;
 
 @RequiredArgsConstructor
@@ -75,6 +76,7 @@ public class TeamService {
 
     @Transactional
     public Team createTeam(CreateTeamRequest createRequest, AppUser actor) {
+        requireAdmin(actor);
         if (createRequest == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
         }
@@ -108,6 +110,7 @@ public class TeamService {
 
     @Transactional
     public Team updateTeam(String id, Team team, AppUser actor) {
+        requireAdmin(actor);
         Team beforeTeam = requireTeam(id);
         Map<String, Object> before = teamSnapshot(beforeTeam);
         validateTeam(team, id);
@@ -133,7 +136,30 @@ public class TeamService {
     }
 
     @Transactional
+    public Team updateTeamIfUnchanged(String id, Team team, OffsetDateTime expectedUpdatedAt, AppUser actor) {
+        requireAdmin(actor);
+        Team beforeTeam = requireTeam(id);
+        if (expectedUpdatedAt == null || beforeTeam.getUpdatedAt() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This team has no usable concurrency revision. Ask AI to review it again.");
+        }
+        Map<String, Object> before = teamSnapshot(beforeTeam);
+        validateTeam(team, id);
+        if (teamRepository.updateIfUnchanged(id, team.getName(), team.getDescription(), expectedUpdatedAt) != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This team changed after the proposal was created. Ask AI to review it again.");
+        }
+        Team updatedTeam = requireTeam(id);
+        auditLogService.logAfterCommit(new AuditLogEntry(
+                actor == null ? null : actor.getId(), AuditActions.UPDATE, AuditEntityTypes.TEAM,
+                updatedTeam.getId(), null, AuditOutcomes.SUCCESS,
+                "Updated team " + updatedTeam.getName(), auditLogService.json(before),
+                auditLogService.json(teamSnapshot(updatedTeam)),
+                auditLogService.changes(before, teamSnapshot(updatedTeam)), null));
+        return updatedTeam;
+    }
+
+    @Transactional
     public void deleteTeam(String id, AppUser actor) {
+        requireAdmin(actor);
         Team team = requireTeam(id);
         Map<String, Object> before = teamSnapshot(team);
         for (ProjectTeam projectTeam : projectTeamRepository.findByTeamId(id)) {
@@ -141,6 +167,7 @@ public class TeamService {
                     projectTeam.getProjectId(),
                     ProjectRoles.OWNER.equals(projectTeam.getRole())
             );
+            projectRepository.updateRevision(projectTeam.getProjectId());
         }
         teamMemberRepository.deleteByTeamId(id);
         projectTeamRepository.deleteByTeamId(id);
@@ -177,10 +204,17 @@ public class TeamService {
 
     @Transactional
     public TeamMember addMember(String teamId, TeamLinkRequest linkRequest, AppUser actor) {
+        requireAdmin(actor);
         Team team = requireTeam(teamId);
         String userId = requireText(linkRequest == null ? null : linkRequest.userId(), "User id is required");
         String role = normalizeTeamRole(linkRequest == null ? null : linkRequest.role());
         requireNonSuperAdminUser(userId, "Super admin users cannot be added as team members");
+        TeamMember existing = teamMemberRepository.findByTeamIdAndUserId(teamId, userId).orElse(null);
+        if (existing != null && TeamRoles.TEAM_OWNER.equals(existing.getRole())
+                && !TeamRoles.TEAM_OWNER.equals(role) && teamMemberRepository.countOwners(teamId) <= 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one team owner is required");
+        }
+        teamRepository.updateRevision(teamId);
         teamMemberRepository.insert(teamId, userId, role);
         TeamMember teamMember = new TeamMember();
         teamMember.setTeamId(teamId);
@@ -203,6 +237,7 @@ public class TeamService {
 
     @Transactional
     public void removeMember(String teamId, String userId, AppUser actor) {
+        requireAdmin(actor);
         Team team = requireTeam(teamId);
         TeamMember existing = teamMemberRepository.findByTeamIdAndUserId(teamId, userId)
                 .orElse(null);
@@ -212,6 +247,7 @@ public class TeamService {
         if (TeamRoles.TEAM_OWNER.equals(existing.getRole()) && teamMemberRepository.countOwners(teamId) <= 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one team owner is required");
         }
+        teamRepository.updateRevision(teamId);
         if (teamMemberRepository.deleteIfNotLastOwner(teamId, userId) == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one team owner is required");
         }
@@ -246,6 +282,7 @@ public class TeamService {
 
     @Transactional
     public ProjectTeam addProject(String teamId, TeamLinkRequest linkRequest, AppUser actor) {
+        requireAdmin(actor);
         Team team = requireTeam(teamId);
         String projectId = requireText(linkRequest == null ? null : linkRequest.projectId(), "Project id is required");
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.OWNER);
@@ -258,6 +295,7 @@ public class TeamService {
                 projectId,
                 existing != null && ProjectRoles.OWNER.equals(existing.getRole()) && !ProjectRoles.OWNER.equals(role)
         );
+        projectRepository.updateRevision(projectId);
         projectTeamRepository.upsert(projectId, teamId, role);
         ProjectTeam projectTeam = new ProjectTeam();
         projectTeam.setProjectId(projectId);
@@ -280,11 +318,13 @@ public class TeamService {
 
     @Transactional
     public void removeProject(String teamId, String projectId, AppUser actor) {
+        requireAdmin(actor);
         Team team = requireTeam(teamId);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.OWNER);
         ProjectTeam existing = projectTeamRepository.findByProjectIdAndTeamId(projectId, teamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project team not found"));
         projectAccessService.requireAnotherOwnerBeforeRemovingOwner(projectId, ProjectRoles.OWNER.equals(existing.getRole()));
+        projectRepository.updateRevision(projectId);
         projectTeamRepository.delete(projectId, teamId);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor == null ? null : actor.getId(),
@@ -372,6 +412,7 @@ public class TeamService {
         request.setDecidedByUserId(actor.getId());
 
         if (TeamJoinRequestStatuses.APPROVED.equals(status)) {
+            teamRepository.updateRevision(teamId);
             teamMemberRepository.insert(teamId, request.getUserId(), TeamRoles.TEAM_MEMBER);
         }
 
@@ -388,6 +429,67 @@ public class TeamService {
                 null,
                 null));
         return request;
+    }
+
+    @Transactional
+    public void applyMembershipOptimistic(String teamId, String userId, String role, String action,
+                                          OffsetDateTime expectedTeamUpdatedAt,
+                                          OffsetDateTime expectedMembershipUpdatedAt,
+                                          AppUser actor) {
+        requireAdmin(actor);
+        Team team = requireTeam(teamId);
+        requireNonSuperAdminUser(userId, "Super admin users cannot be added as team members");
+        TeamMember existing = teamMemberRepository.findByTeamIdAndUserId(teamId, userId).orElse(null);
+        if (expectedTeamUpdatedAt == null || team.getUpdatedAt() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This team has no usable concurrency revision. Ask AI to review it again.");
+        }
+        String normalizedRole = "REMOVE".equals(action) ? null : normalizeTeamRole(role);
+        if ("ADD".equals(action) && existing != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Team membership changed after the proposal was created. Ask AI to review it again.");
+        }
+        if (!"ADD".equals(action) && existing == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Team membership changed after the proposal was created. Ask AI to review it again.");
+        }
+        if (existing != null && TeamRoles.TEAM_OWNER.equals(existing.getRole())
+                && !TeamRoles.TEAM_OWNER.equals(normalizedRole) && teamMemberRepository.countOwners(teamId) <= 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one team owner is required");
+        }
+        if (expectedMembershipUpdatedAt == null && !"ADD".equals(action)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Team membership has no usable concurrency revision. Ask AI to review it again.");
+        }
+        if (teamRepository.updateRevisionIfUnchanged(teamId, expectedTeamUpdatedAt) != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This team changed after the proposal was created. Ask AI to review it again.");
+        }
+        int changed;
+        if ("ADD".equals(action)) {
+            changed = teamMemberRepository.insertIfAbsent(teamId, userId, normalizedRole);
+        } else if ("UPDATE".equals(action)) {
+            changed = teamMemberRepository.updateRoleIfUnchanged(teamId, userId, normalizedRole, expectedMembershipUpdatedAt);
+        } else if ("REMOVE".equals(action)) {
+            changed = teamMemberRepository.deleteIfUnchangedAndNotLastOwner(teamId, userId, expectedMembershipUpdatedAt);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported membership action");
+        }
+        if (changed != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Team membership changed after the proposal was created. Ask AI to review it again.");
+        }
+        auditLogService.logAfterCommit(new AuditLogEntry(
+                actor == null ? null : actor.getId(), AuditActions.UPDATE, AuditEntityTypes.TEAM, teamId,
+                null, AuditOutcomes.SUCCESS, "Updated team membership for " + team.getName(), null, null, null,
+                auditLogService.json(Map.of("operation", action + "_MEMBER", "userId", userId, "role", Objects.toString(normalizedRole, "")))));
+    }
+
+    public void requireAdmin(AppUser actor) {
+        if (actor == null || !AppRoles.isAdminLike(actor.getGlobalRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access is required");
+        }
+    }
+
+    public void validateTeamChange(String id, Team team, List<String> owners, AppUser actor) {
+        requireAdmin(actor);
+        if (id != null) requireTeam(id);
+        validateTeam(team, id);
+        if (id == null) requireOwnerUserIds(owners);
     }
 
     private void validateTeam(Team team, String existingId) {

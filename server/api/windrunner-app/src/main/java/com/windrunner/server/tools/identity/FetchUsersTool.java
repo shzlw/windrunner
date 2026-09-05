@@ -17,6 +17,7 @@ public class FetchUsersTool implements Tool<FetchUsersTool.Parameters> {
 
     private static final int DEFAULT_LIMIT = 20;
     private static final int MAX_LIMIT = 100;
+    private static final int MAX_QUERY_LENGTH = 200;
     private static final String PROMPT_NAME = "fetch-users-tool.md";
 
     private final AppUserRepository appUserRepository;
@@ -48,7 +49,7 @@ public class FetchUsersTool implements Tool<FetchUsersTool.Parameters> {
                 ? DEFAULT_LIMIT
                 : Math.max(1, Math.min(parameters.limit(), MAX_LIMIT));
         String query = parameters == null ? null : normalizeQuery(parameters.query());
-        authorization.requireContext(context);
+        authorization.requireActor(context);
         List<ResultUser> users = appUserRepository.findActiveAssignableUsers(query, limit).stream()
                 .map(ResultUser::from)
                 .toList();
@@ -59,7 +60,8 @@ public class FetchUsersTool implements Tool<FetchUsersTool.Parameters> {
         if (query == null || query.isBlank()) {
             return null;
         }
-        return query.trim();
+        String trimmed = query.trim();
+        return trimmed.length() > MAX_QUERY_LENGTH ? trimmed.substring(0, MAX_QUERY_LENGTH) : trimmed;
     }
 
     public record Parameters(String query, Integer limit) {

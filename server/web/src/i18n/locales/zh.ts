@@ -1,4 +1,49 @@
 const zh = {
+  identityProposals: {
+  "heading": "团队和用户变更提案",
+  "loadError": "无法加载提案。",
+  "decisionError": "无法处理提案。",
+  "appliedToast": "变更已应用",
+  "accept": "接受变更",
+  "reject": "拒绝",
+  "loadMore": "加载更多提案",
+  "changes": "项变更",
+  "notSet": "未设置",
+  "teamImpact": "成员变更可能会影响通过此团队获得的项目访问权限。",
+  "projectImpact": "此操作仅更改直接成员关系。通过其他成员关系获得的访问权限可能仍然保留。",
+  "kinds": {
+    "TEAM": "团队",
+    "TEAM_MEMBERSHIP": "团队成员",
+    "PROJECT_MEMBERSHIP": "项目访问权限",
+    "USER_PROFILE": "用户资料",
+    "USER_ACCESS": "账户访问权限"
+  },
+  "actions": {
+    "ADD": "添加",
+    "UPDATE": "更新",
+    "REMOVE": "移除"
+  },
+  "statuses": {
+    "PENDING": "待审核",
+    "APPLYING": "正在应用",
+    "APPLIED": "已应用",
+    "REJECTED": "已拒绝"
+  },
+  "fields": {
+    "name": "名称",
+    "description": "描述",
+    "ownerNames": "初始负责人",
+    "role": "角色",
+    "username": "用户名",
+    "email": "电子邮件",
+    "displayName": "显示名称",
+    "title": "职位",
+    "bio": "简介",
+    "timezone": "时区",
+    "status": "账户状态",
+    "globalRole": "全局角色"
+  }
+},
   common: {
     cancel: '取消', close: '关闭', save: '保存', saveChanges: '保存更改', saving: '保存中…', delete: '删除', deleting: '删除中…', add: '添加', edit: '编辑', clear: '清除', clearAll: '全部清除', search: '搜索', refresh: '刷新', loading: '加载中…', loadMore: '加载更多', selected: '已选择 {{count}} 项', pageOf: '第 {{page}} 页，共 {{total}} 页', pageSize: '每页数量', previousPage: '上一页', nextPage: '下一页', noResults: '未找到结果', name: '名称', description: '描述', members: '成员', projects: '项目', teams: '团队', created: '创建时间', updated: '更新时间', status: '状态', role: '角色', type: '类型', title: '标题', content: '内容', author: '作者', dueDate: '截止日期', priority: '优先级', assignees: '负责人', actions: '操作', info: '信息', owner: '所有者', member: '成员', user: '用户', team: '团队', project: '项目', workItem: '工作项', entry: '条目', relationship: '关系', unknownUser: '未知用户', unknownProject: '未知项目', unknownTeam: '未知团队', notSet: '未设置', notAvailable: '不可用', none: '无', noDueDate: '无截止日期', noPriority: '无优先级', untitledProject: '未命名项目', never: '从未', remove: '移除', previous: '上一页', next: '下一页', show: '显示', hide: '隐藏', password: '密码', email: '邮箱', username: '用户名', timezone: '时区', users: '用户', providers: '提供商', model: '模型', tokens: '令牌', requests: '请求', failures: '失败', successRate: '成功率', projectCount: '{{count}} 个项目', memberCount: '{{count}} 名成员', item: '项', items: '项', there: '这里', yes: '是', no: '否',
   },

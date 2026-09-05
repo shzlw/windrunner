@@ -170,6 +170,27 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required"));
     }
 
+    /** Reload an actor for work that may outlive the original HTTP request. */
+    public AppUser requireActiveActor(AppUser actor) {
+        if (actor == null || actor.getId() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+        AppUser current = appUserRepository.findById(actor.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required"));
+        if (!UserStatuses.ACTIVE.equalsIgnoreCase(current.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Active account required");
+        }
+        return current;
+    }
+
+    public AppUser requireAdminActor(AppUser actor) {
+        AppUser current = requireActiveActor(actor);
+        if (!AppRoles.isAdminLike(current.getGlobalRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access is required");
+        }
+        return current;
+    }
+
     public AppUser requireAdmin(HttpServletRequest request) {
         UserContext userContext = requireUserContext(request);
         if (!AppRoles.isAdminLike(userContext.globalRole())) {
@@ -237,7 +258,7 @@ public class AuthService {
 
     public AppUser findExistingUser(String id) {
         return appUserRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("User not found: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
     public void revokeUserSessions(String userId) {

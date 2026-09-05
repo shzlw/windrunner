@@ -1511,3 +1511,41 @@ export async function markNotificationRead(notificationId: string): Promise<void
 export async function markAllNotificationsRead(): Promise<void> {
   await request<void>('/internal-api/v1/notifications/read-all', { method: 'POST' })
 }
+
+export type IdentityProposalChange = {
+  id: string
+  kind: 'TEAM' | 'TEAM_MEMBERSHIP' | 'PROJECT_MEMBERSHIP' | 'USER_PROFILE' | 'USER_ACCESS'
+  action: 'ADD' | 'UPDATE' | 'REMOVE'
+  status: 'PENDING' | 'APPLYING' | 'APPLIED' | 'REJECTED'
+  before: Record<string, string | null>
+  after: Record<string, string | null>
+}
+
+export type IdentityProposal = {
+  id: string
+  sourceMessageId: string
+  workflowType?: string
+  kind: 'TEAM' | 'TEAM_MEMBERSHIP' | 'PROJECT_MEMBERSHIP' | 'USER_PROFILE' | 'USER_ACCESS' | null
+  action: 'ADD' | 'UPDATE' | 'REMOVE' | 'BATCH'
+  status: 'PENDING' | 'APPLYING' | 'APPLIED' | 'REJECTED'
+  before: Record<string, string | null>
+  after: Record<string, string | null>
+  changes?: IdentityProposalChange[]
+}
+
+export type IdentityProposalPage = {
+  items: IdentityProposal[]
+  hasMore: boolean
+  offset: number
+  limit: number
+}
+
+export async function listIdentityProposals(sessionId: string, offset = 0): Promise<IdentityProposalPage> {
+  return request<IdentityProposalPage>(`/internal-api/v1/chat-sessions/${sessionId}/identity-proposals?limit=50&offset=${offset}`, { method: 'GET' })
+}
+
+export async function decideIdentityProposal(sessionId: string, id: string, decision: 'ACCEPT' | 'REJECT'): Promise<IdentityProposal> {
+  return request<IdentityProposal>(`/internal-api/v1/chat-sessions/${sessionId}/identity-proposals/${id}/decision`, {
+    method: 'POST', body: JSON.stringify({ decision }),
+  })
+}

@@ -7,6 +7,8 @@ public enum EntityIdType {
     CHAT_MESSAGE("cmsg"),
     CHAT_SESSION("cses"),
     CHAT_SESSION_CONTEXT("csct"),
+    IDENTITY_CHANGE_PROPOSAL("icpr"),
+    IDENTITY_PROPOSAL_CHANGE("ipch"),
     LLM_USAGE("llmu"),
     PROJECT("proj"),
     TEAM("team"),

@@ -246,6 +246,7 @@ public class ExternalProjectController {
         projectAccessService.requireAnotherOwnerBeforeRemovingOwner(
                 id,
                 existing != null && ProjectRoles.OWNER.equals(existing.getRole()) && !ProjectRoles.OWNER.equals(role));
+        projectRepository.updateRevision(id);
         projectMemberRepository.upsert(id, userId, role);
 
         ProjectMember projectMember = new ProjectMember();
@@ -278,6 +279,7 @@ public class ExternalProjectController {
         ProjectMember existing = projectMemberRepository.findByProjectIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project member not found"));
         projectAccessService.requireAnotherOwnerBeforeRemovingOwner(id, ProjectRoles.OWNER.equals(existing.getRole()));
+        projectRepository.updateRevision(id);
         projectMemberRepository.delete(id, userId);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor.getId(),
@@ -312,6 +314,7 @@ public class ExternalProjectController {
         projectAccessService.requireAnotherOwnerBeforeRemovingOwner(
                 id,
                 existing != null && ProjectRoles.OWNER.equals(existing.getRole()) && !ProjectRoles.OWNER.equals(role));
+        projectRepository.updateRevision(id);
         projectTeamRepository.upsert(id, teamId, role);
 
         ProjectTeam projectTeam = new ProjectTeam();
@@ -344,6 +347,7 @@ public class ExternalProjectController {
         ProjectTeam existing = projectTeamRepository.findByProjectIdAndTeamId(id, teamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project team not found"));
         projectAccessService.requireAnotherOwnerBeforeRemovingOwner(id, ProjectRoles.OWNER.equals(existing.getRole()));
+        projectRepository.updateRevision(id);
         projectTeamRepository.delete(id, teamId);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor.getId(),

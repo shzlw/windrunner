@@ -24,6 +24,7 @@ import java.util.Map;
 public class FetchTeamMembersTool implements Tool<FetchTeamMembersTool.Parameters> {
     private static final int DEFAULT_LIMIT = 20;
     private static final int MAX_LIMIT = 100;
+    private static final int MAX_TEXT_LENGTH = 4000;
 
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
@@ -56,7 +57,7 @@ public class FetchTeamMembersTool implements Tool<FetchTeamMembersTool.Parameter
         if (teamId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Team id is required");
         }
-        authorization.requireContext(context);
+        authorization.requireActor(context);
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
         Integer requestedLimit = parameters == null ? null : parameters.limit();
@@ -73,7 +74,7 @@ public class FetchTeamMembersTool implements Tool<FetchTeamMembersTool.Parameter
         List<Member> members = memberships.stream()
                 .map(member -> {
                     AppUser user = usersById.get(member.getUserId());
-                    return new Member(member.getUserId(), user == null ? null : user.getUsername(), user == null ? null : user.getDisplayName(), user == null ? null : user.getTitle(), user == null ? null : user.getBio(), member.getRole());
+                    return new Member(member.getUserId(), user == null ? null : user.getUsername(), user == null ? null : user.getDisplayName(), user == null ? null : user.getTitle(), user == null ? null : truncate(user.getBio()), member.getRole());
                 })
                 .toList();
         long total = teamMemberRepository.countByTeamId(teamId);
@@ -85,4 +86,10 @@ public class FetchTeamMembersTool implements Tool<FetchTeamMembersTool.Parameter
     public record Result(String teamId, String teamName, List<Member> members, int count, long total, int limit, long offset, boolean hasMore) { }
 
     public record Member(String userId, String username, String displayName, String title, String bio, String role) { }
+
+    private static String truncate(String value) {
+        return value != null && value.length() > MAX_TEXT_LENGTH
+                ? value.substring(0, MAX_TEXT_LENGTH) + "…"
+                : value;
+    }
 }

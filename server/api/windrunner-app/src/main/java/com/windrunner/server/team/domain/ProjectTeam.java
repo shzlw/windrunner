@@ -19,4 +19,6 @@ public class ProjectTeam {
     private String role;
     @Column("created_at")
     private OffsetDateTime createdAt;
+    @Column("updated_at")
+    private OffsetDateTime updatedAt;
 }

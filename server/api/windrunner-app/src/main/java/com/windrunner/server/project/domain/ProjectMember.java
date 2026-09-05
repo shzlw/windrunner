@@ -22,4 +22,6 @@ public class ProjectMember {
 
     @Column("created_at")
     private OffsetDateTime createdAt;
+    @Column("updated_at")
+    private OffsetDateTime updatedAt;
 }

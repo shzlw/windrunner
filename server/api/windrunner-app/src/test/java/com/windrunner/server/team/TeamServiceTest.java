@@ -143,9 +143,32 @@ class TeamServiceTest {
         verify(teamMemberRepository).deleteIfNotLastOwner("team-1", "user-1");
     }
 
+    @Test
+    void directServiceWriteRequiresAdmin() {
+        AppUser ordinary = user("ordinary");
+        ResponseStatusException exception = org.junit.jupiter.api.Assertions.assertThrows(ResponseStatusException.class,
+                () -> teamService.addMember("team-1", new com.windrunner.server.team.api.TeamLinkRequest("user-1", null, null, "TEAM_OWNER"), ordinary));
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verifyNoInteractions(teamRepository, teamMemberRepository, auditLogService);
+    }
+
+    @Test
+    void upsertCannotDemoteLastOwner() {
+        when(teamRepository.findById("team-1")).thenReturn(Optional.of(team("team-1")));
+        when(appUserRepository.findById("user-1")).thenReturn(Optional.of(user("user-1")));
+        TeamMember owner = new TeamMember(); owner.setRole(TeamRoles.TEAM_OWNER);
+        when(teamMemberRepository.findByTeamIdAndUserId("team-1", "user-1")).thenReturn(Optional.of(owner));
+        when(teamMemberRepository.countOwners("team-1")).thenReturn(1L);
+        ResponseStatusException exception = org.junit.jupiter.api.Assertions.assertThrows(ResponseStatusException.class,
+                () -> teamService.addMember("team-1", new com.windrunner.server.team.api.TeamLinkRequest("user-1", null, null, "TEAM_MEMBER"), actor()));
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        org.mockito.Mockito.verify(teamMemberRepository, org.mockito.Mockito.never()).insert(any(), any(), any());
+    }
+
     private AppUser actor() {
         AppUser actor = new AppUser();
         actor.setId("admin-1");
+        actor.setGlobalRole("ADMIN");
         return actor;
     }
 

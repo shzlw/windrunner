@@ -17,6 +17,8 @@ public class FetchTeamsTool implements Tool<FetchTeamsTool.Parameters> {
 
     private static final int DEFAULT_LIMIT = 20;
     private static final int MAX_LIMIT = 100;
+    private static final int MAX_QUERY_LENGTH = 200;
+    private static final int MAX_TEXT_LENGTH = 4000;
     private static final String PROMPT_NAME = "fetch-teams-tool.md";
 
     private final TeamRepository teamRepository;
@@ -48,7 +50,7 @@ public class FetchTeamsTool implements Tool<FetchTeamsTool.Parameters> {
                 ? DEFAULT_LIMIT
                 : Math.max(1, Math.min(parameters.limit(), MAX_LIMIT));
         String query = parameters == null ? null : normalizeQuery(parameters.query());
-        authorization.requireContext(context);
+        authorization.requireActor(context);
         List<ResultTeam> teams = teamRepository.findAssignableTeams(query, limit).stream()
                 .map(ResultTeam::from)
                 .toList();
@@ -59,7 +61,8 @@ public class FetchTeamsTool implements Tool<FetchTeamsTool.Parameters> {
         if (query == null || query.isBlank()) {
             return null;
         }
-        return query.trim();
+        String trimmed = query.trim();
+        return trimmed.length() > MAX_QUERY_LENGTH ? trimmed.substring(0, MAX_QUERY_LENGTH) : trimmed;
     }
 
     public record Parameters(String query, Integer limit) {
@@ -71,7 +74,13 @@ public class FetchTeamsTool implements Tool<FetchTeamsTool.Parameters> {
     public record ResultTeam(String id, String name, String description) {
 
         static ResultTeam from(Team team) {
-            return new ResultTeam(team.getId(), team.getName(), team.getDescription());
+            return new ResultTeam(team.getId(), team.getName(), truncate(team.getDescription()));
+        }
+
+        private static String truncate(String value) {
+            return value != null && value.length() > MAX_TEXT_LENGTH
+                    ? value.substring(0, MAX_TEXT_LENGTH) + "…"
+                    : value;
         }
     }
 }
