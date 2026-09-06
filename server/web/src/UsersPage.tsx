@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Search, Plus, Trash2, Edit3, Save, X, Lock, ChevronLeft, ChevronRight, Loader2, UsersRound, Eye, EyeOff } from 'lucide-react'
@@ -74,7 +75,6 @@ type UserFormState = {
 const USER_STATUS_OPTIONS = ['ACTIVE', 'INACTIVE'] as const
 const USER_ROLE_OPTIONS = ['USER', 'ADMIN'] as const
 
-const pageSize = 20
 const defaultTimezone = 'UTC'
 const timezoneOptions = JAVA_SUPPORTED_TIMEZONES
 
@@ -164,6 +164,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
   const [sheetMode, setSheetMode] = useState<'create' | 'edit' | 'detail'>('create')
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(25)
   const [totalPages, setTotalPages] = useState(0)
   const [isListLoading, setIsListLoading] = useState(true)
   const [isDetailLoading, setIsDetailLoading] = useState(false)
@@ -252,7 +253,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
     queueMicrotask(() => {
       void loadPage(page)
     })
-  }, [page])
+  }, [page, pageSize])
 
   useEffect(() => {
     if (!requestedUserId || isListLoading || selectedUserId === requestedUserId) {
@@ -493,9 +494,7 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <div className="text-sm text-muted-foreground">
-                    {totalPages === 0 ? 0 : page + 1} / {Math.max(totalPages, 1)}
-                  </div>
+                  <span className="text-sm text-muted-foreground">{t('common.pageOf', { page: page + 1, total: Math.max(totalPages, 1) })}</span>
                   <Button
                     variant="outline"
                     size="icon-sm"
@@ -504,6 +503,22 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
+                  <div className="ml-3 border-l pl-3">
+                    <NativeSelect
+                      className="h-8 w-20"
+                      value={String(pageSize)}
+                      onChange={(event) => {
+                        setPageSize(Number(event.target.value))
+                        setPage(0)
+                      }}
+                      disabled={isListLoading}
+                      aria-label={t('common.pageSize')}
+                    >
+                      <NativeSelectOption value="25">25</NativeSelectOption>
+                      <NativeSelectOption value="50">50</NativeSelectOption>
+                      <NativeSelectOption value="100">100</NativeSelectOption>
+                    </NativeSelect>
+                  </div>
                 </div>
               </div>
             </>

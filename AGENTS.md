@@ -16,6 +16,17 @@
 - For inserts, do not use `repository.save`; write explicit `INSERT` SQL statements.
 - When an environment variable is the standard Spring Boot relaxed-binding name for a property, set the default directly in `application.properties` instead of duplicating it as `${ENV_VAR:default}`; environment variables override file defaults automatically. Use placeholders only for intentional custom aliases or fallback chains.
 
+## Java Code Quality
+
+- Name methods with clear operations. Use `get`/`is`/`has` for accessors and predicates, `require` for required lookups, `find` for reads, and `create`, `build`, `parse`, `normalize`, or `validate` for transformations and checks.
+- Avoid vague method names such as `bad`, `error`, `memberUser`, `view`, or `value`. Exception factories must describe the exception they create, such as `createBadRequestException`.
+- Keep public DTOs as top-level records in the appropriate `api` package. Do not define DTO classes or records inside service classes.
+- Keep entity-specific proposal authorization, validation, snapshots, and application logic in `ProposalHandler` implementations.
+- Keep stateless shared helpers in utility classes, using names such as `*Utils`.
+- Tool code must not bypass authentication or authorization checks.
+- Use normal imports at the top of the file. Do not use fully qualified class names inline unless required to resolve a genuine name collision.
+- Use camelCase for request parameter names, including external API parameters.
+
 ## Postgres
 
 - Do not add database foreign keys or `REFERENCES` clauses in schema SQL.

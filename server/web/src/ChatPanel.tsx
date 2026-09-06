@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
 import type { Components } from 'react-markdown'
@@ -16,7 +16,8 @@ import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import VoiceWaveform from '@/components/VoiceWaveform'
-import IdentityProposalCards from '@/IdentityProposalCards'
+import { IdentityProposalCard } from '@/IdentityProposalCards'
+import { useIdentityProposals } from '@/useIdentityProposals'
 import { cn } from '@/lib/utils'
 import { translateStatus, translateWorkItemType } from '@/i18n/labels'
 import useVoiceTranscription, { formatRecordingTime } from '@/hooks/use-voice-transcription'
@@ -27,6 +28,7 @@ import {
   type ChatContext,
   type ChatMessage as ApiChatMessage,
   type ChatSession,
+  type IdentityProposal,
 } from '@/lib/api'
 
 type ChatMessageState = ApiChatMessage & {
@@ -309,6 +311,11 @@ export default function ChatPanel({
     stopRecording,
     cancelRecording,
   } = voiceTranscription
+  const identityProposalState = useIdentityProposals(
+    sessionId,
+    isStreaming,
+    () => { void onGraphChangeProposalSaved?.() },
+  )
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -644,6 +651,37 @@ export default function ChatPanel({
     }
   }
 
+  const proposalAnchors = new Map<number, IdentityProposal[]>()
+  const orphanProposals: IdentityProposal[] = []
+  for (const proposal of identityProposalState.page?.items ?? []) {
+    const sourceIndex = messages.findIndex((message) => message.id === proposal.sourceMessageId)
+    if (sourceIndex < 0) {
+      orphanProposals.push(proposal)
+      continue
+    }
+    const assistantIndex = sourceIndex + 1
+    const anchorIndex = messages[assistantIndex]?.role === 'assistant' ? assistantIndex : sourceIndex
+    const anchored = proposalAnchors.get(anchorIndex) ?? []
+    anchored.push(proposal)
+    proposalAnchors.set(anchorIndex, anchored)
+  }
+
+  function renderProposalCards(proposals: IdentityProposal[]) {
+    return (
+      <section aria-label={t('identityProposals.heading')} className="space-y-3 px-3">
+        {proposals.map((proposal) => (
+          <IdentityProposalCard
+            key={proposal.id}
+            proposal={proposal}
+            busy={identityProposalState.busy}
+            isStreaming={isStreaming}
+            onDecide={identityProposalState.decide}
+          />
+        ))}
+      </section>
+    )
+  }
+
   return (
     <div
       className={cn(
@@ -700,41 +738,52 @@ export default function ChatPanel({
               </div>
             </div>
           ) : (
-            messages.map((message) => (
-              <Message key={message.id} align={message.role === 'user' ? 'end' : 'start'}>
-                <MessageAvatar className="h-8 w-8 border bg-background">
-                  {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                </MessageAvatar>
-                <MessageContent>
-                  <Bubble
-                    align={message.role === 'user' ? 'end' : 'start'}
-                    variant={message.status === 'error' ? 'destructive' : message.role === 'user' ? 'default' : 'muted'}
-                  >
-                    <BubbleContent className="min-w-0">
-                      {message.status === 'error' ? (
-                        <span className="flex min-w-0 items-start gap-2">
-                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                          <span className="min-w-0">{message.content}</span>
-                        </span>
-                      ) : (
-                        message.content
-                          ? message.role === 'assistant'
-                            ? renderAssistantContent(message.content, t, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick)
-                            : <span className="whitespace-pre-wrap">{message.content}</span>
-                          : (
-                            <span className="flex min-h-5 items-center gap-2 text-sm leading-none text-muted-foreground">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              <span>{t('chat.thinking')}</span>
-                            </span>
-                          )
-                      )}
-                    </BubbleContent>
-                  </Bubble>
-                </MessageContent>
-              </Message>
+            messages.map((message, index) => (
+              <Fragment key={message.id}>
+                <Message align={message.role === 'user' ? 'end' : 'start'}>
+                  <MessageAvatar className="h-8 w-8 border bg-background">
+                    {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                  </MessageAvatar>
+                  <MessageContent>
+                    <Bubble
+                      align={message.role === 'user' ? 'end' : 'start'}
+                      variant={message.status === 'error' ? 'destructive' : message.role === 'user' ? 'default' : 'muted'}
+                    >
+                      <BubbleContent className="min-w-0">
+                        {message.status === 'error' ? (
+                          <span className="flex min-w-0 items-start gap-2">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                            <span className="min-w-0">{message.content}</span>
+                          </span>
+                        ) : (
+                          message.content
+                            ? message.role === 'assistant'
+                              ? renderAssistantContent(message.content, t, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick)
+                              : <span className="whitespace-pre-wrap">{message.content}</span>
+                            : (
+                              <span className="flex min-h-5 items-center gap-2 text-sm leading-none text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>{t('chat.thinking')}</span>
+                              </span>
+                            )
+                        )}
+                      </BubbleContent>
+                    </Bubble>
+                  </MessageContent>
+                </Message>
+                {proposalAnchors.get(index)?.length ? renderProposalCards(proposalAnchors.get(index)!) : null}
+              </Fragment>
             ))
           )}
-          {sessionId && <IdentityProposalCards key={sessionId} sessionId={sessionId} isStreaming={isStreaming} onApplied={() => { void onGraphChangeProposalSaved?.() }} />}
+          {identityProposalState.error ? <p role="alert" className="px-3 text-sm text-destructive">{identityProposalState.error}</p> : null}
+          {orphanProposals.length ? renderProposalCards(orphanProposals) : null}
+          {identityProposalState.page?.hasMore ? (
+            <div className="px-3">
+              <Button variant="outline" size="sm" disabled={identityProposalState.loadingMore} onClick={() => void identityProposalState.loadMore()}>
+                {t('identityProposals.loadMore')}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         {messages.length > 0 ? <div className="shrink-0 border-t px-3 py-3">{renderComposer()}</div> : null}

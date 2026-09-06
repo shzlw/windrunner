@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Loader2, Plus, Search, UsersRound, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Plus, Search, UsersRound, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -56,6 +56,8 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
   const [query, setQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(25)
 
   const isAdminLike = currentUser?.globalRole === 'ADMIN' || currentUser?.globalRole === 'SUPERADMIN'
   const userById = useMemo(() => {
@@ -80,6 +82,9 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
 
     return teams.filter((team) => [team.name, team.description ?? '', team.id].some((value) => value.toLowerCase().includes(normalizedQuery)))
   }, [query, teams])
+  const totalPages = Math.ceil(filteredTeams.length / pageSize)
+  const currentPage = totalPages === 0 ? 0 : Math.min(page, totalPages - 1)
+  const pagedTeams = filteredTeams.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
 
   function workspaceDestination(path: string) {
     const params = new URLSearchParams(location.search)
@@ -200,6 +205,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
               </EmptyHeader>
             </Empty>
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -212,7 +218,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTeams.map((team) => {
+                {pagedTeams.map((team) => {
                   const members = (team.memberUserIds ?? []).map((userId) => ({ id: userId, label: team.memberDisplayNames?.[userId] || displayUser(userById.get(userId), t('common.unknownUser')) }))
                   return (
                     <TableRow key={team.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(workspaceDestination(`/app/teams/${team.id}`))}>
@@ -234,6 +240,44 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
                 })}
               </TableBody>
             </Table>
+            <div className="flex justify-end border-t pt-2 text-sm">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => setPage((current) => Math.max(0, current - 1))}
+                  disabled={currentPage === 0 || isLoading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">{t('common.pageOf', { page: currentPage + 1, total: Math.max(totalPages, 1) })}</span>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={() => setPage((current) => current + 1)}
+                  disabled={isLoading || totalPages === 0 || currentPage >= totalPages - 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <div className="ml-3 border-l pl-3">
+                  <NativeSelect
+                    className="h-8 w-20"
+                    value={String(pageSize)}
+                    onChange={(event) => {
+                      setPageSize(Number(event.target.value))
+                      setPage(0)
+                    }}
+                    disabled={isLoading}
+                    aria-label={t('common.pageSize')}
+                  >
+                    <NativeSelectOption value="25">25</NativeSelectOption>
+                    <NativeSelectOption value="50">50</NativeSelectOption>
+                    <NativeSelectOption value="100">100</NativeSelectOption>
+                  </NativeSelect>
+                </div>
+              </div>
+            </div>
+            </>
           )}
         </div>
       </div>
