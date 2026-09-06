@@ -40,7 +40,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchTeamsTool.Result listTeams(String query, Integer limit) {
-        return execute(teams, new FetchTeamsTool.Parameters(query, limit), identityContext(ApiKeyScopes.TEAMS_READ));
+        return execute(teams, new FetchTeamsTool.Parameters(query, limit), createIdentityContext(ApiKeyScopes.TEAMS_READ));
     }
 
     @McpTool(
@@ -53,7 +53,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchTeamDetailsTool.Result getTeam(String teamId) {
-        return execute(teamDetails, new FetchTeamDetailsTool.Parameters(teamId), identityContext(ApiKeyScopes.TEAMS_READ));
+        return execute(teamDetails, new FetchTeamDetailsTool.Parameters(teamId), createIdentityContext(ApiKeyScopes.TEAMS_READ));
     }
 
     @McpTool(
@@ -66,7 +66,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchTeamMembersTool.Result listTeamMembers(String teamId, Integer limit, Integer offset) {
-        return execute(teamMembers, new FetchTeamMembersTool.Parameters(teamId, limit, offset), identityContext(ApiKeyScopes.TEAM_MEMBERS_READ));
+        return execute(teamMembers, new FetchTeamMembersTool.Parameters(teamId, limit, offset), createIdentityContext(ApiKeyScopes.TEAM_MEMBERS_READ));
     }
 
     @McpTool(
@@ -79,7 +79,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchTeamProjectsTool.Result listTeamProjects(String teamId, Integer limit, Integer offset) {
-        return execute(teamProjects, new FetchTeamProjectsTool.Parameters(teamId, limit, offset), identityContext(ApiKeyScopes.TEAM_PROJECTS_READ));
+        return execute(teamProjects, new FetchTeamProjectsTool.Parameters(teamId, limit, offset), createIdentityContext(ApiKeyScopes.TEAM_PROJECTS_READ));
     }
 
     @McpTool(
@@ -92,7 +92,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public FetchUsersTool.Result listUsers(String query, Integer limit) {
-        return execute(users, new FetchUsersTool.Parameters(query, limit), identityContext(ApiKeyScopes.USERS_READ));
+        return execute(users, new FetchUsersTool.Parameters(query, limit), createIdentityContext(ApiKeyScopes.USERS_READ));
     }
 
     @McpTool(
@@ -105,7 +105,7 @@ public class IdentityMcpTools {
                     idempotentHint = true,
                     openWorldHint = false))
     public UserDetails getUser(String userId) {
-        ToolExecutionContext context = identityContext(ApiKeyScopes.USERS_READ);
+        ToolExecutionContext context = createIdentityContext(ApiKeyScopes.USERS_READ);
         if (userId == null || userId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId is required");
         }
@@ -116,7 +116,7 @@ public class IdentityMcpTools {
         return new UserDetails(user.id(), user.username(), user.displayName(), user.email(), user.title(), user.bio());
     }
 
-    private ToolExecutionContext identityContext(String scope) {
+    private ToolExecutionContext createIdentityContext(String scope) {
         return authorization.toolContext(authorization.requireScope(scope));
     }
 

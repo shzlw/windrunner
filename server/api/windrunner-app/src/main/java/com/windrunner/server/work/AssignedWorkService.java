@@ -29,7 +29,7 @@ public class AssignedWorkService {
     public List<AssignedWorkItemView> listAssignedToUser(AppUser actor, int size, long offset) {
         int normalizedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         long normalizedOffset = Math.max(offset, 0);
-        List<String> projectIds = visibleProjectIds(actor);
+        List<String> projectIds = findVisibleProjectIds(actor);
         if (projectIds.isEmpty()) {
             return List.of();
         }
@@ -49,14 +49,14 @@ public class AssignedWorkService {
     }
 
     public long countAssignedToUser(AppUser actor) {
-        List<String> projectIds = visibleProjectIds(actor);
+        List<String> projectIds = findVisibleProjectIds(actor);
         if (projectIds.isEmpty()) {
             return 0;
         }
         return workItems.countAssignedToUser(actor.getId(), projectIds);
     }
 
-    private List<String> visibleProjectIds(AppUser actor) {
+    private List<String> findVisibleProjectIds(AppUser actor) {
         if (AppRoles.isSuperAdmin(actor.getGlobalRole())) {
             return projectRepository.findAllByOrderByNameAscIdAsc().stream()
                     .map(Project::getId)

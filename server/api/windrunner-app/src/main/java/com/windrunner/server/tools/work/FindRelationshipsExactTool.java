@@ -53,9 +53,9 @@ public class FindRelationshipsExactTool implements Tool<FindRelationshipsExactTo
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "relationship endpoints are required");
         }
         String fromType = normalizeEntityType(parameters.fromType(), "fromType");
-        String fromId = required(parameters.fromId(), "fromId");
+        String fromId = requireValue(parameters.fromId(), "fromId");
         String toType = normalizeEntityType(parameters.toType(), "toType");
-        String toId = required(parameters.toId(), "toId");
+        String toId = requireValue(parameters.toId(), "toId");
         String relationshipType = normalizeRelationshipType(parameters.relationshipType());
         List<Relationship> matches = relationships.findExactPage(
                 projectId, fromType, fromId, toType, toId, relationshipType, MAX_MATCHES, 0);
@@ -66,7 +66,7 @@ public class FindRelationshipsExactTool implements Tool<FindRelationshipsExactTo
     }
 
     private String normalizeEntityType(String value, String field) {
-        String normalized = required(value, field).toUpperCase(Locale.ROOT);
+        String normalized = requireValue(value, field).toUpperCase(Locale.ROOT);
         if (!WorkTypes.ENTITY_TYPES.contains(normalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " is invalid");
         }
@@ -74,14 +74,14 @@ public class FindRelationshipsExactTool implements Tool<FindRelationshipsExactTo
     }
 
     private String normalizeRelationshipType(String value) {
-        String normalized = required(value, "relationshipType").toUpperCase(Locale.ROOT);
+        String normalized = requireValue(value, "relationshipType").toUpperCase(Locale.ROOT);
         if (!WorkTypes.RELATIONSHIP_TYPES.contains(normalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "relationshipType is invalid");
         }
         return normalized;
     }
 
-    private String required(String value, String field) {
+    private String requireValue(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " is required");
         }

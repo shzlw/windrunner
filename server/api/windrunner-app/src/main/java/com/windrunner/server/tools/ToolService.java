@@ -27,7 +27,7 @@ public class ToolService implements ToolRegistry {
     }
 
     @Override
-    public List<LlmTool<?>> llmTools(ToolExecutionContext context) {
+    public List<LlmTool<?>> createLlmTools(ToolExecutionContext context) {
         if (context == null) {
             throw new IllegalArgumentException("Tool execution context is required");
         }

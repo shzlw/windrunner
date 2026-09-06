@@ -85,7 +85,7 @@ public class OpenAICompatibleLlmService implements LlmService {
                     }
 
                     @Override
-                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                    public void appendToolResults(List<ToolResult> results) {
                         executedTool.set(!results.isEmpty());
                         results.forEach(result -> appendToolResult(
                                 conversation, result.toolCall(), result.output()));

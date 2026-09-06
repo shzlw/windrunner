@@ -54,7 +54,7 @@ public class EntryService {
     }
 
     public Entry get(String projectId, String id) {
-        return populateAuthorDisplayName(entries.findById(id).filter(e -> projectId.equals(e.getProjectId())).orElseThrow(() -> WorkItemService.notFound("Entry not found")));
+        return populateAuthorDisplayName(entries.findById(id).filter(e -> projectId.equals(e.getProjectId())).orElseThrow(() -> WorkItemService.createNotFoundException("Entry not found")));
     }
 
     @Transactional
@@ -72,7 +72,7 @@ public class EntryService {
         entry.setId(id);
         entries.insert(entry.getId(), projectId, entry.getWorkItemId(), entry.getSortIndex(), actorId, entry.getType(), entry.getBody(), searchNormalizer.normalize(entry.getBody()));
         Entry created = get(projectId, entry.getId());
-        auditLogService.logAfterCommit(audit(actorId, AuditActions.CREATE, created, null, snapshot(created)));
+        auditLogService.logAfterCommit(createAuditLogEntry(actorId, AuditActions.CREATE, created, null, createSnapshot(created)));
         notifyEntryCreated(created, actorId);
         return created;
     }
@@ -80,19 +80,19 @@ public class EntryService {
     @Transactional
     public Entry update(String projectId, String id, Entry entry, String actorId) {
         Entry current = get(projectId, id);
-        Map<String, Object> before = snapshot(current);
+        Map<String, Object> before = createSnapshot(current);
         normalize(entry);
         if (entries.update(id, projectId, entry.getType(), entry.getBody(), searchNormalizer.normalize(entry.getBody())) == 0)
-            throw WorkItemService.notFound("Entry not found");
+            throw WorkItemService.createNotFoundException("Entry not found");
         Entry updated = get(projectId, id);
-        auditLogService.logAfterCommit(audit(actorId, AuditActions.UPDATE, updated, before, snapshot(updated)));
+        auditLogService.logAfterCommit(createAuditLogEntry(actorId, AuditActions.UPDATE, updated, before, createSnapshot(updated)));
         return updated;
     }
 
     @Transactional
     public void delete(String projectId, String id, String actorId) {
         Entry current = get(projectId, id);
-        Map<String, Object> before = snapshot(current);
+        Map<String, Object> before = createSnapshot(current);
         List<Relationship> projectRelationships = relationships.findByProjectId(projectId);
         Set<String> affectedQuestionIds = projectRelationships.stream()
                 .filter(relationship -> "ACCEPTED_ANSWER".equals(relationship.getType()))
@@ -116,7 +116,7 @@ public class EntryService {
                         workItems.update(projectId, questionId, question, null, actorId);
                     }
                 });
-        auditLogService.logAfterCommit(audit(actorId, AuditActions.DELETE, current, before, null));
+        auditLogService.logAfterCommit(createAuditLogEntry(actorId, AuditActions.DELETE, current, before, null));
     }
 
     private void notifyEntryCreated(Entry created, String actorId) {
@@ -135,32 +135,32 @@ public class EntryService {
     }
 
     private void normalize(Entry entry) {
-        if (entry == null || WorkItemService.blank(entry.getWorkItemId()) || WorkItemService.blank(entry.getBody()))
-            throw WorkItemService.bad("Entry workItemId and body are required");
-        entry.setType(WorkItemService.enumValue(entry.getType() == null ? "COMMENT" : entry.getType(), WorkTypes.ENTRY_TYPES, "Entry type"));
+        if (entry == null || WorkItemService.isBlank(entry.getWorkItemId()) || WorkItemService.isBlank(entry.getBody()))
+            throw WorkItemService.createBadRequestException("Entry workItemId and body are required");
+        entry.setType(WorkItemService.normalizeEnumValue(entry.getType() == null ? "COMMENT" : entry.getType(), WorkTypes.ENTRY_TYPES, "Entry type"));
         entry.setBody(entry.getBody().trim());
     }
 
     private List<Entry> populateAuthorDisplayNames(List<Entry> results) {
         Map<String, AppUser> usersById = new LinkedHashMap<>();
         users.findAllById(results.stream().map(Entry::getAuthorUserId).filter(java.util.Objects::nonNull).distinct().toList()).forEach(user -> usersById.put(user.getId(), user));
-        results.forEach(entry -> entry.setAuthorDisplayName(displayName(usersById.get(entry.getAuthorUserId()))));
+        results.forEach(entry -> entry.setAuthorDisplayName(getAuthorDisplayName(usersById.get(entry.getAuthorUserId()))));
         return results;
     }
 
     private Entry populateAuthorDisplayName(Entry entry) {
-        entry.setAuthorDisplayName(users.findById(entry.getAuthorUserId()).map(this::displayName).orElse(null));
+        entry.setAuthorDisplayName(users.findById(entry.getAuthorUserId()).map(this::getAuthorDisplayName).orElse(null));
         return entry;
     }
 
-    private String displayName(AppUser user) {
+    private String getAuthorDisplayName(AppUser user) {
         if (user == null) return null;
-        if (!WorkItemService.blank(user.getDisplayName())) return user.getDisplayName().trim();
-        if (!WorkItemService.blank(user.getUsername())) return user.getUsername();
+        if (!WorkItemService.isBlank(user.getDisplayName())) return user.getDisplayName().trim();
+        if (!WorkItemService.isBlank(user.getUsername())) return user.getUsername();
         return user.getEmail();
     }
 
-    private Map<String, Object> snapshot(Entry entry) {
+    private Map<String, Object> createSnapshot(Entry entry) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("id", entry.getId());
         snapshot.put("workItemId", entry.getWorkItemId());
@@ -171,7 +171,7 @@ public class EntryService {
         return snapshot;
     }
 
-    private AuditLogEntry audit(String actorId, String action, Entry entry, Map<String, Object> before, Map<String, Object> after) {
-        return new AuditLogEntry(actorId, action, AuditEntityTypes.ENTRY, entry.getId(), entry.getProjectId(), AuditOutcomes.SUCCESS, action + " entry", auditLogService.json(before), auditLogService.json(after), auditLogService.changes(before, after), null);
+    private AuditLogEntry createAuditLogEntry(String actorId, String action, Entry entry, Map<String, Object> before, Map<String, Object> after) {
+        return new AuditLogEntry(actorId, action, AuditEntityTypes.ENTRY, entry.getId(), entry.getProjectId(), AuditOutcomes.SUCCESS, action + " entry", auditLogService.toJson(before), auditLogService.toJson(after), auditLogService.describeChanges(before, after), null);
     }
 }

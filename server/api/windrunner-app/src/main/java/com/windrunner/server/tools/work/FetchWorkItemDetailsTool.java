@@ -36,8 +36,8 @@ public class FetchWorkItemDetailsTool {
                 "Fetch one related WorkItem with its direct children, recent updates, and relationships. Use only when the supplied WorkItem context is not enough.",
                 Parameters.class,
                 parameters -> {
-                    if (parameters == null || blank(parameters.workItemId())) {
-                        throw bad("workItemId is required");
+                    if (parameters == null || isBlank(parameters.workItemId())) {
+                        throw createBadRequestException("workItemId is required");
                     }
                     WorkItem item = workItems.get(projectId, parameters.workItemId().trim());
                     onWorkItemRead.accept(item.getId());
@@ -57,11 +57,11 @@ public class FetchWorkItemDetailsTool {
                 true);
     }
 
-    private boolean blank(String value) {
+    private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
 
-    private ResponseStatusException bad(String message) {
+    private ResponseStatusException createBadRequestException(String message) {
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 

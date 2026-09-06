@@ -37,11 +37,11 @@ public class AuditLogService {
         safeInsert(entry);
     }
 
-    public String json(Object value) {
+    public String toJson(Object value) {
         return value == null ? null : JsonUtils.toJson(value);
     }
 
-    public String changes(Map<String, ?> before, Map<String, ?> after) {
+    public String describeChanges(Map<String, ?> before, Map<String, ?> after) {
         if (before == null || after == null) {
             return null;
         }
@@ -57,7 +57,7 @@ public class AuditLogService {
             }
         });
 
-        return changes.isEmpty() ? null : json(changes);
+        return changes.isEmpty() ? null : toJson(changes);
     }
 
     private void safeInsert(AuditLogEntry entry) {

@@ -27,10 +27,10 @@ public class WorkspaceController {
         access.requireProjectRole(projectId, auth.requireCurrentUser(request), ProjectRoles.VIEWER);
         if (query != null && !query.isBlank()) {
             var result = search.search(projectId, query, 100);
-            var itemViews = result.workItems().stream().map(item -> new WorkItemView(item, workItems.assignees(item.getId()))).toList();
+            var itemViews = result.workItems().stream().map(item -> new WorkItemView(item, workItems.findAssignees(item.getId()))).toList();
             return ApiResponse.success(new WorkspaceView(itemViews, result.entries(), result.relationships()));
         }
-        var itemViews = workItems.list(projectId).stream().map(item -> new WorkItemView(item, workItems.assignees(item.getId()))).toList();
+        var itemViews = workItems.list(projectId).stream().map(item -> new WorkItemView(item, workItems.findAssignees(item.getId()))).toList();
         return ApiResponse.success(new WorkspaceView(itemViews, entries.list(projectId), relationships.list(projectId)));
     }
 }

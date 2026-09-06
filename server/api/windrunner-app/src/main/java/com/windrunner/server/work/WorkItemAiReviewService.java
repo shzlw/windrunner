@@ -40,12 +40,12 @@ public class WorkItemAiReviewService {
 
     public WorkItemAiReviewResponse review(String projectId, String id, WorkItemAiReviewRequest request, String actorId) {
         WorkItem current = workItems.get(projectId, id);
-        if (request == null || WorkItemService.blank(request.title()))
-            throw WorkItemService.bad("Work item title is required");
+        if (request == null || WorkItemService.isBlank(request.title()))
+            throw WorkItemService.createBadRequestException("Work item title is required");
         if (!llmAvailability.available())
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI suggestions are unavailable");
-        String type = WorkItemService.enumValue(request.type() == null ? current.getType() : request.type(), WorkTypes.WORK_ITEM_TYPES, "Work item type");
-        String status = WorkItemService.enumValue(request.status() == null ? current.getStatus() : request.status(), WorkTypes.WORK_ITEM_STATUSES, "Work item status");
+        String type = WorkItemService.normalizeEnumValue(request.type() == null ? current.getType() : request.type(), WorkTypes.WORK_ITEM_TYPES, "Work item type");
+        String status = WorkItemService.normalizeEnumValue(request.status() == null ? current.getStatus() : request.status(), WorkTypes.WORK_ITEM_STATUSES, "Work item status");
         List<Relationship> selectedRelationships = relationships.findByEntity(projectId, "WORK_ITEM", id, AiReviewLimits.MAX_RELATED_RELATIONSHIPS);
         Set<String> existingBlockerIds = selectedRelationships.stream()
                 .filter(relationship -> "BLOCKED_BY".equals(relationship.getType()))
@@ -63,7 +63,7 @@ public class WorkItemAiReviewService {
         if (llm == null)
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI suggestions are unavailable");
         long startNanos = System.nanoTime();
-        String reviewInput = input(request, id, type, status, existingBlockerIds);
+        String reviewInput = buildReviewInput(request, id, type, status, existingBlockerIds);
         LlmResult<?> llmResult;
         try {
             llmResult = llm.runChatWithTools(
@@ -89,48 +89,48 @@ public class WorkItemAiReviewService {
                 llmResult,
                 durationMs);
         ProposeWorkItemRevisionTool.Parameters proposal = proposalRef.get();
-        if (proposal == null || WorkItemService.blank(proposal.proposedTitle()))
+        if (proposal == null || WorkItemService.isBlank(proposal.proposedTitle()))
             throw new LlmException("AI did not return a WorkItem revision");
-        String proposedType = WorkItemService.enumValue(blankOr(proposal.proposedType(), type), WorkTypes.WORK_ITEM_TYPES, "Proposed work item type");
-        String proposedStatus = WorkItemService.enumValue(blankOr(proposal.proposedStatus(), status), WorkTypes.WORK_ITEM_STATUSES, "Proposed work item status");
+        String proposedType = WorkItemService.normalizeEnumValue(blankOr(proposal.proposedType(), type), WorkTypes.WORK_ITEM_TYPES, "Proposed work item type");
+        String proposedStatus = WorkItemService.normalizeEnumValue(blankOr(proposal.proposedStatus(), status), WorkTypes.WORK_ITEM_STATUSES, "Proposed work item status");
         String proposedDueDate = validDate(blankOr(proposal.proposedDueDate(), LocalDate.now().plusDays(7).toString()));
         String proposedPriority = blankOr(proposal.proposedPriority(), request.priority());
         List<WorkItemAiReviewResponse.ProposedBlocker> proposedBlockers = proposal.proposedBlockers() == null ? List.of() : proposal.proposedBlockers().stream()
-                .filter(candidate -> candidate != null && !WorkItemService.blank(candidate.workItemId()))
+                .filter(candidate -> candidate != null && !WorkItemService.isBlank(candidate.workItemId()))
                 .filter(candidate -> !id.equals(candidate.workItemId().trim()))
                 .filter(candidate -> availableBlockerIds.contains(candidate.workItemId().trim()))
                 .filter(candidate -> !existingBlockerIds.contains(candidate.workItemId().trim()))
                 .collect(java.util.stream.Collectors.toMap(
                         candidate -> candidate.workItemId().trim(),
-                        candidate -> new WorkItemAiReviewResponse.ProposedBlocker(candidate.workItemId().trim(), WorkItemService.blank(candidate.reason()) ? null : candidate.reason().trim()),
+                        candidate -> new WorkItemAiReviewResponse.ProposedBlocker(candidate.workItemId().trim(), WorkItemService.isBlank(candidate.reason()) ? null : candidate.reason().trim()),
                         (first, ignored) -> first,
                         LinkedHashMap::new
                 )).values().stream().toList();
         return new WorkItemAiReviewResponse(request.title().trim(), proposal.proposedTitle().trim(), proposedType, proposedStatus,
-                proposedDueDate, WorkItemService.blank(proposedPriority) ? null : proposedPriority.trim().toUpperCase(),
+                proposedDueDate, WorkItemService.isBlank(proposedPriority) ? null : proposedPriority.trim().toUpperCase(),
                 proposal.proposedAssignees() == null ? List.of() : proposal.proposedAssignees(), proposedBlockers,
-                WorkItemService.blank(proposal.rationale()) ? null : proposal.rationale().trim());
+                WorkItemService.isBlank(proposal.rationale()) ? null : proposal.rationale().trim());
     }
 
-    private String input(WorkItemAiReviewRequest request, String workItemId, String type, String status, Set<String> existingBlockerIds) {
+    private String buildReviewInput(WorkItemAiReviewRequest request, String workItemId, String type, String status, Set<String> existingBlockerIds) {
         return "Today: " + LocalDate.now() + "\nCurrent WorkItem id: " + workItemId + "\nTitle: " + AiReviewLimits.bounded(request.title().trim(), AiReviewLimits.MAX_TITLE_LENGTH) + "\nType: " + type + "\nStatus: " + status + "\nCurrent due date: " + blankOr(request.dueDate(), "Not set")
                 + "\nPriority: " + blankOr(request.priority(), "Not set") + "\nCurrent assignees: " + (request.assignees() == null ? List.of() : request.assignees())
                 + "\nExisting blocker WorkItem ids: " + existingBlockerIds
                 + "\nAdditional context is available through fetch_work_item_details and search_work_items_for_blocker. Use those tools only when needed."
-                + (WorkItemService.blank(request.instruction()) ? "" : "\n\nAuthor feedback:\n" + AiReviewLimits.bounded(request.instruction().trim(), AiReviewLimits.MAX_INSTRUCTION_LENGTH));
+                + (WorkItemService.isBlank(request.instruction()) ? "" : "\n\nAuthor feedback:\n" + AiReviewLimits.bounded(request.instruction().trim(), AiReviewLimits.MAX_INSTRUCTION_LENGTH));
     }
 
     private String validDate(String value) {
-        if (WorkItemService.blank(value)) return null;
+        if (WorkItemService.isBlank(value)) return null;
         try {
             return LocalDate.parse(value.trim()).toString();
         } catch (Exception e) {
-            throw WorkItemService.bad("Proposed due date is invalid");
+            throw WorkItemService.createBadRequestException("Proposed due date is invalid");
         }
     }
 
     private String blankOr(String value, String fallback) {
-        return WorkItemService.blank(value) ? fallback : value;
+        return WorkItemService.isBlank(value) ? fallback : value;
     }
 
 }

@@ -103,7 +103,7 @@ public class TeamService {
                 AuditOutcomes.SUCCESS,
                 "Created team " + team.getName(),
                 null,
-                auditLogService.json(teamSnapshot(team)),
+                auditLogService.toJson(createTeamSnapshot(team)),
                 null,
                 null));
         return team;
@@ -113,14 +113,14 @@ public class TeamService {
     public Team updateTeam(String id, Team team, AppUser actor) {
         requireAdmin(actor);
         Team beforeTeam = requireTeam(id);
-        Map<String, Object> before = teamSnapshot(beforeTeam);
+        Map<String, Object> before = createTeamSnapshot(beforeTeam);
         validateTeam(team, id);
         if (teamRepository.update(id, team.getName(), team.getDescription()) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found");
         }
         team.setId(id);
         Team updatedTeam = requireTeam(id);
-        Map<String, Object> after = teamSnapshot(updatedTeam);
+        Map<String, Object> after = createTeamSnapshot(updatedTeam);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor == null ? null : actor.getId(),
                 AuditActions.UPDATE,
@@ -129,9 +129,9 @@ public class TeamService {
                 null,
                 AuditOutcomes.SUCCESS,
                 "Updated team " + updatedTeam.getName(),
-                auditLogService.json(before),
-                auditLogService.json(after),
-                auditLogService.changes(before, after),
+                auditLogService.toJson(before),
+                auditLogService.toJson(after),
+                auditLogService.describeChanges(before, after),
                 null));
         return updatedTeam;
     }
@@ -143,7 +143,7 @@ public class TeamService {
         if (expectedUpdatedAt == null || beforeTeam.getUpdatedAt() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This team has no usable concurrency revision. Ask AI to review it again.");
         }
-        Map<String, Object> before = teamSnapshot(beforeTeam);
+        Map<String, Object> before = createTeamSnapshot(beforeTeam);
         validateTeam(team, id);
         if (teamRepository.updateIfUnchanged(id, team.getName(), team.getDescription(), expectedUpdatedAt) != 1) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This team changed after the proposal was created. Ask AI to review it again.");
@@ -152,9 +152,9 @@ public class TeamService {
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor == null ? null : actor.getId(), AuditActions.UPDATE, AuditEntityTypes.TEAM,
                 updatedTeam.getId(), null, AuditOutcomes.SUCCESS,
-                "Updated team " + updatedTeam.getName(), auditLogService.json(before),
-                auditLogService.json(teamSnapshot(updatedTeam)),
-                auditLogService.changes(before, teamSnapshot(updatedTeam)), null));
+                "Updated team " + updatedTeam.getName(), auditLogService.toJson(before),
+                auditLogService.toJson(createTeamSnapshot(updatedTeam)),
+                auditLogService.describeChanges(before, createTeamSnapshot(updatedTeam)), null));
         return updatedTeam;
     }
 
@@ -162,7 +162,7 @@ public class TeamService {
     public void deleteTeam(String id, AppUser actor) {
         requireAdmin(actor);
         Team team = requireTeam(id);
-        Map<String, Object> before = teamSnapshot(team);
+        Map<String, Object> before = createTeamSnapshot(team);
         for (ProjectTeam projectTeam : projectTeamRepository.findByTeamId(id)) {
             projectAccessService.requireAnotherOwnerBeforeRemovingOwner(
                     projectTeam.getProjectId(),
@@ -182,7 +182,7 @@ public class TeamService {
                 null,
                 AuditOutcomes.SUCCESS,
                 "Deleted team " + team.getName(),
-                auditLogService.json(before),
+                auditLogService.toJson(before),
                 null,
                 null,
                 null));
@@ -232,7 +232,7 @@ public class TeamService {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "ADD_MEMBER", "userId", userId, "role", role))));
+                auditLogService.toJson(Map.of("operation", "ADD_MEMBER", "userId", userId, "role", role))));
         return teamMember;
     }
 
@@ -263,7 +263,7 @@ public class TeamService {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "REMOVE_MEMBER", "userId", userId))));
+                auditLogService.toJson(Map.of("operation", "REMOVE_MEMBER", "userId", userId))));
     }
 
     public List<ProjectTeam> listProjects(String teamId) {
@@ -313,7 +313,7 @@ public class TeamService {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "ADD_PROJECT", "projectId", projectId, "role", role))));
+                auditLogService.toJson(Map.of("operation", "ADD_PROJECT", "projectId", projectId, "role", role))));
         return projectTeam;
     }
 
@@ -338,7 +338,7 @@ public class TeamService {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "REMOVE_PROJECT", "projectId", projectId))));
+                auditLogService.toJson(Map.of("operation", "REMOVE_PROJECT", "projectId", projectId))));
     }
 
     public List<TeamJoinRequest> listPendingJoinRequests(String teamId, AppUser actor) {
@@ -377,7 +377,7 @@ public class TeamService {
                 AuditOutcomes.SUCCESS,
                 "Requested to join team",
                 null,
-                auditLogService.json(Map.of("teamId", teamId, "userId", actor.getId(), "status", TeamJoinRequestStatuses.PENDING)),
+                auditLogService.toJson(Map.of("teamId", teamId, "userId", actor.getId(), "status", TeamJoinRequestStatuses.PENDING)),
                 null,
                 null));
         return request;
@@ -426,7 +426,7 @@ public class TeamService {
                 AuditOutcomes.SUCCESS,
                 status + " team join request",
                 null,
-                auditLogService.json(Map.of("teamId", teamId, "userId", request.getUserId(), "status", status)),
+                auditLogService.toJson(Map.of("teamId", teamId, "userId", request.getUserId(), "status", status)),
                 null,
                 null));
         return request;
@@ -477,7 +477,7 @@ public class TeamService {
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor == null ? null : actor.getId(), AuditActions.UPDATE, AuditEntityTypes.TEAM, teamId,
                 null, AuditOutcomes.SUCCESS, "Updated team membership for " + team.getName(), null, null, null,
-                auditLogService.json(Map.of("operation", action + "_MEMBER", "userId", userId, "role", Objects.toString(normalizedRole, "")))));
+                auditLogService.toJson(Map.of("operation", action + "_MEMBER", "userId", userId, "role", Objects.toString(normalizedRole, "")))));
     }
 
     public void requireAdmin(AppUser actor) {
@@ -573,7 +573,7 @@ public class TeamService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private Map<String, Object> teamSnapshot(Team team) {
+    private Map<String, Object> createTeamSnapshot(Team team) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("id", team.getId());
         snapshot.put("name", team.getName());

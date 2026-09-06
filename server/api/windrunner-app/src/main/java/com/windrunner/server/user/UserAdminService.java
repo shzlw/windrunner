@@ -144,7 +144,7 @@ public class UserAdminService {
                 AuditOutcomes.SUCCESS,
                 "Created user " + savedUser.getUsername(),
                 null,
-                auditLogService.json(userSnapshot(savedUser)),
+                auditLogService.toJson(createUserSnapshot(savedUser)),
                 null,
                 null));
         return toResponse(savedUser);
@@ -160,7 +160,7 @@ public class UserAdminService {
         normalizeUpdatableRole(updateRequest.getGlobalRole(), target.getGlobalRole(), currentUser);
         validateUpdate(id, updateRequest, currentUser);
         AppUser user = requireManageableUser(id, currentUser);
-        Map<String, Object> before = userSnapshot(user);
+        Map<String, Object> before = createUserSnapshot(user);
         String normalizedUsername = normalizeUsername(updateRequest.getUsername());
         String normalizedEmail = normalizeEmail(updateRequest.getEmail());
         String normalizedTimezone = normalizeTimezone(updateRequest.getTimezone());
@@ -192,7 +192,7 @@ public class UserAdminService {
             throw new IllegalStateException("Expected one app_user row to be updated but got " + updated);
         }
         AppUser savedUser = authService.findExistingUser(user.getId());
-        Map<String, Object> after = userSnapshot(savedUser);
+        Map<String, Object> after = createUserSnapshot(savedUser);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 currentUser.getId(),
                 AuditActions.UPDATE,
@@ -201,9 +201,9 @@ public class UserAdminService {
                 null,
                 AuditOutcomes.SUCCESS,
                 "Updated user " + savedUser.getUsername(),
-                auditLogService.json(before),
-                auditLogService.json(after),
-                auditLogService.changes(before, after),
+                auditLogService.toJson(before),
+                auditLogService.toJson(after),
+                auditLogService.describeChanges(before, after),
                 null));
         return toResponse(savedUser);
     }
@@ -220,7 +220,7 @@ public class UserAdminService {
         }
         validateUpdate(id, updateRequest, currentUser);
         AppUser user = requireManageableUser(id, currentUser);
-        Map<String, Object> before = userSnapshot(user);
+        Map<String, Object> before = createUserSnapshot(user);
         String normalizedUsername = normalizeUsername(updateRequest.getUsername());
         String normalizedEmail = normalizeEmail(updateRequest.getEmail());
         String normalizedTimezone = normalizeTimezone(updateRequest.getTimezone());
@@ -243,11 +243,11 @@ public class UserAdminService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This user changed after the proposal was created. Ask AI to review it again.");
         }
         AppUser savedUser = authService.findExistingUser(user.getId());
-        Map<String, Object> after = userSnapshot(savedUser);
+        Map<String, Object> after = createUserSnapshot(savedUser);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 currentUser.getId(), AuditActions.UPDATE, AuditEntityTypes.USER, savedUser.getId(), null,
-                AuditOutcomes.SUCCESS, "Updated user " + savedUser.getUsername(), auditLogService.json(before),
-                auditLogService.json(after), auditLogService.changes(before, after), null));
+                AuditOutcomes.SUCCESS, "Updated user " + savedUser.getUsername(), auditLogService.toJson(before),
+                auditLogService.toJson(after), auditLogService.describeChanges(before, after), null));
         return toResponse(savedUser);
     }
 
@@ -258,7 +258,7 @@ public class UserAdminService {
         }
 
         AppUser user = requireManageableUser(id, currentUser);
-        Map<String, Object> before = userSnapshot(user);
+        Map<String, Object> before = createUserSnapshot(user);
         user.setPasswordHash(passwordEncoder.encode(updateRequest.getNewPassword()));
         user.setMustChangePassword(updateRequest.getMustChangePassword() == null || updateRequest.getMustChangePassword());
         user.setUpdatedAt(DateUtils.now());
@@ -273,7 +273,7 @@ public class UserAdminService {
         }
         AppUser savedUser = authService.findExistingUser(user.getId());
         authService.revokeUserSessions(savedUser.getId());
-        Map<String, Object> after = userSnapshot(savedUser);
+        Map<String, Object> after = createUserSnapshot(savedUser);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 currentUser.getId(),
                 AuditActions.UPDATE,
@@ -282,9 +282,9 @@ public class UserAdminService {
                 null,
                 AuditOutcomes.SUCCESS,
                 "Reset password for user " + savedUser.getUsername(),
-                auditLogService.json(before),
-                auditLogService.json(after),
-                auditLogService.changes(before, after),
+                auditLogService.toJson(before),
+                auditLogService.toJson(after),
+                auditLogService.describeChanges(before, after),
                 null));
         return toResponse(savedUser);
     }
@@ -292,7 +292,7 @@ public class UserAdminService {
     @Transactional
     public void deleteUser(String id, AppUser currentUser) {
         AppUser user = requireManageableUser(id, currentUser);
-        Map<String, Object> before = userSnapshot(user);
+        Map<String, Object> before = createUserSnapshot(user);
         for (ProjectMember projectMember : projectMemberRepository.findByUserId(id)) {
             projectAccessService.requireAnotherOwnerBeforeRemovingOwner(
                     projectMember.getProjectId(),
@@ -323,7 +323,7 @@ public class UserAdminService {
                 null,
                 AuditOutcomes.SUCCESS,
                 "Deleted user " + user.getUsername(),
-                auditLogService.json(before),
+                auditLogService.toJson(before),
                 null,
                 null,
                 null));
@@ -458,7 +458,7 @@ public class UserAdminService {
                 .build();
     }
 
-    private Map<String, Object> userSnapshot(AppUser user) {
+    private Map<String, Object> createUserSnapshot(AppUser user) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("id", user.getId());
         snapshot.put("username", user.getUsername());

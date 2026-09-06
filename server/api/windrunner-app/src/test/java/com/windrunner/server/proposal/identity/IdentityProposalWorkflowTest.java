@@ -1,6 +1,6 @@
 package com.windrunner.server.proposal.identity;
 
-import com.windrunner.server.proposal.ProposalService;
+import com.windrunner.server.proposal.ProposalKind;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectMembershipService;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
@@ -28,9 +28,9 @@ class IdentityProposalWorkflowTest {
                 new UserProfileProposalHandler(mock(UserAdminService.class), teamService),
                 new UserAccessProposalHandler(mock(UserAdminService.class), teamService));
 
-        assertThat(workflow.workflowType()).isEqualTo("IDENTITY");
-        for (ProposalService.Kind kind : ProposalService.Kind.values()) {
-            assertThat(workflow.handler(kind.name()).entityType()).isEqualTo(kind.name());
+        assertThat(workflow.getWorkflowType()).isEqualTo("IDENTITY");
+        for (ProposalKind kind : ProposalKind.values()) {
+            assertThat(workflow.handler(kind.name()).getEntityType()).isEqualTo(kind.name());
         }
     }
 }

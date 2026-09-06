@@ -42,7 +42,7 @@ public class ProjectAccessService {
     }
 
     public boolean hasProjectRole(String projectId, String userId, String minimumRole) {
-        List<String> roles = rolesAtOrAbove(minimumRole);
+        List<String> roles = findRolesAtOrAbove(minimumRole);
         return projectMemberRepository.hasDirectRole(projectId, userId, roles)
                 || projectMemberRepository.hasTeamRole(projectId, userId, roles);
     }
@@ -57,7 +57,7 @@ public class ProjectAccessService {
         }
     }
 
-    private List<String> rolesAtOrAbove(String minimumRole) {
+    private List<String> findRolesAtOrAbove(String minimumRole) {
         String normalized = ProjectRoles.normalize(minimumRole);
         if (ProjectRoles.OWNER.equals(normalized)) {
             return List.of(ProjectRoles.OWNER);

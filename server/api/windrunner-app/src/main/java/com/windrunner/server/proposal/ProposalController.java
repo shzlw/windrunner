@@ -14,14 +14,14 @@ public class ProposalController {
     private final AuthService authService;
 
     @GetMapping
-    public ApiResponse<ProposalService.Page> list(@PathVariable String sessionId,
+    public ApiResponse<ProposalPage> list(@PathVariable String sessionId,
                                                           @RequestParam(defaultValue = "50") int limit, @RequestParam(defaultValue = "0") int offset,
                                                           HttpServletRequest request) {
         return ApiResponse.success(proposalService.list(sessionId, authService.requireCurrentUser(request), limit, offset));
     }
 
     @PostMapping("/{id}/decision")
-    public ApiResponse<ProposalService.View> decide(@PathVariable String sessionId, @PathVariable String id,
+    public ApiResponse<ProposalView> decide(@PathVariable String sessionId, @PathVariable String id,
                                                             @RequestBody Decision decision, HttpServletRequest request) {
         return ApiResponse.success(proposalService.decide(sessionId, id, decision == null ? null : decision.decision(), authService.requireCurrentUser(request)));
     }

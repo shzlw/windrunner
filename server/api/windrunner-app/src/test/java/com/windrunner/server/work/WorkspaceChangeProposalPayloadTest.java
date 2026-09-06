@@ -4,6 +4,8 @@ import com.windrunner.server.llmproviders.openai.client.OpenAIJsonSchema;
 import com.windrunner.server.utils.JsonUtils;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.domain.WorkItemAssignee;
+import com.windrunner.server.work.api.ProposalDraft;
+import com.windrunner.server.work.api.WorkItemPayload;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -28,9 +30,9 @@ class WorkspaceChangeProposalPayloadTest {
         WorkItemAssignee assignee = new WorkItemAssignee();
         assignee.setAssigneeType("TEAM");
         assignee.setAssigneeId("team_marketing");
-        var payload = new WorkspaceChangeProposalService.WorkItemPayload(item, List.of(assignee));
+        var payload = new WorkItemPayload(item, List.of(assignee));
 
-        var restored = JsonUtils.fromJson(JsonUtils.toJson(payload), WorkspaceChangeProposalService.WorkItemPayload.class);
+        var restored = JsonUtils.fromJson(JsonUtils.toJson(payload), WorkItemPayload.class);
 
         assertThat(restored.workItem().getTitle()).isEqualTo("Prepare launch notes");
         assertThat(restored.workItem().getDueDate()).isEqualTo(LocalDate.of(2026, 8, 21));
@@ -42,7 +44,7 @@ class WorkspaceChangeProposalPayloadTest {
 
     @Test
     void generatesTheWorkspaceProposalToolSchema() {
-        var schema = new OpenAIJsonSchema(new ObjectMapper()).generate(WorkspaceChangeProposalService.ProposalDraft.class);
+        var schema = new OpenAIJsonSchema(new ObjectMapper()).generate(ProposalDraft.class);
 
         assertThat(schema.path("properties").path("changes").isArray()).isFalse();
         assertThat(schema.path("properties").has("changes")).isTrue();

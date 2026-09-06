@@ -4,6 +4,7 @@ import com.windrunner.server.llm.LlmTool;
 import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
 import com.windrunner.server.work.WorkspaceChangeProposalService;
+import com.windrunner.server.work.api.ProposalDraft;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,7 @@ import java.util.Objects;
 public class ProposeWorkspaceChangesTool {
     private final WorkspaceChangeProposalService workspaceChangeProposalService;
 
-    public LlmTool<WorkspaceChangeProposalService.ProposalDraft> forMessage(
+    public LlmTool<ProposalDraft> forMessage(
             ToolExecutionContext context,
             String projectId, String chatSessionId, String sourceMessageId, String sourceText) {
         Objects.requireNonNull(context, "Tool execution context is required");
@@ -27,7 +28,7 @@ public class ProposeWorkspaceChangesTool {
         return new LlmTool<>(
                 "propose_workspace_changes",
                 FileUtils.loadSystemPrompt("propose-workspace-changes-tool.md"),
-                WorkspaceChangeProposalService.ProposalDraft.class,
+                ProposalDraft.class,
                 draft -> workspaceChangeProposalService.create(authorizedProjectId, chatSessionId, sourceMessageId, sourceText, draft));
     }
 }

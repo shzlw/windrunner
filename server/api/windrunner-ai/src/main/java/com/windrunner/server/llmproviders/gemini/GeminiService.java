@@ -61,7 +61,7 @@ public class GeminiService implements LlmService {
         UsageTotals usageTotals = new UsageTotals();
         AtomicBoolean executedTool = new AtomicBoolean();
         AtomicReference<String> previousInteractionId = new AtomicReference<>();
-        AtomicReference<List<AgentService.ToolResult>> pendingToolResults = new AtomicReference<>(List.of());
+        AtomicReference<List<ToolResult>> pendingToolResults = new AtomicReference<>(List.of());
 
         GeminiResponse response = agentService.run(
                 "Gemini",
@@ -104,7 +104,7 @@ public class GeminiService implements LlmService {
                     }
 
                     @Override
-                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                    public void appendToolResults(List<ToolResult> results) {
                         executedTool.set(!results.isEmpty());
                         pendingToolResults.set(List.copyOf(results));
                     }

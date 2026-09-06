@@ -130,7 +130,7 @@ public class ExternalProjectController {
                 AuditOutcomes.SUCCESS,
                 "Created project " + project.getName(),
                 null,
-                auditLogService.json(projectSnapshot(project)),
+                auditLogService.toJson(createProjectSnapshot(project)),
                 null,
                 null));
         return ApiResponse.success(ExternalProjectResponse.from(requireProject(project.getId())));
@@ -144,13 +144,13 @@ public class ExternalProjectController {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_WRITE);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
         Project beforeProject = requireProject(id);
-        Map<String, Object> before = projectSnapshot(beforeProject);
+        Map<String, Object> before = createProjectSnapshot(beforeProject);
         validateName(project);
         project.setId(id);
         if (projectRepository.update(project.getId(), project.getName()) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found");
         }
-        Map<String, Object> after = projectSnapshot(project);
+        Map<String, Object> after = createProjectSnapshot(project);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor.getId(),
                 AuditActions.UPDATE,
@@ -159,9 +159,9 @@ public class ExternalProjectController {
                 project.getId(),
                 AuditOutcomes.SUCCESS,
                 "Updated project " + project.getName(),
-                auditLogService.json(before),
-                auditLogService.json(after),
-                auditLogService.changes(before, after),
+                auditLogService.toJson(before),
+                auditLogService.toJson(after),
+                auditLogService.describeChanges(before, after),
                 null));
         return ApiResponse.success(ExternalProjectResponse.from(requireProject(id)));
     }
@@ -172,7 +172,7 @@ public class ExternalProjectController {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.PROJECTS_WRITE);
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
         Project project = requireProject(id);
-        Map<String, Object> before = projectSnapshot(project);
+        Map<String, Object> before = createProjectSnapshot(project);
         projectContentDeletionService.deleteProjectContent(id);
         projectTeamRepository.deleteByProjectId(id);
         projectMemberRepository.deleteByProjectId(id);
@@ -185,7 +185,7 @@ public class ExternalProjectController {
                 project.getId(),
                 AuditOutcomes.SUCCESS,
                 "Deleted project " + project.getName(),
-                auditLogService.json(before),
+                auditLogService.toJson(before),
                 null,
                 null,
                 null));
@@ -264,7 +264,7 @@ public class ExternalProjectController {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "UPSERT_MEMBER", "userId", userId, "role", role))));
+                auditLogService.toJson(Map.of("operation", "UPSERT_MEMBER", "userId", userId, "role", role))));
         return ApiResponse.success(ExternalProjectMemberResponse.from(projectMember));
     }
 
@@ -292,7 +292,7 @@ public class ExternalProjectController {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "REMOVE_MEMBER", "userId", userId))));
+                auditLogService.toJson(Map.of("operation", "REMOVE_MEMBER", "userId", userId))));
         return ApiResponse.success();
     }
 
@@ -332,7 +332,7 @@ public class ExternalProjectController {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "ASSIGN_TEAM", "teamId", teamId, "role", role))));
+                auditLogService.toJson(Map.of("operation", "ASSIGN_TEAM", "teamId", teamId, "role", role))));
         return ApiResponse.success(ExternalProjectTeamResponse.from(projectTeam));
     }
 
@@ -360,7 +360,7 @@ public class ExternalProjectController {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "UNASSIGN_TEAM", "teamId", teamId))));
+                auditLogService.toJson(Map.of("operation", "UNASSIGN_TEAM", "teamId", teamId))));
         return ApiResponse.success();
     }
 
@@ -372,7 +372,7 @@ public class ExternalProjectController {
                 ExternalInputValidation.MAX_NAME_LENGTH));
     }
 
-    private Map<String, Object> projectSnapshot(Project project) {
+    private Map<String, Object> createProjectSnapshot(Project project) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("id", project.getId());
         snapshot.put("name", project.getName());

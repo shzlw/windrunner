@@ -74,7 +74,7 @@ public class ProjectController {
                         .add(member.getUserId()));
         Map<String, String> ownerDisplayNamesById = new LinkedHashMap<>();
         appUserRepository.findAllById(ownerUserIdsByProjectId.values().stream().flatMap(List::stream).distinct().toList())
-                .forEach(user -> ownerDisplayNamesById.put(user.getId(), displayUser(user)));
+                .forEach(user -> ownerDisplayNamesById.put(user.getId(), getDisplayName(user)));
         projects.forEach(project -> {
             List<String> ownerUserIds = ownerUserIdsByProjectId.getOrDefault(project.getId(), List.of());
             project.setOwnerUserIds(ownerUserIds);
@@ -84,7 +84,7 @@ public class ProjectController {
         });
     }
 
-    private String displayUser(AppUser user) {
+    private String getDisplayName(AppUser user) {
         if (user.getDisplayName() != null && !user.getDisplayName().isBlank()) {
             return user.getDisplayName().trim();
         }
@@ -146,7 +146,7 @@ public class ProjectController {
                 AuditOutcomes.SUCCESS,
                 "Created project " + project.getName(),
                 null,
-                auditLogService.json(projectSnapshot(project)),
+                auditLogService.toJson(createProjectSnapshot(project)),
                 null,
                 null));
         return ApiResponse.success(project);
@@ -161,13 +161,13 @@ public class ProjectController {
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
         Project beforeProject = projectRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
-        Map<String, Object> before = projectSnapshot(beforeProject);
+        Map<String, Object> before = createProjectSnapshot(beforeProject);
         validateName(project);
         project.setId(id);
         if (projectRepository.update(project.getId(), project.getName()) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found");
         }
-        Map<String, Object> after = projectSnapshot(project);
+        Map<String, Object> after = createProjectSnapshot(project);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 actor.getId(),
                 AuditActions.UPDATE,
@@ -176,9 +176,9 @@ public class ProjectController {
                 project.getId(),
                 AuditOutcomes.SUCCESS,
                 "Updated project " + project.getName(),
-                auditLogService.json(before),
-                auditLogService.json(after),
-                auditLogService.changes(before, after),
+                auditLogService.toJson(before),
+                auditLogService.toJson(after),
+                auditLogService.describeChanges(before, after),
                 null));
         return ApiResponse.success(project);
     }
@@ -190,7 +190,7 @@ public class ProjectController {
         projectAccessService.requireProjectRole(id, actor, ProjectRoles.OWNER);
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
-        Map<String, Object> before = projectSnapshot(project);
+        Map<String, Object> before = createProjectSnapshot(project);
         projectContentDeletionService.deleteProjectContent(id);
         projectTeamRepository.deleteByProjectId(id);
         projectMemberRepository.deleteByProjectId(id);
@@ -203,7 +203,7 @@ public class ProjectController {
                 project.getId(),
                 AuditOutcomes.SUCCESS,
                 "Deleted project " + project.getName(),
-                auditLogService.json(before),
+                auditLogService.toJson(before),
                 null,
                 null,
                 null));
@@ -267,7 +267,7 @@ public class ProjectController {
         project.setName(project.getName().trim());
     }
 
-    private Map<String, Object> projectSnapshot(Project project) {
+    private Map<String, Object> createProjectSnapshot(Project project) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("id", project.getId());
         snapshot.put("name", project.getName());

@@ -76,7 +76,7 @@ class AgentServiceTest {
                     }
 
                     @Override
-                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                    public void appendToolResults(List<ToolResult> results) {
                     }
                 }
         ))
@@ -122,7 +122,7 @@ class AgentServiceTest {
                     }
 
                     @Override
-                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                    public void appendToolResults(List<ToolResult> results) {
                         results.forEach(result -> events.add(result.toolCall().id() + ":" + result.output()));
                     }
                 }
@@ -171,7 +171,7 @@ class AgentServiceTest {
                     }
 
                     @Override
-                    public void appendToolResults(List<AgentService.ToolResult> toolResults) {
+                    public void appendToolResults(List<ToolResult> toolResults) {
                         toolResults.forEach(result -> results.add(result.toolCall().id() + ":" + result.output()));
                     }
                 }
@@ -240,7 +240,7 @@ class AgentServiceTest {
                             }
 
                             @Override
-                            public void appendToolResults(List<AgentService.ToolResult> results) {
+                            public void appendToolResults(List<ToolResult> results) {
                             }
                         });
             } catch (Throwable throwable) {
@@ -318,7 +318,7 @@ class AgentServiceTest {
                             }
 
                             @Override
-                            public void appendToolResults(List<AgentService.ToolResult> toolResults) {
+                            public void appendToolResults(List<ToolResult> toolResults) {
                                 toolResults.forEach(result -> results.add(result.output()));
                             }
                         }
@@ -398,7 +398,7 @@ class AgentServiceTest {
                     }
 
                     @Override
-                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                    public void appendToolResults(List<ToolResult> results) {
                     }
                 }))
                 .isInstanceOf(LlmException.class)
@@ -460,7 +460,7 @@ class AgentServiceTest {
                             }
 
                             @Override
-                            public void appendToolResults(List<AgentService.ToolResult> results) {
+                            public void appendToolResults(List<ToolResult> results) {
                             }
                         });
             } catch (Throwable throwable) {
@@ -517,7 +517,7 @@ class AgentServiceTest {
                     }
 
                     @Override
-                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                    public void appendToolResults(List<ToolResult> results) {
                     }
                 }))
                 .isInstanceOf(LlmException.class)
@@ -573,7 +573,7 @@ class AgentServiceTest {
                         }
 
                         @Override
-                        public void appendToolResults(List<AgentService.ToolResult> results) {
+                        public void appendToolResults(List<ToolResult> results) {
                         }
                     }))
                     .isInstanceOf(LlmException.class)
@@ -625,7 +625,7 @@ class AgentServiceTest {
                     }
 
                     @Override
-                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                    public void appendToolResults(List<ToolResult> results) {
                     }
                 }))
                 .isInstanceOf(LlmException.class)

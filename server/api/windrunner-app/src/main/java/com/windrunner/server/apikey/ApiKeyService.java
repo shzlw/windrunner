@@ -92,7 +92,7 @@ public class ApiKeyService {
                 AuditOutcomes.SUCCESS,
                 "Created API key " + apiKey.getName(),
                 null,
-                auditLogService.json(apiKeySnapshot(apiKey, scopes)),
+                auditLogService.toJson(createApiKeySnapshot(apiKey, scopes)),
                 null,
                 null));
 
@@ -136,9 +136,9 @@ public class ApiKeyService {
                 null,
                 AuditOutcomes.SUCCESS,
                 "Revoked API key " + revoked.getName(),
-                auditLogService.json(apiKeySnapshot(existing, scopes)),
-                auditLogService.json(apiKeySnapshot(revoked, scopes)),
-                auditLogService.changes(apiKeySnapshot(existing, scopes), apiKeySnapshot(revoked, scopes)),
+                auditLogService.toJson(createApiKeySnapshot(existing, scopes)),
+                auditLogService.toJson(createApiKeySnapshot(revoked, scopes)),
+                auditLogService.describeChanges(createApiKeySnapshot(existing, scopes), createApiKeySnapshot(revoked, scopes)),
                 null));
     }
 
@@ -193,7 +193,7 @@ public class ApiKeyService {
         return KEY_PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
     }
 
-    private Map<String, Object> apiKeySnapshot(ApiKey apiKey, List<String> scopes) {
+    private Map<String, Object> createApiKeySnapshot(ApiKey apiKey, List<String> scopes) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("id", apiKey.getId());
         snapshot.put("ownerUserId", apiKey.getOwnerUserId());

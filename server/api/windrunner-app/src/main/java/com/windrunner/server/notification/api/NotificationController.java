@@ -29,7 +29,7 @@ public class NotificationController {
             @RequestParam(name = "offset", defaultValue = "0") long offset,
             HttpServletRequest request) {
         AppUser actor = authService.requireCurrentUser(request);
-        NotificationService.NotificationPage page = notificationService.listForUser(actor.getId(), unread, limit, offset);
+        NotificationPage page = notificationService.listForUser(actor.getId(), unread, limit, offset);
         return ApiResponse.success(new NotificationPageView(page.items(), page.unreadCount(), page.totalItems()));
     }
 

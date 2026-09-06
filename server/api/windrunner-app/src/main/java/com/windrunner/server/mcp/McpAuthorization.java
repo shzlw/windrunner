@@ -30,7 +30,7 @@ public class McpAuthorization {
     }
 
     public AppUser requireScopes(String... scopes) {
-        return externalAccessService.requireScopes(currentRequest(), scopes);
+        return externalAccessService.requireScopes(getCurrentRequest(), scopes);
     }
 
     public AppUser requireProjectViewer(String projectId, String... scopes) {
@@ -61,7 +61,7 @@ public class McpAuthorization {
         return projectId.trim();
     }
 
-    private HttpServletRequest currentRequest() {
+    private HttpServletRequest getCurrentRequest() {
         if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "MCP API key is required");
         }

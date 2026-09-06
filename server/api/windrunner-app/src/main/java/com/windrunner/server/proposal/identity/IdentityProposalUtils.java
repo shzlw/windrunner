@@ -1,6 +1,6 @@
 package com.windrunner.server.proposal.identity;
 
-import com.windrunner.server.proposal.ProposalService;
+import com.windrunner.server.proposal.ProposalDraft;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.team.TeamRoles;
 import com.windrunner.server.user.api.UpdateUserRequest;
@@ -13,31 +13,31 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-final class IdentityProposalSupport {
-    private IdentityProposalSupport() {
+final class IdentityProposalUtils {
+    private IdentityProposalUtils() {
     }
 
-    static String required(String value, String label) {
-        if (value == null || value.isBlank()) throw bad(label + " is required");
-        if (!value.equals(value.trim())) throw bad(label + " must not contain surrounding whitespace");
+    static String requireValue(String value, String label) {
+        if (value == null || value.isBlank()) throw createBadRequestException(label + " is required");
+        if (!value.equals(value.trim())) throw createBadRequestException(label + " must not contain surrounding whitespace");
         return value;
     }
 
-    static boolean present(String value) {
+    static boolean hasText(String value) {
         return value != null && !value.isBlank();
     }
 
-    static Map<String, String> fields(ProposalService.Draft draft, Set<String> allowed) {
+    static Map<String, String> extractFields(ProposalDraft draft, Set<String> allowed) {
         if (draft.fields() == null || draft.fields().isEmpty() || !allowed.containsAll(draft.fields().keySet())) {
-            throw bad("Unsupported or empty fields");
+            throw createBadRequestException("Unsupported or empty fields");
         }
         if (draft.fields().values().stream().anyMatch(value -> value != null && value.length() > 4000)) {
-            throw bad("Field values must be 4000 characters or fewer");
+            throw createBadRequestException("Field values must be 4000 characters or fewer");
         }
         return draft.fields();
     }
 
-    static Map<String, String> identity(String... pairs) {
+    static Map<String, String> createIdentityMap(String... pairs) {
         Map<String, String> result = new LinkedHashMap<>();
         for (int index = 0; index < pairs.length; index += 2) result.put(pairs[index], pairs[index + 1]);
         return result;
@@ -47,40 +47,40 @@ final class IdentityProposalSupport {
         if (value != null) values.put(key, value.toString());
     }
 
-    static OffsetDateTime timestamp(String value) {
+    static OffsetDateTime parseTimestamp(String value) {
         return value == null || value.isBlank() ? null : OffsetDateTime.parse(value);
     }
 
-    static String display(AppUser user) {
+    static String getDisplayName(AppUser user) {
         return user.getDisplayName() == null ? user.getUsername() : user.getDisplayName();
     }
 
-    static String teamRole(String role) {
+    static String normalizeTeamRole(String role) {
         try {
-            return TeamRoles.normalize(required(role, "Role"));
+            return TeamRoles.normalize(requireValue(role, "Role"));
         } catch (IllegalArgumentException exception) {
-            throw bad(exception.getMessage());
+            throw createBadRequestException(exception.getMessage());
         }
     }
 
-    static String projectRole(String role) {
+    static String normalizeProjectRole(String role) {
         try {
-            return ProjectRoles.normalize(required(role, "Role"));
+            return ProjectRoles.normalize(requireValue(role, "Role"));
         } catch (IllegalArgumentException exception) {
-            throw bad(exception.getMessage());
+            throw createBadRequestException(exception.getMessage());
         }
     }
 
-    static void membershipAction(String action, String oldRole) {
+    static void validateMembershipAction(String action, String oldRole) {
         if ("ADD".equals(action) && oldRole != null) {
-            throw error(HttpStatus.CONFLICT, "Membership already exists; use UPDATE with these exact IDs");
+            throw createResponseStatusException(HttpStatus.CONFLICT, "Membership already exists; use UPDATE with these exact IDs");
         }
         if (!"ADD".equals(action) && oldRole == null) {
-            throw error(HttpStatus.NOT_FOUND, "Membership not found");
+            throw createResponseStatusException(HttpStatus.NOT_FOUND, "Membership not found");
         }
     }
 
-    static UpdateUserRequest userRequest(ProposalService.Draft draft, Map<String, String> values) {
+    static UpdateUserRequest buildUserUpdateRequest(ProposalDraft draft, Map<String, String> values) {
         UpdateUserRequest request = new UpdateUserRequest();
         request.setUsername(values.get("username"));
         request.setEmail(values.get("email"));
@@ -95,11 +95,11 @@ final class IdentityProposalSupport {
         return request;
     }
 
-    static ResponseStatusException bad(String message) {
-        return error(HttpStatus.BAD_REQUEST, message);
+    static ResponseStatusException createBadRequestException(String message) {
+        return createResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 
-    static ResponseStatusException error(HttpStatus status, String message) {
+    static ResponseStatusException createResponseStatusException(HttpStatus status, String message) {
         return new ResponseStatusException(status, message);
     }
 }

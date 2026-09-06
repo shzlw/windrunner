@@ -79,7 +79,7 @@ class ExternalWorkItemControllerTest {
         List<WorkItemAssignee> assignees = List.of(new WorkItemAssignee());
         when(workItemRepository.findPageForProject(PROJECT_ID, null, null, null, null, 25, 0L)).thenReturn(List.of(item));
         when(workItemRepository.countForProject(PROJECT_ID, null, null, null, null)).thenReturn(42L);
-        when(workItems.assigneesByWorkItemIds(List.of("witm-1"))).thenReturn(Map.of("witm-1", assignees));
+        when(workItems.findAssigneesByWorkItemIds(List.of("witm-1"))).thenReturn(Map.of("witm-1", assignees));
 
         ApiResponse<List<ExternalWorkItemResponse>> response = controller().list(
                 PROJECT_ID, 0, 25, null, null, null, null, request);
@@ -116,7 +116,7 @@ class ExternalWorkItemControllerTest {
         requestedAssignee.setAssigneeId("user-1");
         List<WorkItemAssignee> assignees = List.of(requestedAssignee);
         when(workItems.create(PROJECT_ID, requested, assignees, ACTOR_ID)).thenReturn(saved);
-        when(workItems.assignees("witm-new")).thenReturn(assignees);
+        when(workItems.findAssignees("witm-new")).thenReturn(assignees);
 
         ApiResponse<ExternalWorkItemResponse> response = controller().create(
                 PROJECT_ID, new WorkItemRequest(requested, assignees), request);
@@ -143,7 +143,7 @@ class ExternalWorkItemControllerTest {
         when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ)).thenReturn(actor());
         WorkItem item = workItem("witm-1", "project-other", "DONE");
         when(workItemRepository.findById("witm-1")).thenReturn(Optional.of(item));
-        when(workItems.assignees("witm-1")).thenReturn(List.of());
+        when(workItems.findAssignees("witm-1")).thenReturn(List.of());
 
         ApiResponse<ExternalWorkItemResponse> response = controller().get("witm-1", request);
 

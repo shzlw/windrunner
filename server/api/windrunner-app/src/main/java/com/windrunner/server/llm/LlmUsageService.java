@@ -35,10 +35,10 @@ public class LlmUsageService {
                     context.projectId(),
                     context.feature().name(),
                     llmAvailability.provider(),
-                    modelOrConfigured(result.model()),
+                    getConfiguredModel(result.model()),
                     result.inputTokens(),
                     result.outputTokens(),
-                    totalTokens(result.inputTokens(), result.outputTokens(), result.totalTokens()),
+                    calculateTotalTokens(result.inputTokens(), result.outputTokens(), result.totalTokens()),
                     OUTCOME_SUCCESS,
                     null,
                     durationMs);
@@ -56,7 +56,7 @@ public class LlmUsageService {
                     context.projectId(),
                     context.feature().name(),
                     llmAvailability.provider(),
-                    modelOrConfigured(null),
+                    getConfiguredModel(null),
                     null,
                     null,
                     null,
@@ -75,11 +75,11 @@ public class LlmUsageService {
         return message.length() <= MAX_ERROR_LENGTH ? message : message.substring(0, MAX_ERROR_LENGTH);
     }
 
-    private String modelOrConfigured(String model) {
+    private String getConfiguredModel(String model) {
         return model == null || model.isBlank() ? llmAvailability.model() : model;
     }
 
-    private Long totalTokens(Long inputTokens, Long outputTokens, Long totalTokens) {
+    private Long calculateTotalTokens(Long inputTokens, Long outputTokens, Long totalTokens) {
         if (totalTokens != null) {
             return totalTokens;
         }
@@ -106,8 +106,8 @@ public class LlmUsageService {
                         row.inputTokens(),
                         row.outputTokens(),
                         row.requests(),
-                        failures(row),
-                        successRate(row),
+                        calculateFailureCount(row),
+                        calculateSuccessRate(row),
                         Math.round(row.avgDurationMs())))
                 .toList();
         List<LlmUsageSummary.Feature> byFeature = llmUsageRepository.summarizeByFeature(projectIds, since).stream()
@@ -116,8 +116,8 @@ public class LlmUsageService {
                         row.inputTokens(),
                         row.outputTokens(),
                         row.requests(),
-                        failures(row),
-                        successRate(row)))
+                        calculateFailureCount(row),
+                        calculateSuccessRate(row)))
                 .toList();
         List<LlmUsageSummary.Provider> byProviderModel = llmUsageRepository.summarizeByProviderModel(projectIds, since).stream()
                 .map(row -> new LlmUsageSummary.Provider(
@@ -126,51 +126,51 @@ public class LlmUsageService {
                         row.inputTokens(),
                         row.outputTokens(),
                         row.requests(),
-                        failures(row),
-                        successRate(row)))
+                        calculateFailureCount(row),
+                        calculateSuccessRate(row)))
                 .toList();
         return new LlmUsageSummary(
                 new LlmUsageSummary.Totals(
                         totals.inputTokens(),
                         totals.outputTokens(),
                         totals.requests(),
-                        failures(totals),
-                        successRate(totals),
+                        calculateFailureCount(totals),
+                        calculateSuccessRate(totals),
                         Math.round(totals.avgDurationMs())),
                 byProject,
                 byFeature,
                 byProviderModel);
     }
 
-    private static long failures(LlmUsageRepository.TotalsRow row) {
+    private static long calculateFailureCount(LlmUsageRepository.TotalsRow row) {
         return row.requests() - row.successes();
     }
 
-    private static long failures(LlmUsageRepository.ProjectRow row) {
+    private static long calculateFailureCount(LlmUsageRepository.ProjectRow row) {
         return row.requests() - row.successes();
     }
 
-    private static long failures(LlmUsageRepository.FeatureRow row) {
+    private static long calculateFailureCount(LlmUsageRepository.FeatureRow row) {
         return row.requests() - row.successes();
     }
 
-    private static long failures(LlmUsageRepository.ProviderRow row) {
+    private static long calculateFailureCount(LlmUsageRepository.ProviderRow row) {
         return row.requests() - row.successes();
     }
 
-    private static double successRate(LlmUsageRepository.TotalsRow row) {
+    private static double calculateSuccessRate(LlmUsageRepository.TotalsRow row) {
         return row.requests() == 0 ? 0.0 : row.successes() / (double) row.requests();
     }
 
-    private static double successRate(LlmUsageRepository.ProjectRow row) {
+    private static double calculateSuccessRate(LlmUsageRepository.ProjectRow row) {
         return row.requests() == 0 ? 0.0 : row.successes() / (double) row.requests();
     }
 
-    private static double successRate(LlmUsageRepository.FeatureRow row) {
+    private static double calculateSuccessRate(LlmUsageRepository.FeatureRow row) {
         return row.requests() == 0 ? 0.0 : row.successes() / (double) row.requests();
     }
 
-    private static double successRate(LlmUsageRepository.ProviderRow row) {
+    private static double calculateSuccessRate(LlmUsageRepository.ProviderRow row) {
         return row.requests() == 0 ? 0.0 : row.successes() / (double) row.requests();
     }
 }

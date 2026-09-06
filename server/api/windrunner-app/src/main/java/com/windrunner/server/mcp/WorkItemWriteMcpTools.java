@@ -52,7 +52,7 @@ public class WorkItemWriteMcpTools {
         AppUser actor = authorizeWrite(ApiKeyScopes.ENTRIES_WRITE, projectId);
 
         if (body == null || body.isBlank()) {
-            throw bad("Entry body is required");
+            throw createBadRequestException("Entry body is required");
         }
         Entry entry = new Entry();
         entry.setWorkItemId(workItemId);
@@ -75,7 +75,7 @@ public class WorkItemWriteMcpTools {
     public StatusResult updateWorkItemStatus(String projectId, String workItemId, String status) {
         AppUser actor = authorizeWrite(ApiKeyScopes.WORK_ITEMS_WRITE, projectId);
         if (status == null || status.isBlank()) {
-            throw bad("Status is required");
+            throw createBadRequestException("Status is required");
         }
         WorkItem updated = workItems.updateStatus(projectId, workItemId, status.trim(), actor.getId());
         return new StatusResult(updated.getId(), updated.getTitle(), updated.getStatus());
@@ -94,7 +94,7 @@ public class WorkItemWriteMcpTools {
                                           String parentWorkItemId, String priority, String dueDate) {
         AppUser actor = authorizeWrite(ApiKeyScopes.WORK_ITEMS_WRITE, projectId);
         if (title == null || title.isBlank()) {
-            throw bad("Title is required");
+            throw createBadRequestException("Title is required");
         }
         WorkItem item = new WorkItem();
         item.setTitle(title.trim());
@@ -105,7 +105,7 @@ public class WorkItemWriteMcpTools {
             try {
                 item.setDueDate(LocalDate.parse(dueDate.trim()));
             } catch (java.time.format.DateTimeParseException e) {
-                throw bad("dueDate must be an ISO date, for example 2026-09-30");
+                throw createBadRequestException("dueDate must be an ISO date, for example 2026-09-30");
             }
         }
 
@@ -128,7 +128,7 @@ public class WorkItemWriteMcpTools {
                                                 String fromEntityId, String toEntityId, String reason) {
         AppUser actor = authorizeWrite(ApiKeyScopes.RELATIONSHIPS_WRITE, projectId);
         if (type == null || fromEntityId == null || toEntityId == null) {
-            throw bad("Type, fromEntityId and toEntityId are required");
+            throw createBadRequestException("Type, fromEntityId and toEntityId are required");
         }
         Relationship relationship = new Relationship();
         relationship.setFromEntityType("WORK_ITEM");
@@ -159,7 +159,7 @@ public class WorkItemWriteMcpTools {
         return actor;
     }
 
-    private static ResponseStatusException bad(String message) {
+    private static ResponseStatusException createBadRequestException(String message) {
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
 

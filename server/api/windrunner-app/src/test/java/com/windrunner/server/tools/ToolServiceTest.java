@@ -16,7 +16,7 @@ class ToolServiceTest {
     void exposesRegisteredToolsAsLlmTools() {
         ToolService service = new ToolService(List.of(new TestTool("fetch_things")));
 
-        assertThat(service.llmTools(context())).extracting(function -> function.name())
+        assertThat(service.createLlmTools(context())).extracting(function -> function.name())
                 .containsExactly("fetch_things");
     }
 
@@ -36,7 +36,7 @@ class ToolServiceTest {
         TestTool tool = new TestTool("fetch_things", receivedContext);
         ToolExecutionContext context = context();
 
-        Object result = execute(new ToolService(List.of(tool)).llmTools(context).getFirst(), new Parameters("value"));
+        Object result = execute(new ToolService(List.of(tool)).createLlmTools(context).getFirst(), new Parameters("value"));
 
         assertThat(result).isEqualTo("value");
         assertThat(receivedContext).hasValue(context);
@@ -46,7 +46,7 @@ class ToolServiceTest {
     void rejectsMissingRequestContext() {
         ToolService service = new ToolService(List.of(new TestTool("fetch_things")));
 
-        assertThatThrownBy(() -> service.llmTools(null))
+        assertThatThrownBy(() -> service.createLlmTools(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Tool execution context is required");
     }

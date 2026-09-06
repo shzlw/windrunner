@@ -3,6 +3,7 @@ package com.windrunner.server.notification;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.notification.api.UserNotificationView;
+import com.windrunner.server.notification.api.NotificationPage;
 import com.windrunner.server.notification.domain.UserNotification;
 import com.windrunner.server.notification.persistence.UserNotificationRepository;
 import com.windrunner.server.user.persistence.AppUserRepository;
@@ -57,7 +58,7 @@ public class NotificationService {
         if (recipientUserIds == null || recipientUserIds.isEmpty() || changeSummaries == null || changeSummaries.isEmpty()) {
             return;
         }
-        String message = actorLabel(actorUserId) + " " + String.join(", ", changeSummaries) + " on “" + title + "”.";
+        String message = getActorLabel(actorUserId) + " " + String.join(", ", changeSummaries) + " on “" + title + "”.";
         recipientUserIds.stream().filter(userId -> userId != null && !userId.isBlank()).distinct().forEach(userId ->
                 notifications.insert(
                         ids.generate(EntityIdType.USER_NOTIFICATION),
@@ -70,7 +71,7 @@ public class NotificationService {
                         message));
     }
 
-    private String actorLabel(String actorUserId) {
+    private String getActorLabel(String actorUserId) {
         return users.findById(actorUserId)
                 .map(user -> {
                     if (user.getDisplayName() != null && !user.getDisplayName().isBlank())
@@ -101,6 +102,4 @@ public class NotificationService {
         notifications.markAllRead(userId);
     }
 
-    public record NotificationPage(List<UserNotificationView> items, long unreadCount, long totalItems) {
-    }
 }

@@ -27,7 +27,7 @@ public class SearchWorkItemsForBlockerTool {
                 "Search this project for WorkItems that may be relevant blockers. Use a focused query derived from the current WorkItem; only returned IDs may be proposed as blockers.",
                 Parameters.class,
                 parameters -> {
-                    if (parameters == null || blank(parameters.query())) return List.of();
+                    if (parameters == null || isBlank(parameters.query())) return List.of();
                     List<WorkItem> results = projectSearch.search(
                                     projectId, parameters.query(), AiReviewLimits.MAX_SEARCH_RESULTS)
                             .workItems().stream()
@@ -40,7 +40,7 @@ public class SearchWorkItemsForBlockerTool {
                 true);
     }
 
-    private boolean blank(String value) {
+    private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
 

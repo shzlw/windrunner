@@ -5,6 +5,9 @@ import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.utils.JsonUtils;
 import com.windrunner.server.work.domain.Relationship;
 import com.windrunner.server.work.domain.WorkspaceChangeProposal;
+import com.windrunner.server.work.api.ChangeDraft;
+import com.windrunner.server.work.api.ProposalDraft;
+import com.windrunner.server.work.api.RelationshipDraft;
 import com.windrunner.server.work.persistence.WorkspaceChangeProposalRepository;
 import com.windrunner.server.work.persistence.WorkspaceChangeRepository;
 import org.junit.jupiter.api.Test;
@@ -75,13 +78,13 @@ class WorkspaceChangeProposalServiceTest {
 
         WorkspaceChangeProposalService workspaceChangeProposalService = new WorkspaceChangeProposalService(
                 workspaceChangeProposalRepository, workspaceChangeRepository, workItems, entries, relationships, entityIdGenerator);
-        var relationshipDraft = new WorkspaceChangeProposalService.RelationshipDraft(
+        var relationshipDraft = new RelationshipDraft(
                 null, null, null, null, null, requestedReason, null);
-        var changeDraft = new WorkspaceChangeProposalService.ChangeDraft(
+        var changeDraft = new ChangeDraft(
                 "RELATIONSHIP", "UPDATE", "relationship-1", null, "Update relationship", null, null,
                 relationshipDraft);
         workspaceChangeProposalService.create("project-1", "chat-1", "message-1", "Update it",
-                new WorkspaceChangeProposalService.ProposalDraft(List.of(changeDraft)));
+                new ProposalDraft(List.of(changeDraft)));
 
         ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
         verify(workspaceChangeRepository).insert(eq("change-1"), eq("proposal-1"), eq("project-1"), anyInt(),

@@ -1,17 +1,17 @@
 package com.windrunner.server.proposal.identity;
 
 import com.windrunner.server.proposal.ProposalHandler;
-import com.windrunner.server.proposal.ProposalService;
+import com.windrunner.server.proposal.ProposalDraft;
 import com.windrunner.server.proposal.ProposalWorkflow;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
 @Component
-public final class IdentityProposalWorkflow implements ProposalWorkflow<ProposalService.Draft> {
+public final class IdentityProposalWorkflow implements ProposalWorkflow<ProposalDraft> {
     public static final String WORKFLOW_TYPE = "IDENTITY";
 
-    private final Map<String, ProposalHandler<ProposalService.Draft>> handlers;
+    private final Map<String, ProposalHandler<ProposalDraft>> handlers;
 
     public IdentityProposalWorkflow(TeamProposalHandler team,
                                     TeamMembershipProposalHandler teamMembership,
@@ -19,21 +19,21 @@ public final class IdentityProposalWorkflow implements ProposalWorkflow<Proposal
                                     UserProfileProposalHandler userProfile,
                                     UserAccessProposalHandler userAccess) {
         this.handlers = Map.of(
-                team.entityType(), team,
-                teamMembership.entityType(), teamMembership,
-                projectMembership.entityType(), projectMembership,
-                userProfile.entityType(), userProfile,
-                userAccess.entityType(), userAccess);
+                team.getEntityType(), team,
+                teamMembership.getEntityType(), teamMembership,
+                projectMembership.getEntityType(), projectMembership,
+                userProfile.getEntityType(), userProfile,
+                userAccess.getEntityType(), userAccess);
     }
 
     @Override
-    public String workflowType() {
+    public String getWorkflowType() {
         return WORKFLOW_TYPE;
     }
 
     @Override
-    public ProposalHandler<ProposalService.Draft> handler(String entityType) {
-        ProposalHandler<ProposalService.Draft> handler = handlers.get(entityType);
+    public ProposalHandler<ProposalDraft> handler(String entityType) {
+        ProposalHandler<ProposalDraft> handler = handlers.get(entityType);
         if (handler == null)
             throw new IllegalArgumentException("Unsupported identity proposal entity type: " + entityType);
         return handler;

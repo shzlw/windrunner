@@ -95,7 +95,7 @@ public class ChatMessageController {
                 ? selectedWorkItemContext(targetProjectId(request), requestedContext)
                 : (contextProjects.isEmpty() ? selectedWorkItemContext(targetProjectId(request), requestedContext) : selectedProjectContext(contextProjects));
         context = appendGenericContexts(context, contextViews);
-        String targetProjectId = request == null ? null : blankToNull(request.targetProjectId());
+        String targetProjectId = request == null ? null : convertBlankToNull(request.targetProjectId());
         if (targetProjectId == null && contextProjects.size() == 1)
             targetProjectId = contextProjects.getFirst().getId();
         Project targetProject = targetProjectId == null ? null : projects.findById(targetProjectId).orElse(null);
@@ -111,7 +111,7 @@ public class ChatMessageController {
             long startNanos = System.nanoTime();
             try {
                 send(emitter, "started", new ChatStarted(titleFromMessage(sourceMessage.getContent())));
-                List<LlmTool<?>> availableTools = new ArrayList<>(toolRegistry.llmTools(toolContext));
+                List<LlmTool<?>> availableTools = new ArrayList<>(toolRegistry.createLlmTools(toolContext));
                 availableTools.add(findProjectsTool.forContext(toolContext));
                 availableTools.addAll(proposalTools.forMessage(toolContext, sourceMessage.getId()));
                 if (targetProject != null) availableTools.add(proposeWorkspaceChangesTool.forMessage(
@@ -249,7 +249,7 @@ public class ChatMessageController {
                 + ", type=" + item.getType() + ", status=" + item.getStatus()
                 + ", priority=" + Objects.toString(item.getPriority(), "Not set")
                 + ", due date=" + Objects.toString(item.getDueDate(), "Not set")
-                + ", assignees=" + workItems.assignees(item.getId()) + "]";
+                + ", assignees=" + workItems.findAssignees(item.getId()) + "]";
     }
 
     private String instructions(Project targetProject, ChatSession session, ChatMessage sourceMessage, String selectedContext, List<String> contextProjectIds) {
@@ -262,7 +262,7 @@ public class ChatMessageController {
                 .replace("{{selectedContext}}", selectedContext);
     }
 
-    private String blankToNull(String value) {
+    private String convertBlankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
 

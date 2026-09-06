@@ -94,7 +94,7 @@ public class AudioTranscriptionController {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "The audio file is too large");
         }
 
-        String extension = extension(file.getOriginalFilename());
+        String extension = getFileExtension(file.getOriginalFilename());
         if (!SUPPORTED_EXTENSIONS.contains(extension)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The audio format is not supported");
         }
@@ -110,7 +110,7 @@ public class AudioTranscriptionController {
         }
     }
 
-    private String extension(String filename) {
+    private String getFileExtension(String filename) {
         if (filename == null) {
             return "";
         }

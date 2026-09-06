@@ -29,7 +29,7 @@ public class WorkItemController {
     @GetMapping
     public ApiResponse<List<WorkItemView>> list(@PathVariable("projectId") String projectId, jakarta.servlet.http.HttpServletRequest request) {
         access.requireProjectRole(projectId, auth.requireCurrentUser(request), ProjectRoles.VIEWER);
-        return ApiResponse.success(service.views(service.list(projectId)));
+        return ApiResponse.success(service.buildViews(service.list(projectId)));
     }
 
     @GetMapping("/tree")
@@ -42,7 +42,7 @@ public class WorkItemController {
         access.requireProjectRole(projectId, auth.requireCurrentUser(request), ProjectRoles.VIEWER);
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.max(1, Math.min(size, 100));
-        List<WorkItemView> items = service.views(service.listPage(projectId, parentWorkItemId, normalizedPage, normalizedSize));
+        List<WorkItemView> items = service.buildViews(service.listPage(projectId, parentWorkItemId, normalizedPage, normalizedSize));
         long totalItems = service.countByParent(projectId, parentWorkItemId);
         return ApiResponse.page(items, normalizedPage, normalizedSize, totalItems, (int) Math.ceil(totalItems / (double) normalizedSize));
     }
@@ -62,14 +62,14 @@ public class WorkItemController {
         if (truncated) {
             descendants = descendants.subList(0, normalizedMaxItems);
         }
-        return ApiResponse.success(new WorkItemSubtreeView(service.views(descendants), truncated));
+        return ApiResponse.success(new WorkItemSubtreeView(service.buildViews(descendants), truncated));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<WorkItemView> get(@PathVariable("projectId") String projectId, @PathVariable("id") String id, jakarta.servlet.http.HttpServletRequest request) {
         access.requireProjectRole(projectId, auth.requireCurrentUser(request), ProjectRoles.VIEWER);
         WorkItem item = service.get(projectId, id);
-        return ApiResponse.success(new WorkItemView(item, service.assignees(id)));
+        return ApiResponse.success(new WorkItemView(item, service.findAssignees(id)));
     }
 
     @PostMapping
@@ -78,7 +78,7 @@ public class WorkItemController {
         AppUser actor = auth.requireCurrentUser(request);
         access.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
         WorkItem item = service.create(projectId, body.workItem(), body.assignees(), actor.getId());
-        return ApiResponse.success(new WorkItemView(item, service.assignees(item.getId())));
+        return ApiResponse.success(new WorkItemView(item, service.findAssignees(item.getId())));
     }
 
     @PutMapping("/{id}")
@@ -86,7 +86,7 @@ public class WorkItemController {
         AppUser actor = auth.requireCurrentUser(request);
         access.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
         WorkItem item = service.update(projectId, id, body.workItem(), body.assignees(), actor.getId());
-        return ApiResponse.success(new WorkItemView(item, service.assignees(id)));
+        return ApiResponse.success(new WorkItemView(item, service.findAssignees(id)));
     }
 
     @PutMapping("/{id}/move")
@@ -94,7 +94,7 @@ public class WorkItemController {
         AppUser actor = auth.requireCurrentUser(request);
         access.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
         WorkItem item = service.move(projectId, id, body, actor.getId());
-        return ApiResponse.success(new WorkItemView(item, service.assignees(id)));
+        return ApiResponse.success(new WorkItemView(item, service.findAssignees(id)));
     }
 
     @PostMapping("/{id}/ai-review")

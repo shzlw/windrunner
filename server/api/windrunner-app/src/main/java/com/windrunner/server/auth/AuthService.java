@@ -121,7 +121,7 @@ public class AuthService {
 
         PasswordPolicy.assertValid(request.getNewPassword());
 
-        Map<String, Object> before = authUserSnapshot(user);
+        Map<String, Object> before = createAuthUserSnapshot(user);
         var now = DateUtils.now();
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         user.setMustChangePassword(Boolean.FALSE);
@@ -138,7 +138,7 @@ public class AuthService {
         AppUser savedUser = findExistingUser(user.getId());
         revokeUserSessions(savedUser.getId());
         establishSession(savedUser, httpResponse);
-        Map<String, Object> after = authUserSnapshot(savedUser);
+        Map<String, Object> after = createAuthUserSnapshot(savedUser);
         auditLogService.logImmediately(new AuditLogEntry(
                 savedUser.getId(),
                 AuditActions.UPDATE,
@@ -147,9 +147,9 @@ public class AuthService {
                 null,
                 AuditOutcomes.SUCCESS,
                 "Changed password for user " + savedUser.getUsername(),
-                auditLogService.json(before),
-                auditLogService.json(after),
-                auditLogService.changes(before, after),
+                auditLogService.toJson(before),
+                auditLogService.toJson(after),
+                auditLogService.describeChanges(before, after),
                 null));
         return toAuthUserResponse(savedUser);
     }
@@ -343,10 +343,10 @@ public class AuthService {
                 null,
                 null,
                 null,
-                auditLogService.json(metadata)));
+                auditLogService.toJson(metadata)));
     }
 
-    private Map<String, Object> authUserSnapshot(AppUser user) {
+    private Map<String, Object> createAuthUserSnapshot(AppUser user) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("id", user.getId());
         snapshot.put("username", user.getUsername());

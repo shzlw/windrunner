@@ -10,8 +10,6 @@ import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectMembershipService;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.project.persistence.ProjectRepository;
-import com.windrunner.server.proposal.Proposal;
-import com.windrunner.server.proposal.ProposalRepository;
 import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.domain.TeamMember;
@@ -41,8 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.windrunner.server.proposal.ProposalService.Draft;
-import static com.windrunner.server.proposal.ProposalService.Kind;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
@@ -113,8 +109,8 @@ class ProposalServiceTest {
         return new ToolExecutionContext(actor, "session", List.of(projects));
     }
 
-    Draft teamMembership(String action, String role) {
-        return new Draft(action, "team", "user", null, null, role, null, null);
+    ProposalDraft teamMembership(String action, String role) {
+        return new ProposalDraft(action, "team", "user", null, null, role, null, null);
     }
 
     void memberTarget() {
@@ -135,7 +131,7 @@ class ProposalServiceTest {
         return m;
     }
 
-    Proposal stored(Draft draft, Kind kind, Map<String, String> before, Map<String, String> after) {
+    Proposal stored(ProposalDraft draft, ProposalKind kind, Map<String, String> before, Map<String, String> after) {
         Proposal p = new Proposal();
         p.setId("proposal");
         p.setKind(kind.name());
@@ -157,7 +153,7 @@ class ProposalServiceTest {
         source();
         actor.setGlobalRole("USER");
         doCallRealMethod().when(teamService).requireAdmin(actor);
-        fails(HttpStatus.FORBIDDEN, () -> proposalService.create(context(), "message", Kind.TEAM_MEMBERSHIP, List.of(teamMembership("ADD", "TEAM_MEMBER"))));
+        fails(HttpStatus.FORBIDDEN, () -> proposalService.create(context(), "message", ProposalKind.TEAM_MEMBERSHIP, List.of(teamMembership("ADD", "TEAM_MEMBER"))));
         verifyNoInteractions(appUserRepository, teamMemberRepository, proposalRepository);
     }
 
@@ -165,15 +161,15 @@ class ProposalServiceTest {
     void sessionOwnedBySomeoneElseIsRejectedBeforeReadingSource() {
         when(toolAuthorizationService.requireActor(any())).thenReturn(actor);
         when(authService.requireActiveActor(actor)).thenReturn(actor);
-        fails(HttpStatus.NOT_FOUND, () -> proposalService.create(context(), "message", Kind.TEAM_MEMBERSHIP, List.of(teamMembership("ADD", "TEAM_MEMBER"))));
+        fails(HttpStatus.NOT_FOUND, () -> proposalService.create(context(), "message", ProposalKind.TEAM_MEMBERSHIP, List.of(teamMembership("ADD", "TEAM_MEMBER"))));
         verifyNoInteractions(chatMessageRepository, proposalRepository, teamService);
     }
 
     @Test
     void projectOutsideContextIsRejectedEvenForAdmin() {
         source();
-        Draft draft = new Draft("ADD", null, "user", "other", "USER", "VIEWER", null, null);
-        fails(HttpStatus.FORBIDDEN, () -> proposalService.create(context("selected"), "message", Kind.PROJECT_MEMBERSHIP, List.of(draft)));
+        ProposalDraft draft = new ProposalDraft("ADD", null, "user", "other", "USER", "VIEWER", null, null);
+        fails(HttpStatus.FORBIDDEN, () -> proposalService.create(context("selected"), "message", ProposalKind.PROJECT_MEMBERSHIP, List.of(draft)));
         verifyNoInteractions(projectAccessService, proposalRepository, projectMemberRepository);
     }
 
@@ -181,8 +177,8 @@ class ProposalServiceTest {
     void projectOwnerCheckCannotBeBypassedByToolArguments() {
         source();
         doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN)).when(projectAccessService).requireProjectRole("project", actor, "OWNER");
-        Draft draft = new Draft("ADD", null, "user", "project", "USER", "VIEWER", null, null);
-        fails(HttpStatus.FORBIDDEN, () -> proposalService.create(context("project"), "message", Kind.PROJECT_MEMBERSHIP, List.of(draft)));
+        ProposalDraft draft = new ProposalDraft("ADD", null, "user", "project", "USER", "VIEWER", null, null);
+        fails(HttpStatus.FORBIDDEN, () -> proposalService.create(context("project"), "message", ProposalKind.PROJECT_MEMBERSHIP, List.of(draft)));
         verifyNoInteractions(proposalRepository, projectMemberRepository);
     }
 
@@ -191,7 +187,7 @@ class ProposalServiceTest {
         source();
         memberTarget();
         when(teamMemberRepository.findByTeamIdAndUserId("team", "user")).thenReturn(Optional.of(member("TEAM_MEMBER")));
-        fails(HttpStatus.CONFLICT, () -> proposalService.create(context(), "message", Kind.TEAM_MEMBERSHIP, List.of(teamMembership("ADD", "TEAM_OWNER"))));
+        fails(HttpStatus.CONFLICT, () -> proposalService.create(context(), "message", ProposalKind.TEAM_MEMBERSHIP, List.of(teamMembership("ADD", "TEAM_OWNER"))));
         verifyNoInteractions(proposalRepository);
     }
 
@@ -201,7 +197,7 @@ class ProposalServiceTest {
         memberTarget();
         when(teamMemberRepository.findByTeamIdAndUserId("team", "user")).thenReturn(Optional.of(member("TEAM_OWNER")));
         when(teamMemberRepository.countOwners("team")).thenReturn(1L);
-        fails(HttpStatus.BAD_REQUEST, () -> proposalService.create(context(), "message", Kind.TEAM_MEMBERSHIP, List.of(teamMembership("UPDATE", "TEAM_MEMBER"))));
+        fails(HttpStatus.BAD_REQUEST, () -> proposalService.create(context(), "message", ProposalKind.TEAM_MEMBERSHIP, List.of(teamMembership("UPDATE", "TEAM_MEMBER"))));
         verifyNoInteractions(proposalRepository);
     }
 
@@ -209,7 +205,7 @@ class ProposalServiceTest {
     void creationPersistsOnlyPendingProposalAndReturnsCompactResult() {
         source();
         memberTarget();
-        var result = proposalService.create(context(), "message", Kind.TEAM_MEMBERSHIP, List.of(teamMembership("ADD", "TEAM_MEMBER")));
+        var result = proposalService.create(context(), "message", ProposalKind.TEAM_MEMBERSHIP, List.of(teamMembership("ADD", "TEAM_MEMBER")));
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().status()).isEqualTo("PENDING");
         assertThat(result.getFirst().changedFields()).containsExactly("role");
@@ -222,7 +218,7 @@ class ProposalServiceTest {
     void revokedPermissionBlocksAcceptance() {
         session();
         actor.setGlobalRole("USER");
-        stored(teamMembership("ADD", "TEAM_MEMBER"), Kind.TEAM_MEMBERSHIP, Map.of(), Map.of());
+        stored(teamMembership("ADD", "TEAM_MEMBER"), ProposalKind.TEAM_MEMBERSHIP, Map.of(), Map.of());
         doCallRealMethod().when(teamService).requireAdmin(actor);
         fails(HttpStatus.FORBIDDEN, () -> proposalService.decide("session", "proposal", "ACCEPT", actor));
         verify(proposalRepository, never()).decide(anyString(), anyString(), anyString(), anyString());
@@ -241,7 +237,7 @@ class ProposalServiceTest {
         session();
         memberTarget();
         when(teamMemberRepository.findByTeamIdAndUserId("team", "user")).thenReturn(Optional.of(member("TEAM_MEMBER")));
-        stored(teamMembership("REMOVE", null), Kind.TEAM_MEMBERSHIP, Map.of("role", "TEAM_OWNER"), Map.of());
+        stored(teamMembership("REMOVE", null), ProposalKind.TEAM_MEMBERSHIP, Map.of("role", "TEAM_OWNER"), Map.of());
         fails(HttpStatus.CONFLICT, () -> proposalService.decide("session", "proposal", "ACCEPT", actor));
         verify(teamService, never()).removeMember(any(), any(), any());
         verify(proposalRepository, never()).decide(anyString(), anyString(), anyString(), anyString());
@@ -255,7 +251,7 @@ class ProposalServiceTest {
         before.put("role", null);
         Map<String, String> after = new LinkedHashMap<>(before);
         after.put("role", "TEAM_MEMBER");
-        Proposal p = stored(teamMembership("ADD", "TEAM_MEMBER"), Kind.TEAM_MEMBERSHIP, before, after);
+        Proposal p = stored(teamMembership("ADD", "TEAM_MEMBER"), ProposalKind.TEAM_MEMBERSHIP, before, after);
         when(proposalRepository.decide("proposal", "session", "admin", "APPLIED")).thenReturn(1);
         assertThat(proposalService.decide("session", "proposal", "ACCEPT", actor).status()).isEqualTo("APPLIED");
         verify(teamService).applyMembershipOptimistic(eq("team"), eq("user"), eq("TEAM_MEMBER"), eq("ADD"), isNull(), isNull(), same(actor));
@@ -267,7 +263,7 @@ class ProposalServiceTest {
     @Test
     void rejectDoesNotWriteUnderlyingRecord() {
         session();
-        stored(teamMembership("ADD", "TEAM_MEMBER"), Kind.TEAM_MEMBERSHIP, Map.of(), Map.of());
+        stored(teamMembership("ADD", "TEAM_MEMBER"), ProposalKind.TEAM_MEMBERSHIP, Map.of(), Map.of());
         when(proposalRepository.decide("proposal", "session", "admin", "REJECTED")).thenReturn(1);
         assertThat(proposalService.decide("session", "proposal", "REJECT", actor).status()).isEqualTo("REJECTED");
         verify(teamService, never()).addMember(any(), any(), any());
@@ -277,8 +273,8 @@ class ProposalServiceTest {
     @Test
     void profileToolCannotSmuggleGlobalRole() {
         source();
-        Draft d = new Draft("UPDATE", null, "user", null, null, null, null, Map.of("globalRole", "ADMIN"));
-        fails(HttpStatus.BAD_REQUEST, () -> proposalService.create(context(), "message", Kind.USER_PROFILE, List.of(d)));
+        ProposalDraft d = new ProposalDraft("UPDATE", null, "user", null, null, null, null, Map.of("globalRole", "ADMIN"));
+        fails(HttpStatus.BAD_REQUEST, () -> proposalService.create(context(), "message", ProposalKind.USER_PROFILE, List.of(d)));
         verify(userAdminService, never()).validateUpdate(any(), any(), any());
         verifyNoInteractions(proposalRepository);
     }
@@ -286,8 +282,8 @@ class ProposalServiceTest {
     @Test
     void adminCannotProposeGlobalRoleChanges() {
         source();
-        Draft d = new Draft("UPDATE", null, "user", null, null, null, null, Map.of("globalRole", "ADMIN"));
-        fails(HttpStatus.FORBIDDEN, () -> proposalService.create(context(), "message", Kind.USER_ACCESS, List.of(d)));
+        ProposalDraft d = new ProposalDraft("UPDATE", null, "user", null, null, null, null, Map.of("globalRole", "ADMIN"));
+        fails(HttpStatus.FORBIDDEN, () -> proposalService.create(context(), "message", ProposalKind.USER_ACCESS, List.of(d)));
         verifyNoInteractions(proposalRepository);
     }
 
@@ -297,8 +293,8 @@ class ProposalServiceTest {
         when(userAdminService.getUser("user", actor)).thenReturn(UserResponse.builder().id("user").username("alice")
                 .email("alice@example.com").displayName("Alice").title("Engineer").bio("Biography")
                 .timezone("UTC").status("ACTIVE").globalRole("USER").build());
-        Draft d = new Draft("UPDATE", null, "user", null, null, null, null, Map.of("title", ""));
-        proposalService.create(context(), "message", Kind.USER_PROFILE, List.of(d));
+        ProposalDraft d = new ProposalDraft("UPDATE", null, "user", null, null, null, null, Map.of("title", ""));
+        proposalService.create(context(), "message", ProposalKind.USER_PROFILE, List.of(d));
         ArgumentCaptor<UpdateUserRequest> request = ArgumentCaptor.forClass(UpdateUserRequest.class);
         verify(userAdminService).validateUpdate(eq("user"), request.capture(), same(actor));
         assertThat(request.getValue().getTitle()).isNull();

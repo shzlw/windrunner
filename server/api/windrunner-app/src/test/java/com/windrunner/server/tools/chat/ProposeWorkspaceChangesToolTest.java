@@ -3,6 +3,8 @@ package com.windrunner.server.tools.chat;
 import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.WorkspaceChangeProposalService;
+import com.windrunner.server.work.api.ChangeDraft;
+import com.windrunner.server.work.api.ProposalDraft;
 import com.windrunner.server.work.api.WorkspaceChangeProposalView;
 import org.junit.jupiter.api.Test;
 
@@ -19,11 +21,11 @@ class ProposeWorkspaceChangesToolTest {
         AtomicReference<String> chatSessionId = new AtomicReference<>();
         AtomicReference<String> sourceMessageId = new AtomicReference<>();
         AtomicReference<String> sourceText = new AtomicReference<>();
-        AtomicReference<WorkspaceChangeProposalService.ProposalDraft> receivedDraft = new AtomicReference<>();
+        AtomicReference<ProposalDraft> receivedDraft = new AtomicReference<>();
         WorkspaceChangeProposalService workspaceChangeProposalService = new WorkspaceChangeProposalService(null, null, null, null, null, null) {
             @Override
             public WorkspaceChangeProposalView create(String project, String session, String message, String text,
-                                                      WorkspaceChangeProposalService.ProposalDraft draft) {
+                                                      ProposalDraft draft) {
                 projectId.set(project);
                 chatSessionId.set(session);
                 sourceMessageId.set(message);
@@ -37,8 +39,8 @@ class ProposeWorkspaceChangesToolTest {
         var tool = new ProposeWorkspaceChangesTool(workspaceChangeProposalService).forMessage(
                 new ToolExecutionContext(actor, "session-1", List.of("project-1")),
                 "project-1", "session-1", "message-1", "Create a task");
-        var draft = new WorkspaceChangeProposalService.ProposalDraft(List.of(
-                new WorkspaceChangeProposalService.ChangeDraft(
+        var draft = new ProposalDraft(List.of(
+                new ChangeDraft(
                         "WORK_ITEM", "ADD", null, "new-task", "Create task", null, null, null)));
 
         assertThat(tool.handler().execute(draft)).isNull();

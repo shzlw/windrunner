@@ -194,20 +194,20 @@ public class ChatService {
         switch (entityType) {
             case "PROJECT" -> {
                 projectAccessService.requireProjectRole(entityId, actor, ProjectRoles.VIEWER);
-                Project project = projectRepository.findById(entityId).orElseThrow(() -> notFound("Project"));
+                Project project = projectRepository.findById(entityId).orElseThrow(() -> createNotFoundException("Project"));
                 return new ContextDescriptor(project.getName(), project.getId());
             }
             case "TEAM" -> {
-                Team team = teamRepository.findById(entityId).orElseThrow(() -> notFound("Team"));
+                Team team = teamRepository.findById(entityId).orElseThrow(() -> createNotFoundException("Team"));
                 return new ContextDescriptor(team.getName(), null);
             }
             case "USER" -> {
-                AppUser user = appUserRepository.findById(entityId).orElseThrow(() -> notFound("User"));
-                if (!UserStatuses.ACTIVE.equalsIgnoreCase(user.getStatus())) throw notFound("User");
+                AppUser user = appUserRepository.findById(entityId).orElseThrow(() -> createNotFoundException("User"));
+                if (!UserStatuses.ACTIVE.equalsIgnoreCase(user.getStatus())) throw createNotFoundException("User");
                 return new ContextDescriptor(user.getDisplayName() == null || user.getDisplayName().isBlank() ? user.getUsername() : user.getDisplayName(), null);
             }
             case "WORK_ITEM" -> {
-                WorkItem item = workItemRepository.findById(entityId).orElseThrow(() -> notFound("Work item"));
+                WorkItem item = workItemRepository.findById(entityId).orElseThrow(() -> createNotFoundException("Work item"));
                 projectAccessService.requireProjectRole(item.getProjectId(), actor, ProjectRoles.VIEWER);
                 return new ContextDescriptor(item.getTitle(), item.getProjectId());
             }
@@ -229,7 +229,7 @@ public class ChatService {
         }
     }
 
-    private ResponseStatusException notFound(String type) {
+    private ResponseStatusException createNotFoundException(String type) {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, type + " not found");
     }
 

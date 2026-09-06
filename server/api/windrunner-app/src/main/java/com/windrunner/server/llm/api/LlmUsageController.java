@@ -42,14 +42,14 @@ public class LlmUsageController {
         if (days != null && days < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "days must be a positive integer");
         }
-        List<String> projectIds = scopedProjectIds(actor, projectId);
+        List<String> projectIds = findScopedProjectIds(actor, projectId);
         OffsetDateTime since = days == null
                 ? OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC)
                 : OffsetDateTime.now().minusDays(days);
         return ApiResponse.success(llmUsageService.summarize(projectIds, since));
     }
 
-    private List<String> scopedProjectIds(AppUser actor, String projectId) {
+    private List<String> findScopedProjectIds(AppUser actor, String projectId) {
         if (projectId != null && !projectId.isBlank()) {
             projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
             return List.of(projectId);

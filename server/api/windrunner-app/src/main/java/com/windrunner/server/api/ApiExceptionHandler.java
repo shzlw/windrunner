@@ -36,7 +36,7 @@ public class ApiExceptionHandler {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.error(
                         ApiError.of("SERVICE_UNAVAILABLE", "The AI service is busy. Please try again shortly."),
-                        ApiMeta.request(requestId(request))
+                        ApiMeta.request(getRequestId(request))
                 ));
     }
 
@@ -53,8 +53,8 @@ public class ApiExceptionHandler {
                 .status(responseStatus)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.error(
-                        ApiError.of(errorCode(responseStatus), message),
-                        ApiMeta.request(requestId(request))
+                        ApiError.of(getErrorCode(responseStatus), message),
+                        ApiMeta.request(getRequestId(request))
                 ));
     }
 
@@ -66,7 +66,7 @@ public class ApiExceptionHandler {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.error(
                         ApiError.of("PAYLOAD_TOO_LARGE", "The uploaded file is too large."),
-                        ApiMeta.request(requestId(request))
+                        ApiMeta.request(getRequestId(request))
                 ));
     }
 
@@ -78,7 +78,7 @@ public class ApiExceptionHandler {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.error(
                         ApiError.of("NOT_FOUND", "Resource not found."),
-                        ApiMeta.request(requestId(request))
+                        ApiMeta.request(getRequestId(request))
                 ));
     }
 
@@ -96,7 +96,7 @@ public class ApiExceptionHandler {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.error(
                         ApiError.of("BAD_REQUEST", "Request is invalid."),
-                        ApiMeta.request(requestId(request))
+                        ApiMeta.request(getRequestId(request))
                 ));
     }
 
@@ -108,21 +108,21 @@ public class ApiExceptionHandler {
             return ResponseEntity.noContent().build();
         }
         log.error("Unhandled API error: method={} path={} requestId={}",
-                request.getMethod(), request.getRequestURI(), requestId(request), exception);
+                request.getMethod(), request.getRequestURI(), getRequestId(request), exception);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ApiResponse.error(
                         ApiError.of("INTERNAL_SERVER_ERROR", "An unexpected server error occurred."),
-                        ApiMeta.request(requestId(request))
+                        ApiMeta.request(getRequestId(request))
                 ));
     }
 
-    private String errorCode(HttpStatus status) {
+    private String getErrorCode(HttpStatus status) {
         return status.name();
     }
 
-    private String requestId(HttpServletRequest request) {
+    private String getRequestId(HttpServletRequest request) {
         String headerValue = request.getHeader("x-request-id");
         return headerValue == null || headerValue.isBlank() ? UUID.randomUUID().toString() : headerValue;
     }

@@ -95,7 +95,7 @@ public class OpenAIService implements LlmService {
                     }
 
                     @Override
-                    public void appendToolResults(List<AgentService.ToolResult> results) {
+                    public void appendToolResults(List<ToolResult> results) {
                         executedTool.set(!results.isEmpty());
                         results.forEach(result -> appendFunctionCallOutput(
                                 pendingInput.get(), result.toolCall(), result.output()));

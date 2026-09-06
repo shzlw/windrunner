@@ -373,6 +373,4 @@ public class AgentService {
     private record IndexedToolResult(int index, ToolResult result) {
     }
 
-    public record ToolResult(LlmToolCall toolCall, String output) {
-    }
 }

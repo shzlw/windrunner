@@ -30,7 +30,7 @@ public class WorkspaceChangeProposalController {
     public ApiResponse<WorkspaceChangeProposalView> decide(@PathVariable("projectId") String projectId,
                                                            @PathVariable("proposalId") String proposalId,
                                                            @PathVariable("changeId") String changeId,
-                                                           @RequestBody WorkspaceChangeProposalService.DecisionRequest body,
+                                                           @RequestBody DecisionRequest body,
                                                            jakarta.servlet.http.HttpServletRequest request) {
         AppUser actor = authService.requireCurrentUser(request);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);

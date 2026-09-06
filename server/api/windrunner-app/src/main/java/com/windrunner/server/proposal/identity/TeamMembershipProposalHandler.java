@@ -3,7 +3,8 @@ package com.windrunner.server.proposal.identity;
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.proposal.ProposalHandler;
 import com.windrunner.server.proposal.ProposalPreparedChange;
-import com.windrunner.server.proposal.ProposalService;
+import com.windrunner.server.proposal.ProposalDraft;
+import com.windrunner.server.proposal.ProposalKind;
 import com.windrunner.server.team.TeamRoles;
 import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.domain.Team;
@@ -18,40 +19,40 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.windrunner.server.proposal.identity.IdentityProposalSupport.*;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.*;
 
 @Component
 @RequiredArgsConstructor
-final class TeamMembershipProposalHandler implements ProposalHandler<ProposalService.Draft> {
+final class TeamMembershipProposalHandler implements ProposalHandler<ProposalDraft> {
     private final TeamService teamService;
     private final TeamMemberRepository teamMemberRepository;
     private final AppUserRepository appUserRepository;
 
     @Override
-    public String entityType() {
-        return ProposalService.Kind.TEAM_MEMBERSHIP.name();
+    public String getEntityType() {
+        return ProposalKind.TEAM_MEMBERSHIP.name();
     }
 
     @Override
-    public void authorize(ProposalService.Draft draft, AppUser actor) {
+    public void authorize(ProposalDraft draft, AppUser actor) {
         teamService.requireAdmin(actor);
     }
 
     @Override
-    public ProposalPreparedChange prepare(ProposalService.Draft draft, AppUser actor) {
-        String teamId = required(draft.teamId(), "Team ID");
-        String userId = required(draft.userId(), "User ID");
+    public ProposalPreparedChange prepare(ProposalDraft draft, AppUser actor) {
+        String teamId = requireValue(draft.teamId(), "Team ID");
+        String userId = requireValue(draft.userId(), "User ID");
         Team team = teamService.getTeam(teamId);
-        AppUser user = memberUser(userId);
+        AppUser user = requireMemberUser(userId);
         TeamMember existing = teamMemberRepository.findByTeamIdAndUserId(teamId, userId).orElse(null);
         String oldRole = existing == null ? null : existing.getRole();
-        membershipAction(draft.action(), oldRole);
-        String newRole = "REMOVE".equals(draft.action()) ? null : teamRole(draft.role());
+        validateMembershipAction(draft.action(), oldRole);
+        String newRole = "REMOVE".equals(draft.action()) ? null : normalizeTeamRole(draft.role());
         if (TeamRoles.TEAM_OWNER.equals(oldRole) && !TeamRoles.TEAM_OWNER.equals(newRole) && teamMemberRepository.countOwners(teamId) <= 1) {
-            throw bad("At least one team owner is required");
+            throw createBadRequestException("At least one team owner is required");
         }
 
-        Map<String, String> before = identity("teamId", teamId, "team", team.getName(), "userId", userId, "user", display(user));
+        Map<String, String> before = createIdentityMap("teamId", teamId, "team", team.getName(), "userId", userId, "user", getDisplayName(user));
         before.put("role", oldRole);
         putRevision(before, "updatedAt", team.getUpdatedAt());
         putRevision(before, "membershipUpdatedAt", existing == null ? null : existing.getUpdatedAt());
@@ -61,15 +62,15 @@ final class TeamMembershipProposalHandler implements ProposalHandler<ProposalSer
     }
 
     @Override
-    public void apply(ProposalService.Draft draft, ProposalPreparedChange prepared, AppUser actor) {
+    public void apply(ProposalDraft draft, ProposalPreparedChange prepared, AppUser actor) {
         teamService.applyMembershipOptimistic(draft.teamId(), draft.userId(), prepared.after().get("role"), draft.action(),
-                timestamp(prepared.before().get("updatedAt")), timestamp(prepared.before().get("membershipUpdatedAt")), actor);
+                parseTimestamp(prepared.before().get("updatedAt")), parseTimestamp(prepared.before().get("membershipUpdatedAt")), actor);
     }
 
-    private AppUser memberUser(String id) {
-        AppUser user = appUserRepository.findById(id).orElseThrow(() -> error(HttpStatus.NOT_FOUND, "User not found"));
+    private AppUser requireMemberUser(String id) {
+        AppUser user = appUserRepository.findById(id).orElseThrow(() -> createResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (AppRoles.isSuperAdmin(user.getGlobalRole())) {
-            throw bad("Super admin users cannot be members");
+            throw createBadRequestException("Super admin users cannot be members");
         }
         return user;
     }

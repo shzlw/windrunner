@@ -6,7 +6,7 @@ import com.windrunner.server.user.domain.AppUser;
  * Domain-specific validation and application for one proposal entity type.
  */
 public interface ProposalHandler<T> {
-    String entityType();
+    String getEntityType();
 
     void authorize(T change, AppUser actor);
 

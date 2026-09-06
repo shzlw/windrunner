@@ -66,7 +66,7 @@ public class SubscriptionService {
     public SubscriptionPageResponse listForUser(AppUser actor, int page, int size) {
         int normalizedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         long offset = (long) Math.max(page, 0) * normalizedSize;
-        List<String> projectIds = visibleProjectIds(actor);
+        List<String> projectIds = findVisibleProjectIds(actor);
         if (projectIds.isEmpty()) {
             return SubscriptionPageResponse.builder()
                     .items(List.of())
@@ -90,7 +90,7 @@ public class SubscriptionService {
                 .build();
     }
 
-    private List<String> visibleProjectIds(AppUser actor) {
+    private List<String> findVisibleProjectIds(AppUser actor) {
         if (AppRoles.isSuperAdmin(actor.getGlobalRole())) {
             return projectRepository.findAllByOrderByNameAscIdAsc().stream()
                     .map(Project::getId)

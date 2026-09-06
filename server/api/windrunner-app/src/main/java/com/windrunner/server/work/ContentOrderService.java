@@ -27,23 +27,23 @@ public class ContentOrderService {
     @Transactional
     public List<ContentOrderItem> reorder(String projectId, String parentWorkItemId, List<ContentOrderItemRef> requestedOrder) {
         if (requestedOrder == null || requestedOrder.stream().anyMatch(java.util.Objects::isNull)) {
-            throw WorkItemService.bad("Content order items are required");
+            throw WorkItemService.createBadRequestException("Content order items are required");
         }
         if (parentWorkItemId != null && !workItems.existsInProject(parentWorkItemId, projectId)) {
-            throw WorkItemService.notFound("Parent work item not found");
+            throw WorkItemService.createNotFoundException("Parent work item not found");
         }
 
         var currentByKey = new HashMap<String, ContentOrderItem>();
-        contentItems(projectId, parentWorkItemId).forEach(item -> currentByKey.put(key(item.entityType(), item.entityId()), item));
+        findContentItems(projectId, parentWorkItemId).forEach(item -> currentByKey.put(buildContentKey(item.entityType(), item.entityId()), item));
 
-        List<String> requestedKeys = requestedOrder.stream().map(item -> key(
-                WorkItemService.enumValue(item.entityType(), WorkTypes.ENTITY_TYPES, "Content entity type"),
+        List<String> requestedKeys = requestedOrder.stream().map(item -> buildContentKey(
+                WorkItemService.normalizeEnumValue(item.entityType(), WorkTypes.ENTITY_TYPES, "Content entity type"),
                 item.entityId())).toList();
         Set<String> currentKeys = currentByKey.keySet();
         if (requestedKeys.size() != currentKeys.size()
                 || new HashSet<>(requestedKeys).size() != requestedKeys.size()
                 || !currentKeys.equals(new HashSet<>(requestedKeys))) {
-            throw WorkItemService.bad("Content order must include every item in the parent exactly once");
+            throw WorkItemService.createBadRequestException("Content order must include every item in the parent exactly once");
         }
 
         return applyOrder(projectId, requestedKeys.stream().map(currentByKey::get).toList());
@@ -56,30 +56,30 @@ public class ContentOrderService {
     public void moveWorkItem(String projectId, String workItemId, String sourceParentWorkItemId, String destinationParentWorkItemId,
                              String beforeEntityType, String beforeEntityId) {
         if (destinationParentWorkItemId != null && !workItems.existsInProject(destinationParentWorkItemId, projectId)) {
-            throw WorkItemService.notFound("Parent work item not found");
+            throw WorkItemService.createNotFoundException("Parent work item not found");
         }
 
-        List<ContentOrderItem> sourceItems = contentItems(projectId, sourceParentWorkItemId);
+        List<ContentOrderItem> sourceItems = findContentItems(projectId, sourceParentWorkItemId);
         ContentOrderItem movingItem = sourceItems.stream()
                 .filter(item -> "WORK_ITEM".equals(item.entityType()) && workItemId.equals(item.entityId()))
                 .findFirst()
-                .orElseThrow(() -> WorkItemService.notFound("Work item not found"));
+                .orElseThrow(() -> WorkItemService.createNotFoundException("Work item not found"));
         List<ContentOrderItem> destinationItems = java.util.Objects.equals(sourceParentWorkItemId, destinationParentWorkItemId)
                 ? new ArrayList<>(sourceItems)
-                : contentItems(projectId, destinationParentWorkItemId);
+                : findContentItems(projectId, destinationParentWorkItemId);
         sourceItems.removeIf(item -> "WORK_ITEM".equals(item.entityType()) && workItemId.equals(item.entityId()));
         destinationItems.removeIf(item -> "WORK_ITEM".equals(item.entityType()) && workItemId.equals(item.entityId()));
 
         int destinationIndex = destinationItems.size();
-        if (!WorkItemService.blank(beforeEntityId)) {
-            String beforeKey = key(WorkItemService.enumValue(beforeEntityType, WorkTypes.ENTITY_TYPES, "Before content entity type"), beforeEntityId);
+        if (!WorkItemService.isBlank(beforeEntityId)) {
+            String beforeKey = buildContentKey(WorkItemService.normalizeEnumValue(beforeEntityType, WorkTypes.ENTITY_TYPES, "Before content entity type"), beforeEntityId);
             destinationIndex = indexOf(destinationItems, beforeKey);
-            if (destinationIndex < 0) throw WorkItemService.bad("Before content item is not in the destination");
+            if (destinationIndex < 0) throw WorkItemService.createBadRequestException("Before content item is not in the destination");
         }
         destinationItems.add(destinationIndex, movingItem);
 
         if (workItems.updateParentAndSortIndex(workItemId, projectId, destinationParentWorkItemId, 0) == 0) {
-            throw WorkItemService.notFound("Work item not found");
+            throw WorkItemService.createNotFoundException("Work item not found");
         }
         if (java.util.Objects.equals(sourceParentWorkItemId, destinationParentWorkItemId)) {
             applyOrder(projectId, destinationItems);
@@ -89,12 +89,12 @@ public class ContentOrderService {
         }
     }
 
-    private List<ContentOrderItem> contentItems(String projectId, String parentWorkItemId) {
+    private List<ContentOrderItem> findContentItems(String projectId, String parentWorkItemId) {
         List<ContentOrderItem> result = new ArrayList<>();
         workItems.findByParent(projectId, parentWorkItemId).forEach(item -> result.add(new ContentOrderItem("WORK_ITEM", item.getId(), item.getSortIndex())));
         if (parentWorkItemId != null)
             entries.findByWorkItemId(parentWorkItemId).forEach(entry -> result.add(new ContentOrderItem("ENTRY", entry.getId(), entry.getSortIndex())));
-        result.sort(java.util.Comparator.comparingInt(ContentOrderItem::sortIndex).thenComparing(item -> key(item.entityType(), item.entityId())));
+        result.sort(java.util.Comparator.comparingInt(ContentOrderItem::sortIndex).thenComparing(item -> buildContentKey(item.entityType(), item.entityId())));
         return result;
     }
 
@@ -112,12 +112,12 @@ public class ContentOrderService {
 
     private int indexOf(List<ContentOrderItem> items, String requestedKey) {
         for (int index = 0; index < items.size(); index++)
-            if (requestedKey.equals(key(items.get(index).entityType(), items.get(index).entityId()))) return index;
+            if (requestedKey.equals(buildContentKey(items.get(index).entityType(), items.get(index).entityId()))) return index;
         return -1;
     }
 
-    private String key(String entityType, String entityId) {
-        if (WorkItemService.blank(entityId)) throw WorkItemService.bad("Content entity id is required");
+    private String buildContentKey(String entityType, String entityId) {
+        if (WorkItemService.isBlank(entityId)) throw WorkItemService.createBadRequestException("Content entity id is required");
         return entityType + ":" + entityId;
     }
 }

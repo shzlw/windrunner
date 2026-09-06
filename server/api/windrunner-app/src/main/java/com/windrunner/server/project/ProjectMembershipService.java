@@ -65,7 +65,7 @@ public class ProjectMembershipService {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "UPSERT_MEMBER", "userId", userId, "role", role))));
+                auditLogService.toJson(Map.of("operation", "UPSERT_MEMBER", "userId", userId, "role", role))));
         return projectMember;
     }
 
@@ -90,7 +90,7 @@ public class ProjectMembershipService {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "REMOVE_MEMBER", "userId", userId))));
+                auditLogService.toJson(Map.of("operation", "REMOVE_MEMBER", "userId", userId))));
 
     }
 
@@ -127,7 +127,7 @@ public class ProjectMembershipService {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "ASSIGN_TEAM", "teamId", teamId, "role", role))));
+                auditLogService.toJson(Map.of("operation", "ASSIGN_TEAM", "teamId", teamId, "role", role))));
         return projectTeam;
     }
 
@@ -152,7 +152,7 @@ public class ProjectMembershipService {
                 null,
                 null,
                 null,
-                auditLogService.json(Map.of("operation", "UNASSIGN_TEAM", "teamId", teamId))));
+                auditLogService.toJson(Map.of("operation", "UNASSIGN_TEAM", "teamId", teamId))));
 
     }
 
@@ -192,7 +192,7 @@ public class ProjectMembershipService {
         }
         auditLogService.logAfterCommit(new AuditLogEntry(actor.getId(), AuditActions.UPDATE, AuditEntityTypes.PROJECT,
                 projectId, projectId, AuditOutcomes.SUCCESS, "Updated project member for " + project.getName(), null, null, null,
-                auditLogService.json(Map.of("operation", action + "_MEMBER", "userId", userId,
+                auditLogService.toJson(Map.of("operation", action + "_MEMBER", "userId", userId,
                         "role", Objects.toString(normalizedRole, "")))));
     }
 
@@ -234,7 +234,7 @@ public class ProjectMembershipService {
         }
         auditLogService.logAfterCommit(new AuditLogEntry(actor.getId(), AuditActions.UPDATE, AuditEntityTypes.PROJECT,
                 projectId, projectId, AuditOutcomes.SUCCESS, "Updated project team for " + project.getName(), null, null, null,
-                auditLogService.json(Map.of("operation", action + "_TEAM", "teamId", teamId,
+                auditLogService.toJson(Map.of("operation", action + "_TEAM", "teamId", teamId,
                         "role", Objects.toString(normalizedRole, "")))));
     }
 

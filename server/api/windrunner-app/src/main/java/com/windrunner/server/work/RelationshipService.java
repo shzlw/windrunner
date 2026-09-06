@@ -50,7 +50,7 @@ public class RelationshipService {
     }
 
     public Relationship findInAnyProject(String id) {
-        return relationships.findById(id).orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
+        return relationships.findById(id).orElseThrow(() -> WorkItemService.createNotFoundException("Relationship not found"));
     }
 
     @Transactional
@@ -69,7 +69,7 @@ public class RelationshipService {
         relationship.setId(id);
         relationships.insert(relationship.getId(), projectId, relationship.getFromEntityType(), relationship.getFromEntityId(), relationship.getToEntityType(), relationship.getToEntityId(), relationship.getType(), relationship.getReason(), relationship.getSourceEntryId(), actorId, searchNormalizer.normalize(relationship.getReason()));
         Relationship created = relationships.findById(relationship.getId()).orElseThrow();
-        auditLogService.logAfterCommit(audit(actorId, AuditActions.CREATE, created, null, snapshot(created)));
+        auditLogService.logAfterCommit(createAuditLogEntry(actorId, AuditActions.CREATE, created, null, createSnapshot(created)));
         if ("ACCEPTED_ANSWER".equals(relationship.getType())) {
             WorkItem question = workItems.get(projectId, relationship.getFromEntityId());
             if (!"ANSWERED".equals(question.getStatus())) {
@@ -83,61 +83,61 @@ public class RelationshipService {
 
     @Transactional
     public void delete(String projectId, String id, String actorId) {
-        Relationship current = relationships.findById(id).filter(r -> projectId.equals(r.getProjectId())).orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
-        Map<String, Object> before = snapshot(current);
+        Relationship current = relationships.findById(id).filter(r -> projectId.equals(r.getProjectId())).orElseThrow(() -> WorkItemService.createNotFoundException("Relationship not found"));
+        Map<String, Object> before = createSnapshot(current);
         relationships.deleteInProject(id, projectId);
-        auditLogService.logAfterCommit(audit(actorId, AuditActions.DELETE, current, before, null));
+        auditLogService.logAfterCommit(createAuditLogEntry(actorId, AuditActions.DELETE, current, before, null));
         notifyBlockerChanged(current, actorId, false);
     }
 
     @Transactional
     public Relationship updateReason(String projectId, String id, String reason, String actorId) {
-        Relationship relationship = relationships.findById(id).filter(r -> projectId.equals(r.getProjectId())).orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
-        String normalizedReason = WorkItemService.blank(reason) ? null : reason.trim();
-        Map<String, Object> before = snapshot(relationship);
+        Relationship relationship = relationships.findById(id).filter(r -> projectId.equals(r.getProjectId())).orElseThrow(() -> WorkItemService.createNotFoundException("Relationship not found"));
+        String normalizedReason = WorkItemService.isBlank(reason) ? null : reason.trim();
+        Map<String, Object> before = createSnapshot(relationship);
         if (relationships.updateReason(id, projectId, normalizedReason, searchNormalizer.normalize(normalizedReason)) == 0)
-            throw WorkItemService.notFound("Relationship not found");
-        Relationship updated = relationships.findById(id).filter(r -> projectId.equals(r.getProjectId())).orElseThrow(() -> WorkItemService.notFound("Relationship not found"));
-        auditLogService.logAfterCommit(audit(actorId, AuditActions.UPDATE, updated, before, snapshot(updated)));
+            throw WorkItemService.createNotFoundException("Relationship not found");
+        Relationship updated = relationships.findById(id).filter(r -> projectId.equals(r.getProjectId())).orElseThrow(() -> WorkItemService.createNotFoundException("Relationship not found"));
+        auditLogService.logAfterCommit(createAuditLogEntry(actorId, AuditActions.UPDATE, updated, before, createSnapshot(updated)));
         return updated;
     }
 
     private void normalize(String projectId, Relationship r) {
-        if (r == null) throw WorkItemService.bad("Relationship is required");
-        r.setFromEntityType(WorkItemService.enumValue(r.getFromEntityType(), WorkTypes.ENTITY_TYPES, "From entity type"));
-        r.setToEntityType(WorkItemService.enumValue(r.getToEntityType(), WorkTypes.ENTITY_TYPES, "To entity type"));
-        r.setType(WorkItemService.enumValue(r.getType(), WorkTypes.RELATIONSHIP_TYPES, "Relationship type"));
+        if (r == null) throw WorkItemService.createBadRequestException("Relationship is required");
+        r.setFromEntityType(WorkItemService.normalizeEnumValue(r.getFromEntityType(), WorkTypes.ENTITY_TYPES, "From entity type"));
+        r.setToEntityType(WorkItemService.normalizeEnumValue(r.getToEntityType(), WorkTypes.ENTITY_TYPES, "To entity type"));
+        r.setType(WorkItemService.normalizeEnumValue(r.getType(), WorkTypes.RELATIONSHIP_TYPES, "Relationship type"));
         requireEntity(projectId, r.getFromEntityType(), r.getFromEntityId());
         requireEntity(projectId, r.getToEntityType(), r.getToEntityId());
         if (r.getFromEntityType().equals(r.getToEntityType()) && r.getFromEntityId().equals(r.getToEntityId()))
-            throw WorkItemService.bad("A relationship cannot point to itself");
-        r.setReason(WorkItemService.blank(r.getReason()) ? null : r.getReason().trim());
+            throw WorkItemService.createBadRequestException("A relationship cannot point to itself");
+        r.setReason(WorkItemService.isBlank(r.getReason()) ? null : r.getReason().trim());
         if ("ACCEPTED_ANSWER".equals(r.getType())) validateAcceptedAnswer(projectId, r);
         if (r.getSourceEntryId() != null && !r.getSourceEntryId().isBlank())
-            entries.findById(r.getSourceEntryId()).filter(e -> projectId.equals(e.getProjectId())).orElseThrow(() -> WorkItemService.bad("Source entry must belong to the project"));
+            entries.findById(r.getSourceEntryId()).filter(e -> projectId.equals(e.getProjectId())).orElseThrow(() -> WorkItemService.createBadRequestException("Source entry must belong to the project"));
     }
 
     private void validateAcceptedAnswer(String projectId, Relationship relationship) {
         if (!"WORK_ITEM".equals(relationship.getFromEntityType()) || !"ENTRY".equals(relationship.getToEntityType())) {
-            throw WorkItemService.bad("An accepted answer must connect a question to an entry");
+            throw WorkItemService.createBadRequestException("An accepted answer must connect a question to an entry");
         }
         WorkItem question = workItems.get(projectId, relationship.getFromEntityId());
         if (!"QUESTION".equals(question.getType())) {
-            throw WorkItemService.bad("Only a question can have an accepted answer");
+            throw WorkItemService.createBadRequestException("Only a question can have an accepted answer");
         }
         Entry answer = entries.findById(relationship.getToEntityId())
                 .filter(entry -> projectId.equals(entry.getProjectId()))
-                .orElseThrow(() -> WorkItemService.bad("Accepted answer entry must belong to the project"));
+                .orElseThrow(() -> WorkItemService.createBadRequestException("Accepted answer entry must belong to the project"));
         if (!question.getId().equals(answer.getWorkItemId())) {
-            throw WorkItemService.bad("Accepted answer must belong to the question");
+            throw WorkItemService.createBadRequestException("Accepted answer must belong to the question");
         }
     }
 
     private void requireEntity(String projectId, String type, String id) {
-        if (WorkItemService.blank(id)) throw WorkItemService.bad("Relationship entity id is required");
+        if (WorkItemService.isBlank(id)) throw WorkItemService.createBadRequestException("Relationship entity id is required");
         if ("WORK_ITEM".equals(type)) workItems.get(projectId, id);
         else
-            entries.findById(id).filter(e -> projectId.equals(e.getProjectId())).orElseThrow(() -> WorkItemService.bad("Relationship entry must belong to the project"));
+            entries.findById(id).filter(e -> projectId.equals(e.getProjectId())).orElseThrow(() -> WorkItemService.createBadRequestException("Relationship entry must belong to the project"));
     }
 
     /**
@@ -169,7 +169,7 @@ public class RelationshipService {
         }
     }
 
-    private Map<String, Object> snapshot(Relationship r) {
+    private Map<String, Object> createSnapshot(Relationship r) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("type", r.getType());
         snapshot.put("fromEntityType", r.getFromEntityType());
@@ -180,7 +180,7 @@ public class RelationshipService {
         return snapshot;
     }
 
-    private AuditLogEntry audit(String actorId, String action, Relationship r, Map<String, Object> before, Map<String, Object> after) {
+    private AuditLogEntry createAuditLogEntry(String actorId, String action, Relationship r, Map<String, Object> before, Map<String, Object> after) {
         String summary = action + " relationship " + r.getType() + " (" + r.getFromEntityType() + " " + r.getFromEntityId() + " -> " + r.getToEntityType() + " " + r.getToEntityId() + ")";
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("relationshipType", r.getType());
@@ -189,6 +189,6 @@ public class RelationshipService {
         metadata.put("toEntityType", r.getToEntityType());
         metadata.put("toEntityId", r.getToEntityId());
         return new AuditLogEntry(actorId, action, AuditEntityTypes.RELATIONSHIP, r.getId(), r.getProjectId(), AuditOutcomes.SUCCESS, summary,
-                auditLogService.json(before), auditLogService.json(after), auditLogService.changes(before, after), auditLogService.json(metadata));
+                auditLogService.toJson(before), auditLogService.toJson(after), auditLogService.describeChanges(before, after), auditLogService.toJson(metadata));
     }
 }

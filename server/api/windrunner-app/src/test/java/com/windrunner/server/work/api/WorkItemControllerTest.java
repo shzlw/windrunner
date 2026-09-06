@@ -46,7 +46,7 @@ class WorkItemControllerTest {
 
         when(auth.requireCurrentUser(request)).thenReturn(actor);
         when(service.listPage(PROJECT_ID, "parent-1", 1, 25)).thenReturn(List.of(item));
-        when(service.views(List.of(item))).thenReturn(List.of(new WorkItemView(item, List.of())));
+        when(service.buildViews(List.of(item))).thenReturn(List.of(new WorkItemView(item, List.of())));
         when(service.countByParent(PROJECT_ID, "parent-1")).thenReturn(42L);
 
         var response = controller().listTree(PROJECT_ID, "parent-1", 1, 25, request);
@@ -71,7 +71,7 @@ class WorkItemControllerTest {
 
         when(auth.requireCurrentUser(request)).thenReturn(actor);
         when(service.listSubtree(PROJECT_ID, "root-1", 20, 1001)).thenReturn(List.of(item));
-        when(service.views(List.of(item))).thenReturn(List.of(new WorkItemView(item, List.of())));
+        when(service.buildViews(List.of(item))).thenReturn(List.of(new WorkItemView(item, List.of())));
 
         var response = controller().listTreeSubtree(PROJECT_ID, "root-1", 20, 1000, request);
 
