@@ -7,6 +7,7 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,12 +15,36 @@ import java.util.Optional;
 public interface ChatMessageRepository extends CrudRepository<ChatMessage, String> {
 
     @Query("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM chat_message
+                WHERE chat_session_id = :chatSessionId
+            )
+            """)
+    boolean hasMessagesForSession(@Param("chatSessionId") String chatSessionId);
+
+    @Query("""
             SELECT id, chat_session_id, role, content, created_at
             FROM chat_message
             WHERE chat_session_id = :chatSessionId
-            ORDER BY created_at ASC, id ASC
+            ORDER BY created_at DESC, id DESC
+            LIMIT :limit
             """)
-    List<ChatMessage> findBySessionIdOrdered(@Param("chatSessionId") String chatSessionId);
+    List<ChatMessage> findLatestPage(@Param("chatSessionId") String chatSessionId,
+                                     @Param("limit") int limit);
+
+    @Query("""
+            SELECT id, chat_session_id, role, content, created_at
+            FROM chat_message
+            WHERE chat_session_id = :chatSessionId
+              AND (created_at, id) < (:beforeCreatedAt, :beforeId)
+            ORDER BY created_at DESC, id DESC
+            LIMIT :limit
+            """)
+    List<ChatMessage> findPageBefore(@Param("chatSessionId") String chatSessionId,
+                                     @Param("beforeCreatedAt") OffsetDateTime beforeCreatedAt,
+                                     @Param("beforeId") String beforeId,
+                                     @Param("limit") int limit);
 
     @Query("""
             SELECT DISTINCT ON (chat_session_id) id, chat_session_id, role, content, created_at

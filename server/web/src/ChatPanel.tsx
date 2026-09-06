@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils'
 import { translateStatus, translateWorkItemType } from '@/i18n/labels'
 import useVoiceTranscription, { formatRecordingTime } from '@/hooks/use-voice-transcription'
 import {
-  getChatSession,
+  getChatSessionMessages,
   startNewChatSession,
   streamChatSession,
   type ChatContext,
@@ -30,6 +30,8 @@ import {
   type ChatSession,
   type IdentityProposal,
 } from '@/lib/api'
+
+const MESSAGE_PAGE_SIZE = 30
 
 type ChatMessageState = ApiChatMessage & {
   id: string
@@ -283,9 +285,16 @@ export default function ChatPanel({
   const [messages, setMessages] = useState<ChatMessageState[]>([])
   const [draft, setDraft] = useState(initialDraft ?? '')
   const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const [hasEarlierMessages, setHasEarlierMessages] = useState(false)
+  const [earlierMessagesCursor, setEarlierMessagesCursor] = useState<string | null>(null)
+  const [isLoadingEarlierMessages, setIsLoadingEarlierMessages] = useState(false)
+  const [hasNewMessages, setHasNewMessages] = useState(false)
   const [isStartingSession, setIsStartingSession] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const viewportRef = useRef<HTMLDivElement>(null)
+  const isAtBottomRef = useRef(true)
+  const forceScrollToLatestRef = useRef(false)
+  const preservedScrollRef = useRef<{ top: number; height: number } | null>(null)
   const composerFormRef = useRef<HTMLFormElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -318,11 +327,48 @@ export default function ChatPanel({
   )
 
   useEffect(() => {
-    const viewport = viewportRef.current
-    if (viewport) {
-      viewport.scrollTop = viewport.scrollHeight
+    if (isLoadingSession) {
+      return
     }
-  }, [messages])
+
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+
+    const shouldScrollToLatest = forceScrollToLatestRef.current
+    if (shouldScrollToLatest) {
+      window.requestAnimationFrame(() => {
+        const currentViewport = viewportRef.current
+        if (currentViewport) {
+          currentViewport.scrollTop = currentViewport.scrollHeight
+        }
+        forceScrollToLatestRef.current = false
+      })
+      return
+    }
+
+    const preservedScroll = preservedScrollRef.current
+    if (preservedScroll) {
+      preservedScrollRef.current = null
+      window.requestAnimationFrame(() => {
+        const currentViewport = viewportRef.current
+        if (currentViewport) {
+          currentViewport.scrollTop = preservedScroll.top + currentViewport.scrollHeight - preservedScroll.height
+        }
+      })
+      return
+    }
+
+    if (isAtBottomRef.current) {
+      window.requestAnimationFrame(() => {
+        const currentViewport = viewportRef.current
+        if (currentViewport && isAtBottomRef.current) {
+          currentViewport.scrollTop = currentViewport.scrollHeight
+        }
+      })
+    }
+  }, [isLoadingSession, messages])
 
   useEffect(() => {
     return () => abortControllerRef.current?.abort()
@@ -351,7 +397,7 @@ export default function ChatPanel({
 
     async function loadSession() {
       if (!sessionId) {
-        setMessages([])
+        resetMessagePagination()
         setIsLoadingSession(false)
         return
       }
@@ -363,13 +409,19 @@ export default function ChatPanel({
         setIsLoadingSession(false)
         return
       }
+      forceScrollToLatestRef.current = true
+      isAtBottomRef.current = true
+      preservedScrollRef.current = null
       setIsLoadingSession(true)
       try {
-        const session = await getChatSession(sessionId)
+        const page = await getChatSessionMessages(sessionId, { limit: MESSAGE_PAGE_SIZE })
         const requestStartedDuringLoad = isRequestInFlightRef.current && requestSessionIdRef.current === sessionId
         if (isMounted && !requestStartedDuringLoad) {
-          if (session) applySession(session)
-          else setMessages([])
+          setMessages(page.items.map(toMessageState))
+          setHasEarlierMessages(page.hasEarlier)
+          setEarlierMessagesCursor(page.beforeCursor ?? null)
+          setHasNewMessages(false)
+          isAtBottomRef.current = true
         }
       } catch (error) {
         if (isMounted) {
@@ -389,12 +441,76 @@ export default function ChatPanel({
     }
   }, [sessionId, t])
 
-  function applySession(session: ChatSession) {
-    setMessages(session.messages.map((message) => ({
+  function toMessageState(message: { id: string; role: 'user' | 'assistant'; content: string }) {
+    return {
       id: message.id,
       role: message.role,
       content: message.content,
-    })))
+    } satisfies ChatMessageState
+  }
+
+  function resetMessagePagination() {
+    setMessages([])
+    setHasEarlierMessages(false)
+    setEarlierMessagesCursor(null)
+    setHasNewMessages(false)
+    isAtBottomRef.current = true
+    forceScrollToLatestRef.current = false
+    preservedScrollRef.current = null
+  }
+
+  async function loadEarlierMessages() {
+    if (!sessionId || !earlierMessagesCursor || isLoadingEarlierMessages) {
+      return
+    }
+
+    const viewport = viewportRef.current
+    const previousScroll = viewport
+      ? { top: viewport.scrollTop, height: viewport.scrollHeight }
+      : null
+    setIsLoadingEarlierMessages(true)
+    try {
+      const page = await getChatSessionMessages(sessionId, {
+        limit: MESSAGE_PAGE_SIZE,
+        before: earlierMessagesCursor,
+      })
+      if (previousScroll) {
+        preservedScrollRef.current = previousScroll
+      }
+      setMessages((current) => {
+        const existingIds = new Set(current.map((message) => message.id))
+        const earlier = page.items.filter((message) => !existingIds.has(message.id)).map(toMessageState)
+        return [...earlier, ...current]
+      })
+      setHasEarlierMessages(page.hasEarlier)
+      setEarlierMessagesCursor(page.beforeCursor ?? null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('chat.failedLoadMessages'))
+    } finally {
+      setIsLoadingEarlierMessages(false)
+    }
+  }
+
+  function handleViewportScroll() {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+    const atBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 48
+    isAtBottomRef.current = atBottom
+    if (atBottom) {
+      setHasNewMessages(false)
+    }
+  }
+
+  function scrollToLatestMessage() {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+    isAtBottomRef.current = true
+    setHasNewMessages(false)
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
   }
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
@@ -418,10 +534,7 @@ export default function ChatPanel({
 
     const userMessage: ChatMessageState = { id: createMessageId(), role: 'user', content }
     const assistantMessage: ChatMessageState = { id: createMessageId(), role: 'assistant', content: '' }
-    const requestMessages = [...messages, userMessage].map(({ role, content: messageContent }) => ({
-      role,
-      content: messageContent,
-    }))
+    const requestMessages = [{ role: userMessage.role, content: userMessage.content }]
     const controller = new AbortController()
     let streamError: string | null = null
     let didFinish = false
@@ -430,12 +543,22 @@ export default function ChatPanel({
     async function syncPersistedResponse() {
       if (controller.signal.aborted) return false
       try {
-        const latestSession = await getChatSession(requestSessionId)
-        const lastMessage = latestSession.messages[latestSession.messages.length - 1]
-        const hasNewAssistantResponse = latestSession.messages.length > requestMessages.length
-          && lastMessage?.role === 'assistant'
+        const latestPage = await getChatSessionMessages(requestSessionId, { limit: MESSAGE_PAGE_SIZE })
+        const lastMessage = latestPage.items[latestPage.items.length - 1]
+        const hasNewAssistantResponse = lastMessage?.role === 'assistant'
         if (!hasNewAssistantResponse) return false
-        applySession(latestSession)
+        setMessages((current) => {
+          const merged = new Map(
+            current
+              .filter((message) => message.id !== userMessage.id && message.id !== assistantMessage.id)
+              .map((message) => [message.id, message] as const),
+          )
+          latestPage.items.forEach((message) => merged.set(message.id, toMessageState(message)))
+          return [...merged.values()]
+        })
+        if (!isAtBottomRef.current) {
+          setHasNewMessages(true)
+        }
         return true
       } catch {
         return false
@@ -465,12 +588,18 @@ export default function ChatPanel({
                 ? { ...message, content: message.content + data.text }
                 : message
             )))
+            if (!isAtBottomRef.current) {
+              setHasNewMessages(true)
+            }
           }
           if (eventName === 'error') {
             streamError = data.message ?? 'The response could not be completed.'
           }
           if (eventName === 'done') {
             didFinish = true
+            if (!isAtBottomRef.current) {
+              setHasNewMessages(true)
+            }
             setMessages((current) => current.map((message) => {
               if (message.id === userMessage.id && data.sourceMessageId) {
                 return { ...message, id: data.sourceMessageId }
@@ -641,7 +770,7 @@ export default function ChatPanel({
     try {
       const session = onCreateSession ? await onCreateSession() : await startNewChatSession()
       if (!session) return
-      applySession(session)
+      resetMessagePagination()
       setDraft('')
       onSessionStarted?.(session)
     } catch (error) {
@@ -652,11 +781,9 @@ export default function ChatPanel({
   }
 
   const proposalAnchors = new Map<number, IdentityProposal[]>()
-  const orphanProposals: IdentityProposal[] = []
   for (const proposal of identityProposalState.page?.items ?? []) {
     const sourceIndex = messages.findIndex((message) => message.id === proposal.sourceMessageId)
     if (sourceIndex < 0) {
-      orphanProposals.push(proposal)
       continue
     }
     const assistantIndex = sourceIndex + 1
@@ -725,7 +852,7 @@ export default function ChatPanel({
       ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col p-0">
-        <div ref={viewportRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        <div ref={viewportRef} onScroll={handleViewportScroll} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
           {isLoadingSession ? (
             <div className="flex h-full min-h-56 items-center justify-center text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -738,45 +865,61 @@ export default function ChatPanel({
               </div>
             </div>
           ) : (
-            messages.map((message, index) => (
-              <Fragment key={message.id}>
-                <Message align={message.role === 'user' ? 'end' : 'start'}>
-                  <MessageAvatar className="h-8 w-8 border bg-background">
-                    {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                  </MessageAvatar>
-                  <MessageContent>
-                    <Bubble
-                      align={message.role === 'user' ? 'end' : 'start'}
-                      variant={message.status === 'error' ? 'destructive' : message.role === 'user' ? 'default' : 'muted'}
-                    >
-                      <BubbleContent className="min-w-0">
-                        {message.status === 'error' ? (
-                          <span className="flex min-w-0 items-start gap-2">
-                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                            <span className="min-w-0">{message.content}</span>
-                          </span>
-                        ) : (
-                          message.content
-                            ? message.role === 'assistant'
-                              ? renderAssistantContent(message.content, t, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick)
-                              : <span className="whitespace-pre-wrap">{message.content}</span>
-                            : (
-                              <span className="flex min-h-5 items-center gap-2 text-sm leading-none text-muted-foreground">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span>{t('chat.thinking')}</span>
-                              </span>
-                            )
-                        )}
-                      </BubbleContent>
-                    </Bubble>
-                  </MessageContent>
-                </Message>
-                {proposalAnchors.get(index)?.length ? renderProposalCards(proposalAnchors.get(index)!) : null}
-              </Fragment>
-            ))
+            <>
+              {hasEarlierMessages ? (
+                <div className="flex justify-center py-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => void loadEarlierMessages()} disabled={isLoadingEarlierMessages}>
+                    {isLoadingEarlierMessages ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {isLoadingEarlierMessages ? t('chat.loadingEarlierMessages') : t('chat.loadEarlierMessages')}
+                  </Button>
+                </div>
+              ) : null}
+              {messages.map((message, index) => (
+                <Fragment key={message.id}>
+                  <Message align={message.role === 'user' ? 'end' : 'start'}>
+                    <MessageAvatar className="h-8 w-8 border bg-background">
+                      {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                    </MessageAvatar>
+                    <MessageContent>
+                      <Bubble
+                        align={message.role === 'user' ? 'end' : 'start'}
+                        variant={message.status === 'error' ? 'destructive' : message.role === 'user' ? 'default' : 'muted'}
+                      >
+                        <BubbleContent className="min-w-0">
+                          {message.status === 'error' ? (
+                            <span className="flex min-w-0 items-start gap-2">
+                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                              <span className="min-w-0">{message.content}</span>
+                            </span>
+                          ) : (
+                            message.content
+                              ? message.role === 'assistant'
+                                ? renderAssistantContent(message.content, t, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick)
+                                : <span className="whitespace-pre-wrap">{message.content}</span>
+                              : (
+                                <span className="flex min-h-5 items-center gap-2 text-sm leading-none text-muted-foreground">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <span>{t('chat.thinking')}</span>
+                                </span>
+                              )
+                          )}
+                        </BubbleContent>
+                      </Bubble>
+                    </MessageContent>
+                  </Message>
+                  {proposalAnchors.get(index)?.length ? renderProposalCards(proposalAnchors.get(index)!) : null}
+                </Fragment>
+              ))}
+              {hasNewMessages ? (
+                <div className="sticky bottom-2 flex justify-center">
+                  <Button type="button" size="sm" variant="secondary" onClick={scrollToLatestMessage}>
+                    {t('chat.newMessages')}
+                  </Button>
+                </div>
+              ) : null}
+            </>
           )}
           {identityProposalState.error ? <p role="alert" className="px-3 text-sm text-destructive">{identityProposalState.error}</p> : null}
-          {orphanProposals.length ? renderProposalCards(orphanProposals) : null}
           {identityProposalState.page?.hasMore ? (
             <div className="px-3">
               <Button variant="outline" size="sm" disabled={identityProposalState.loadingMore} onClick={() => void identityProposalState.loadMore()}>

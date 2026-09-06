@@ -75,7 +75,7 @@ public class ChatMessageController {
         if (llmService == null)
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI chat is unavailable");
 
-        List<LlmMessage> messages = validateMessages(request);
+        List<LlmMessage> requestedMessages = validateMessages(request);
         persistRequestedProjectContexts(session, user, actor, request == null ? null : request.projectIds());
         List<ChatSessionContext> sessionContexts = chatService.contextsForChat(session.getId(), user.userId(), actor);
         List<ChatSessionContextView> contextViews = chatService.listContexts(session.getId(), user.userId(), actor);
@@ -99,7 +99,11 @@ public class ChatMessageController {
         if (targetProjectId == null && contextProjects.size() == 1)
             targetProjectId = contextProjects.getFirst().getId();
         Project targetProject = targetProjectId == null ? null : projects.findById(targetProjectId).orElse(null);
-        ChatMessage sourceMessage = chatService.addMessage(session.getId(), "user", messages.getLast().content());
+        ChatMessage sourceMessage = chatService.addMessage(session.getId(), "user", requestedMessages.getLast().content());
+        List<LlmMessage> messages = chatService.findRecentMessagesForModel(session.getId(), MAX_MESSAGES).stream()
+                .map(message -> new LlmMessage(message.getRole(), message.getContent()))
+                .toList();
+        validateStoredMessages(messages);
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MILLIS);
         String usageProjectId = targetProject == null ? (contextProjects.isEmpty() ? null : contextProjects.getFirst().getId()) : targetProject.getId();
         final List<String> allowedProjectIds = contextProjectIds;
@@ -222,6 +226,19 @@ public class ChatMessageController {
         if (!"user".equals(request.messages().getLast().role()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The final chat message must be from the user");
         return List.copyOf(request.messages());
+    }
+
+    private void validateStoredMessages(List<LlmMessage> messages) {
+        int totalLength = 0;
+        for (LlmMessage message : messages) {
+            if (message == null || !ALLOWED_ROLES.contains(message.role()) || message.content() == null || message.content().isBlank())
+                throw new IllegalStateException("Stored chat history is invalid");
+            if (message.content().length() > MAX_MESSAGE_LENGTH)
+                throw new IllegalStateException("Stored chat message is too long");
+            totalLength += message.content().length();
+        }
+        if (totalLength > MAX_TOTAL_LENGTH)
+            throw new IllegalStateException("Stored chat history is too large");
     }
 
     private List<Project> requireContextProjects(List<String> projectIds, AppUser actor) {

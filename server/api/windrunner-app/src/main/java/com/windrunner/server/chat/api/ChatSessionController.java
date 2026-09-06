@@ -43,6 +43,15 @@ public class ChatSessionController {
         return ApiResponse.success(chatService.getSession(sessionId, user.userId(), actor));
     }
 
+    @GetMapping("/{sessionId}/messages")
+    public ApiResponse<ChatMessagePageView> messages(@PathVariable String sessionId,
+                                                     @RequestParam(defaultValue = "30") int limit,
+                                                     @RequestParam(required = false) String before,
+                                                     HttpServletRequest request) {
+        UserContext user = authService.requireUserContext(request);
+        return ApiResponse.success(chatService.getMessagePage(sessionId, user.userId(), limit, before));
+    }
+
     @PatchMapping("/{sessionId}/title")
     public ApiResponse<Void> rename(@PathVariable String sessionId,
                                     @RequestBody RenameChatSessionRequest body,

@@ -365,8 +365,14 @@ export interface ChatSession {
   id: string
   status: string
   createdAt?: string
-  messages: ChatSessionMessage[]
   contexts: ChatSessionContext[]
+}
+
+export interface ChatMessagePage {
+  items: ChatSessionMessage[]
+  hasEarlier: boolean
+  beforeCursor?: string | null
+  limit: number
 }
 
 export interface ChatSessionSummary {
@@ -891,6 +897,13 @@ export async function transcribeAudio(
 
 export async function getChatSession(sessionId: string): Promise<ChatSession> {
   return request<ChatSession>(`/internal-api/v1/chat-sessions/${sessionId}`, { method: 'GET' })
+}
+
+export async function getChatSessionMessages(sessionId: string, options: { limit?: number; before?: string } = {}): Promise<ChatMessagePage> {
+  const params = new URLSearchParams()
+  params.set('limit', String(options.limit ?? 30))
+  if (options.before) params.set('before', options.before)
+  return request<ChatMessagePage>(`/internal-api/v1/chat-sessions/${sessionId}/messages?${params.toString()}`, { method: 'GET' })
 }
 
 export async function listChatSessions(search = '', limit = 20, offset = 0): Promise<ChatSessionPage> {

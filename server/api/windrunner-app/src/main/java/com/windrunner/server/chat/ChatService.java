@@ -1,5 +1,6 @@
 package com.windrunner.server.chat;
 
+import com.windrunner.server.chat.api.ChatMessagePageView;
 import com.windrunner.server.chat.api.ChatSessionContextView;
 import com.windrunner.server.chat.api.ChatSessionPageView;
 import com.windrunner.server.chat.api.ChatSessionSummaryView;
@@ -32,6 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -60,7 +63,7 @@ public class ChatService {
     @Transactional
     public ChatSessionView createSession(String userId, AppUser actor) {
         ChatSession latestSession = sessionRepository.findLatestActiveByUserId(userId).orElse(null);
-        if (latestSession != null && messageRepository.findBySessionIdOrdered(latestSession.getId()).isEmpty()) {
+        if (latestSession != null && !messageRepository.hasMessagesForSession(latestSession.getId())) {
             return getSession(latestSession.getId(), userId, actor);
         }
 
@@ -80,6 +83,39 @@ public class ChatService {
     public ChatSessionView getSession(String sessionId, String userId, AppUser actor) {
         ChatSession session = requireSession(sessionId, userId);
         return toView(session, actor);
+    }
+
+    public ChatMessagePageView getMessagePage(String sessionId, String userId, int requestedLimit, String beforeCursor) {
+        requireSession(sessionId, userId);
+        int limit = Math.min(Math.max(requestedLimit, 1), 50);
+        int queryLimit = limit + 1;
+        List<ChatMessage> queriedMessages;
+        if (beforeCursor == null || beforeCursor.isBlank()) {
+            queriedMessages = messageRepository.findLatestPage(sessionId, queryLimit);
+        } else {
+            ChatMessageCursorUtils.Cursor cursor;
+            try {
+                cursor = ChatMessageCursorUtils.parse(beforeCursor);
+            } catch (IllegalArgumentException exception) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Message cursor is invalid");
+            }
+            queriedMessages = messageRepository.findPageBefore(sessionId, cursor.createdAt(), cursor.id(), queryLimit);
+        }
+
+        boolean hasEarlier = queriedMessages.size() > limit;
+        List<ChatMessage> page = new ArrayList<>(queriedMessages.stream().limit(limit).toList());
+        Collections.reverse(page);
+        String nextBeforeCursor = hasEarlier && !page.isEmpty()
+                ? ChatMessageCursorUtils.encode(page.getFirst())
+                : null;
+        return new ChatMessagePageView(page, hasEarlier, nextBeforeCursor, limit);
+    }
+
+    public List<ChatMessage> findRecentMessagesForModel(String sessionId, int requestedLimit) {
+        int limit = Math.min(Math.max(requestedLimit, 1), 50);
+        List<ChatMessage> messages = new ArrayList<>(messageRepository.findLatestPage(sessionId, limit));
+        Collections.reverse(messages);
+        return messages;
     }
 
     @Transactional
@@ -249,7 +285,7 @@ public class ChatService {
     }
 
     private ChatSessionView toView(ChatSession session, AppUser actor) {
-        return new ChatSessionView(session.getId(), session.getStatus(), session.getCreatedAt(), List.copyOf(messageRepository.findBySessionIdOrdered(session.getId())), listContexts(session.getId(), session.getUserId(), actor));
+        return new ChatSessionView(session.getId(), session.getStatus(), session.getCreatedAt(), listContexts(session.getId(), session.getUserId(), actor));
     }
 
     private record ContextDescriptor(String label, String projectId) {
