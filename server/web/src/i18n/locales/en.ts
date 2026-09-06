@@ -9,9 +9,8 @@ const en = {
   "reject": "Reject",
   "loadMore": "Load more proposals",
   "changes": "changes",
+  "changeNumber": "Change {{number}}",
   "notSet": "Not set",
-  "teamImpact": "Membership changes can change access to projects linked to this team.",
-  "projectImpact": "This changes the direct membership. Access through other memberships can remain.",
   "kinds": {
     "TEAM": "Team",
     "TEAM_MEMBERSHIP": "Team membership",

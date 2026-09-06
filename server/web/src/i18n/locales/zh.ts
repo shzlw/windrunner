@@ -9,9 +9,8 @@ const zh = {
   "reject": "拒绝",
   "loadMore": "加载更多提案",
   "changes": "项变更",
+  "changeNumber": "第 {{number}} 项变更",
   "notSet": "未设置",
-  "teamImpact": "成员变更可能会影响通过此团队获得的项目访问权限。",
-  "projectImpact": "此操作仅更改直接成员关系。通过其他成员关系获得的访问权限可能仍然保留。",
   "kinds": {
     "TEAM": "团队",
     "TEAM_MEMBERSHIP": "团队成员",
