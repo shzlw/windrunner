@@ -1,0 +1,107 @@
+---
+sidebar_position: 4
+title: Structured logging
+description: Configure Windrunner to write machine-readable JSON logs for observability platforms.
+---
+
+# Structured logging
+
+Windrunner uses Spring Boot's structured logging support. You can write one
+JSON object per log line to standard output and let your container or host log
+collector forward it to Elastic, Datadog, Loki, Splunk, OpenTelemetry, or
+another observability platform.
+
+The recommended production format is **Elastic Common Schema (ECS)**. It uses
+standard fields for timestamps, log levels, services, processes, and errors,
+which makes the same output useful across different logging agents.
+
+## Enable JSON logs
+
+Set the console format to `ecs` in `application.properties`:
+
+```properties
+logging.structured.format.console=ecs
+logging.structured.ecs.service.name=windrunner
+logging.structured.ecs.service.environment=production
+```
+
+The application writes JSON logs to standard output. In a container deployment,
+collect standard output with your normal container logging driver or agent.
+
+For a deployment that is configured only with environment variables, use
+Spring Boot's relaxed binding names:
+
+```bash
+LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs
+LOGGING_STRUCTURED_ECS_SERVICE_NAME=windrunner
+LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT=production
+```
+
+Restart the application after changing these values.
+
+## Use normal text logs
+
+Leave `logging.structured.format.console` unset to use Spring Boot's normal
+human-readable console format. This is usually more convenient for local
+development.
+
+You can also choose another built-in JSON format when a collector expects it:
+
+| Value | Format | Use when |
+| --- | --- | --- |
+| `ecs` | Elastic Common Schema | Recommended default for general observability. |
+| `logstash` | Logstash JSON | A Logstash pipeline expects Logstash field names. |
+| `gelf` | Graylog Extended Log Format | Logs are sent directly to a Graylog pipeline. |
+
+For example:
+
+```properties
+logging.structured.format.console=logstash
+```
+
+## File output
+
+If the deployment writes logs to a file, configure the file format separately:
+
+```properties
+logging.structured.format.file=ecs
+```
+
+The environment-variable form is:
+
+```bash
+LOGGING_STRUCTURED_FORMAT_FILE=ecs
+```
+
+Most container deployments should keep logs on standard output instead of
+writing application log files inside the container.
+
+## Docker Compose
+
+The tracked Compose file does not need to be edited. Create a local
+`docker-compose.override.yml` next to `docker-compose.yml` when you want JSON
+logs for a Compose deployment:
+
+```yaml
+services:
+  app:
+    environment:
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      LOGGING_STRUCTURED_ECS_SERVICE_NAME: windrunner
+      LOGGING_STRUCTURED_ECS_SERVICE_ENVIRONMENT: production
+```
+
+Start the deployment normally:
+
+```bash
+docker compose up -d
+```
+
+Then inspect one JSON event with:
+
+```bash
+docker compose logs --no-log-prefix app | head -n 1
+```
+
+See the official [Spring Boot structured logging reference](https://docs.spring.io/spring-boot/reference/features/logging.html#features.logging.structured)
+for the complete list of supported formats and customization properties.
