@@ -44,6 +44,19 @@ public interface LlmUsageRepository extends CrudRepository<LlmUsage, String> {
 
     @Query("""
             SELECT
+                COUNT(*) AS requests,
+                COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                COALESCE(SUM(CASE WHEN outcome = 'SUCCESS' THEN 1 ELSE 0 END), 0) AS successes,
+                COALESCE(AVG(duration_ms), 0)::float8 AS avg_duration_ms
+            FROM llm_usage
+            WHERE project_id IS NULL
+              AND created_at >= :since
+            """)
+    Optional<TotalsRow> summarizeUnscopedTotals(@Param("since") OffsetDateTime since);
+
+    @Query("""
+            SELECT
                 project_id AS project_id,
                 COUNT(*) AS requests,
                 COALESCE(SUM(input_tokens), 0) AS input_tokens,
@@ -58,6 +71,22 @@ public interface LlmUsageRepository extends CrudRepository<LlmUsage, String> {
             """)
     List<ProjectRow> summarizeByProject(@Param("projectIds") List<String> projectIds,
                                         @Param("since") OffsetDateTime since);
+
+    @Query("""
+            SELECT
+                project_id AS project_id,
+                COUNT(*) AS requests,
+                COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                COALESCE(SUM(CASE WHEN outcome = 'SUCCESS' THEN 1 ELSE 0 END), 0) AS successes,
+                COALESCE(AVG(duration_ms), 0)::float8 AS avg_duration_ms
+            FROM llm_usage
+            WHERE project_id IS NULL
+              AND created_at >= :since
+            GROUP BY project_id
+            ORDER BY requests DESC, project_id ASC NULLS LAST
+            """)
+    List<ProjectRow> summarizeUnscopedByProject(@Param("since") OffsetDateTime since);
 
     @Query("""
             SELECT
@@ -77,6 +106,21 @@ public interface LlmUsageRepository extends CrudRepository<LlmUsage, String> {
 
     @Query("""
             SELECT
+                feature AS feature,
+                COUNT(*) AS requests,
+                COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                COALESCE(SUM(CASE WHEN outcome = 'SUCCESS' THEN 1 ELSE 0 END), 0) AS successes
+            FROM llm_usage
+            WHERE project_id IS NULL
+              AND created_at >= :since
+            GROUP BY feature
+            ORDER BY requests DESC, feature ASC
+            """)
+    List<FeatureRow> summarizeUnscopedByFeature(@Param("since") OffsetDateTime since);
+
+    @Query("""
+            SELECT
                 provider AS provider,
                 model AS model,
                 COUNT(*) AS requests,
@@ -91,6 +135,22 @@ public interface LlmUsageRepository extends CrudRepository<LlmUsage, String> {
             """)
     List<ProviderRow> summarizeByProviderModel(@Param("projectIds") List<String> projectIds,
                                                @Param("since") OffsetDateTime since);
+
+    @Query("""
+            SELECT
+                provider AS provider,
+                model AS model,
+                COUNT(*) AS requests,
+                COALESCE(SUM(input_tokens), 0) AS input_tokens,
+                COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                COALESCE(SUM(CASE WHEN outcome = 'SUCCESS' THEN 1 ELSE 0 END), 0) AS successes
+            FROM llm_usage
+            WHERE project_id IS NULL
+              AND created_at >= :since
+            GROUP BY provider, model
+            ORDER BY requests DESC, provider ASC, model ASC
+            """)
+    List<ProviderRow> summarizeUnscopedByProviderModel(@Param("since") OffsetDateTime since);
 
     @Modifying
     @Query("""

@@ -11,7 +11,10 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -92,42 +95,80 @@ public class LlmUsageService {
     @Transactional(readOnly = true)
     public LlmUsageSummary summarize(List<String> projectIds, OffsetDateTime since) {
         if (projectIds.isEmpty()) {
-            return new LlmUsageSummary(
-                    new LlmUsageSummary.Totals(0, 0, 0, 0, 0.0, 0),
-                    List.of(),
-                    List.of(),
-                    List.of());
+            return emptySummary();
         }
-        LlmUsageRepository.TotalsRow totals = llmUsageRepository.summarizeTotals(projectIds, since)
-                .orElseGet(() -> new LlmUsageRepository.TotalsRow(0, 0, 0, 0, 0.0));
-        List<LlmUsageSummary.Project> byProject = llmUsageRepository.summarizeByProject(projectIds, since).stream()
-                .map(row -> new LlmUsageSummary.Project(
-                        row.projectId(),
-                        row.inputTokens(),
-                        row.outputTokens(),
-                        row.requests(),
-                        calculateFailureCount(row),
-                        calculateSuccessRate(row),
-                        Math.round(row.avgDurationMs())))
+        return createSummary(
+                llmUsageRepository.summarizeTotals(projectIds, since).orElseGet(this::emptyTotals),
+                llmUsageRepository.summarizeByProject(projectIds, since),
+                llmUsageRepository.summarizeByFeature(projectIds, since),
+                llmUsageRepository.summarizeByProviderModel(projectIds, since));
+    }
+
+    @Transactional(readOnly = true)
+    public LlmUsageSummary summarizeIncludingUnscoped(List<String> projectIds, OffsetDateTime since) {
+        LlmUsageRepository.TotalsRow scopedTotals = projectIds.isEmpty()
+                ? emptyTotals()
+                : llmUsageRepository.summarizeTotals(projectIds, since).orElseGet(this::emptyTotals);
+        LlmUsageRepository.TotalsRow unscopedTotals = llmUsageRepository.summarizeUnscopedTotals(since).orElseGet(this::emptyTotals);
+        return createSummary(
+                merge(scopedTotals, unscopedTotals),
+                mergeProjectRows(projectIds.isEmpty() ? List.of() : llmUsageRepository.summarizeByProject(projectIds, since), llmUsageRepository.summarizeUnscopedByProject(since)),
+                mergeFeatureRows(projectIds.isEmpty() ? List.of() : llmUsageRepository.summarizeByFeature(projectIds, since), llmUsageRepository.summarizeUnscopedByFeature(since)),
+                mergeProviderRows(projectIds.isEmpty() ? List.of() : llmUsageRepository.summarizeByProviderModel(projectIds, since), llmUsageRepository.summarizeUnscopedByProviderModel(since)));
+    }
+
+    private LlmUsageRepository.TotalsRow merge(LlmUsageRepository.TotalsRow left, LlmUsageRepository.TotalsRow right) {
+        long requests = left.requests() + right.requests();
+        double duration = requests == 0 ? 0.0
+                : ((left.avgDurationMs() * left.requests()) + (right.avgDurationMs() * right.requests())) / requests;
+        return new LlmUsageRepository.TotalsRow(requests, left.inputTokens() + right.inputTokens(),
+                left.outputTokens() + right.outputTokens(), left.successes() + right.successes(), duration);
+    }
+
+    private List<LlmUsageRepository.ProjectRow> mergeProjectRows(List<LlmUsageRepository.ProjectRow> left,
+                                                                  List<LlmUsageRepository.ProjectRow> right) {
+        return Stream.concat(left.stream(), right.stream()).toList();
+    }
+
+    private List<LlmUsageRepository.FeatureRow> mergeFeatureRows(List<LlmUsageRepository.FeatureRow> left,
+                                                                  List<LlmUsageRepository.FeatureRow> right) {
+        Map<String, LlmUsageRepository.FeatureRow> rows = new LinkedHashMap<>();
+        Stream.concat(left.stream(), right.stream()).forEach(row -> rows.merge(row.feature(), row, this::merge));
+        return rows.values().stream().toList();
+    }
+
+    private List<LlmUsageRepository.ProviderRow> mergeProviderRows(List<LlmUsageRepository.ProviderRow> left,
+                                                                    List<LlmUsageRepository.ProviderRow> right) {
+        Map<String, LlmUsageRepository.ProviderRow> rows = new LinkedHashMap<>();
+        Stream.concat(left.stream(), right.stream()).forEach(row -> rows.merge(row.provider() + "\u0000" + row.model(), row, this::merge));
+        return rows.values().stream().toList();
+    }
+
+    private LlmUsageRepository.FeatureRow merge(LlmUsageRepository.FeatureRow left, LlmUsageRepository.FeatureRow right) {
+        return new LlmUsageRepository.FeatureRow(left.feature(), left.requests() + right.requests(),
+                left.inputTokens() + right.inputTokens(), left.outputTokens() + right.outputTokens(), left.successes() + right.successes());
+    }
+
+    private LlmUsageRepository.ProviderRow merge(LlmUsageRepository.ProviderRow left, LlmUsageRepository.ProviderRow right) {
+        return new LlmUsageRepository.ProviderRow(left.provider(), left.model(), left.requests() + right.requests(),
+                left.inputTokens() + right.inputTokens(), left.outputTokens() + right.outputTokens(), left.successes() + right.successes());
+    }
+
+    private LlmUsageSummary createSummary(LlmUsageRepository.TotalsRow totals,
+                                          List<LlmUsageRepository.ProjectRow> projectRows,
+                                          List<LlmUsageRepository.FeatureRow> featureRows,
+                                          List<LlmUsageRepository.ProviderRow> providerRows) {
+        List<LlmUsageSummary.Project> byProject = projectRows.stream()
+                .map(row -> new LlmUsageSummary.Project(row.projectId(), row.inputTokens(), row.outputTokens(), row.requests(),
+                        calculateFailureCount(row), calculateSuccessRate(row), Math.round(row.avgDurationMs())))
                 .toList();
-        List<LlmUsageSummary.Feature> byFeature = llmUsageRepository.summarizeByFeature(projectIds, since).stream()
-                .map(row -> new LlmUsageSummary.Feature(
-                        row.feature(),
-                        row.inputTokens(),
-                        row.outputTokens(),
-                        row.requests(),
-                        calculateFailureCount(row),
-                        calculateSuccessRate(row)))
+        List<LlmUsageSummary.Feature> byFeature = featureRows.stream()
+                .map(row -> new LlmUsageSummary.Feature(row.feature(), row.inputTokens(), row.outputTokens(), row.requests(),
+                        calculateFailureCount(row), calculateSuccessRate(row)))
                 .toList();
-        List<LlmUsageSummary.Provider> byProviderModel = llmUsageRepository.summarizeByProviderModel(projectIds, since).stream()
-                .map(row -> new LlmUsageSummary.Provider(
-                        row.provider(),
-                        row.model(),
-                        row.inputTokens(),
-                        row.outputTokens(),
-                        row.requests(),
-                        calculateFailureCount(row),
-                        calculateSuccessRate(row)))
+        List<LlmUsageSummary.Provider> byProviderModel = providerRows.stream()
+                .map(row -> new LlmUsageSummary.Provider(row.provider(), row.model(), row.inputTokens(), row.outputTokens(), row.requests(),
+                        calculateFailureCount(row), calculateSuccessRate(row)))
                 .toList();
         return new LlmUsageSummary(
                 new LlmUsageSummary.Totals(
@@ -140,6 +181,14 @@ public class LlmUsageService {
                 byProject,
                 byFeature,
                 byProviderModel);
+    }
+
+    private LlmUsageSummary emptySummary() {
+        return createSummary(emptyTotals(), List.of(), List.of(), List.of());
+    }
+
+    private LlmUsageRepository.TotalsRow emptyTotals() {
+        return new LlmUsageRepository.TotalsRow(0, 0, 0, 0, 0.0);
     }
 
     private static long calculateFailureCount(LlmUsageRepository.TotalsRow row) {

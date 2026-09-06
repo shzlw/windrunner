@@ -799,16 +799,46 @@ export interface LlmUsageSummary {
   byProviderModel: LlmUsageProvider[]
 }
 
+export interface AiAnalyticsEntitySummary {
+  entityType: string
+  changesProposed: number
+  changesAccepted: number
+  changesRejected: number
+  changesNeedsUpdate: number
+  changesPending: number
+}
+
+export interface AiAnalyticsSummary {
+  questionsAsked: number
+  questionsAnswered: number
+  proposalsCreated: number
+  changesProposed: number
+  changesAccepted: number
+  changesRejected: number
+  changesNeedsUpdate: number
+  changesPending: number
+  byEntity: AiAnalyticsEntitySummary[]
+}
+
 export async function getLlmUsage(projectId?: string, days?: number): Promise<LlmUsageSummary> {
   const params = new URLSearchParams()
   if (projectId) {
     params.set('projectId', projectId)
+  } else {
+    params.set('includeUnscoped', 'true')
   }
   if (days) {
     params.set('days', String(days))
   }
   const query = params.toString()
   return request<LlmUsageSummary>(`/internal-api/v1/llm-usage${query ? `?${query}` : ''}`, { method: 'GET' })
+}
+
+export async function getAiAnalytics(days?: number): Promise<AiAnalyticsSummary> {
+  const params = new URLSearchParams()
+  if (days) params.set('days', String(days))
+  const query = params.toString()
+  return request<AiAnalyticsSummary>(`/internal-api/v1/ai-analytics${query ? `?${query}` : ''}`, { method: 'GET' })
 }
 
 export async function streamChatSession(

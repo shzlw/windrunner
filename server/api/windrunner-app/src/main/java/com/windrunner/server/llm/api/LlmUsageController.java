@@ -32,10 +32,15 @@ public class LlmUsageController {
     private final ProjectAccessService projectAccessService;
     private final ProjectRepository projectRepository;
 
+    public ApiResponse<LlmUsageSummary> summarize(String projectId, Integer days, HttpServletRequest request) {
+        return summarize(projectId, days, false, request);
+    }
+
     @GetMapping
     public ApiResponse<LlmUsageSummary> summarize(
             @RequestParam(value = "projectId", required = false) String projectId,
             @RequestParam(value = "days", required = false) Integer days,
+            @RequestParam(value = "includeUnscoped", defaultValue = "false") boolean includeUnscoped,
             HttpServletRequest request
     ) {
         AppUser actor = authService.requireAdmin(request);
@@ -46,6 +51,8 @@ public class LlmUsageController {
         OffsetDateTime since = days == null
                 ? OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC)
                 : OffsetDateTime.now().minusDays(days);
+        if (includeUnscoped && (projectId == null || projectId.isBlank()))
+            return ApiResponse.success(llmUsageService.summarizeIncludingUnscoped(projectIds, since));
         return ApiResponse.success(llmUsageService.summarize(projectIds, since));
     }
 
