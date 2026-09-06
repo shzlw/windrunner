@@ -5,6 +5,7 @@ import {
   PERSON_LAST_NAMES,
   SEED_SCENARIOS,
   SEED_TEAMS,
+  deterministicName,
   type SeedScenario,
   type SeedTeam,
   type SeedWorkstream,
@@ -36,6 +37,7 @@ const USER_COUNT = positiveInteger('SEED_USERS', 50);
 const REQUESTED_TEAM_COUNT = positiveInteger('SEED_TEAMS', 20);
 const CONCURRENCY = positiveInteger('SEED_CONCURRENCY', 4);
 const NAME_SUFFIX = (process.env.SEED_NAME_SUFFIX ?? '').trim();
+const NAME_SEED = process.env.SEED_NAME_SEED?.trim() || NAME_SUFFIX || 'windrunner';
 
 const TASK_VERBS = ['Implement', 'Validate', 'Document', 'Harden', 'Test', 'Prepare', 'Reconcile', 'Automate'] as const;
 const TITLE_SCOPES = [
@@ -104,12 +106,13 @@ function workItemTitle(stream: SeedWorkstream, type: WorkItemType, sequence: num
   const subject = stream.subjects[sequence % stream.subjects.length];
   const context = stream.contexts[Math.floor(sequence / stream.subjects.length) % stream.contexts.length];
   const scope = TITLE_SCOPES[Math.floor(sequence / (stream.subjects.length * stream.contexts.length)) % TITLE_SCOPES.length];
-  if (type === 'NOTE') return `${subject} notes for ${context} ${scope}`;
-  if (type === 'QUESTION') return `Confirm whether ${subject} is ready for ${context} ${scope}`;
-  if (type === 'APPROVAL') return `Approve ${subject} for ${context} ${scope}`;
-  if (type === 'REVIEW') return `Review ${subject} in ${context} ${scope}`;
-  if (type === 'DECISION') return `Decide the ${subject} approach for ${context} ${scope}`;
-  return `${TASK_VERBS[sequence % TASK_VERBS.length]} ${subject} for ${context} ${scope}`;
+  const name = deterministicName(NAME_SEED, sequence);
+  if (type === 'NOTE') return `${subject} notes for ${context} ${scope} — ${name}`;
+  if (type === 'QUESTION') return `Confirm whether ${subject} is ready for ${context} ${scope} — ${name}`;
+  if (type === 'APPROVAL') return `Approve ${subject} for ${context} ${scope} — ${name}`;
+  if (type === 'REVIEW') return `Review ${subject} in ${context} ${scope} — ${name}`;
+  if (type === 'DECISION') return `Decide the ${subject} approach for ${context} ${scope} — ${name}`;
+  return `${TASK_VERBS[sequence % TASK_VERBS.length]} ${subject} for ${context} ${scope} — ${name}`;
 }
 
 function dueDate(status: WorkItemStatus, sequence: number) {

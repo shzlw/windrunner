@@ -123,3 +123,30 @@ export const PERSON_LAST_NAMES = [
   'Kim', 'Reyes', 'Okafor', 'Silva', 'Novak', 'Weber', 'Tanaka', 'Costa',
   'Patel', 'Morgan', 'Ibrahim', 'Nguyen',
 ] as const;
+
+const NAME_TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const NAME_TOKEN_LENGTH = 10;
+
+function hashSeed(seed: string, index: number) {
+  let hash = 2166136261;
+  const value = `${seed}:${index}`;
+  for (let character = 0; character < value.length; character++) {
+    hash ^= value.charCodeAt(character);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/** Returns a deterministic token that is unique for each index. */
+export function deterministicName(seed: string, index: number) {
+  let value = hashSeed(seed, index);
+  let token = '';
+  for (let character = 0; character < NAME_TOKEN_LENGTH; character++) {
+    value ^= value << 13;
+    value ^= value >>> 17;
+    value ^= value << 5;
+    value >>>= 0;
+    token += NAME_TOKEN_ALPHABET[value % NAME_TOKEN_ALPHABET.length];
+  }
+  return `${token}-${String(index + 1).padStart(4, '0')}`;
+}

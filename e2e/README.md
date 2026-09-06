@@ -117,6 +117,10 @@ Tunables: `SEED_PROJECTS` (2), `SEED_ITEMS` (2000), `SEED_USERS` (50),
 the four scenarios defined in `tests/support/seed-scenarios.ts`. A scenario may require
 more teams than a lower `SEED_TEAMS` value; required teams are always included.
 
+Generated work-item labels include a deterministic token. Set
+`SEED_NAME_SEED` to choose a different reproducible name sequence; it defaults to
+the intentional `SEED_NAME_SUFFIX`, or `windrunner` when no suffix is provided.
+
 When multiple seed sets must coexist, provide an intentional label such as
 `SEED_NAME_SUFFIX="Demo Blue"`. The suffix is added to team and project names
 and normalized for usernames and email addresses. It is never generated
