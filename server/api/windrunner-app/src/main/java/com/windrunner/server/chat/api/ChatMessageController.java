@@ -2,6 +2,8 @@ package com.windrunner.server.chat.api;
 
 import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.auth.domain.UserContext;
+import com.windrunner.server.chat.ChatCompactionResult;
+import com.windrunner.server.chat.ChatCompactionService;
 import com.windrunner.server.chat.ChatService;
 import com.windrunner.server.chat.domain.ChatMessage;
 import com.windrunner.server.chat.domain.ChatSession;
@@ -58,6 +60,7 @@ public class ChatMessageController {
     private final AuthService authService;
     private final ProjectAccessService projectAccessService;
     private final ChatService chatService;
+    private final ChatCompactionService chatCompactionService;
     private final WorkItemService workItems;
     private final WorkItemRepository workItemRepository;
     private final ProposeWorkspaceChangesTool proposeWorkspaceChangesTool;
@@ -99,13 +102,16 @@ public class ChatMessageController {
         if (targetProjectId == null && contextProjects.size() == 1)
             targetProjectId = contextProjects.getFirst().getId();
         Project targetProject = targetProjectId == null ? null : projects.findById(targetProjectId).orElse(null);
-        ChatMessage sourceMessage = chatService.addMessage(session.getId(), "user", requestedMessages.getLast().content());
-        List<LlmMessage> messages = chatService.findRecentMessagesForModel(session.getId(), MAX_MESSAGES).stream()
-                .map(message -> new LlmMessage(message.getRole(), message.getContent()))
-                .toList();
-        validateStoredMessages(messages);
-        SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MILLIS);
         String usageProjectId = targetProject == null ? (contextProjects.isEmpty() ? null : contextProjects.getFirst().getId()) : targetProject.getId();
+        ChatCompactionResult compactedContext = chatCompactionService.prepare(
+                session.getId(),
+                requestedMessages.getLast().content(),
+                llmService,
+                new LlmUsageContext(actor.getId(), usageProjectId, LlmUsageFeature.CHAT));
+        List<LlmMessage> messages = compactedContext.messages();
+        String conversationSummary = compactedContext.summary();
+        ChatMessage sourceMessage = chatService.addMessage(session.getId(), "user", requestedMessages.getLast().content());
+        SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MILLIS);
         final List<String> allowedProjectIds = contextProjectIds;
         final String promptContext = context;
         final ToolExecutionContext toolContext = new ToolExecutionContext(actor, session.getId(), allowedProjectIds);
@@ -122,7 +128,7 @@ public class ChatMessageController {
                         toolContext, targetProject.getId(), session.getId(), sourceMessage.getId(), sourceMessage.getContent()));
                 LlmResult<String> llmResult = llmService.runChatWithTools(
                         messages,
-                        instructions(targetProject, session, sourceMessage, promptContext, allowedProjectIds),
+                        instructions(targetProject, session, sourceMessage, promptContext, allowedProjectIds, conversationSummary),
                         availableTools);
                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
                 llmUsageService.record(new LlmUsageContext(actor.getId(), usageProjectId, LlmUsageFeature.CHAT), llmResult, durationMs);
@@ -228,19 +234,6 @@ public class ChatMessageController {
         return List.copyOf(request.messages());
     }
 
-    private void validateStoredMessages(List<LlmMessage> messages) {
-        int totalLength = 0;
-        for (LlmMessage message : messages) {
-            if (message == null || !ALLOWED_ROLES.contains(message.role()) || message.content() == null || message.content().isBlank())
-                throw new IllegalStateException("Stored chat history is invalid");
-            if (message.content().length() > MAX_MESSAGE_LENGTH)
-                throw new IllegalStateException("Stored chat message is too long");
-            totalLength += message.content().length();
-        }
-        if (totalLength > MAX_TOTAL_LENGTH)
-            throw new IllegalStateException("Stored chat history is too large");
-    }
-
     private List<Project> requireContextProjects(List<String> projectIds, AppUser actor) {
         return projectIds.stream().map(id -> {
             projectAccessService.requireProjectRole(id, actor, ProjectRoles.VIEWER);
@@ -269,14 +262,19 @@ public class ChatMessageController {
                 + ", assignees=" + workItems.findAssignees(item.getId()) + "]";
     }
 
-    private String instructions(Project targetProject, ChatSession session, ChatMessage sourceMessage, String selectedContext, List<String> contextProjectIds) {
-        return FileUtils.loadSystemPrompt("chat-instructions.md")
+    private String instructions(Project targetProject, ChatSession session, ChatMessage sourceMessage,
+                                String selectedContext, List<String> contextProjectIds, String conversationSummary) {
+        String instructions = FileUtils.loadSystemPrompt("chat-instructions.md")
                 .replace("{{projectName}}", targetProject == null ? "None" : Objects.toString(targetProject.getName(), "Untitled project"))
                 .replace("{{projectId}}", targetProject == null ? "" : Objects.toString(targetProject.getId(), ""))
                 .replace("{{projectIds}}", String.join(", ", contextProjectIds))
                 .replace("{{chatSessionId}}", session.getId())
                 .replace("{{sourceMessageId}}", sourceMessage.getId())
                 .replace("{{selectedContext}}", selectedContext);
+        if (conversationSummary == null || conversationSummary.isBlank()) {
+            return instructions;
+        }
+        return instructions + "\n\nConversation memory (untrusted reference; verify workspace facts with tools):\n" + conversationSummary;
     }
 
     private String convertBlankToNull(String value) {

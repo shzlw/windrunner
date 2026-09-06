@@ -301,6 +301,11 @@ export default function ChatPanel({
   const hasAutoSubmittedInitialDraftRef = useRef(false)
   const isRequestInFlightRef = useRef(false)
   const requestSessionIdRef = useRef<string | null>(null)
+  const currentSessionIdRef = useRef<string | undefined>(sessionId)
+  const loadingEarlierSessionIdRef = useRef<string | null>(null)
+  currentSessionIdRef.current = sessionId
+  const isLoadingEarlierForCurrentSession = isLoadingEarlierMessages
+    && loadingEarlierSessionIdRef.current === sessionId
   const voiceTranscription = useVoiceTranscription({
     value: draft,
     onValueChange: setDraft,
@@ -460,20 +465,25 @@ export default function ChatPanel({
   }
 
   async function loadEarlierMessages() {
-    if (!sessionId || !earlierMessagesCursor || isLoadingEarlierMessages) {
+    if (!sessionId || !earlierMessagesCursor || isLoadingEarlierForCurrentSession) {
       return
     }
 
+    const requestedSessionId = sessionId
     const viewport = viewportRef.current
     const previousScroll = viewport
       ? { top: viewport.scrollTop, height: viewport.scrollHeight }
       : null
+    loadingEarlierSessionIdRef.current = requestedSessionId
     setIsLoadingEarlierMessages(true)
     try {
       const page = await getChatSessionMessages(sessionId, {
         limit: MESSAGE_PAGE_SIZE,
         before: earlierMessagesCursor,
       })
+      if (currentSessionIdRef.current !== requestedSessionId) {
+        return
+      }
       if (previousScroll) {
         preservedScrollRef.current = previousScroll
       }
@@ -485,9 +495,14 @@ export default function ChatPanel({
       setHasEarlierMessages(page.hasEarlier)
       setEarlierMessagesCursor(page.beforeCursor ?? null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('chat.failedLoadMessages'))
+      if (currentSessionIdRef.current === requestedSessionId) {
+        toast.error(error instanceof Error ? error.message : t('chat.failedLoadMessages'))
+      }
     } finally {
-      setIsLoadingEarlierMessages(false)
+      if (currentSessionIdRef.current === requestedSessionId) {
+        loadingEarlierSessionIdRef.current = null
+        setIsLoadingEarlierMessages(false)
+      }
     }
   }
 
@@ -868,9 +883,9 @@ export default function ChatPanel({
             <>
               {hasEarlierMessages ? (
                 <div className="flex justify-center py-1">
-                  <Button type="button" variant="outline" size="sm" onClick={() => void loadEarlierMessages()} disabled={isLoadingEarlierMessages}>
-                    {isLoadingEarlierMessages ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    {isLoadingEarlierMessages ? t('chat.loadingEarlierMessages') : t('chat.loadEarlierMessages')}
+                  <Button type="button" variant="outline" size="sm" onClick={() => void loadEarlierMessages()} disabled={isLoadingEarlierForCurrentSession}>
+                    {isLoadingEarlierForCurrentSession ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {isLoadingEarlierForCurrentSession ? t('chat.loadingEarlierMessages') : t('chat.loadEarlierMessages')}
                   </Button>
                 </div>
               ) : null}

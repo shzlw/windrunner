@@ -8,9 +8,11 @@ import com.windrunner.server.chat.api.ChatSessionView;
 import com.windrunner.server.chat.domain.ChatMessage;
 import com.windrunner.server.chat.domain.ChatSession;
 import com.windrunner.server.chat.domain.ChatSessionContext;
+import com.windrunner.server.chat.domain.ChatSessionSummary;
 import com.windrunner.server.chat.persistence.ChatMessageRepository;
 import com.windrunner.server.chat.persistence.ChatSessionContextRepository;
 import com.windrunner.server.chat.persistence.ChatSessionRepository;
+import com.windrunner.server.chat.persistence.ChatSessionSummaryRepository;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.project.ProjectAccessService;
@@ -50,6 +52,7 @@ public class ChatService {
     private final ChatSessionRepository sessionRepository;
     private final ChatSessionContextRepository contextRepository;
     private final ChatMessageRepository messageRepository;
+    private final ChatSessionSummaryRepository summaryRepository;
     private final WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
     private final WorkspaceChangeRepository workspaceChangeRepository;
     private final EntityIdGenerator idGenerator;
@@ -155,6 +158,7 @@ public class ChatService {
         contextRepository.deleteBySessionId(sessionId);
         workspaceChangeRepository.deleteByChatSessionId(sessionId);
         workspaceChangeProposalRepository.deleteByChatSessionId(sessionId);
+        summaryRepository.deleteBySessionId(sessionId);
         messageRepository.deleteBySessionId(sessionId);
         if (sessionRepository.deleteSession(sessionId, userId) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chat session not found");
@@ -213,6 +217,27 @@ public class ChatService {
         }
         sessionRepository.touch(chatSessionId);
         return messageRepository.findByIdAndSessionId(id, chatSessionId).orElseThrow(() -> new IllegalStateException("Created chat message could not be loaded"));
+    }
+
+    @Transactional
+    public void saveChatSessionSummary(String sessionId, ChatSessionSummary currentSummary,
+                                       String summary, ChatMessage boundaryMessage) {
+        if (currentSummary == null) {
+            summaryRepository.insert(
+                    idGenerator.generate(EntityIdType.CHAT_SESSION_SUMMARY),
+                    sessionId,
+                    summary,
+                    boundaryMessage.getId(),
+                    boundaryMessage.getCreatedAt());
+            return;
+        }
+        if (summaryRepository.update(
+                currentSummary.getId(),
+                summary,
+                boundaryMessage.getId(),
+                boundaryMessage.getCreatedAt()) == 0) {
+            throw new IllegalStateException("Chat session summary could not be updated");
+        }
     }
 
     private ChatSession requireSession(String sessionId, String userId) {

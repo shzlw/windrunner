@@ -49,3 +49,17 @@ ALTER TABLE project_member
 
 ALTER TABLE project_team
     ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE TABLE chat_session_summary
+(
+    id                            TEXT PRIMARY KEY,
+    chat_session_id               TEXT        NOT NULL,
+    summary                       TEXT        NOT NULL,
+    summarized_through_message_id TEXT        NOT NULL,
+    summarized_through_created_at TIMESTAMPTZ NOT NULL,
+    created_at                    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at                    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX chat_session_summary_session_idx
+    ON chat_session_summary (chat_session_id);
