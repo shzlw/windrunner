@@ -63,3 +63,29 @@ CREATE TABLE chat_session_summary
 
 CREATE UNIQUE INDEX chat_session_summary_session_idx
     ON chat_session_summary (chat_session_id);
+
+CREATE TABLE calendar_event
+(
+    id                 TEXT PRIMARY KEY,
+    user_id            TEXT         NOT NULL,
+    event_type         VARCHAR(40)  NOT NULL,
+    title              VARCHAR(200) NOT NULL,
+    description        TEXT,
+    starts_at          TIMESTAMPTZ  NOT NULL,
+    ends_at            TIMESTAMPTZ  NOT NULL,
+    timezone           VARCHAR(100) NOT NULL,
+    all_day            BOOLEAN      NOT NULL DEFAULT FALSE,
+    show_as_busy       BOOLEAN      NOT NULL DEFAULT TRUE,
+    work_item_id       TEXT,
+    created_by_user_id TEXT         NOT NULL,
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CHECK (ends_at > starts_at)
+);
+
+CREATE INDEX calendar_event_user_time_idx
+    ON calendar_event (user_id, starts_at, ends_at, id);
+
+CREATE INDEX calendar_event_work_item_idx
+    ON calendar_event (work_item_id)
+    WHERE work_item_id IS NOT NULL;

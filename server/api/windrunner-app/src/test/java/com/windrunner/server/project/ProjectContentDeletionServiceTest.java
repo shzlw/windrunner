@@ -1,5 +1,6 @@
 package com.windrunner.server.project;
 
+import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.chat.persistence.ChatSessionContextRepository;
 import com.windrunner.server.notification.persistence.UserNotificationRepository;
 import com.windrunner.server.subscription.persistence.SubscriptionRepository;
@@ -32,11 +33,13 @@ class ProjectContentDeletionServiceTest {
     private ChatSessionContextRepository chatSessionContextRepository;
     @Mock
     private WorkItemRepository workItemRepository;
+    @Mock
+    private CalendarEventRepository calendarEventRepository;
 
     @Test
     void deletesProjectOwnedOperationalDataButNotHistoryTables() {
         new ProjectContentDeletionService(workspaceChangeRepository, workspaceChangeProposalRepository, workItemAssigneeRepository, relationshipRepository, entryRepository,
-                subscriptionRepository, userNotificationRepository, chatSessionContextRepository, workItemRepository).deleteProjectContent("proj-1");
+                subscriptionRepository, userNotificationRepository, chatSessionContextRepository, workItemRepository, calendarEventRepository).deleteProjectContent("proj-1");
 
         verify(workspaceChangeRepository).deleteByProjectId("proj-1");
         verify(workspaceChangeProposalRepository).deleteByProjectId("proj-1");
@@ -46,6 +49,7 @@ class ProjectContentDeletionServiceTest {
         verify(subscriptionRepository).deleteByProjectId("proj-1");
         verify(userNotificationRepository).deleteByProjectId("proj-1");
         verify(chatSessionContextRepository).deleteByEntity("PROJECT", "proj-1");
+        verify(calendarEventRepository).deleteByProjectId("proj-1");
         verify(workItemRepository).deleteByProjectId("proj-1");
     }
 }

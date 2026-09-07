@@ -89,6 +89,24 @@ public interface ProjectMemberRepository extends CrudRepository<ProjectMember, S
                         @Param("roles") List<String> roles);
 
     @Query("""
+            SELECT EXISTS(
+                SELECT 1
+                FROM project_member
+                WHERE project_id = :projectId
+                  AND user_id = :userId
+            )
+            OR EXISTS(
+                SELECT 1
+                FROM project_team pt
+                JOIN team_member tm ON tm.team_id = pt.team_id
+                WHERE pt.project_id = :projectId
+                  AND tm.user_id = :userId
+            )
+            """)
+    boolean isUserInProject(@Param("projectId") String projectId,
+                            @Param("userId") String userId);
+
+    @Query("""
             SELECT COUNT(*)
             FROM project_member
             WHERE project_id = :projectId

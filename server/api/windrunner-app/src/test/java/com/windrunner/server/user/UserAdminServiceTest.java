@@ -1,5 +1,6 @@
 package com.windrunner.server.user;
 
+import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.audit.AuditLogService;
 import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.auth.security.AppRoles;
@@ -53,6 +54,8 @@ class UserAdminServiceTest {
     private ProjectAccessService projectAccessService;
     @Mock
     private AuditLogService auditLogService;
+    @Mock
+    private CalendarEventRepository calendarEventRepository;
 
     private UserAdminService userAdminService;
 
@@ -68,7 +71,8 @@ class UserAdminServiceTest {
                 teamRepository,
                 projectAccessService,
                 auditLogService,
-                new EntityIdGenerator());
+                new EntityIdGenerator(),
+                calendarEventRepository);
     }
 
     @Test

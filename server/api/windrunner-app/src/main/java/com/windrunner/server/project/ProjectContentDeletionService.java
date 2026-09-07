@@ -1,5 +1,6 @@
 package com.windrunner.server.project;
 
+import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.chat.persistence.ChatSessionContextRepository;
 import com.windrunner.server.notification.persistence.UserNotificationRepository;
 import com.windrunner.server.subscription.persistence.SubscriptionRepository;
@@ -25,6 +26,7 @@ public class ProjectContentDeletionService {
     private final UserNotificationRepository userNotificationRepository;
     private final ChatSessionContextRepository chatSessionContextRepository;
     private final WorkItemRepository workItemRepository;
+    private final CalendarEventRepository calendarEventRepository;
 
     @Transactional
     public void deleteProjectContent(String projectId) {
@@ -36,6 +38,7 @@ public class ProjectContentDeletionService {
         subscriptionRepository.deleteByProjectId(projectId);
         userNotificationRepository.deleteByProjectId(projectId);
         chatSessionContextRepository.deleteByEntity("PROJECT", projectId);
+        calendarEventRepository.deleteByProjectId(projectId);
         workItemRepository.deleteByProjectId(projectId);
     }
 }

@@ -1,6 +1,7 @@
 package com.windrunner.server.work;
 
 import com.windrunner.server.audit.*;
+import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.notification.NotificationService;
@@ -32,6 +33,7 @@ import java.util.*;
 public class WorkItemService {
     private final WorkItemRepository workItems;
     private final WorkItemAssigneeRepository assignees;
+    private final CalendarEventRepository calendarEvents;
     private final ProjectMemberRepository projectMembers;
     private final ProjectTeamRepository projectTeams;
     private final TeamMemberRepository teamMembers;
@@ -182,6 +184,7 @@ public class WorkItemService {
         relationships.deleteForEntity(projectId, "WORK_ITEM", id);
         entries.deleteByWorkItemId(projectId, id);
         assignees.deleteByWorkItemId(id);
+        calendarEvents.deleteByWorkItemId(id);
         workItems.deleteInProject(id, projectId);
     }
 

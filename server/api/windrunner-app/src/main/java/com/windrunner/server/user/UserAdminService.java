@@ -3,6 +3,7 @@ package com.windrunner.server.user;
 import com.windrunner.server.audit.*;
 import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.auth.security.AppRoles;
+import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.project.ProjectAccessService;
@@ -50,6 +51,7 @@ public class UserAdminService {
     private final ProjectAccessService projectAccessService;
     private final AuditLogService auditLogService;
     private final EntityIdGenerator idGenerator;
+    private final CalendarEventRepository calendarEventRepository;
 
     public UserPageResponse listUsers(int page, int size, AppUser currentUser) {
         if (currentUser == null || !AppRoles.isAdminLike(currentUser.getGlobalRole())) {
@@ -309,6 +311,7 @@ public class UserAdminService {
         });
         projectMemberRepository.deleteByUserId(id);
         teamMemberRepository.deleteByUserId(id);
+        calendarEventRepository.deleteByUserId(id);
         authService.revokeUserSessions(id);
 
         int updated = appUserRepository.updateUserStatus(id, UserStatuses.INACTIVE, DateUtils.now());
