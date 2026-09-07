@@ -1405,6 +1405,11 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
   return request<TeamMember[]>(`/internal-api/v1/teams/${teamId}/members`, { method: 'GET' })
 }
 
+export async function listAssignableUsersForTeam(teamId: string, query = '', limit = 20): Promise<User[]> {
+  const params = new URLSearchParams({ query, limit: String(limit) })
+  return request<User[]>(`/internal-api/v1/teams/${teamId}/assignable-users?${params.toString()}`, { method: 'GET' })
+}
+
 
 export async function upsertTeamMember(teamId: string, userId: string, role: TeamMember['role']): Promise<TeamMember> {
   return request<TeamMember>(`/internal-api/v1/teams/${teamId}/members`, {

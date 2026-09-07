@@ -2,12 +2,15 @@ package com.windrunner.server.team.api;
 
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.auth.AuthService;
+import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.domain.ProjectTeam;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.domain.TeamJoinRequest;
 import com.windrunner.server.team.domain.TeamMember;
+import com.windrunner.server.user.api.UserResponse;
 import com.windrunner.server.user.domain.AppUser;
+import com.windrunner.server.user.persistence.AppUserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,6 +25,7 @@ public class TeamController {
 
     private final TeamService teamService;
     private final AuthService authService;
+    private final AppUserRepository appUserRepository;
 
     @GetMapping
     public ApiResponse<List<Team>> listTeams(HttpServletRequest request) {
@@ -63,6 +67,22 @@ public class TeamController {
         return ApiResponse.success(teamService.listMembers(id));
     }
 
+    @GetMapping("/{id}/assignable-users")
+    public ApiResponse<List<UserResponse>> listAssignableUsers(@PathVariable("id") String id,
+                                                                @RequestParam(name = "query", required = false) String query,
+                                                                @RequestParam(name = "limit", required = false, defaultValue = "20") int limit,
+                                                                HttpServletRequest request) {
+        AppUser actor = authService.requireAdmin(request);
+        teamService.getTeam(id);
+        String normalizedQuery = query == null || query.isBlank() ? null : query.trim();
+        int normalizedLimit = Math.max(1, Math.min(limit, 100));
+        return ApiResponse.success(appUserRepository.findAvailableUsersForTeam(id, normalizedQuery,
+                        AppRoles.isSuperAdmin(actor.getGlobalRole()), normalizedLimit)
+                .stream()
+                .map(this::toUserResponse)
+                .toList());
+    }
+
     @PostMapping("/{id}/members")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TeamMember> addMember(@PathVariable("id") String id,
@@ -79,6 +99,23 @@ public class TeamController {
         AppUser actor = authService.requireAdmin(request);
         teamService.removeMember(id, userId, actor);
         return ApiResponse.success();
+    }
+
+    private UserResponse toUserResponse(AppUser user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .displayName(user.getDisplayName())
+                .title(user.getTitle())
+                .bio(user.getBio())
+                .timezone(user.getTimezone())
+                .status(user.getStatus())
+                .globalRole(user.getGlobalRole())
+                .mustChangePassword(Boolean.TRUE.equals(user.getMustChangePassword()))
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
     }
 
     @GetMapping("/{id}/projects")

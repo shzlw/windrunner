@@ -83,6 +83,7 @@ const zh = {
     pageTitle: '团队', noTeams: '未找到团队', myRole: '我的角色', newTeam: '新建团队', teamOwners: '团队所有者', selectOwner: '选择所有者', addOwner: '添加团队所有者', removeOwner: '移除 {{name}} 的团队所有者身份', ownerRequired: '至少选择一名团队所有者。', nameRequired: '团队名称为必填项。', teamCreated: '团队已创建。', failedLoad: '加载团队失败。', failedCreate: '创建团队失败。', moreMembers: '另有 {{count}} 名成员', create: '创建',
   },
   teamDetails: {
+    noUsersFound: '未找到可用用户。', failedLoadUsers: '搜索用户失败。',
     requestAccess: '申请访问', joinRequests: '加入请求', basicInfo: '基本信息', selectUser: '选择用户', selectProject: '选择项目', noOwners: '未分配所有者。', noMembers: '未分配成员。', noProjects: '未关联项目。', noRequests: '没有待处理的请求。', removeMember: '移除团队成员？', unlinkProject: '取消关联项目？', approve: '批准', reject: '拒绝', teamNotFound: '未找到团队。', failedLoad: '加载团队失败。', failedUpdate: '更新团队失败。', teamUpdated: '团队已更新。', failedDelete: '删除团队失败。', teamDeleted: '团队已删除。', memberAdded: '成员已添加。', failedAddMember: '添加成员失败。', memberRemoved: '成员已移除。', failedRemoveMember: '移除成员失败。', projectLinked: '项目已关联。', failedLinkProject: '关联项目失败。', projectUnlinked: '项目已取消关联。', failedUnlinkProject: '取消项目关联失败。', joinSubmitted: '加入请求已提交。', failedJoin: '申请加入团队失败。', joinApproved: '加入请求已批准。', joinRejected: '加入请求已拒绝。', failedJoinUpdate: '更新加入请求失败。', owners: '所有者', noRoleAssigned: '未分配{{role}}。', deleteTeam: '删除团队？', deleteTeamDescription: '团队成员关系和项目关联将被移除。', deleteTeamConfirm: '删除团队', removeMemberDescription: '该用户将失去通过此团队获得的访问权限。', removeMemberAction: '移除成员', unlinkProjectDescription: '该团队将失去通过此关联获得的项目访问权限。', unlink: '取消关联', unlinkProjectAction: '取消关联项目',
   },
   projects: {
