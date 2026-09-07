@@ -2,6 +2,7 @@ package com.windrunner.server.audit.api;
 
 import com.windrunner.server.api.ApiResponse;
 import com.windrunner.server.audit.AuditLogEnrichmentService;
+import com.windrunner.server.audit.WorkItemTimelineService;
 import com.windrunner.server.audit.domain.AuditLog;
 import com.windrunner.server.audit.persistence.AuditLogRepository;
 import com.windrunner.server.auth.AuthService;
@@ -24,6 +25,7 @@ public class WorkItemAuditLogController {
     private final ProjectAccessService projectAccessService;
     private final WorkItemService workItemService;
     private final AuditLogEnrichmentService auditLogEnrichmentService;
+    private final WorkItemTimelineService workItemTimelineService;
 
     @GetMapping
     public ApiResponse<List<AuditLog>> listWorkItemAuditLogs(@PathVariable("projectId") String projectId,
@@ -48,6 +50,15 @@ public class WorkItemAuditLogController {
                 normalizedSize,
                 totalItems,
                 (int) Math.ceil(totalItems / (double) normalizedSize));
+    }
+
+    @GetMapping("/timeline")
+    public ApiResponse<List<WorkItemTimelineEvent>> listWorkItemTimeline(@PathVariable("projectId") String projectId,
+                                                                          @PathVariable("workItemId") String workItemId,
+                                                                          HttpServletRequest request) {
+        projectAccessService.requireProjectRole(projectId, authService.requireCurrentUser(request), ProjectRoles.VIEWER);
+        workItemService.get(projectId, workItemId);
+        return ApiResponse.success(workItemTimelineService.list(projectId, workItemId));
     }
 
 }

@@ -254,6 +254,24 @@ export interface AuditLogPageResponse {
   totalPages: number
 }
 
+export interface WorkItemTimelineAssignee {
+  assigneeType: 'USER' | 'TEAM'
+  assigneeId: string
+}
+
+export interface WorkItemTimelineEvent {
+  id: string
+  kind: 'CREATED' | 'ASSIGNMENT_CHANGED' | 'STARTED' | 'PAUSED' | 'RESUMED' | 'COMPLETED' | 'CLOSED' | 'REOPENED' | 'STATUS_CHANGED' | 'DUE_DATE_CHANGED' | 'DELETED'
+  occurredAt: string
+  actorUserId: string | null
+  fromStatus: string | null
+  toStatus: string | null
+  fromDueDate: string | null
+  toDueDate: string | null
+  addedAssignees: WorkItemTimelineAssignee[]
+  removedAssignees: WorkItemTimelineAssignee[]
+}
+
 export interface NodePageResponse {
   items: ProjectNode[]
   page: number
@@ -1349,6 +1367,10 @@ export async function listWorkItemAuditLogs(projectId: string, workItemId: strin
     totalItems: envelope.meta?.totalItems ?? envelope.data?.length ?? 0,
     totalPages: envelope.meta?.totalPages ?? 0,
   }
+}
+
+export async function listWorkItemTimeline(projectId: string, workItemId: string): Promise<WorkItemTimelineEvent[]> {
+  return request<WorkItemTimelineEvent[]>(`/internal-api/v1/projects/${projectId}/work-items/${workItemId}/audit-logs/timeline`, { method: 'GET' })
 }
 
 

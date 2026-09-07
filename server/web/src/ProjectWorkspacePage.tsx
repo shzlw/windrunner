@@ -5038,7 +5038,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
               ) : null}
 
               {inspectorMode === 'history' && selectedNode && projectId ? (
-                <WorkItemHistoryPanel key={selectedNode.id} projectId={projectId} workItemId={selectedNode.id} userLabels={userLabels} />
+                <WorkItemHistoryPanel key={selectedNode.id} projectId={projectId} workItemId={selectedNode.id} userLabels={userLabels} teamLabels={teamLabels} />
               ) : null}
 
               {inspectorMode === 'task' && selectedEntry ? (

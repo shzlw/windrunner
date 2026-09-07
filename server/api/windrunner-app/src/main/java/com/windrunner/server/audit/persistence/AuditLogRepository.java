@@ -20,6 +20,17 @@ public interface AuditLogRepository extends CrudRepository<AuditLog, String> {
     ) {
     }
 
+    record WorkItemTimelineRow(
+            String id,
+            OffsetDateTime occurredAt,
+            String actorUserId,
+            String action,
+            String beforeJson,
+            String afterJson,
+            String changesJson
+    ) {
+    }
+
     @Query("""
             SELECT entity_id AS work_item_id,
                    occurred_at,
@@ -31,6 +42,21 @@ public interface AuditLogRepository extends CrudRepository<AuditLog, String> {
             ORDER BY entity_id, occurred_at, id
             """)
     List<WorkItemStatusRow> findWorkItemStatusHistory(@Param("workItemIds") List<String> workItemIds);
+
+    @Query("""
+            SELECT id, occurred_at, actor_user_id, action,
+                   before_json::text AS before_json, after_json::text AS after_json,
+                   changes_json::text AS changes_json
+            FROM audit_log
+            WHERE project_id = :projectId
+              AND entity_type = 'WORK_ITEM'
+              AND entity_id = :workItemId
+            ORDER BY occurred_at, id
+            LIMIT :limit
+            """)
+    List<WorkItemTimelineRow> findWorkItemTimeline(@Param("projectId") String projectId,
+                                                   @Param("workItemId") String workItemId,
+                                                   @Param("limit") int limit);
 
     @Query("""
             SELECT id, occurred_at, actor_user_id, action, entity_type, entity_id, project_id,
