@@ -500,8 +500,11 @@ export default function TeamDetailsPage({ currentUser }: { currentUser: AuthUser
                       items={availableUsers}
                       value={selectedAssignableUser}
                       inputValue={memberSearch}
-                      onInputValueChange={(value) => {
+                      onInputValueChange={(value, { reason }) => {
                         setMemberSearch(value)
+                        if (reason === 'item-press') {
+                          return
+                        }
                         if (value !== displayUser(selectedAssignableUser, '')) {
                           setMemberUserId('')
                         }

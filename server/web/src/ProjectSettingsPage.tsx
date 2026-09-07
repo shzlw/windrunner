@@ -644,8 +644,11 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                         items={availableMemberUsers}
                         value={selectedAssignableUser}
                         inputValue={userSearch}
-                        onInputValueChange={(value) => {
+                        onInputValueChange={(value, { reason }) => {
                           setUserSearch(value)
+                          if (reason === 'item-press') {
+                            return
+                          }
                           if (value !== displayUser(selectedAssignableUser, '')) {
                             setAssignMemberUserId('')
                           }
@@ -688,8 +691,11 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                         items={availableTeams}
                         value={selectedAssignableTeam}
                         inputValue={teamSearch}
-                        onInputValueChange={(value) => {
+                        onInputValueChange={(value, { reason }) => {
                           setTeamSearch(value)
+                          if (reason === 'item-press') {
+                            return
+                          }
                           if (value !== selectedAssignableTeam?.name) {
                             setAssignTeamId('')
                           }

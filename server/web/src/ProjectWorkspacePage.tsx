@@ -4339,7 +4339,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       >
         <ResizablePanel id="project-tree" defaultSize="70" minSize="45">
           <section className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-          <div className="flex min-h-12 shrink-0 items-center gap-2 border-b p-3">
+          <div className="flex min-h-11 shrink-0 items-center gap-2 border-b px-3 py-2">
             <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden">
             <Popover>
               <PopoverTrigger
@@ -4624,7 +4624,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
           panelRef={inspectorPanelRef}
         >
           <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-            <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b px-3 py-2">
+            <div className="flex min-h-11 shrink-0 items-center justify-between gap-3 border-b px-3 py-1">
               <div className="inline-flex rounded-md border bg-background p-0.5" role="group" aria-label={t('workspace.inspectorMode')}>
                 <Button
                   type="button"
