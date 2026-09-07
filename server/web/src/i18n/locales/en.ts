@@ -267,7 +267,7 @@ const en = {
     monthsAgo: '{{count}}mo ago',
     yearsAgo: '{{count}}y ago',
   },
-  ask: {
+  aiAgent: {
     addContext: 'Add context',
     people: 'People',
     noMatchingProjects: 'No matching projects',
@@ -278,9 +278,9 @@ const en = {
     projectPrefix: 'Project:',
     aiUnavailable: 'AI is unavailable',
     aiUnavailableDescription: 'Configure an AI provider to start asking questions and generating artifacts.',
-    askAi: 'Ask AI',
+    title: 'AI Agent',
     failedLoadContext: 'Failed to load chat context.',
-    failedLoadAsk: 'Failed to load Ask.',
+    failedLoadAiAgent: 'Failed to load AI Agent.',
     failedLoadProjectContext: 'Failed to load project context.',
     maxProjects: 'You can add up to {{count}} projects as context.',
     failedUpdateContext: 'Failed to update context.',
@@ -955,8 +955,8 @@ const en = {
     caughtUp: 'You’re all caught up.',
   },
   pane: {
-    openAskAi: 'Open Ask AI',
-    expandAskAi: 'Expand Ask AI',
+    openAiAgent: 'Open AI Agent',
+    expandAiAgent: 'Expand AI Agent',
     workspacePanes: 'Workspace panes',
     chat: 'Chat',
     artifact: 'Artifact',
@@ -964,6 +964,7 @@ const en = {
   },
   navigation: {
     home: 'Home',
+    aiAgent: 'AI Agent',
     newChat: 'New chat',
     search: 'Search',
     recentConversations: 'Recent conversations',

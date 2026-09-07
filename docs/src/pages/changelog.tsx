@@ -21,11 +21,11 @@ export default function Changelog(): ReactNode {
               model choices, or connect Ollama to run supported models locally.
             </li>
             <li>
-              <strong>Voice dictation</strong>: Record messages from the Home and Ask AI
+              <strong>Voice dictation</strong>: Record messages from the Home and AI Agent
               composers and transcribe them with OpenAI or Gemini before sending.
             </li>
             <li>
-              <strong>Parallel tool calls</strong>: Ask AI can run independent read operations in
+              <strong>Parallel tool calls</strong>: AI Agent can run independent read operations in
               parallel, reducing wait time for questions that need several sources.
             </li>
             <li>
@@ -38,7 +38,7 @@ export default function Changelog(): ReactNode {
               the authenticated user and permitted projects and entities.
             </li>
             <li>
-              <strong>Ask AI refinements</strong>: Access Ask AI from the main sidebar, with
+              <strong>AI Agent refinements</strong>: Access AI Agent from the main sidebar, with
               smoother conversation renaming and deletion that keeps the list stable.
             </li>
           </ul>
@@ -55,7 +55,7 @@ export default function Changelog(): ReactNode {
           </p>
           <ul style={{marginTop: '1rem'}}>
             <li>
-              <strong>New Ask AI experience</strong>: A dedicated interface for AI conversations
+              <strong>New AI Agent experience</strong>: A dedicated interface for AI conversations
               across Windrunner.
             </li>
             <li>

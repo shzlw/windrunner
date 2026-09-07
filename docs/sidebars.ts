@@ -27,9 +27,9 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Guides',
-      link: {type: 'doc', id: 'guides/home-and-ask-ai'},
+      link: {type: 'doc', id: 'guides/home-and-ai-agent'},
       items: [
-        'guides/home-and-ask-ai',
+        'guides/home-and-ai-agent',
         'guides/ai-assistance',
         'guides/search-and-filtering',
         'guides/following-work',

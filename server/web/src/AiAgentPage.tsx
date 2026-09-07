@@ -13,12 +13,12 @@ import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ChatPanel, { type ChatWorkItemReference } from '@/ChatPanel'
 import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, listChatSessionContext, listNodes, listProjects, listTeams, loadSelectableUsers, type ChatSessionContext, type Project, type ProjectNode, type Team, type User } from '@/lib/api'
-import type { AskPageOutletContext } from './App'
+import type { AiAgentPageOutletContext } from './App'
 
 const maxSelectedProjects = 10
 type ContextType = 'projects' | 'teams' | 'users'
 
-type AskPageProps = {
+type AiAgentPageProps = {
   projectId?: string
   onGraphChangeProposalSaved?: () => void | Promise<void>
 }
@@ -46,7 +46,7 @@ function referencesForNodes(nodes: ProjectNode[]) {
   } satisfies ChatWorkItemReference]))
 }
 
-export default function AskPage({ projectId: routeProjectId, onGraphChangeProposalSaved }: AskPageProps = {}) {
+export default function AiAgentPage({ projectId: routeProjectId, onGraphChangeProposalSaved }: AiAgentPageProps = {}) {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
@@ -59,7 +59,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
     refreshChatSessions,
     createChatSession,
     onStreamingChange,
-  } = useOutletContext<AskPageOutletContext>()
+  } = useOutletContext<AiAgentPageOutletContext>()
   const hasLoadedSessionsRef = useRef(!isLoadingSessions)
   if (!isLoadingSessions) {
     hasLoadedSessionsRef.current = true
@@ -135,7 +135,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
         }
       })
       .catch((error) => {
-        if (isMounted) toast.error(error instanceof Error ? error.message : t('ask.failedLoadContext'))
+        if (isMounted) toast.error(error instanceof Error ? error.message : t('aiAgent.failedLoadContext'))
       })
     return () => { isMounted = false }
   }, [selectedSession?.id, t])
@@ -192,7 +192,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
         })
       } catch (error) {
         if (isMounted) {
-          toast.error(error instanceof Error ? error.message : t('ask.failedLoadAsk'))
+          toast.error(error instanceof Error ? error.message : t('aiAgent.failedLoadAiAgent'))
         }
       } finally {
         if (isMounted) {
@@ -222,7 +222,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
       .catch((error) => {
         if (isMounted) {
           setReferences(new Map())
-          toast.error(error instanceof Error ? error.message : t('ask.failedLoadProjectContext'))
+          toast.error(error instanceof Error ? error.message : t('aiAgent.failedLoadProjectContext'))
         }
       })
       .finally(() => {
@@ -242,7 +242,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
         return current.filter((currentProjectId) => currentProjectId !== projectId)
       }
       if (current.length >= maxSelectedProjects) {
-        toast.error(t('ask.maxProjects', { count: maxSelectedProjects }))
+        toast.error(t('aiAgent.maxProjects', { count: maxSelectedProjects }))
         return current
       }
       return [...current, projectId]
@@ -250,12 +250,12 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
     if (selectedSession?.id) {
       const existing = sessionContexts.find((context) => context.entityType === 'PROJECT' && context.entityId === projectId)
       if (existing) {
-        void deleteChatSessionContext(selectedSession.id, existing.id).catch((error) => toast.error(error instanceof Error ? error.message : t('ask.failedUpdateContext')))
+      void deleteChatSessionContext(selectedSession.id, existing.id).catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedUpdateContext')))
         setSessionContexts((current) => current.filter((context) => context.id !== existing.id))
       } else {
         void addChatSessionContext(selectedSession.id, 'PROJECT', projectId)
           .then((context) => setSessionContexts((current) => [...current, context]))
-          .catch((error) => toast.error(error instanceof Error ? error.message : t('ask.failedUpdateContext')))
+          .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedUpdateContext')))
       }
     }
   }
@@ -265,7 +265,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
     if (existing && selectedSession) {
       void deleteChatSessionContext(selectedSession.id, existing.id)
         .then(() => setSessionContexts((current) => current.filter((context) => context.id !== existing.id)))
-        .catch((error) => toast.error(error instanceof Error ? error.message : t('ask.failedUpdateContext')))
+          .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedUpdateContext')))
       return
     }
 
@@ -280,7 +280,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
 
     void addChatSessionContext(sessionId, 'TEAM', teamId)
       .then((context) => setSessionContexts((current) => [...current.filter((item) => item.id !== context.id), context]))
-      .catch((error) => toast.error(error instanceof Error ? error.message : t('ask.failedAddTeam')))
+      .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddTeam')))
   }
 
   async function toggleUser(userId: string) {
@@ -288,7 +288,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
     if (existing && selectedSession) {
       void deleteChatSessionContext(selectedSession.id, existing.id)
         .then(() => setSessionContexts((current) => current.filter((context) => context.id !== existing.id)))
-        .catch((error) => toast.error(error instanceof Error ? error.message : t('ask.failedUpdateContext')))
+        .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedUpdateContext')))
       return
     }
 
@@ -303,7 +303,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
 
     void addChatSessionContext(sessionId, 'USER', userId)
       .then((context) => setSessionContexts((current) => [...current.filter((item) => item.id !== context.id), context]))
-      .catch((error) => toast.error(error instanceof Error ? error.message : t('ask.failedAddUser')))
+        .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddUser')))
   }
 
   function removeProject(projectId: string) {
@@ -312,7 +312,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
     if (existing && selectedSession) {
       void deleteChatSessionContext(selectedSession.id, existing.id)
         .then(() => setSessionContexts((current) => current.filter((context) => context.id !== existing.id)))
-        .catch((error) => toast.error(error instanceof Error ? error.message : t('ask.failedRemoveContext')))
+        .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedRemoveContext')))
     }
   }
 
@@ -327,7 +327,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
           setSelectedProjectIds((current) => current.filter((projectId) => projectId !== context.entityId))
         }
       })
-      .catch((error) => toast.error(error instanceof Error ? error.message : t('ask.failedRemoveContext')))
+      .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedRemoveContext')))
   }
 
   function clearContexts() {
@@ -337,7 +337,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
     }
     const contexts = [...sessionContexts]
     contexts.forEach((context) => {
-      void deleteChatSessionContext(selectedSession.id, context.id).catch((error) => toast.error(error instanceof Error ? error.message : t('ask.failedClearContext')))
+      void deleteChatSessionContext(selectedSession.id, context.id).catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedClearContext')))
     })
     setSelectedProjectIds([])
     setSessionContexts([])
@@ -356,7 +356,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
   const hasContext = selectedProjects.length > 0 || sessionContexts.length > 0
 
   function showSessionError(error: unknown) {
-    toast.error(error instanceof Error ? error.message : t('ask.failedRefreshSessions'))
+    toast.error(error instanceof Error ? error.message : t('aiAgent.failedRefreshSessions'))
   }
 
   const projectContext = (
@@ -365,21 +365,21 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
         <Popover onOpenChange={(open) => { if (!open) setContextQuery('') }}>
           <PopoverTrigger
             render={(
-              <Button type="button" size={hasContext ? 'icon-xs' : 'xs'} variant="ghost" className="gap-1.5 text-muted-foreground" aria-label={t('ask.addContext')} title={t('ask.addContext')}>
+              <Button type="button" size={hasContext ? 'icon-xs' : 'xs'} variant="ghost" className="gap-1.5 text-muted-foreground" aria-label={t('aiAgent.addContext')} title={t('aiAgent.addContext')}>
                 <Plus className="h-3.5 w-3.5" />
-                <span className={hasContext ? 'sr-only' : undefined}>{t('ask.addContext')}</span>
+                <span className={hasContext ? 'sr-only' : undefined}>{t('aiAgent.addContext')}</span>
               </Button>
             )}
           />
           <PopoverContent align="start" className="w-[22rem] gap-0 p-0">
             <PopoverHeader className="border-b px-4 py-3">
-              <PopoverTitle>{t('ask.addContext')}</PopoverTitle>
+              <PopoverTitle>{t('aiAgent.addContext')}</PopoverTitle>
             </PopoverHeader>
             <Tabs value={contextType} onValueChange={(value) => { setContextType(value as ContextType); setContextQuery('') }}>
               <TabsList variant="line" className="w-full rounded-none border-b px-3">
                 <TabsTrigger value="projects">{t('common.projects')}</TabsTrigger>
                 <TabsTrigger value="teams">{t('navigation.teams')}</TabsTrigger>
-                <TabsTrigger value="users">{t('ask.people')}</TabsTrigger>
+                <TabsTrigger value="users">{t('aiAgent.people')}</TabsTrigger>
               </TabsList>
               <div className="border-b p-3">
                 <div className="relative">
@@ -396,7 +396,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
               <TabsContent value="projects" className="mt-0">
                 <div className="max-h-72 overflow-y-auto p-2">
                   {filteredProjects.length === 0 ? (
-                    <div className="py-6 text-center text-sm text-muted-foreground">{t('ask.noMatchingProjects')}</div>
+                    <div className="py-6 text-center text-sm text-muted-foreground">{t('aiAgent.noMatchingProjects')}</div>
                   ) : filteredProjects.map((project) => {
                     const isSelected = selectedProjectIds.includes(project.id)
                     return (
@@ -404,7 +404,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleProject(project.id)}
-                          aria-label={t('ask.useAsContext', { label: projectTitle(project, t('common.untitledProject')) })}
+                          aria-label={t('aiAgent.useAsContext', { label: projectTitle(project, t('common.untitledProject')) })}
                         />
                         <button
                           type="button"
@@ -421,7 +421,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
               <TabsContent value="teams" className="mt-0">
                 <div className="max-h-72 overflow-y-auto p-2">
                   {filteredTeams.length === 0 ? (
-                    <div className="py-6 text-center text-sm text-muted-foreground">{t('ask.noMatchingTeams')}</div>
+                    <div className="py-6 text-center text-sm text-muted-foreground">{t('aiAgent.noMatchingTeams')}</div>
                   ) : filteredTeams.map((team) => {
                     const isSelected = selectedTeamIds.has(team.id)
                     return (
@@ -429,7 +429,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => void toggleTeam(team.id)}
-                          aria-label={t('ask.useAsContext', { label: team.name })}
+                          aria-label={t('aiAgent.useAsContext', { label: team.name })}
                         />
                         <button
                           type="button"
@@ -446,7 +446,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
               <TabsContent value="users" className="mt-0">
                 <div className="max-h-72 overflow-y-auto p-2">
                   {filteredUsers.length === 0 ? (
-                    <div className="py-6 text-center text-sm text-muted-foreground">{t('ask.noMatchingPeople')}</div>
+                    <div className="py-6 text-center text-sm text-muted-foreground">{t('aiAgent.noMatchingPeople')}</div>
                   ) : filteredUsers.map((user) => {
                     const isSelected = selectedUserIds.has(user.id)
                     return (
@@ -454,7 +454,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => void toggleUser(user.id)}
-                          aria-label={t('ask.useAsContext', { label: userTitle(user) })}
+                          aria-label={t('aiAgent.useAsContext', { label: userTitle(user) })}
                         />
                         <button
                           type="button"
@@ -480,9 +480,9 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
       {selectedProjects.map((project) => (
         <Badge key={project.id} variant="outline" className="h-7 max-w-full gap-2 px-2.5 pr-1 text-xs font-normal">
           <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" aria-hidden="true" />
-          <span className="shrink-0 text-muted-foreground">{t('ask.projectPrefix')}</span>
+          <span className="shrink-0 text-muted-foreground">{t('aiAgent.projectPrefix')}</span>
           <span className="max-w-56 truncate">{projectTitle(project, t('common.untitledProject'))}</span>
-          <button type="button" className="rounded-sm p-1 hover:bg-muted" onClick={() => removeProject(project.id)} aria-label={t('ask.removeFromContext', { label: projectTitle(project, t('common.untitledProject')) })}>
+          <button type="button" className="rounded-sm p-1 hover:bg-muted" onClick={() => removeProject(project.id)} aria-label={t('aiAgent.removeFromContext', { label: projectTitle(project, t('common.untitledProject')) })}>
             <X className="h-3 w-3" />
           </button>
         </Badge>
@@ -492,13 +492,13 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
           <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" aria-hidden="true" />
           <span className="shrink-0 text-muted-foreground">{context.entityType === 'TEAM' ? `${t('common.team')}:` : context.entityType === 'USER' ? `${t('common.user')}:` : `${t('common.workItem')}:`}</span>
           <span className="max-w-56 truncate">{context.label}</span>
-          <button type="button" className="rounded-sm p-1 hover:bg-muted" onClick={() => removeContext(context)} aria-label={t('ask.removeFromContext', { label: context.label })}>
+          <button type="button" className="rounded-sm p-1 hover:bg-muted" onClick={() => removeContext(context)} aria-label={t('aiAgent.removeFromContext', { label: context.label })}>
             <X className="h-3 w-3" />
           </button>
         </Badge>
       ))}
       {hasContext ? <Button type="button" size="xs" variant="ghost" className="text-muted-foreground" onClick={clearContexts}>{t('common.clearAll')}</Button> : null}
-      {referencesLoading ? <span className="text-muted-foreground">{t('ask.loadingContext')}</span> : null}
+      {referencesLoading ? <span className="text-muted-foreground">{t('aiAgent.loadingContext')}</span> : null}
     </div>
   )
 
@@ -511,8 +511,8 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
       <Empty className="border-0">
         <EmptyHeader>
           <EmptyMedia variant="icon"><AlertTriangle /></EmptyMedia>
-          <EmptyTitle>{t('ask.aiUnavailable')}</EmptyTitle>
-          <EmptyDescription>{t('ask.aiUnavailableDescription')}</EmptyDescription>
+          <EmptyTitle>{t('aiAgent.aiUnavailable')}</EmptyTitle>
+          <EmptyDescription>{t('aiAgent.aiUnavailableDescription')}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     </div>
@@ -561,7 +561,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
               addChatSessionContext(sessionId, 'WORK_ITEM', workItemId),
             ])
           } catch (error) {
-            toast.error(error instanceof Error ? error.message : t('ask.failedAddWorkItem'))
+            toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddWorkItem'))
           }
         }
         navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
@@ -576,7 +576,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
           try {
             await addChatSessionContext(sessionId, 'PROJECT', projectId)
           } catch (error) {
-            toast.error(error instanceof Error ? error.message : t('ask.failedAddProject'))
+            toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddProject'))
           }
         }
         navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
@@ -589,7 +589,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
           try {
             await addChatSessionContext(sessionId, 'TEAM', teamId)
           } catch (error) {
-            toast.error(error instanceof Error ? error.message : t('ask.failedAddTeam'))
+            toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddTeam'))
           }
         }
         navigate(`/app/teams/${teamId}?${nextParams.toString()}`)
@@ -604,7 +604,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
           try {
             await addChatSessionContext(sessionId, 'USER', userId)
           } catch (error) {
-            toast.error(error instanceof Error ? error.message : t('ask.failedAddUser'))
+            toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddUser'))
           }
         }
         navigate(`/app/users?${nextParams.toString()}`)
@@ -617,7 +617,7 @@ export default function AskPage({ projectId: routeProjectId, onGraphChangePropos
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
-        <h1 className="text-xl font-semibold leading-none tracking-normal">{t('ask.askAi')}</h1>
+        <h1 className="text-xl font-semibold leading-none tracking-normal">{t('aiAgent.title')}</h1>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -3,8 +3,8 @@ import { useLocation, useNavigate, useOutlet, useOutletContext, useParams, useSe
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 
-import type { AskPageOutletContext } from './App'
-import AskPage from './AskPage'
+import type { AiAgentPageOutletContext } from './App'
+import AiAgentPage from './AiAgentPage'
 import PaneLayout from './PaneLayout'
 import { addChatSessionContext, type ChatContextEntityType } from '@/lib/api'
 
@@ -20,14 +20,14 @@ export default function AppView() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { projectId, teamId } = useParams()
-  const appContext = useOutletContext<AskPageOutletContext>()
+  const appContext = useOutletContext<AiAgentPageOutletContext>()
   const [artifactRefreshKey, setArtifactRefreshKey] = useState(0)
   const notifyArtifactChange = useCallback(() => {
     setArtifactRefreshKey((current) => current + 1)
   }, [])
   const outlet = useOutlet({ ...appContext, artifactRefreshKey })
   const isHome = location.pathname === '/app' || location.pathname === '/app/home'
-  const isAskAi = location.pathname === '/app/ask-ai' || location.pathname.startsWith('/app/ask-ai/')
+  const isAiAgent = location.pathname === '/app/ai-agent' || location.pathname.startsWith('/app/ai-agent/')
   const hasChatPanel = searchParams.get('chatPanel') === 'open'
   const userId = location.pathname === '/app/users' ? searchParams.get('userId') : null
   const workItemId = projectId && location.pathname.startsWith('/app/projects/') ? searchParams.get('workItemId') : null
@@ -52,7 +52,7 @@ export default function AppView() {
         await Promise.all(artifactContexts.map((context) => addChatSessionContext(activeSessionId, context.entityType, context.entityId)))
         await appContext.refreshChatSessions(activeSessionId)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : t('ask.failedAddPage'))
+        toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddPage'))
         return
       }
     }
@@ -67,24 +67,24 @@ export default function AppView() {
   }, [appContext, artifactContexts, location.hash, location.pathname, navigate, searchParams, t])
 
   useEffect(() => {
-    if (isHome || isAskAi) {
+    if (isHome || isAiAgent) {
       return
     }
     return appContext.registerOpenAssistant(openAssistant)
-  }, [appContext, isAskAi, isHome, openAssistant])
+  }, [appContext, isAiAgent, isHome, openAssistant])
 
   if (isHome) {
     return <PaneLayout mode="full" content={outlet} />
   }
 
-  if (isAskAi) {
-    return <PaneLayout mode="chat" chat={<AskPage />} />
+  if (isAiAgent) {
+    return <PaneLayout mode="chat" chat={<AiAgentPage />} />
   }
 
   return (
     <PaneLayout
       mode={hasChatPanel ? 'split' : 'artifact'}
-      chat={hasChatPanel ? <AskPage projectId={projectId} onGraphChangeProposalSaved={notifyArtifactChange} /> : undefined}
+      chat={hasChatPanel ? <AiAgentPage projectId={projectId} onGraphChangeProposalSaved={notifyArtifactChange} /> : undefined}
       artifact={outlet}
     />
   )

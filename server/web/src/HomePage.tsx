@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import VoiceWaveform from '@/components/VoiceWaveform'
 import useVoiceTranscription, { formatRecordingTime } from '@/hooks/use-voice-transcription'
-import type { AskPageOutletContext } from './App'
+import type { AiAgentPageOutletContext } from './App'
 
 type HomePageProps = {
   displayName?: string | null
@@ -23,7 +23,7 @@ const quickActions = [
 export default function HomePage({ displayName }: HomePageProps) {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
-  const { onSubmitHomeCommand } = useOutletContext<AskPageOutletContext>()
+  const { onSubmitHomeCommand } = useOutletContext<AiAgentPageOutletContext>()
   const [command, setCommand] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const commandInputRef = useRef<HTMLTextAreaElement>(null)

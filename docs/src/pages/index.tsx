@@ -34,7 +34,7 @@ const collaborationFeatures = [
   },
   {
     icon: MessageSquareText,
-    title: 'Ask AI with context',
+    title: 'AI Agent with context',
     description:
       'Ask questions from Home or a project workspace and add project, team, user, or work-item context.',
     to: '/docs/guides/ai-assistance',
@@ -52,16 +52,16 @@ const collaborationFeatures = [
     icon: MessageSquareText,
     title: 'Multiple chat sessions',
     description:
-      'Create, switch between, rename, delete, and continue separate Ask AI conversations.',
-    to: '/docs/guides/home-and-ask-ai',
+      'Create, switch between, rename, delete, and continue separate AI Agent conversations.',
+    to: '/docs/guides/home-and-ai-agent',
     accent: 'accent-emerald',
   },
   {
     icon: ListTree,
     title: 'Split workspace views',
     description:
-      'Keep Ask AI and the selected project or artifact visible together with adaptive workspace layouts.',
-    to: '/docs/guides/home-and-ask-ai',
+      'Keep AI Agent and the selected project or artifact visible together with adaptive workspace layouts.',
+    to: '/docs/guides/home-and-ai-agent',
     accent: 'accent-indigo',
   },
   {

@@ -61,7 +61,7 @@ const administrationMenuItems = [
   { labelKey: 'navigation.auditLogs', path: '/app/audit-logs', icon: FileClock },
   { labelKey: 'navigation.aiAnalytics', path: '/app/ai-analytics', icon: TrendingUp },
 ]
-export type AskPageOutletContext = {
+export type AiAgentPageOutletContext = {
   chatSessions: ChatSessionSummary[]
   selectedSessionId: string | null
   newChatRequestKey: number
@@ -117,7 +117,7 @@ function formatRelativeAge(timestamp: string | undefined, t: TFunction) {
   return t('chat.yearsAgo', { count: Math.floor(months / 12) })
 }
 
-function AskSessionsSidebar({
+function AiAgentSessionsSidebar({
   sessions,
   selectedSessionId,
   isLoading,
@@ -334,8 +334,8 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
-  const [askSessions, setAskSessions] = useState<ChatSessionSummary[]>([])
-  const [selectedAskSessionId, setSelectedAskSessionId] = useState<string | null>(null)
+  const [aiAgentSessions, setAiAgentSessions] = useState<ChatSessionSummary[]>([])
+  const [selectedAiAgentSessionId, setSelectedAiAgentSessionId] = useState<string | null>(null)
   const [sessionsHasMore, setSessionsHasMore] = useState(false)
   const [sessionsOffset, setSessionsOffset] = useState(0)
   const [isLoadingChatSessions, setIsLoadingChatSessions] = useState(true)
@@ -348,10 +348,10 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const refreshChatSessions = useCallback(async (preferredSessionId?: string) => {
     const page = await listChatSessions('', 20, 0)
     const nextSessions = page.items
-    setAskSessions(nextSessions)
+    setAiAgentSessions(nextSessions)
     setSessionsOffset(nextSessions.length)
     setSessionsHasMore(page.hasMore)
-    setSelectedAskSessionId((current) => {
+    setSelectedAiAgentSessionId((current) => {
       if (preferredSessionId && nextSessions.some((session) => session.id === preferredSessionId)) return preferredSessionId
       return current
     })
@@ -361,7 +361,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     setIsLoadingChatSessions(true)
     try {
       const page = await listChatSessions('', 20, sessionsOffset)
-      setAskSessions((current) => [...current, ...page.items])
+      setAiAgentSessions((current) => [...current, ...page.items])
       setSessionsOffset((current) => current + page.items.length)
       setSessionsHasMore(page.hasMore)
     } finally {
@@ -372,14 +372,14 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   const renameChatSession = useCallback(async (sessionId: string, title: string) => {
     const normalizedTitle = title.replace(/\s+/g, ' ').trim()
     await renameChatSessionRequest(sessionId, normalizedTitle)
-    setAskSessions((current) => current.map((session) => session.id === sessionId ? { ...session, title: normalizedTitle } : session))
+    setAiAgentSessions((current) => current.map((session) => session.id === sessionId ? { ...session, title: normalizedTitle } : session))
   }, [])
 
   const deleteChatSession = useCallback(async (sessionId: string) => {
     await deleteChatSessionRequest(sessionId)
-    setAskSessions((current) => current.filter((session) => session.id !== sessionId))
+    setAiAgentSessions((current) => current.filter((session) => session.id !== sessionId))
     setSessionsOffset((current) => Math.max(0, current - 1))
-    setSelectedAskSessionId((current) => current === sessionId ? null : current)
+    setSelectedAiAgentSessionId((current) => current === sessionId ? null : current)
 
     const params = new URLSearchParams(location.search)
     if (params.get('chatSessionId') === sessionId) {
@@ -395,7 +395,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     listChatSessions('', 20, 0)
       .then((page) => {
         if (!isMounted) return
-        setAskSessions(page.items)
+        setAiAgentSessions(page.items)
         setSessionsOffset(page.items.length)
         setSessionsHasMore(page.hasMore)
       })
@@ -437,7 +437,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
 
     const keepsArtifact = location.pathname !== '/app'
       && location.pathname !== '/app/home'
-      && !location.pathname.startsWith('/app/ask-ai')
+      && !location.pathname.startsWith('/app/ai-agent')
     if (keepsArtifact) {
       const params = new URLSearchParams(location.search)
       params.set('chatSessionId', session.id)
@@ -447,15 +447,15 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
       return
     }
 
-    navigate(`/app/ask-ai?chatSessionId=${encodeURIComponent(session.id)}`)
+    navigate(`/app/ai-agent?chatSessionId=${encodeURIComponent(session.id)}`)
   }
 
-  async function handleAskAi() {
+  async function handleAiAgent() {
     if (openAssistantHandlerRef.current) {
       await openAssistantHandlerRef.current()
       return
     }
-    navigate('/app/ask-ai')
+    navigate('/app/ai-agent')
   }
 
   const registerOpenAssistant = useCallback((handler: (() => void | Promise<void>) | null) => {
@@ -475,12 +475,12 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     }
     const params = new URLSearchParams({ prompt, autoSend: '1' })
     params.set('chatSessionId', session.id)
-    navigate(`/app/ask-ai?${params.toString()}`)
+    navigate(`/app/ai-agent?${params.toString()}`)
   }
 
   useEffect(() => {
     const requestedSessionId = new URLSearchParams(location.search).get('chatSessionId')
-    if (requestedSessionId) setSelectedAskSessionId(requestedSessionId)
+    if (requestedSessionId) setSelectedAiAgentSessionId(requestedSessionId)
   }, [location.search])
 
   function workspaceDestination(path: string) {
@@ -497,11 +497,11 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   }
 
   function handleSelectSession(sessionId: string) {
-    setSelectedAskSessionId(sessionId)
+    setSelectedAiAgentSessionId(sessionId)
     const keepsArtifact = location.pathname !== '/app'
       && location.pathname !== '/app/home'
-      && !location.pathname.startsWith('/app/ask-ai')
-    const nextPath = keepsArtifact ? location.pathname : '/app/ask-ai'
+      && !location.pathname.startsWith('/app/ai-agent')
+    const nextPath = keepsArtifact ? location.pathname : '/app/ai-agent'
     const nextParams = new URLSearchParams(location.search)
     nextParams.set('chatSessionId', sessionId)
     if (keepsArtifact) {
@@ -512,9 +512,9 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     navigate(`${nextPath}?${nextParams.toString()}`)
   }
 
-  const askPageContext: AskPageOutletContext = {
-    chatSessions: askSessions,
-    selectedSessionId: selectedAskSessionId,
+  const aiAgentPageContext: AiAgentPageOutletContext = {
+    chatSessions: aiAgentSessions,
+    selectedSessionId: selectedAiAgentSessionId,
     newChatRequestKey,
     isLoadingSessions: isLoadingChatSessions,
     refreshChatSessions,
@@ -558,11 +558,11 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      render={<button type="button" onClick={() => void handleAskAi()} />}
-                      tooltip={t('pane.openAskAi')}
+                      render={<button type="button" onClick={() => void handleAiAgent()} />}
+                      tooltip={t('pane.openAiAgent')}
                     >
                       <Bot />
-                      <span>{t('ask.askAi')}</span>
+                      <span>{t('navigation.aiAgent')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
@@ -585,9 +585,9 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                 </Button>
               </SidebarGroupLabel>
               <SidebarGroupContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <AskSessionsSidebar
-                sessions={askSessions}
-                selectedSessionId={selectedAskSessionId}
+              <AiAgentSessionsSidebar
+                sessions={aiAgentSessions}
+                selectedSessionId={selectedAiAgentSessionId}
                 isLoading={isLoadingChatSessions}
                 hasMore={sessionsHasMore}
                 onSelectSession={handleSelectSession}
@@ -674,7 +674,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
             <SidebarTrigger className="-ml-1" />
           </header>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <Outlet context={askPageContext} />
+            <Outlet context={aiAgentPageContext} />
           </div>
         </SidebarInset>
       </SidebarProvider>
@@ -1012,7 +1012,7 @@ function App() {
         <Route element={<AppView />}>
           <Route index element={<Navigate to="home" replace />} />
           <Route path="home" element={<HomePage displayName={currentUser?.displayName} />} />
-          <Route path="ask-ai" element={null} />
+          <Route path="ai-agent" element={null} />
           <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
           <Route path="projects/:projectId" element={<ProjectWorkspacePage currentUser={currentUser} />} />
           <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />
