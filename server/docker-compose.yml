@@ -40,6 +40,14 @@ services:
       # Set to true when serving over HTTPS behind a reverse proxy.
       WINDRUNNER_AUTH_COOKIE_SECURE: ${WINDRUNNER_AUTH_COOKIE_SECURE:-false}
 
+      # Optional SMTP mail delivery. Keep disabled until SMTP credentials are configured.
+      WINDRUNNER_MAIL_ENABLED: ${WINDRUNNER_MAIL_ENABLED:-false}
+      WINDRUNNER_MAIL_FROM: ${WINDRUNNER_MAIL_FROM:-}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+
       # Optional AI features. Pick one provider, supply its API key, and restart.
       WINDRUNNER_LLM_PROVIDER: ${WINDRUNNER_LLM_PROVIDER:-none}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

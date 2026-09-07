@@ -33,6 +33,14 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@/components/ui/combobox'
+import {
   createNode,
   createEntry,
   createRelationship,
@@ -2681,6 +2689,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
   const [projectTeamIds, setProjectTeamIds] = useState<Set<string>>(() => new Set())
   const [newAssigneeType, setNewAssigneeType] = useState<'USER' | 'TEAM'>('USER')
   const [newAssigneeId, setNewAssigneeId] = useState('')
+  const [newAssigneeSearch, setNewAssigneeSearch] = useState('')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set())
@@ -2859,6 +2868,10 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     const options = newAssigneeType === 'USER' ? assigneeUserOptions : assigneeTeamOptions
     return options.filter((option) => !assignedIds.has(option.id))
   }, [assignedTeamIds, assignedUserIds, assigneeTeamOptions, assigneeUserOptions, newAssigneeType])
+  const selectedAssigneeOption = useMemo(
+    () => availableAssigneeOptions.find((option) => option.id === newAssigneeId) ?? null,
+    [availableAssigneeOptions, newAssigneeId],
+  )
   const hasActiveWorkItemFilters = appliedWorkItemFilterConditions.length > 0 || Boolean(appliedWorkItemSearchQuery)
   const selectedTreeNode = useMemo(() => findTreeNode(tree, selectedNodeId), [selectedNodeId, tree])
   const selectedContextNodeIds = useMemo(() => {
@@ -3740,6 +3753,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     const assignedIds = isUser ? assignedUserIds : assignedTeamIds
     updateManagedWorkItemField(fieldName, label, dataType, [...assignedIds, newAssigneeId], false)
     setNewAssigneeId('')
+    setNewAssigneeSearch('')
   }
 
   function removeAssignee(type: 'USER' | 'TEAM', assigneeId: string) {
@@ -4833,6 +4847,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                               if (nextType) {
                                 setNewAssigneeType(nextType)
                                 setNewAssigneeId('')
+                                setNewAssigneeSearch('')
                               }
                             }}
                             variant="outline"
@@ -4851,22 +4866,46 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
                           </ToggleGroup>
                         </div>
                         <div className="flex min-w-0 items-center gap-2">
-                          <NativeSelect
-                            size="sm"
-                            className="min-w-0 flex-1"
-                            value={newAssigneeId}
-                            onChange={(event) => setNewAssigneeId(event.target.value)}
+                          <Combobox
+                            items={availableAssigneeOptions}
+                            value={selectedAssigneeOption}
+                            inputValue={newAssigneeSearch}
+                            onInputValueChange={(value, { reason }) => {
+                              setNewAssigneeSearch(value)
+                              if (reason === 'item-press') {
+                                return
+                              }
+                              if (value !== (selectedAssigneeOption?.label ?? '')) {
+                                setNewAssigneeId('')
+                              }
+                            }}
+                            onValueChange={(option) => {
+                              setNewAssigneeId(option?.id ?? '')
+                              setNewAssigneeSearch(option?.label ?? '')
+                            }}
+                            itemToStringLabel={(option) => option.label}
+                            itemToStringValue={(option) => option.id}
+                            autoHighlight
                             disabled={availableAssigneeOptions.length === 0}
                           >
-                            <NativeSelectOption value="">
-                              {availableAssigneeOptions.length === 0
+                            <ComboboxInput
+                              className="min-w-0 flex-1"
+                              placeholder={availableAssigneeOptions.length === 0
                                 ? t('workspace.noAssigneesAvailable', { type: newAssigneeType === 'USER' ? t('common.users') : t('common.teams') })
                                 : t('workspace.selectAssigneeType', { type: newAssigneeType === 'USER' ? t('common.user') : t('common.team') })}
-                            </NativeSelectOption>
-                            {availableAssigneeOptions.map((option) => (
-                              <NativeSelectOption key={option.id} value={option.id}>{option.label}</NativeSelectOption>
-                            ))}
-                          </NativeSelect>
+                              showClear
+                            />
+                            <ComboboxContent>
+                              <ComboboxEmpty>{t('common.noResults')}</ComboboxEmpty>
+                              <ComboboxList>
+                                {availableAssigneeOptions.map((option, index) => (
+                                  <ComboboxItem key={option.id} value={option} index={index}>
+                                    <span className="min-w-0 truncate">{option.label}</span>
+                                  </ComboboxItem>
+                                ))}
+                              </ComboboxList>
+                            </ComboboxContent>
+                          </Combobox>
                           <Button type="button" size="icon-sm" aria-label={t('common.add')} title={t('common.add')} disabled={!newAssigneeId} onClick={handleAddAssignee}>
                             <Plus className="h-4 w-4" />
                           </Button>
