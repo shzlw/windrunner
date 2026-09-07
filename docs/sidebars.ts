@@ -54,6 +54,7 @@ const sidebars: SidebarsConfig = {
             'reference/configuration',
             'reference/ai-providers',
             'reference/voice-transcription',
+            'reference/email-notifications',
             'reference/server-and-deployment',
             'reference/logging',
           ],

@@ -28,7 +28,8 @@ Subscriptions page.
 </figure>
 
 The Subscriptions page lists every work item you follow with its project and
-subscription time. Use **Unsubscribe** there to stop receiving updates.
+subscription time. Use **Unsubscribe** there to stop following the item.
+Assignment notifications are separate and can still arrive when you are assigned work.
 
 <figure className="wr-doc-screenshot">
   <a className="wr-doc-screenshot-link" href={useBaseUrl('/img/windrunner-subscriptions.png')} target="_blank" rel="noreferrer" title="Open full-size screenshot in a new tab">
@@ -37,7 +38,31 @@ subscription time. Use **Unsubscribe** there to stop receiving updates.
   <figcaption>Subscriptions gives you one place to review and manage followed work.</figcaption>
 </figure>
 
-## Notifications
+## Email notifications
+
+When your administrator enables email, a new work-item assignment can also
+arrive in your inbox. This applies to work assigned directly to you or to a team
+you belong to, provided your account is active, has an email address, and has
+access to the project.
+
+Assignments are collected for about two minutes so several work items can appear
+in one email. The email includes the project, work-item title, who assigned it,
+any team involved, the due date when present, and a link to the item.
+
+You do not receive assignment email for assigning work to yourself. Being
+assigned directly and through a team does not produce duplicate entries in the
+same email. If your assignment or project access is removed before delivery,
+the item is omitted.
+
+Subscribing does not enable email for every edit. Routine work-item edits and
+subscription activity do not generate email, and marking an in-app notification
+read does not cancel an assignment email.
+
+Email is controlled by the administrator for the installation; there are no
+individual email preferences yet. Administrators can follow the
+[email setup guide](../reference/email-notifications).
+
+## In-app notifications
 
 The notification center in the navigation sidebar surfaces assignment and
 work-item activity updates. Open a notification to mark it read and jump to

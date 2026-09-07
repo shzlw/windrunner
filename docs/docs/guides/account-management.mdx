@@ -18,3 +18,20 @@ Open My Account from the account menu.
 Administrators manage user profile details from Users. API key revocation takes
 effect immediately and cannot be undone. Select Sign out in the page header to
 end your session.
+
+## Account emails
+
+When email is enabled for your installation and your account has an email
+address, Windrunner sends notices for account activation or deactivation, global
+role changes, password changes, and administrator password resets. These notices
+do not use the two-minute assignment batching delay.
+
+An email-address change sends a notice to the previous address, when one exists.
+It does not send a verification email to the replacement address. Changes to
+display name, title, bio, or timezone do not generate email.
+
+Password notices never include your password. If you receive an unexpected
+account-change notice, contact your administrator.
+
+Administrators can configure delivery using the
+[email setup guide](../reference/email-notifications).

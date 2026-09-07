@@ -1,0 +1,94 @@
+---
+title: Email notifications
+description: Configure SMTP delivery for Windrunner assignment emails and account-change notices.
+---
+
+# Email notifications
+
+Enable email to let people know when work is assigned to them or their account
+changes. Email is disabled by default and is configured for the whole installation.
+There are currently no per-user email preferences.
+
+For what recipients can expect, see [Following work](../guides/following-work#email-notifications)
+and [Account management](../guides/account-management#account-emails).
+
+## Set up email
+
+You need an SMTP server, its connection settings, and a sender address that the
+server permits you to use.
+
+1. Add the following settings to the `.env` file beside `docker-compose.yml`.
+   Replace the example values with your own:
+
+   ```dotenv
+   WINDRUNNER_MAIL_ENABLED=true
+   WINDRUNNER_MAIL_FROM=notifications@example.com
+   WINDRUNNER_MAIL_BASEURL=https://your-windrunner.example.com/app
+   SPRING_MAIL_HOST=smtp.example.com
+   SPRING_MAIL_PORT=587
+   SPRING_MAIL_USERNAME=your-smtp-username
+   SPRING_MAIL_PASSWORD=your-smtp-password
+   SPRING_APPLICATION_JSON='{"spring":{"mail":{"properties":{"mail.smtp.auth":true,"mail.smtp.starttls.enable":true,"mail.smtp.starttls.required":true}}}}'
+   ```
+
+   This example uses authenticated SMTP with required STARTTLS on port 587.
+   Use the credentials and encryption settings supplied by your provider. If
+   `SPRING_APPLICATION_JSON` already contains other settings, merge the mail
+   settings into that JSON object.
+
+2. Check the application URL. With the current email sender, include `/app` in
+   `WINDRUNNER_MAIL_BASEURL`. For example, the value above produces links starting
+   with `https://your-windrunner.example.com/app/projects/`.
+
+3. Apply the configuration:
+
+   ```bash
+   docker compose up -d app
+   ```
+
+4. Assign a work item to another active user with an email address and project
+   access. Wait about two minutes, then check their inbox and open the work-item
+   link. Assigning an item to yourself does not send an assignment email.
+
+For a source installation, export the same environment variables before starting
+the server. Keep SMTP passwords out of source control.
+
+## Settings
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `WINDRUNNER_MAIL_ENABLED` | `false` | Enables email notifications. |
+| `WINDRUNNER_MAIL_FROM` | Unset | Sender address; required when email is enabled. |
+| `WINDRUNNER_MAIL_BASEURL` | Unset | Public application URL, including `/app`, used in assignment links. Required when email is enabled. |
+| `SPRING_MAIL_HOST` | Unset | SMTP server hostname. |
+| `SPRING_MAIL_PORT` | `587` in Docker Compose | SMTP server port. |
+| `SPRING_MAIL_USERNAME` | Unset | SMTP login name. |
+| `SPRING_MAIL_PASSWORD` | Unset | SMTP password or provider-issued SMTP credential. |
+| `SPRING_APPLICATION_JSON` | Unset | Additional Spring settings, including SMTP authentication and encryption. |
+
+Setting a port alone does not enable encryption. Configure STARTTLS or SSL as
+required by your SMTP server.
+
+## Delivery and troubleshooting
+
+Assignment emails collect related assignments for about two minutes. Account
+notices do not use that delay. Delivery runs in the background, so an SMTP
+failure does not prevent a work-item assignment from being saved.
+
+Failed sends receive up to three total attempts, five minutes apart. Delivery
+is best effort; an interrupted send can occasionally result in a duplicate.
+
+If an email does not arrive:
+
+- Confirm email is enabled and check the SMTP credentials and encryption settings.
+- For assignments, confirm the recipient is active, has an email address, still
+  has access to the project, and is still assigned directly or through their team.
+  An address change before delivery also suppresses the pending assignment email.
+- Check the recipient's spam folder and the application's logs:
+
+  ```bash
+  docker compose logs --tail=100 app
+  ```
+
+To disable email, set `WINDRUNNER_MAIL_ENABLED=false` and run
+`docker compose up -d app` again. In-app notifications remain available.
