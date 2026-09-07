@@ -45,28 +45,39 @@ export function NotificationProvider({ currentUser, children }: { currentUser: A
   const [notifications, setNotifications] = useState<UserNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const seenIds = useRef(new Set<string>())
+  const notificationRevision = useRef(0)
   const userId = currentUser?.id ?? null
 
   useEffect(() => {
+    setNotifications([])
+    setUnreadCount(0)
+    seenIds.current = new Set()
     if (!userId) return
 
     let cancelled = false
-    seenIds.current = new Set()
-    getNotifications({ unread: true, limit: 50 })
-      .then((page) => {
-        if (cancelled) return
-        page.items.forEach((notification) => seenIds.current.add(notification.id))
-        setNotifications((current) => {
-          const currentById = new Map(current.map((item) => [item.id, item]))
-          const merged = [...page.items, ...current.filter((item) => !page.items.some((loaded) => loaded.id === item.id))]
-          return merged.map((item) => currentById.get(item.id) ?? item).slice(0, 50)
+    let refreshId = 0
+    function refreshNotifications() {
+      const requestId = ++refreshId
+      const revision = notificationRevision.current
+      getNotifications({ limit: 50 })
+        .then((page) => {
+          if (cancelled || requestId !== refreshId) return
+          // An event or read action happened during this request; fetch a current snapshot.
+          if (revision !== notificationRevision.current) {
+            refreshNotifications()
+            return
+          }
+          page.items.forEach((notification) => seenIds.current.add(notification.id))
+          setNotifications(page.items)
+          setUnreadCount(page.unreadCount)
         })
-        setUnreadCount((count) => Math.max(count, page.unreadCount))
-      })
-      .catch(() => undefined)
+        .catch(() => undefined)
+    }
+    refreshNotifications()
 
     const source = new EventSource('/internal-api/v1/notifications/stream')
     const onNotification = (event: Event) => {
+      if (cancelled) return
       const messageEvent = event as MessageEvent<string>
       let notification: UserNotification
       try {
@@ -76,8 +87,9 @@ export function NotificationProvider({ currentUser, children }: { currentUser: A
       }
       if (seenIds.current.has(notification.id)) return
       seenIds.current.add(notification.id)
+      notificationRevision.current += 1
       setNotifications((current) => [notification, ...current.filter((item) => item.id !== notification.id)].slice(0, 50))
-      setUnreadCount((count) => count + 1)
+      if (!notification.read) setUnreadCount((count) => count + 1)
       toast.info(notification.title, {
         description: notification.message,
         action: notification.projectId
@@ -89,10 +101,15 @@ export function NotificationProvider({ currentUser, children }: { currentUser: A
       })
     }
     source.addEventListener('notification', onNotification)
+    source.addEventListener('connected', refreshNotifications)
+    // Reconcile committed rows and cross-tab read changes even if an SSE event was missed.
+    const refreshTimer = window.setInterval(refreshNotifications, 60_000)
 
     return () => {
       cancelled = true
       source.removeEventListener('notification', onNotification)
+      source.removeEventListener('connected', refreshNotifications)
+      window.clearInterval(refreshTimer)
       source.close()
     }
   }, [userId])
@@ -100,6 +117,7 @@ export function NotificationProvider({ currentUser, children }: { currentUser: A
   async function markRead(notification: UserNotification) {
     if (!notification.read) {
       await markNotificationRead(notification.id)
+      notificationRevision.current += 1
       setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read: true } : item))
       setUnreadCount((count) => Math.max(0, count - 1))
     }
@@ -110,6 +128,7 @@ export function NotificationProvider({ currentUser, children }: { currentUser: A
 
   async function markAllRead() {
     await markAllNotificationsRead()
+    notificationRevision.current += 1
     setNotifications((current) => current.map((notification) => ({ ...notification, read: true })))
     setUnreadCount(0)
   }

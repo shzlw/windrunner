@@ -59,6 +59,38 @@ Change the password after the first login.
 | `WINDRUNNER_AUTH_COOKIE_SECURE` | `true` in the application; `false` in Docker Compose and local startup | Marks authentication cookies as Secure. Use `true` behind HTTPS and `false` for direct local HTTP. |
 | `WINDRUNNER_AUTH_COOKIE_SAME_SITE` | `Lax` | SameSite policy for authentication cookies. |
 
+## Email notifications
+
+Email is disabled by default. When enabled, newly assigned work items are
+collected for about two minutes into an email for each recipient. Team
+assignments notify current active members with project access. Self-assignments
+and ordinary work-item edits do not send email.
+
+Account role, status, email-address, and password changes send account notices
+without the assignment delay. An email-address change is reported to the previous
+address. Profile changes such as display name and timezone do not send email.
+
+Set these values in your Docker Compose `.env` file:
+
+```dotenv
+WINDRUNNER_MAIL_ENABLED=true
+WINDRUNNER_MAIL_FROM=notifications@example.com
+WINDRUNNER_MAIL_BASEURL=https://your-windrunner.example.com
+SPRING_MAIL_HOST=smtp.example.com
+SPRING_MAIL_PORT=587
+SPRING_MAIL_USERNAME=your-smtp-username
+SPRING_MAIL_PASSWORD=your-smtp-password
+SPRING_APPLICATION_JSON='{"spring":{"mail":{"properties":{"mail.smtp.auth":true,"mail.smtp.starttls.enable":true,"mail.smtp.starttls.required":true}}}}'
+```
+
+Use your application's public URL for `WINDRUNNER_MAIL_BASEURL`, so email links
+open the correct workspace. The SMTP example uses authenticated STARTTLS on
+port 587; adjust the connection settings to match your provider.
+
+Failed sends are retried up to three total attempts, five minutes apart.
+Mail delivery does not block assignment requests. There are no per-user email
+preferences currently.
+
 ## Related configuration
 
 - [AI providers](ai-providers): Select the chat provider and configure OpenAI, OpenRouter, Ollama, Groq, Gemini, or Claude.

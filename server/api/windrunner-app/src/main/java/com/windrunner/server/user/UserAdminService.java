@@ -2,6 +2,7 @@ package com.windrunner.server.user;
 
 import com.windrunner.server.audit.*;
 import com.windrunner.server.auth.AuthService;
+import com.windrunner.server.mail.MailNotificationService;
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.id.EntityIdGenerator;
@@ -52,6 +53,7 @@ public class UserAdminService {
     private final AuditLogService auditLogService;
     private final EntityIdGenerator idGenerator;
     private final CalendarEventRepository calendarEventRepository;
+    private final MailNotificationService mailNotifications;
 
     public UserPageResponse listUsers(int page, int size, AppUser currentUser) {
         if (currentUser == null || !AppRoles.isAdminLike(currentUser.getGlobalRole())) {
@@ -195,6 +197,7 @@ public class UserAdminService {
         }
         AppUser savedUser = authService.findExistingUser(user.getId());
         Map<String, Object> after = createUserSnapshot(savedUser);
+        mailNotifications.queueAccountChanges(before, savedUser);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 currentUser.getId(),
                 AuditActions.UPDATE,
@@ -246,6 +249,7 @@ public class UserAdminService {
         }
         AppUser savedUser = authService.findExistingUser(user.getId());
         Map<String, Object> after = createUserSnapshot(savedUser);
+        mailNotifications.queueAccountChanges(before, savedUser);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 currentUser.getId(), AuditActions.UPDATE, AuditEntityTypes.USER, savedUser.getId(), null,
                 AuditOutcomes.SUCCESS, "Updated user " + savedUser.getUsername(), auditLogService.toJson(before),
@@ -275,6 +279,7 @@ public class UserAdminService {
         }
         AppUser savedUser = authService.findExistingUser(user.getId());
         authService.revokeUserSessions(savedUser.getId());
+        mailNotifications.queueAccountNotice(savedUser.getId(), savedUser.getEmail(), "Your password was reset by an administrator.");
         Map<String, Object> after = createUserSnapshot(savedUser);
         auditLogService.logAfterCommit(new AuditLogEntry(
                 currentUser.getId(),
@@ -318,6 +323,7 @@ public class UserAdminService {
         if (updated != 1) {
             throw new IllegalStateException("Expected one app_user row to be updated but got " + updated);
         }
+        mailNotifications.queueAccountNotice(user.getId(), user.getEmail(), "Your account was deactivated.");
         auditLogService.logAfterCommit(new AuditLogEntry(
                 currentUser.getId(),
                 AuditActions.DELETE,

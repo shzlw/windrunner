@@ -2,6 +2,7 @@ package com.windrunner.server.id;
 
 public enum EntityIdType {
     API_KEY("akey"),
+    MAIL_NOTIFICATION("mail"),
     AUDIT_LOG("audt"),
     AUTH_SESSION("sess"),
     CALENDAR_EVENT("cevt"),

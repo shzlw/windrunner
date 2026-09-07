@@ -1,5 +1,8 @@
 package com.windrunner.server.user;
 
+import com.windrunner.server.mail.MailNotificationService;
+import static org.mockito.Mockito.mock;
+
 import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.audit.AuditLogService;
 import com.windrunner.server.auth.AuthService;
@@ -72,7 +75,7 @@ class UserAdminServiceTest {
                 projectAccessService,
                 auditLogService,
                 new EntityIdGenerator(),
-                calendarEventRepository);
+                calendarEventRepository, mock(MailNotificationService.class));
     }
 
     @Test

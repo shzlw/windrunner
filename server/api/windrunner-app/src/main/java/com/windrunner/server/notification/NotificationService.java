@@ -1,6 +1,7 @@
 package com.windrunner.server.notification;
 
 import com.windrunner.server.id.EntityIdGenerator;
+import com.windrunner.server.mail.MailNotificationService;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.notification.api.UserNotificationView;
 import com.windrunner.server.notification.api.NotificationPage;
@@ -24,6 +25,7 @@ public class NotificationService {
     private final UserNotificationRepository notifications;
     private final AppUserRepository users;
     private final EntityIdGenerator ids;
+    private final MailNotificationService mailNotifications;
 
     @Transactional
     public void notifyWorkItemAssigned(Collection<String> recipientUserIds,
@@ -35,6 +37,7 @@ public class NotificationService {
             return;
         }
         String title = "Work item assigned";
+        mailNotifications.queueAssignments(recipientUserIds, actorUserId, workItemId);
         String message = "You were assigned to “" + workItemTitle + "”.";
         recipientUserIds.stream().filter(userId -> userId != null && !userId.isBlank()).distinct().forEach(userId ->
                 notifications.insert(

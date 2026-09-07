@@ -53,11 +53,14 @@ public class NotificationDeliveryService implements SmartLifecycle {
 
     public SseEmitter connect(String userId) {
         SseEmitter emitter = new SseEmitter(30 * 60_000L);
-        UserChannel channel = channels.computeIfAbsent(userId, ignored -> new UserChannel());
-        channel.emitters.add(emitter);
         emitter.onCompletion(() -> remove(userId, emitter));
         emitter.onTimeout(() -> remove(userId, emitter));
         emitter.onError(ignored -> remove(userId, emitter));
+        channels.compute(userId, (id, current) -> {
+            UserChannel channel = current == null ? new UserChannel() : current;
+            channel.emitters.add(emitter);
+            return channel;
+        });
         try {
             emitter.send(SseEmitter.event().name("connected").data(Map.of("connected", true)));
         } catch (Exception exception) {
@@ -80,17 +83,13 @@ public class NotificationDeliveryService implements SmartLifecycle {
     @Scheduled(fixedRate = 30_000L)
     public void pollNotifications() {
         channels.forEach((userId, channel) -> {
-            OffsetDateTime after = channel.cursor.minusSeconds(1);
-            for (UserNotification notification : notifications.findCreatedAfter(userId, after, 100)) {
-                if (channel.sentIds.add(notification.getId())) {
+            synchronized (channel) {
+                for (UserNotification notification : notifications.findCreatedAfter(
+                        userId, channel.cursor, channel.cursorId, 100)) {
                     channel.emitters.forEach(emitter -> send(userId, emitter, notification));
-                }
-                if (notification.getCreatedAt() != null && notification.getCreatedAt().isAfter(channel.cursor)) {
                     channel.cursor = notification.getCreatedAt();
+                    channel.cursorId = notification.getId();
                 }
-            }
-            if (channel.sentIds.size() > 500) {
-                channel.sentIds.clear();
             }
         });
     }
@@ -118,19 +117,15 @@ public class NotificationDeliveryService implements SmartLifecycle {
     }
 
     private void remove(String userId, SseEmitter emitter) {
-        UserChannel channel = channels.get(userId);
-        if (channel == null) {
-            return;
-        }
-        channel.emitters.remove(emitter);
-        if (channel.emitters.isEmpty()) {
-            channels.remove(userId, channel);
-        }
+        channels.computeIfPresent(userId, (id, channel) -> {
+            channel.emitters.remove(emitter);
+            return channel.emitters.isEmpty() ? null : channel;
+        });
     }
 
     private static final class UserChannel {
         private final CopyOnWriteArrayList<SseEmitter> emitters = new CopyOnWriteArrayList<>();
-        private final java.util.Set<String> sentIds = ConcurrentHashMap.newKeySet();
-        private volatile OffsetDateTime cursor = OffsetDateTime.now();
+        private OffsetDateTime cursor = OffsetDateTime.now();
+        private String cursorId = "";
     }
 }

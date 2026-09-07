@@ -43,9 +43,10 @@ public interface UserNotificationRepository extends CrudRepository<UserNotificat
     List<UserNotification> findUnreadForUser(@Param("userId") String userId,
                                              @Param("limit") int limit);
 
-    @Query("SELECT " + COLUMNS + " FROM user_notification WHERE recipient_user_id = :userId AND created_at > :createdAfter ORDER BY created_at ASC, id ASC LIMIT :limit")
+    @Query("SELECT " + COLUMNS + " FROM user_notification WHERE recipient_user_id = :userId AND (created_at, id) > (:createdAfter, :afterId) ORDER BY created_at ASC, id ASC LIMIT :limit")
     List<UserNotification> findCreatedAfter(@Param("userId") String userId,
                                             @Param("createdAfter") OffsetDateTime createdAfter,
+                                            @Param("afterId") String afterId,
                                             @Param("limit") int limit);
 
     @Query("SELECT COUNT(*) FROM user_notification WHERE recipient_user_id = :userId")

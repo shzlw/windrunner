@@ -9,4 +9,5 @@ public class MailProperties {
 
     private boolean enabled = false;
     private String from;
+    private String baseUrl;
 }

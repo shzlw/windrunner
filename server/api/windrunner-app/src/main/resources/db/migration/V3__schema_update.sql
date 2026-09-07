@@ -87,3 +87,21 @@ CREATE INDEX calendar_event_user_time_idx
 CREATE INDEX calendar_event_work_item_idx
     ON calendar_event (work_item_id)
     WHERE work_item_id IS NOT NULL;
+
+CREATE TABLE mail_notification
+(
+    id TEXT PRIMARY KEY,
+    recipient_user_id TEXT NOT NULL,
+    recipient_email TEXT NOT NULL,
+    work_item_id TEXT,
+    actor_user_id TEXT,
+    body TEXT,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX mail_notification_ready_idx
+    ON mail_notification (available_at, recipient_user_id) WHERE attempts < 3;
+CREATE INDEX mail_notification_recipient_idx
+    ON mail_notification (recipient_user_id, available_at) WHERE attempts < 3;

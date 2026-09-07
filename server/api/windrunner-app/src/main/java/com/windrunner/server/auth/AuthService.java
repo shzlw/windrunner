@@ -1,5 +1,8 @@
 package com.windrunner.server.auth;
 
+import com.windrunner.server.mail.MailNotificationService;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.windrunner.server.audit.*;
 import com.windrunner.server.auth.api.AuthUserResponse;
 import com.windrunner.server.auth.api.LoginRequest;
@@ -53,6 +56,7 @@ public class AuthService {
     private final AppUserRepository appUserRepository;
     private final AuthSessionRepository authSessionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MailNotificationService mailNotifications;
     private final AuthProperties authProperties;
     private final BootstrapProperties bootstrapProperties;
     private final AuditLogService auditLogService;
@@ -100,6 +104,7 @@ public class AuthService {
         }
     }
 
+    @Transactional
     public AuthUserResponse updatePassword(UpdatePasswordRequest request,
                                            HttpServletRequest httpRequest,
                                            HttpServletResponse httpResponse) {
@@ -136,6 +141,7 @@ public class AuthService {
             throw new IllegalStateException("Expected one app_user row to be updated but got " + updated);
         }
         AppUser savedUser = findExistingUser(user.getId());
+        mailNotifications.queueAccountNotice(savedUser.getId(), savedUser.getEmail(), "Your password was changed.");
         revokeUserSessions(savedUser.getId());
         establishSession(savedUser, httpResponse);
         Map<String, Object> after = createAuthUserSnapshot(savedUser);
