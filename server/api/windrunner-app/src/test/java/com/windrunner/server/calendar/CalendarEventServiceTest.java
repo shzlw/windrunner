@@ -1,11 +1,14 @@
 package com.windrunner.server.calendar;
 
+import com.windrunner.server.audit.persistence.AuditLogRepository;
 import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.calendar.domain.CalendarEvent;
 import com.windrunner.server.calendar.api.CalendarEventRequest;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.project.ProjectAccessService;
+import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
+import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
@@ -20,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +38,8 @@ class CalendarEventServiceTest {
     @Mock
     private CalendarEventRepository calendarEventRepository;
     @Mock
+    private AuditLogRepository auditLogRepository;
+    @Mock
     private AppUserRepository appUserRepository;
     @Mock
     private WorkItemRepository workItemRepository;
@@ -41,6 +47,8 @@ class CalendarEventServiceTest {
     private ProjectMemberRepository projectMemberRepository;
     @Mock
     private ProjectAccessService projectAccessService;
+    @Mock
+    private ProjectRepository projectRepository;
     @Mock
     private TeamRepository teamRepository;
     @Mock
@@ -52,10 +60,12 @@ class CalendarEventServiceTest {
     void setUp() {
         calendarEventService = new CalendarEventService(
                 calendarEventRepository,
+                auditLogRepository,
                 appUserRepository,
                 workItemRepository,
                 projectMemberRepository,
                 projectAccessService,
+                projectRepository,
                 teamRepository,
                 teamMemberRepository,
                 new EntityIdGenerator());
@@ -91,6 +101,31 @@ class CalendarEventServiceTest {
         assertThat(calendarEventService.listEvents(actor, "USER", "target", rangeStart(), rangeEnd())).isEmpty();
 
         verify(calendarEventRepository).findByUserIdsAndRange(eq(List.of("target")), any(), any());
+    }
+
+    @Test
+    void listsAssignedWorkItemFromLatestInProgressTransitionUntilDueDate() {
+        AppUser actor = user("actor");
+        when(appUserRepository.findById("actor")).thenReturn(Optional.of(actor));
+        var project = new Project();
+        project.setId("project-1");
+        project.setName("Platform");
+        when(projectRepository.findVisibleToUser("actor")).thenReturn(List.of(project));
+        when(workItemRepository.findCalendarAssignmentsByUserIds(List.of("project-1"), List.of("actor"), 500))
+                .thenReturn(List.of(new WorkItemRepository.CalendarAssignmentRow(
+                        "work-1", "project-1", "Platform", "API migration", "BLOCKED",
+                        LocalDate.of(2026, 6, 10), "USER", "actor")));
+        when(auditLogRepository.findWorkItemStatusHistory(List.of("work-1"))).thenReturn(List.of(
+                new AuditLogRepository.WorkItemStatusRow(
+                        "work-1", OffsetDateTime.parse("2026-06-02T12:00:00Z"), "IN_PROGRESS")));
+
+        var items = calendarEventService.listWorkItems(actor, "USER", "actor", rangeStart(), rangeEnd());
+
+        assertThat(items).hasSize(1);
+        assertThat(items.getFirst().startedOn()).isEqualTo(LocalDate.of(2026, 6, 2));
+        assertThat(items.getFirst().dueDate()).isEqualTo(LocalDate.of(2026, 6, 10));
+        assertThat(items.getFirst().status()).isEqualTo("BLOCKED");
+        assertThat(items.getFirst().overdue()).isTrue();
     }
 
     @Test

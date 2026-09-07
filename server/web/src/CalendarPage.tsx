@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { NavLink } from 'react-router'
 import {
   addDays,
   addMonths,
@@ -27,12 +28,14 @@ import {
   deleteCalendarEvent,
   listCalendarEvents,
   listCalendarScopes,
+  listCalendarWorkItems,
   updateCalendarEvent,
   type AuthUser,
   type CalendarEvent,
   type CalendarEventRequest,
   type CalendarScope,
   type CalendarScopeType,
+  type CalendarWorkItem,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -45,6 +48,12 @@ type EventForm = {
   allDay: boolean
 }
 
+type CalendarScheduleRow = {
+  type: CalendarScopeType
+  id: string
+  name: string
+}
+
 function isAdminLike(user: AuthUser | null) {
   return user?.globalRole === 'ADMIN' || user?.globalRole === 'SUPERADMIN'
 }
@@ -54,11 +63,29 @@ function formatInputDate(value: string) {
 }
 
 const EVENT_ACCENT = 'border-l-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
+const WORK_ITEM_ACCENT = 'border-l-sky-500 bg-sky-50 text-sky-800 dark:bg-sky-950/30 dark:text-sky-200'
+const WORK_ITEM_PAUSED_ACCENT = 'border-l-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200'
+const WORK_ITEM_OVERDUE_ACCENT = 'border-l-rose-500 bg-rose-50 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200'
 
 function overlapsDay(event: CalendarEvent, day: Date) {
   const dayStart = startOfDay(day)
   const dayEnd = addDays(dayStart, 1)
   return new Date(event.endsAt) > dayStart && new Date(event.startsAt) < dayEnd
+}
+
+function workItemSpansDay(item: CalendarWorkItem, day: Date) {
+  const dayKey = format(day, 'yyyy-MM-dd')
+  if (!item.startedOn) return item.dueDate === dayKey
+  if (dayKey < item.startedOn) return false
+  if (!item.dueDate) return true
+  const endKey = item.overdue ? [item.dueDate, format(new Date(), 'yyyy-MM-dd')].sort().at(-1) ?? item.dueDate : item.dueDate
+  return dayKey <= endKey
+}
+
+function workItemAccent(item: CalendarWorkItem) {
+  if (item.overdue) return WORK_ITEM_OVERDUE_ACCENT
+  if (item.status === 'BLOCKED' || item.status === 'WAITING') return WORK_ITEM_PAUSED_ACCENT
+  return WORK_ITEM_ACCENT
 }
 
 function getDefaultForm(day: Date): EventForm {
@@ -82,6 +109,7 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
   const [view, setView] = useState<CalendarView>('team')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [workItems, setWorkItems] = useState<CalendarWorkItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -127,23 +155,31 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
   useEffect(() => {
     if (!currentUser || selectedScopes.length === 0) {
       setEvents([])
+      setWorkItems([])
       setIsLoading(false)
       return
     }
     let cancelled = false
     setIsLoading(true)
     setLoadError(null)
-    void Promise.all(selectedScopes.map((scope) => listCalendarEvents(range.from, range.to, scope.type, scope.id)))
-      .then((eventGroups) => {
+    void Promise.all([
+      Promise.all(selectedScopes.map((scope) => listCalendarEvents(range.from, range.to, scope.type, scope.id))),
+      Promise.all(selectedScopes.map((scope) => listCalendarWorkItems(range.from, range.to, scope.type, scope.id))),
+    ])
+      .then(([eventGroups, workItemGroups]) => {
         if (!cancelled) {
           const uniqueEvents = new Map<string, CalendarEvent>()
           eventGroups.flat().forEach((event) => uniqueEvents.set(event.id, event))
           setEvents(Array.from(uniqueEvents.values()))
+          const uniqueWorkItems = new Map<string, CalendarWorkItem>()
+          workItemGroups.flat().forEach((item) => uniqueWorkItems.set(`${item.workItemId}:${item.assigneeType}:${item.assigneeId}`, item))
+          setWorkItems(Array.from(uniqueWorkItems.values()))
         }
       })
       .catch((error) => {
         if (!cancelled) {
           setEvents([])
+          setWorkItems([])
           setLoadError(error instanceof Error ? error.message : 'Unable to load calendar events')
         }
       })
@@ -166,6 +202,16 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
     .filter(([userId]) => selectedScopeKeys.includes(`USER:${userId}`))
     .sort((left, right) => left[1].localeCompare(right[1]) || left[0].localeCompare(right[0])), [selectedScopeKeys, ownerNames])
 
+  const teamNames = useMemo(() => new Map(scopes.map((scope) => [scope.teamId, scope.teamName])), [scopes])
+  const selectedTeams = useMemo(() => scopes
+    .filter((scope) => selectedScopeKeys.includes(`TEAM:${scope.teamId}`))
+    .map((scope) => ({ type: 'TEAM' as const, id: scope.teamId, name: scope.teamName })), [scopes, selectedScopeKeys])
+  const selectedRows = useMemo<CalendarScheduleRow[]>(() => [
+    ...selectedTeams,
+    ...selectedPeople.map(([id, name]) => ({ type: 'USER' as const, id, name })),
+  ], [selectedPeople, selectedTeams])
+  const unscheduledWorkItems = useMemo(() => workItems.filter((item) => !item.startedOn), [workItems])
+
   const visibleEvents = events
 
   const monthDays = useMemo(() => {
@@ -185,19 +231,33 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
 
   function toggleScope(scopeKey: string) {
     setSelectedScopeKeys((current) => {
-      if (current.includes(scopeKey)) {
-        return current.filter((key) => key !== scopeKey)
-      }
-      return [...current, scopeKey]
+      const next = current.includes(scopeKey)
+        ? current.filter((key) => key !== scopeKey)
+        : [...current, scopeKey]
+      if (!scopeKey.startsWith('USER:')) return next
+      const userId = scopeKey.slice('USER:'.length)
+      return next.filter((key) => !scopes.some((scope) =>
+        key === `TEAM:${scope.teamId}` && scope.members.some((member) => member.userId === userId)))
     })
   }
 
   function toggleTeam(scope: CalendarScope) {
+    const teamKey = `TEAM:${scope.teamId}`
     const keys = scope.members.map((member) => `USER:${member.userId}`)
-    setSelectedScopeKeys((current) => keys.every((key) => current.includes(key))
-      ? current.filter((key) => !keys.includes(key))
-      : Array.from(new Set([...current, ...keys])))
+    setSelectedScopeKeys((current) => current.includes(teamKey)
+      ? current.filter((key) => key !== teamKey && !keys.includes(key))
+      : Array.from(new Set([...current, teamKey, ...keys])))
     setView('team')
+  }
+
+  function toggleMember(teamId: string, userId: string) {
+    const userKey = `USER:${userId}`
+    setSelectedScopeKeys((current) => {
+      const next = current.includes(userKey)
+        ? current.filter((key) => key !== userKey)
+        : [...current, userKey]
+      return next.filter((key) => key !== `TEAM:${teamId}`)
+    })
   }
 
   function openNewEvent(day = currentDate) {
@@ -279,6 +339,68 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
     )
   }
 
+  function renderWorkItem(item: CalendarWorkItem) {
+    const showAssignee = selectedScopes.length > 1 || selectedScopes.some((scope) => scope.type === 'TEAM')
+    const assigneeName = item.assigneeType === 'TEAM'
+      ? teamNames.get(item.assigneeId) ?? 'Unknown team'
+      : ownerNames.get(item.assigneeId) ?? 'Unknown user'
+    const href = `/app/projects/${item.projectId}?workItemId=${encodeURIComponent(item.workItemId)}`
+    return (
+      <NavLink
+        key={`${item.workItemId}:${item.assigneeType}:${item.assigneeId}`}
+        to={href}
+        className={cn('block w-full overflow-hidden rounded border-l-4 px-2 py-1 text-left text-xs hover:brightness-95', workItemAccent(item))}
+        title={`${item.title} · ${item.projectName}`}
+      >
+        <span className="block truncate font-medium">{item.title}</span>
+        <span className="block truncate text-[10px] opacity-75">{item.projectName} · {item.status.replaceAll('_', ' ')}</span>
+        {showAssignee ? <span className="block truncate text-[10px] opacity-75">{assigneeName}</span> : null}
+        {!item.startedOn && item.dueDate ? <span className="block truncate text-[10px] opacity-75">Due {format(new Date(`${item.dueDate}T00:00:00`), 'MMM d')}</span> : null}
+      </NavLink>
+    )
+  }
+
+  function renderDayItems(day: Date, limit?: number) {
+    const entries: Array<
+      { kind: 'event'; value: CalendarEvent } |
+      { kind: 'workItem'; value: CalendarWorkItem }
+    > = [
+      ...visibleEvents.filter((event) => overlapsDay(event, day)).map((value) => ({ kind: 'event' as const, value })),
+      ...workItems.filter((item) => workItemSpansDay(item, day)).map((value) => ({ kind: 'workItem' as const, value })),
+    ]
+    return entries.slice(0, limit ?? entries.length).map((entry) => entry.kind === 'event' ? renderEvent(entry.value) : renderWorkItem(entry.value))
+  }
+
+  function renderScheduleRow(row: CalendarScheduleRow) {
+    const rowEvents = row.type === 'USER' ? events.filter((event) => event.userId === row.id) : []
+    const rowWorkItems = workItems.filter((item) => item.assigneeType === row.type && item.assigneeId === row.id)
+    return (
+      <tr key={`${row.type}:${row.id}`} className="border-b">
+        <th scope="row" className="sticky left-0 z-10 bg-background p-3 text-left align-top font-medium">
+          <span className="block truncate">{row.name}</span>
+          <span className="block text-[10px] font-normal uppercase text-muted-foreground">{row.type === 'TEAM' ? 'Team' : 'Person'}</span>
+        </th>
+        {weekDays.map((day) => {
+          const dayEvents = rowEvents.filter((event) => overlapsDay(event, day))
+          const dayWorkItems = rowWorkItems.filter((item) => workItemSpansDay(item, day))
+          return (
+            <td key={day.toISOString()} className={cn('border-l p-2 align-top', (dayEvents.length > 0 || dayWorkItems.length > 0) && 'bg-muted/20')}>
+              <div className="min-h-24 space-y-2">
+                {dayWorkItems.map(renderWorkItem)}
+                {dayEvents.map((event) => (
+                  <button key={event.id} type="button" className={cn('w-full rounded border-l-4 p-2 text-left text-xs', EVENT_ACCENT)} onClick={() => openEvent(event)}>
+                    <span className="block break-words font-medium">{event.title}</span>
+                    <span className="mt-1 block">{event.allDay ? 'All day' : `${format(new Date(Math.max(new Date(event.startsAt).getTime(), startOfDay(day).getTime())), 'h:mm a')}–${format(new Date(Math.min(new Date(event.endsAt).getTime(), addDays(startOfDay(day), 1).getTime())), 'h:mm a')}`}</span>
+                  </button>
+                ))}
+              </div>
+            </td>
+          )
+        })}
+      </tr>
+    )
+  }
+
   if (!currentUser) return null
 
   return (
@@ -330,14 +452,14 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
                 {scopes.map((scope) => (
                   <div key={scope.teamId} className="py-2">
                     <label className="flex items-center gap-2 px-2 text-sm font-semibold">
-                      <Checkbox checked={scope.members.length > 0 && scope.members.every((member) => selectedScopeKeys.includes(`USER:${member.userId}`))} disabled={scope.members.length === 0} onCheckedChange={() => toggleTeam(scope)} />
+                      <Checkbox checked={selectedScopeKeys.includes(`TEAM:${scope.teamId}`)} disabled={scope.members.length === 0} onCheckedChange={() => toggleTeam(scope)} />
                       <span className="min-w-0 flex-1 truncate">{scope.teamName}</span>
                       <span className="text-xs text-muted-foreground">{scope.members.length}</span>
                     </label>
                     <div className="mt-2 space-y-1 pl-5">
                       {scope.members.map((member) => (
                         <label key={member.userId} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
-                          <Checkbox checked={selectedScopeKeys.includes(`USER:${member.userId}`)} onCheckedChange={() => toggleScope(`USER:${member.userId}`)} />
+                          <Checkbox checked={selectedScopeKeys.includes(`USER:${member.userId}`)} onCheckedChange={() => toggleMember(scope.teamId, member.userId)} />
                           <span className="truncate">{member.displayName}</span>
                         </label>
                       ))}
@@ -354,74 +476,68 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
               <div className="flex min-h-96 items-center justify-center text-sm text-muted-foreground">Loading calendar…</div>
             ) : loadError ? (
               <p role="alert" className="p-4 text-sm text-destructive">{loadError}</p>
-            ) : selectedPeople.length === 0 ? (
+            ) : selectedRows.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">Select a team or people to compare their schedules.</p>
-            ) : view === 'team' ? (
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span className="font-medium">{selectedPeople.length} people · {format(weekDays[0], 'MMM d')}–{format(weekDays[6], 'MMM d, yyyy')}</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1100px] table-fixed border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="sticky left-0 z-10 w-40 bg-background p-3 text-left">Person</th>
-                        {weekDays.map((day) => <th key={day.toISOString()} className={cn('border-l p-2 text-left font-medium', isToday(day) && 'text-primary')}>{format(day, 'EEE, MMM d')}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedPeople.map(([userId, name]) => (
-                        <tr key={userId} className="border-b">
-                          <th scope="row" className="sticky left-0 z-10 bg-background p-3 text-left align-top font-medium">{name}</th>
-                          {weekDays.map((day) => {
-                            const dayEvents = events.filter((event) => event.userId === userId && overlapsDay(event, day))
-                            const shownEvents = visibleEvents.filter((event) => event.userId === userId && overlapsDay(event, day))
-                            return (
-                              <td key={day.toISOString()} className={cn('border-l p-2 align-top', dayEvents.length > 0 && 'bg-muted/20')}>
-                                <div className="min-h-24 space-y-2">
-                                  {shownEvents.map((event) => (
-                                    <button key={event.id} type="button" className={cn('w-full rounded border-l-4 p-2 text-left text-xs', EVENT_ACCENT)} onClick={() => openEvent(event)}>
-                                      <span className="block font-medium break-words">{event.title}</span>
-                                      <span className="mt-1 block">{event.allDay ? 'All day' : `${format(new Date(Math.max(new Date(event.startsAt).getTime(), startOfDay(day).getTime())), 'h:mm a')}–${format(new Date(Math.min(new Date(event.endsAt).getTime(), addDays(startOfDay(day), 1).getTime())), 'h:mm a')}`}</span>
-                                    </button>
-                                  ))}
-                                </div>
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : view === 'month' ? (
-              <div className="overflow-x-auto">
-                <div className="min-w-[760px]">
-                  <div className="grid grid-cols-7 border-b bg-muted/30">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <div key={day} className="px-2 py-2 text-xs font-medium text-muted-foreground">{day}</div>)}
-                  </div>
-                  <div className="grid grid-cols-7">
-                    {monthDays.map((day) => (
-                      <div key={day.toISOString()} className={cn('min-h-32 border-b border-l p-1.5', !isSameMonth(day, currentDate) && 'bg-muted/15')}>
-                        <button type="button" className={cn('mb-1 flex size-6 items-center justify-center rounded-full text-xs', isToday(day) && 'bg-primary font-semibold text-primary-foreground', !isSameMonth(day, currentDate) && 'text-muted-foreground')} onClick={() => openNewEvent(day)}>{format(day, 'd')}</button>
-                        <div className="space-y-1">{visibleEvents.filter((event) => overlapsDay(event, day)).slice(0, 4).map(renderEvent)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <div className="min-w-[760px]">
-                  <div className="grid grid-cols-7 border-b bg-muted/30">
-                    {weekDays.map((day) => <div key={day.toISOString()} className={cn('border-l px-2 py-2 text-xs', isToday(day) && 'font-semibold text-primary')}><div>{format(day, 'EEE')}</div><div className="text-muted-foreground">{format(day, 'MMM d')}</div></div>)}
+              <>
+                {unscheduledWorkItems.length > 0 ? (
+                  <div className="mb-4 border-b pb-3">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                      Unscheduled work
+                      <span className="text-xs font-normal text-muted-foreground">{unscheduledWorkItems.length}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {unscheduledWorkItems.map((item) => <div key={`${item.workItemId}:${item.assigneeType}:${item.assigneeId}`} className="min-w-56 max-w-full">{renderWorkItem(item)}</div>)}
+                    </div>
                   </div>
-                  <div className="grid min-h-80 grid-cols-7">
-                    {weekDays.map((day) => <div key={day.toISOString()} className="min-h-80 space-y-1 border-b border-l p-2">{visibleEvents.filter((event) => overlapsDay(event, day)).map(renderEvent)}</div>)}
+                ) : null}
+
+                {view === 'team' ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="font-medium">{selectedRows.length} calendars · {format(weekDays[0], 'MMM d')}–{format(weekDays[6], 'MMM d, yyyy')}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[1100px] table-fixed border-collapse text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/30">
+                            <th className="sticky left-0 z-10 w-40 bg-background p-3 text-left">Calendar</th>
+                            {weekDays.map((day) => <th key={day.toISOString()} className={cn('border-l p-2 text-left font-medium', isToday(day) && 'text-primary')}>{format(day, 'EEE, MMM d')}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>{selectedRows.map(renderScheduleRow)}</tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              </div>
+                ) : view === 'month' ? (
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[760px]">
+                      <div className="grid grid-cols-7 border-b bg-muted/30">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <div key={day} className="px-2 py-2 text-xs font-medium text-muted-foreground">{day}</div>)}
+                      </div>
+                      <div className="grid grid-cols-7">
+                        {monthDays.map((day) => (
+                          <div key={day.toISOString()} className={cn('min-h-32 border-b border-l p-1.5', !isSameMonth(day, currentDate) && 'bg-muted/15')}>
+                            <button type="button" className={cn('mb-1 flex size-6 items-center justify-center rounded-full text-xs', isToday(day) && 'bg-primary font-semibold text-primary-foreground', !isSameMonth(day, currentDate) && 'text-muted-foreground')} onClick={() => openNewEvent(day)}>{format(day, 'd')}</button>
+                            <div className="space-y-1">{renderDayItems(day, 4)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[760px]">
+                      <div className="grid grid-cols-7 border-b bg-muted/30">
+                        {weekDays.map((day) => <div key={day.toISOString()} className={cn('border-l px-2 py-2 text-xs', isToday(day) && 'font-semibold text-primary')}><div>{format(day, 'EEE')}</div><div className="text-muted-foreground">{format(day, 'MMM d')}</div></div>)}
+                      </div>
+                      <div className="grid min-h-80 grid-cols-7">
+                        {weekDays.map((day) => <div key={day.toISOString()} className="min-h-80 space-y-1 border-b border-l p-2">{renderDayItems(day)}</div>)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
           </section>

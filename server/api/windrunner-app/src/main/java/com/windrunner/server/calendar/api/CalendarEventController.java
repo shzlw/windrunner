@@ -39,6 +39,17 @@ public class CalendarEventController {
         return ApiResponse.success(calendarEventService.listEvents(actor, scopeType, effectiveScopeId, from, to));
     }
 
+    @GetMapping("/work-items")
+    public ApiResponse<List<CalendarWorkItemView>> listWorkItems(
+            @RequestParam(name = "from") OffsetDateTime from,
+            @RequestParam(name = "to") OffsetDateTime to,
+            @RequestParam(name = "scopeType", required = false, defaultValue = "USER") String scopeType,
+            @RequestParam(name = "scopeId", required = false) String scopeId,
+            HttpServletRequest request) {
+        AppUser actor = authService.requireCurrentUser(request);
+        return ApiResponse.success(calendarEventService.listWorkItems(actor, scopeType, scopeId, from, to));
+    }
+
     @GetMapping("/events/{id}")
     public ApiResponse<CalendarEventView> getEvent(@PathVariable("id") String id,
                                                     HttpServletRequest request) {

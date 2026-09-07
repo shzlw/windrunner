@@ -362,6 +362,19 @@ export interface CalendarEventRequest {
   workItemId?: string | null
 }
 
+export interface CalendarWorkItem {
+  workItemId: string
+  projectId: string
+  projectName: string
+  title: string
+  status: WorkItem['status']
+  assigneeType: 'USER' | 'TEAM'
+  assigneeId: string
+  startedOn: string | null
+  dueDate: string | null
+  overdue: boolean
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -1357,6 +1370,17 @@ export async function listCalendarEvents(
   const params = new URLSearchParams({ from, to, scopeType })
   if (scopeId) params.set('scopeId', scopeId)
   return request<CalendarEvent[]>(`/internal-api/v1/calendar/events?${params.toString()}`, { method: 'GET' })
+}
+
+export async function listCalendarWorkItems(
+  from: string,
+  to: string,
+  scopeType: CalendarScopeType = 'USER',
+  scopeId?: string,
+): Promise<CalendarWorkItem[]> {
+  const params = new URLSearchParams({ from, to, scopeType })
+  if (scopeId) params.set('scopeId', scopeId)
+  return request<CalendarWorkItem[]>(`/internal-api/v1/calendar/work-items?${params.toString()}`, { method: 'GET' })
 }
 
 export async function createCalendarEvent(event: CalendarEventRequest): Promise<CalendarEvent> {

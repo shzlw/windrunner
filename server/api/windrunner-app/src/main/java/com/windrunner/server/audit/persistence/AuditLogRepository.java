@@ -13,6 +13,25 @@ import java.util.List;
 @Repository
 public interface AuditLogRepository extends CrudRepository<AuditLog, String> {
 
+    record WorkItemStatusRow(
+            String workItemId,
+            OffsetDateTime occurredAt,
+            String status
+    ) {
+    }
+
+    @Query("""
+            SELECT entity_id AS work_item_id,
+                   occurred_at,
+                   after_json ->> 'status' AS status
+            FROM audit_log
+            WHERE entity_type = 'WORK_ITEM'
+              AND entity_id IN (:workItemIds)
+              AND (action = 'CREATE' OR changes_json -> 'status' IS NOT NULL)
+            ORDER BY entity_id, occurred_at, id
+            """)
+    List<WorkItemStatusRow> findWorkItemStatusHistory(@Param("workItemIds") List<String> workItemIds);
+
     @Query("""
             SELECT id, occurred_at, actor_user_id, action, entity_type, entity_id, project_id,
                    outcome, summary, before_json::text AS before_json, after_json::text AS after_json,

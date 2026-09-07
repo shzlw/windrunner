@@ -1,18 +1,22 @@
 package com.windrunner.server.calendar;
 
 import com.windrunner.server.auth.security.AppRoles;
+import com.windrunner.server.audit.persistence.AuditLogRepository;
 import com.windrunner.server.calendar.api.CalendarEventConflictView;
 import com.windrunner.server.calendar.api.CalendarEventRequest;
 import com.windrunner.server.calendar.api.CalendarEventView;
 import com.windrunner.server.calendar.api.CalendarScopeMemberView;
 import com.windrunner.server.calendar.api.CalendarScopeView;
+import com.windrunner.server.calendar.api.CalendarWorkItemView;
 import com.windrunner.server.calendar.domain.CalendarEvent;
 import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
+import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
+import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.team.domain.TeamMember;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
@@ -29,10 +33,12 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -46,12 +52,15 @@ public class CalendarEventService {
     private static final int MAX_RANGE_DAYS = 366;
     private static final int MAX_TITLE_LENGTH = 200;
     private static final int MAX_DESCRIPTION_LENGTH = 20_000;
+    private static final int MAX_WORK_ITEM_RESULTS = 500;
 
     private final CalendarEventRepository calendarEventRepository;
+    private final AuditLogRepository auditLogRepository;
     private final AppUserRepository appUserRepository;
     private final WorkItemRepository workItemRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectAccessService projectAccessService;
+    private final ProjectRepository projectRepository;
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final EntityIdGenerator idGenerator;
@@ -104,6 +113,71 @@ public class CalendarEventService {
                 .stream()
                 .map(CalendarEventView::from)
                 .toList();
+    }
+
+    public List<CalendarWorkItemView> listWorkItems(AppUser actor,
+                                                    String scopeType,
+                                                    String scopeId,
+                                                    OffsetDateTime from,
+        OffsetDateTime to) {
+        validateRange(from, to);
+        requireAuthenticatedActor(actor);
+        String normalizedScopeType = normalizeScopeType(scopeType);
+        List<WorkItemRepository.CalendarAssignmentRow> rows;
+        if ("USER".equals(normalizedScopeType)) {
+            AppUser target = requireReadableTargetUser(scopeId, actor);
+            List<String> projectIds = findVisibleProjectIds(actor);
+            if (projectIds.isEmpty()) {
+                return List.of();
+            }
+            rows = workItemRepository.findCalendarAssignmentsByUserIds(
+                    projectIds, List.of(target.getId()), MAX_WORK_ITEM_RESULTS);
+        } else {
+            Team team = requireReadableTeam(scopeId, actor);
+            List<String> memberIds = teamMemberRepository.findByTeamId(team.getId()).stream()
+                    .map(TeamMember::getUserId)
+                    .distinct()
+                    .toList();
+            if (memberIds.isEmpty()) {
+                return List.of();
+            }
+            List<String> projectIds = findVisibleProjectIds(actor);
+            if (projectIds.isEmpty()) {
+                return List.of();
+            }
+            rows = workItemRepository.findCalendarAssignmentsForTeam(
+                    projectIds, memberIds, team.getId(), MAX_WORK_ITEM_RESULTS);
+        }
+
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, LocalDate> startedOnByWorkItemId = findLatestStartedDates(rows, actor);
+        LocalDate fromDate = from.toLocalDate();
+        LocalDate toDate = to.toLocalDate();
+        LocalDate today = LocalDate.now(resolveZone(actor.getTimezone()));
+        Map<String, CalendarWorkItemView> workItemsByAssignment = new LinkedHashMap<>();
+        for (WorkItemRepository.CalendarAssignmentRow row : rows) {
+            LocalDate startedOn = startedOnByWorkItemId.get(row.workItemId());
+            boolean overdue = row.dueDate() != null && row.dueDate().isBefore(today);
+            CalendarWorkItemView view = new CalendarWorkItemView(
+                    row.workItemId(),
+                    row.projectId(),
+                    row.projectName(),
+                    row.title(),
+                    row.status(),
+                    row.assigneeType(),
+                    row.assigneeId(),
+                    startedOn,
+                    row.dueDate(),
+                    overdue);
+            if (startedOn == null || overlapsCalendarRange(view, fromDate, toDate, today)) {
+                String key = row.workItemId() + ":" + row.assigneeType() + ":" + row.assigneeId();
+                workItemsByAssignment.put(key, view);
+            }
+        }
+        return List.copyOf(workItemsByAssignment.values());
     }
 
     public CalendarEventView getEvent(String id, AppUser actor) {
@@ -221,7 +295,7 @@ public class CalendarEventService {
 
     private List<String> resolveScopeUserIds(AppUser actor, String scopeType, String scopeId) {
         requireAuthenticatedActor(actor);
-        String normalizedScopeType = StringUtils.hasText(scopeType) ? scopeType.trim().toUpperCase(Locale.ROOT) : "USER";
+        String normalizedScopeType = normalizeScopeType(scopeType);
         if ("USER".equals(normalizedScopeType)) {
             AppUser target = requireReadableTargetUser(scopeId, actor);
             return List.of(target.getId());
@@ -239,6 +313,80 @@ public class CalendarEventService {
                     .toList();
         }
         throw createBadRequestException("Calendar scope type must be USER or TEAM");
+    }
+
+    private String normalizeScopeType(String scopeType) {
+        String normalizedScopeType = StringUtils.hasText(scopeType) ? scopeType.trim().toUpperCase(Locale.ROOT) : "USER";
+        if (!"USER".equals(normalizedScopeType) && !"TEAM".equals(normalizedScopeType)) {
+            throw createBadRequestException("Calendar scope type must be USER or TEAM");
+        }
+        return normalizedScopeType;
+    }
+
+    private Team requireReadableTeam(String requestedTeamId, AppUser actor) {
+        if (!StringUtils.hasText(requestedTeamId)) {
+            throw createBadRequestException("Team scope id is required");
+        }
+        Team team = teamRepository.findById(requestedTeamId.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
+        requireTeamReadAccess(team.getId(), actor);
+        return team;
+    }
+
+    private List<String> findVisibleProjectIds(AppUser actor) {
+        if (AppRoles.isAdminLike(actor.getGlobalRole())) {
+            return projectRepository.findAllByOrderByNameAscIdAsc().stream()
+                    .map(Project::getId)
+                    .toList();
+        }
+        return projectRepository.findVisibleToUser(actor.getId()).stream()
+                .map(Project::getId)
+                .toList();
+    }
+
+    private Map<String, LocalDate> findLatestStartedDates(
+            List<WorkItemRepository.CalendarAssignmentRow> rows,
+            AppUser actor) {
+        List<String> workItemIds = rows.stream()
+                .map(WorkItemRepository.CalendarAssignmentRow::workItemId)
+                .distinct()
+                .toList();
+        Map<String, LocalDate> startedOnByWorkItemId = new HashMap<>();
+        ZoneId zone = resolveZone(actor.getTimezone());
+        auditLogRepository.findWorkItemStatusHistory(workItemIds).forEach(statusRow -> {
+            if ("IN_PROGRESS".equalsIgnoreCase(statusRow.status()) && statusRow.occurredAt() != null) {
+                startedOnByWorkItemId.put(statusRow.workItemId(), statusRow.occurredAt().atZoneSameInstant(zone).toLocalDate());
+            }
+        });
+        return startedOnByWorkItemId;
+    }
+
+    private boolean overlapsCalendarRange(CalendarWorkItemView workItem,
+                                          LocalDate from,
+                                          LocalDate to,
+                                          LocalDate today) {
+        LocalDate start = workItem.startedOn();
+        if (start == null) {
+            return false;
+        }
+        LocalDate end = workItem.dueDate();
+        if (end == null || end.isBefore(start)) {
+            end = to;
+        } else if (end.isBefore(today)) {
+            end = today;
+        }
+        return !start.isAfter(to) && !end.isBefore(from);
+    }
+
+    private ZoneId resolveZone(String timezone) {
+        if (!StringUtils.hasText(timezone)) {
+            return ZoneId.of("UTC");
+        }
+        try {
+            return ZoneId.of(timezone);
+        } catch (DateTimeException exception) {
+            return ZoneId.of("UTC");
+        }
     }
 
     private AppUser requireTargetUserForWrite(String requestedUserId, AppUser actor) {

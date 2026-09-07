@@ -7,12 +7,62 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
     String COLUMNS = "id, project_id, parent_work_item_id, sort_index, type, title, status, due_date, priority, created_by_user_id, created_at, updated_at";
+
+    record CalendarAssignmentRow(
+            String workItemId,
+            String projectId,
+            String projectName,
+            String title,
+            String status,
+            LocalDate dueDate,
+            String assigneeType,
+            String assigneeId
+    ) {
+    }
+
+    @Query("""
+            SELECT w.id AS work_item_id, w.project_id, p.name AS project_name, w.title, w.status,
+                   w.due_date, a.assignee_type, a.assignee_id
+            FROM work_item w
+            JOIN project p ON p.id = w.project_id
+            JOIN work_item_assignee a ON a.work_item_id = w.id
+            WHERE w.project_id IN (:projectIds)
+              AND a.assignee_type = 'USER'
+              AND a.assignee_id IN (:userIds)
+              AND w.status NOT IN ('DONE', 'ANSWERED', 'APPROVED', 'REJECTED', 'CANCELLED')
+            ORDER BY w.due_date NULLS LAST, w.id, a.assignee_id
+            LIMIT :limit
+            """)
+    List<CalendarAssignmentRow> findCalendarAssignmentsByUserIds(@Param("projectIds") List<String> projectIds,
+                                                                 @Param("userIds") List<String> userIds,
+                                                                 @Param("limit") int limit);
+
+    @Query("""
+            SELECT w.id AS work_item_id, w.project_id, p.name AS project_name, w.title, w.status,
+                   w.due_date, a.assignee_type, a.assignee_id
+            FROM work_item w
+            JOIN project p ON p.id = w.project_id
+            JOIN work_item_assignee a ON a.work_item_id = w.id
+            WHERE w.project_id IN (:projectIds)
+              AND (
+                    (a.assignee_type = 'USER' AND a.assignee_id IN (:userIds))
+                 OR (a.assignee_type = 'TEAM' AND a.assignee_id = :teamId)
+              )
+              AND w.status NOT IN ('DONE', 'ANSWERED', 'APPROVED', 'REJECTED', 'CANCELLED')
+            ORDER BY w.due_date NULLS LAST, w.id, a.assignee_type, a.assignee_id
+            LIMIT :limit
+            """)
+    List<CalendarAssignmentRow> findCalendarAssignmentsForTeam(@Param("projectIds") List<String> projectIds,
+                                                               @Param("userIds") List<String> userIds,
+                                                               @Param("teamId") String teamId,
+                                                               @Param("limit") int limit);
 
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE project_id = :projectId ORDER BY parent_work_item_id NULLS FIRST, sort_index, id")
     List<WorkItem> findByProjectId(@Param("projectId") String projectId);
