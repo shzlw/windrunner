@@ -12,8 +12,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://shzlw.github.io',
-  baseUrl: '/windrunner/',
+  url: 'https://windrunnerai.com',
+  baseUrl: '/',
 
   organizationName: 'shzlw',
   projectName: 'windrunner',

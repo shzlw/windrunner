@@ -11,14 +11,23 @@ import { Button } from '@/components/ui/button'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@/components/ui/combobox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   assignProjectTeam,
   getProject,
+  listAssignableTeamsForProject,
+  listAssignableUsersForProject,
   listProjectMembers,
   listProjectTeams,
-  listTeams,
   loadSelectableUsers,
   removeProjectMember,
   request,
@@ -67,7 +76,12 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
   const navigate = useNavigate()
   const { projectId } = useParams()
   const [project, setProject] = useState<Project | null>(null)
-  const [teams, setTeams] = useState<Team[]>([])
+  const [assignableTeams, setAssignableTeams] = useState<Team[]>([])
+  const [teamSearch, setTeamSearch] = useState('')
+  const [isSearchingTeams, setIsSearchingTeams] = useState(false)
+  const [assignableUsers, setAssignableUsers] = useState<User[]>([])
+  const [userSearch, setUserSearch] = useState('')
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([])
   const [projectTeams, setProjectTeams] = useState<ProjectTeam[]>([])
@@ -104,14 +118,10 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
   }, [currentUser, users])
   const assignedTeamIds = useMemo(() => new Set(projectTeams.map((projectTeam) => projectTeam.teamId)), [projectTeams])
   const projectMemberUserIds = useMemo(() => new Set(projectMembers.map((member) => member.userId)), [projectMembers])
-  const availableTeams = teams.filter((team) => !assignedTeamIds.has(team.id))
-  const usersForSelection = useMemo(() => {
-    if (!currentUser || currentUser.globalRole?.toUpperCase() === 'SUPERADMIN' || users.some((user) => user.id === currentUser.id)) {
-      return users
-    }
-    return [currentUser, ...users]
-  }, [currentUser, users])
-  const availableMemberUsers = usersForSelection.filter((user) => !projectMemberUserIds.has(user.id))
+  const availableTeams = assignableTeams.filter((team) => !assignedTeamIds.has(team.id))
+  const selectedAssignableTeam = availableTeams.find((team) => team.id === assignTeamId) ?? null
+  const availableMemberUsers = assignableUsers.filter((user) => !projectMemberUserIds.has(user.id))
+  const selectedAssignableUser = availableMemberUsers.find((user) => user.id === assignMemberUserId) ?? null
   const currentMembership = currentUser ? projectMembers.find((member) => member.userId === currentUser.id) ?? null : null
 
   async function loadPage() {
@@ -123,9 +133,8 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     setErrorMessage(null)
 
     try {
-      const [nextProject, nextTeams, nextUsers, nextProjectMembers, nextProjectTeams] = await Promise.all([
+      const [nextProject, nextUsers, nextProjectMembers, nextProjectTeams] = await Promise.all([
         getProject(projectId),
-        listTeams(),
         loadSelectableUsers(),
         listProjectMembers(projectId),
         listProjectTeams(projectId),
@@ -133,7 +142,8 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
 
       setProject(nextProject)
       setEditTitle(formatProjectTitle(nextProject, t('common.untitledProject')))
-      setTeams(nextTeams)
+      setAssignableTeams([])
+      setAssignableUsers([])
       setUsers(nextUsers)
       setProjectMembers(nextProjectMembers)
       setProjectTeams(nextProjectTeams)
@@ -156,6 +166,70 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     // Reload when the route target changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
+
+  useEffect(() => {
+    if (!projectId || addAccessMode !== 'team') {
+      return
+    }
+
+    let cancelled = false
+    const timeout = window.setTimeout(() => {
+      setIsSearchingTeams(true)
+      void listAssignableTeamsForProject(projectId, teamSearch)
+        .then((nextTeams) => {
+          if (!cancelled) {
+            setAssignableTeams(nextTeams)
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            toast.error(error instanceof Error ? error.message : t('projectSettings.failedLoadTeams'))
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsSearchingTeams(false)
+          }
+        })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [addAccessMode, projectId, t, teamSearch])
+
+  useEffect(() => {
+    if (!projectId || addAccessMode !== 'member') {
+      return
+    }
+
+    let cancelled = false
+    const timeout = window.setTimeout(() => {
+      setIsSearchingUsers(true)
+      void listAssignableUsersForProject(projectId, userSearch)
+        .then((nextUsers) => {
+          if (!cancelled) {
+            setAssignableUsers(nextUsers)
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            toast.error(error instanceof Error ? error.message : t('projectSettings.failedLoadUsers'))
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsSearchingUsers(false)
+          }
+        })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [addAccessMode, projectId, t, userSearch])
 
   async function loadProjectRelations() {
     if (!projectId) {
@@ -222,6 +296,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     try {
       await upsertProjectMember(project.id, assignMemberUserId, assignMemberRole)
       setAssignMemberUserId('')
+      setUserSearch('')
       setAssignMemberRole('VIEWER')
       await loadProjectRelations()
       toast.success(t('projects.memberAdded'))
@@ -276,6 +351,7 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
     try {
       await assignProjectTeam(project.id, assignTeamId, assignTeamRole)
       setAssignTeamId('')
+      setTeamSearch('')
       setAssignTeamRole('VIEWER')
       await loadProjectRelations()
       toast.success(t('projects.teamAssigned'))
@@ -564,14 +640,36 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
 
                   {addAccessMode === 'member' ? (
                     <form className="flex flex-col gap-2 sm:flex-row sm:items-center" onSubmit={handleAssignMember}>
-                      <NativeSelect className="w-full sm:w-72" value={assignMemberUserId} onChange={(event) => setAssignMemberUserId(event.target.value)} disabled={availableMemberUsers.length === 0}>
-                        <NativeSelectOption value="">{t('projectSettings.selectUser')}</NativeSelectOption>
-                        {availableMemberUsers.map((user) => (
-                          <NativeSelectOption key={user.id} value={user.id}>
-                            {displayUser(user, t('common.unknownUser'))}
-                          </NativeSelectOption>
-                        ))}
-                      </NativeSelect>
+                      <Combobox
+                        items={availableMemberUsers}
+                        value={selectedAssignableUser}
+                        inputValue={userSearch}
+                        onInputValueChange={(value) => {
+                          setUserSearch(value)
+                          if (value !== displayUser(selectedAssignableUser, '')) {
+                            setAssignMemberUserId('')
+                          }
+                        }}
+                        onValueChange={(user) => {
+                          setAssignMemberUserId(user?.id ?? '')
+                          setUserSearch(user ? displayUser(user, '') : '')
+                        }}
+                        itemToStringLabel={(user) => displayUser(user, '')}
+                        itemToStringValue={(user) => user.id}
+                        autoHighlight
+                      >
+                        <ComboboxInput className="w-full sm:w-72" placeholder={t('projectSettings.selectUser')} showClear />
+                        <ComboboxContent>
+                          <ComboboxEmpty>{isSearchingUsers ? t('common.loading') : t('projectSettings.noUsersFound')}</ComboboxEmpty>
+                          <ComboboxList>
+                            {availableMemberUsers.map((user, index) => (
+                              <ComboboxItem key={user.id} value={user} index={index}>
+                                <span className="min-w-0 truncate">{displayUser(user, t('common.unknownUser'))}</span>
+                              </ComboboxItem>
+                            ))}
+                          </ComboboxList>
+                        </ComboboxContent>
+                      </Combobox>
                       <NativeSelect className="w-full sm:w-36" value={assignMemberRole} onChange={(event) => setAssignMemberRole(event.target.value as ProjectMember['role'])}>
                         {PROJECT_ROLE_OPTIONS.map((role) => (
                           <NativeSelectOption key={role} value={role}>
@@ -586,14 +684,36 @@ export default function ProjectSettingsPage({ currentUser }: { currentUser: Auth
                     </form>
                   ) : (
                     <form className="flex flex-col gap-2 sm:flex-row sm:items-center" onSubmit={handleAssignTeam}>
-                      <NativeSelect className="w-full sm:w-72" value={assignTeamId} onChange={(event) => setAssignTeamId(event.target.value)} disabled={availableTeams.length === 0}>
-                        <NativeSelectOption value="">{t('projectSettings.selectTeam')}</NativeSelectOption>
-                        {availableTeams.map((team) => (
-                          <NativeSelectOption key={team.id} value={team.id}>
-                            {team.name}
-                          </NativeSelectOption>
-                        ))}
-                      </NativeSelect>
+                      <Combobox
+                        items={availableTeams}
+                        value={selectedAssignableTeam}
+                        inputValue={teamSearch}
+                        onInputValueChange={(value) => {
+                          setTeamSearch(value)
+                          if (value !== selectedAssignableTeam?.name) {
+                            setAssignTeamId('')
+                          }
+                        }}
+                        onValueChange={(team) => {
+                          setAssignTeamId(team?.id ?? '')
+                          setTeamSearch(team?.name ?? '')
+                        }}
+                        itemToStringLabel={(team) => team.name}
+                        itemToStringValue={(team) => team.id}
+                        autoHighlight
+                      >
+                        <ComboboxInput className="w-full sm:w-72" placeholder={t('projectSettings.selectTeam')} showClear />
+                        <ComboboxContent>
+                          <ComboboxEmpty>{isSearchingTeams ? t('common.loading') : t('projectSettings.noTeamsFound')}</ComboboxEmpty>
+                          <ComboboxList>
+                            {availableTeams.map((team, index) => (
+                              <ComboboxItem key={team.id} value={team} index={index}>
+                                <span className="min-w-0 truncate">{team.name}</span>
+                              </ComboboxItem>
+                            ))}
+                          </ComboboxList>
+                        </ComboboxContent>
+                      </Combobox>
                       <NativeSelect className="w-full sm:w-36" value={assignTeamRole} onChange={(event) => setAssignTeamRole(event.target.value as ProjectTeam['role'])}>
                         {PROJECT_ROLE_OPTIONS.map((role) => (
                           <NativeSelectOption key={role} value={role}>

@@ -1440,6 +1440,16 @@ export async function listProjectTeams(projectId: string): Promise<ProjectTeam[]
   return request<ProjectTeam[]>(`/internal-api/v1/projects/${projectId}/teams`, { method: 'GET' })
 }
 
+export async function listAssignableTeamsForProject(projectId: string, query = '', limit = 20): Promise<Team[]> {
+  const params = new URLSearchParams({ query, limit: String(limit) })
+  return request<Team[]>(`/internal-api/v1/projects/${projectId}/assignable-teams?${params.toString()}`, { method: 'GET' })
+}
+
+export async function listAssignableUsersForProject(projectId: string, query = '', limit = 20): Promise<User[]> {
+  const params = new URLSearchParams({ query, limit: String(limit) })
+  return request<User[]>(`/internal-api/v1/projects/${projectId}/assignable-users?${params.toString()}`, { method: 'GET' })
+}
+
 export async function listProjectMembers(projectId: string): Promise<ProjectMember[]> {
   return request<ProjectMember[]>(`/internal-api/v1/projects/${projectId}/members`, { method: 'GET' })
 }

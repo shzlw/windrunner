@@ -201,6 +201,39 @@ public interface AppUserRepository extends CrudRepository<AppUser, String> {
     List<AppUser> findActiveAssignableUsers(@Param("query") String query, @Param("limit") int limit);
 
     @Query("""
+            SELECT u.id, u.username, u.email, u.display_name, u.title, u.bio,
+                   u.timezone, u.status, u.global_role, u.must_change_password,
+                   u.created_at, u.updated_at
+            FROM app_user u
+            WHERE UPPER(u.status) = 'ACTIVE'
+              AND (
+                    UPPER(u.global_role) = 'USER'
+                 OR (:includeAdmins AND UPPER(u.global_role) = 'ADMIN')
+              )
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM project_member pm
+                    WHERE pm.project_id = :projectId
+                      AND pm.user_id = u.id
+              )
+              AND (
+                    :query IS NULL
+                 OR :query = ''
+                 OR LOWER(u.username) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(u.display_name, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(u.email, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(u.title, '')) LIKE CONCAT('%', LOWER(:query), '%')
+                 OR LOWER(COALESCE(u.bio, '')) LIKE CONCAT('%', LOWER(:query), '%')
+              )
+            ORDER BY lower(COALESCE(u.display_name, u.username)) ASC, u.id ASC
+            LIMIT :limit
+            """)
+    List<AppUser> findAvailableUsersForProject(@Param("projectId") String projectId,
+                                               @Param("query") String query,
+                                               @Param("includeAdmins") boolean includeAdmins,
+                                               @Param("limit") int limit);
+
+    @Query("""
             SELECT u.id, u.username, u.email, u.display_name, u.title, u.bio
             FROM app_user u
             WHERE UPPER(u.status) = 'ACTIVE'
