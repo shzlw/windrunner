@@ -36,6 +36,19 @@ public interface CalendarEventRepository extends CrudRepository<CalendarEvent, S
             SELECT id, user_id, event_type, title, description, starts_at, ends_at, timezone,
                    all_day, show_as_busy, work_item_id, created_by_user_id, created_at, updated_at
             FROM calendar_event
+            WHERE user_id IN (:userIds)
+              AND ends_at > :from
+              AND starts_at < :to
+            ORDER BY starts_at, ends_at, id
+            """)
+    List<CalendarEvent> findByUserIdsAndRange(@Param("userIds") List<String> userIds,
+                                              @Param("from") OffsetDateTime from,
+                                              @Param("to") OffsetDateTime to);
+
+    @Query("""
+            SELECT id, user_id, event_type, title, description, starts_at, ends_at, timezone,
+                   all_day, show_as_busy, work_item_id, created_by_user_id, created_at, updated_at
+            FROM calendar_event
             WHERE user_id = :userId
               AND show_as_busy = TRUE
               AND ends_at > :from

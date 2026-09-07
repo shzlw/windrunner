@@ -943,6 +943,7 @@ const en = {
     workspace: 'Workspace',
     projects: 'Projects',
     myWork: 'My Work',
+    calendar: 'Calendar',
     subscriptions: 'Subscriptions',
     teams: 'Teams',
     users: 'Users',

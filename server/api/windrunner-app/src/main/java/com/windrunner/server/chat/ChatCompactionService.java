@@ -30,7 +30,6 @@ public class ChatCompactionService {
     private static final int MAX_MESSAGE_LENGTH = 20_000;
     private static final int MAX_CONTEXT_LENGTH = 100_000;
     private static final int COMPACTION_TRIGGER_LENGTH = 80_000;
-    private static final int COMPACTION_TARGET_LENGTH = 60_000;
     private static final int MAX_SUMMARY_LENGTH = 8_000;
     private static final int MAX_SUMMARY_INPUT_LENGTH = 80_000;
     private static final int KEEP_RECENT_MESSAGES = 12;
@@ -69,7 +68,7 @@ public class ChatCompactionService {
             return new ChatCompactionResult(messages, summary);
         }
 
-        int compactCount = findCompactionCount(unsummarizedMessages, summary, pendingUserContent);
+        int compactCount = findCompactionCount(unsummarizedMessages, summary);
         if (compactCount == 0) {
             return new ChatCompactionResult(fitWithinHardLimit(summary, messages), summary);
         }
@@ -130,12 +129,11 @@ public class ChatCompactionService {
         return input.toString();
     }
 
-    private int findCompactionCount(List<ChatMessage> messages, String existingSummary, String pendingUserContent) {
+    private int findCompactionCount(List<ChatMessage> messages, String existingSummary) {
         if (messages.isEmpty()) {
             return 0;
         }
         int maxCompactionCount = Math.max(1, messages.size() - KEEP_RECENT_MESSAGES);
-        int rawLength = contentLength(messages) + pendingUserContent.length();
         int selectedLength = 0;
         int selectedCount = 0;
         int existingSummaryLength = existingSummary == null ? 0 : existingSummary.length();
@@ -147,9 +145,6 @@ public class ChatCompactionService {
             }
             selectedLength += message.getContent().length();
             selectedCount++;
-            if (MAX_SUMMARY_LENGTH + rawLength - selectedLength <= COMPACTION_TARGET_LENGTH) {
-                break;
-            }
         }
         return selectedCount;
     }
@@ -195,10 +190,6 @@ public class ChatCompactionService {
             length += message.content().length();
         }
         return length;
-    }
-
-    private int contentLength(List<ChatMessage> messages) {
-        return messages.stream().mapToInt(message -> message.getContent().length()).sum();
     }
 
     private boolean isAfterSummary(ChatMessage message, ChatSessionSummary summary) {

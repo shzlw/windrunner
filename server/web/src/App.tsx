@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Bot, ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { Bot, CalendarDays, ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 
@@ -43,6 +43,7 @@ import TeamsPage from './TeamsPage'
 import UsersPage from './UsersPage'
 import SubscriptionsPage from './SubscriptionsPage'
 import MyWorkPage from './MyWorkPage'
+import CalendarPage from './CalendarPage'
 import AppView from './AppView'
 import HomePage from './HomePage'
 import NotificationCenter, { NotificationProvider } from './components/NotificationCenter'
@@ -50,6 +51,7 @@ import NotificationCenter, { NotificationProvider } from './components/Notificat
 const baseMenuItems = [
   { labelKey: 'navigation.projects', path: '/app/projects', icon: FolderOpen },
   { labelKey: 'navigation.myWork', path: '/app/my-work', icon: ListTodo },
+  { labelKey: 'navigation.calendar', path: '/app/calendar', icon: CalendarDays },
   { labelKey: 'navigation.subscriptions', path: '/app/subscriptions', icon: Bookmark },
   { labelKey: 'navigation.teams', path: '/app/teams', icon: UsersRound },
   { labelKey: 'navigation.users', path: '/app/users', icon: Users },
@@ -1016,6 +1018,7 @@ function App() {
           <Route path="projects/:projectId/settings" element={<ProjectSettingsPage currentUser={currentUser} />} />
           <Route path="subscriptions" element={<SubscriptionsPage />} />
           <Route path="my-work" element={<MyWorkPage />} />
+          <Route path="calendar" element={<CalendarPage currentUser={currentUser} />} />
           <Route
             path="teams"
             element={<TeamsPage currentUser={currentUser} />}

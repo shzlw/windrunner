@@ -323,6 +323,49 @@ export interface TeamJoinRequest {
   decidedByUserId?: string | null
 }
 
+export type CalendarScopeType = 'USER' | 'TEAM'
+
+export interface CalendarScopeMember {
+  userId: string
+  displayName: string
+}
+
+export interface CalendarScope {
+  teamId: string
+  teamName: string
+  members: CalendarScopeMember[]
+}
+
+export interface CalendarEvent {
+  id: string
+  userId: string
+  eventType: string
+  title: string
+  description: string | null
+  startsAt: string
+  endsAt: string
+  timezone: string
+  allDay: boolean
+  showAsBusy: boolean
+  workItemId: string | null
+  createdByUserId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CalendarEventRequest {
+  userId?: string | null
+  eventType: string
+  title: string
+  description?: string | null
+  startsAt: string
+  endsAt: string
+  timezone?: string | null
+  allDay?: boolean
+  showAsBusy?: boolean
+  workItemId?: string | null
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -1303,6 +1346,39 @@ export async function listWorkItemAuditLogs(projectId: string, workItemId: strin
 
 export async function listTeams(): Promise<Team[]> {
   return request<Team[]>('/internal-api/v1/teams', { method: 'GET' })
+}
+
+export async function listCalendarScopes(): Promise<CalendarScope[]> {
+  return request<CalendarScope[]>('/internal-api/v1/calendar/scopes', { method: 'GET' })
+}
+
+export async function listCalendarEvents(
+  from: string,
+  to: string,
+  scopeType: CalendarScopeType = 'USER',
+  scopeId?: string,
+): Promise<CalendarEvent[]> {
+  const params = new URLSearchParams({ from, to, scopeType })
+  if (scopeId) params.set('scopeId', scopeId)
+  return request<CalendarEvent[]>(`/internal-api/v1/calendar/events?${params.toString()}`, { method: 'GET' })
+}
+
+export async function createCalendarEvent(event: CalendarEventRequest): Promise<CalendarEvent> {
+  return request<CalendarEvent>('/internal-api/v1/calendar/events', {
+    method: 'POST',
+    body: JSON.stringify(event),
+  })
+}
+
+export async function updateCalendarEvent(id: string, event: CalendarEventRequest): Promise<CalendarEvent> {
+  return request<CalendarEvent>(`/internal-api/v1/calendar/events/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(event),
+  })
+}
+
+export async function deleteCalendarEvent(id: string): Promise<void> {
+  return request<void>(`/internal-api/v1/calendar/events/${id}`, { method: 'DELETE' })
 }
 
 export async function createTeam(team: CreateTeamRequest): Promise<Team> {

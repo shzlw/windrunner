@@ -70,6 +70,18 @@ public interface TeamMemberRepository extends CrudRepository<TeamMember, String>
     boolean isTeamOwner(@Param("teamId") String teamId,
                         @Param("userId") String userId);
 
+    @Query("""
+            SELECT EXISTS(
+                SELECT 1
+                FROM team_member actor_member
+                JOIN team_member target_member ON target_member.team_id = actor_member.team_id
+                WHERE actor_member.user_id = :actorUserId
+                  AND target_member.user_id = :targetUserId
+            )
+            """)
+    boolean areUsersInSharedTeam(@Param("actorUserId") String actorUserId,
+                                 @Param("targetUserId") String targetUserId);
+
     @Modifying
     @Query("""
             INSERT INTO team_member (

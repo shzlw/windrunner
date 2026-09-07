@@ -127,6 +127,7 @@ const zh = {
     workspace: '工作区',
     projects: '项目',
     myWork: '我的工作',
+    calendar: '日历',
     subscriptions: '订阅',
     teams: '团队',
     users: '用户',

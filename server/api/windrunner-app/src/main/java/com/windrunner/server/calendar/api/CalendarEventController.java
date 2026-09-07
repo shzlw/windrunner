@@ -20,14 +20,23 @@ public class CalendarEventController {
     private final CalendarEventService calendarEventService;
     private final AuthService authService;
 
+    @GetMapping("/scopes")
+    public ApiResponse<List<CalendarScopeView>> listScopes(HttpServletRequest request) {
+        AppUser actor = authService.requireCurrentUser(request);
+        return ApiResponse.success(calendarEventService.listScopes(actor));
+    }
+
     @GetMapping("/events")
     public ApiResponse<List<CalendarEventView>> listEvents(
             @RequestParam(name = "from") OffsetDateTime from,
             @RequestParam(name = "to") OffsetDateTime to,
-            @RequestParam(name = "userId", required = false) String userId,
+            @RequestParam(name = "scopeType", required = false, defaultValue = "USER") String scopeType,
+            @RequestParam(name = "scopeId", required = false) String scopeId,
+            @RequestParam(name = "userId", required = false) String legacyUserId,
             HttpServletRequest request) {
         AppUser actor = authService.requireCurrentUser(request);
-        return ApiResponse.success(calendarEventService.listEvents(actor, userId, from, to));
+        String effectiveScopeId = scopeId == null ? legacyUserId : scopeId;
+        return ApiResponse.success(calendarEventService.listEvents(actor, scopeType, effectiveScopeId, from, to));
     }
 
     @GetMapping("/events/{id}")

@@ -4,6 +4,8 @@ import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.calendar.api.CalendarEventConflictView;
 import com.windrunner.server.calendar.api.CalendarEventRequest;
 import com.windrunner.server.calendar.api.CalendarEventView;
+import com.windrunner.server.calendar.api.CalendarScopeMemberView;
+import com.windrunner.server.calendar.api.CalendarScopeView;
 import com.windrunner.server.calendar.domain.CalendarEvent;
 import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.id.EntityIdGenerator;
@@ -11,6 +13,10 @@ import com.windrunner.server.id.EntityIdType;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
+import com.windrunner.server.team.domain.Team;
+import com.windrunner.server.team.domain.TeamMember;
+import com.windrunner.server.team.persistence.TeamMemberRepository;
+import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.utils.DateUtils;
@@ -25,8 +31,13 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.DateTimeException;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 @Service
@@ -43,15 +54,55 @@ public class CalendarEventService {
     private final WorkItemRepository workItemRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectAccessService projectAccessService;
+    private final TeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final EntityIdGenerator idGenerator;
 
+    public List<CalendarScopeView> listScopes(AppUser actor) {
+        requireAuthenticatedActor(actor);
+        List<String> teamIds = teamMemberRepository.findByUserId(actor.getId()).stream()
+                .map(TeamMember::getTeamId)
+                .distinct()
+                .toList();
+        if (teamIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Team> teamsById = new LinkedHashMap<>();
+        teamRepository.findAllById(teamIds).forEach(team -> teamsById.put(team.getId(), team));
+        List<TeamMember> members = teamMemberRepository.findByTeamIds(teamIds);
+        Map<String, List<TeamMember>> membersByTeamId = new LinkedHashMap<>();
+        members.forEach(member -> membersByTeamId.computeIfAbsent(member.getTeamId(), ignored -> new ArrayList<>()).add(member));
+        Map<String, String> displayNamesByUserId = new LinkedHashMap<>();
+        appUserRepository.findAllById(members.stream().map(TeamMember::getUserId).distinct().toList())
+                .forEach(user -> displayNamesByUserId.put(user.getId(), getDisplayName(user)));
+
+        return teamIds.stream()
+                .map(teamsById::get)
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(Team::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .map(team -> new CalendarScopeView(
+                        team.getId(),
+                        team.getName(),
+                        membersByTeamId.getOrDefault(team.getId(), List.of()).stream()
+                                .map(member -> new CalendarScopeMemberView(
+                                        member.getUserId(),
+                                        displayNamesByUserId.getOrDefault(member.getUserId(), "Unknown user")))
+                                .toList()))
+                .toList();
+    }
+
     public List<CalendarEventView> listEvents(AppUser actor,
-                                              String requestedUserId,
+                                              String scopeType,
+                                              String scopeId,
                                               OffsetDateTime from,
                                               OffsetDateTime to) {
-        AppUser target = requireTargetUser(requestedUserId, actor);
+        List<String> userIds = resolveScopeUserIds(actor, scopeType, scopeId);
         validateRange(from, to);
-        return calendarEventRepository.findByUserIdAndRange(target.getId(), from, to)
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
+        return calendarEventRepository.findByUserIdsAndRange(userIds, from, to)
                 .stream()
                 .map(CalendarEventView::from)
                 .toList();
@@ -59,7 +110,7 @@ public class CalendarEventService {
 
     public CalendarEventView getEvent(String id, AppUser actor) {
         CalendarEvent event = requireEvent(id);
-        requireEventAccess(event, actor);
+        requireEventReadAccess(event, actor);
         return CalendarEventView.from(event);
     }
 
@@ -68,7 +119,7 @@ public class CalendarEventService {
         if (request == null) {
             throw createBadRequestException("Request body is required");
         }
-        AppUser target = requireTargetUser(request.userId(), actor);
+        AppUser target = requireTargetUserForWrite(request.userId(), actor);
         CalendarEvent event = normalize(request, target, actor, null);
         event.setId(idGenerator.generate(EntityIdType.CALENDAR_EVENT));
         event.setCreatedAt(DateUtils.now());
@@ -90,11 +141,11 @@ public class CalendarEventService {
             throw createBadRequestException("Request body is required");
         }
         CalendarEvent current = requireEvent(id);
-        requireEventAccess(current, actor);
+        requireEventWriteAccess(current, actor);
         if (StringUtils.hasText(request.userId()) && !current.getUserId().equals(request.userId().trim())) {
             throw createBadRequestException("Calendar event user cannot be changed");
         }
-        AppUser target = requireTargetUser(current.getUserId(), actor);
+        AppUser target = requireTargetUserForWrite(current.getUserId(), actor);
         CalendarEvent event = normalize(request, target, actor, current);
         event.setId(current.getId());
         event.setCreatedAt(current.getCreatedAt());
@@ -112,7 +163,7 @@ public class CalendarEventService {
     @Transactional
     public void deleteEvent(String id, AppUser actor) {
         CalendarEvent event = requireEvent(id);
-        requireEventAccess(event, actor);
+        requireEventWriteAccess(event, actor);
         if (calendarEventRepository.delete(event.getId(), event.getUserId()) != 1) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Calendar event not found");
         }
@@ -180,10 +231,30 @@ public class CalendarEventService {
         return event;
     }
 
-    private AppUser requireTargetUser(String requestedUserId, AppUser actor) {
-        if (actor == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+    private List<String> resolveScopeUserIds(AppUser actor, String scopeType, String scopeId) {
+        requireAuthenticatedActor(actor);
+        String normalizedScopeType = StringUtils.hasText(scopeType) ? scopeType.trim().toUpperCase(Locale.ROOT) : "USER";
+        if ("USER".equals(normalizedScopeType)) {
+            AppUser target = requireReadableTargetUser(scopeId, actor);
+            return List.of(target.getId());
         }
+        if ("TEAM".equals(normalizedScopeType)) {
+            if (!StringUtils.hasText(scopeId)) {
+                throw createBadRequestException("Team scope id is required");
+            }
+            Team team = teamRepository.findById(scopeId.trim())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
+            requireTeamReadAccess(team.getId(), actor);
+            return teamMemberRepository.findByTeamId(team.getId()).stream()
+                    .map(TeamMember::getUserId)
+                    .distinct()
+                    .toList();
+        }
+        throw createBadRequestException("Calendar scope type must be USER or TEAM");
+    }
+
+    private AppUser requireTargetUserForWrite(String requestedUserId, AppUser actor) {
+        requireAuthenticatedActor(actor);
         String targetUserId = StringUtils.hasText(requestedUserId) ? requestedUserId.trim() : actor.getId();
         if (!actor.getId().equals(targetUserId) && !AppRoles.isAdminLike(actor.getGlobalRole())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only administrators can manage another user's calendar");
@@ -192,13 +263,50 @@ public class CalendarEventService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
-    private void requireEventAccess(CalendarEvent event, AppUser actor) {
-        if (actor == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+    private AppUser requireReadableTargetUser(String requestedUserId, AppUser actor) {
+        String targetUserId = StringUtils.hasText(requestedUserId) ? requestedUserId.trim() : actor.getId();
+        AppUser target = appUserRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (!actor.getId().equals(target.getId())
+                && !AppRoles.isAdminLike(actor.getGlobalRole())
+                && !teamMemberRepository.areUsersInSharedTeam(actor.getId(), target.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Calendar access is required");
         }
+        return target;
+    }
+
+    private void requireTeamReadAccess(String teamId, AppUser actor) {
+        if (!AppRoles.isAdminLike(actor.getGlobalRole())
+                && teamMemberRepository.findByTeamIdAndUserId(teamId, actor.getId()).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Team calendar access is required");
+        }
+    }
+
+    private void requireEventReadAccess(CalendarEvent event, AppUser actor) {
+        requireAuthenticatedActor(actor);
+        if (!actor.getId().equals(event.getUserId())
+                && !AppRoles.isAdminLike(actor.getGlobalRole())
+                && !teamMemberRepository.areUsersInSharedTeam(actor.getId(), event.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Calendar access is required");
+        }
+    }
+
+    private void requireEventWriteAccess(CalendarEvent event, AppUser actor) {
+        requireAuthenticatedActor(actor);
         if (!actor.getId().equals(event.getUserId()) && !AppRoles.isAdminLike(actor.getGlobalRole())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Calendar access is required");
         }
+    }
+
+    private AppUser requireAuthenticatedActor(AppUser actor) {
+        if (actor == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+        return actor;
+    }
+
+    private String getDisplayName(AppUser user) {
+        return StringUtils.hasText(user.getDisplayName()) ? user.getDisplayName().trim() : user.getUsername();
     }
 
     private CalendarEvent requireEvent(String id) {
