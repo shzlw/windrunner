@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -47,7 +46,6 @@ public class CalendarEventService {
     private static final int MAX_RANGE_DAYS = 366;
     private static final int MAX_TITLE_LENGTH = 200;
     private static final int MAX_DESCRIPTION_LENGTH = 20_000;
-    private static final Pattern EVENT_TYPE_PATTERN = Pattern.compile("[A-Z][A-Z0-9_]{0,39}");
 
     private final CalendarEventRepository calendarEventRepository;
     private final AppUserRepository appUserRepository;
@@ -125,10 +123,9 @@ public class CalendarEventService {
         event.setCreatedAt(DateUtils.now());
         event.setUpdatedAt(event.getCreatedAt());
         int inserted = calendarEventRepository.insert(
-                event.getId(), event.getUserId(), event.getEventType(), event.getTitle(), event.getDescription(),
+                event.getId(), event.getUserId(), event.getTitle(), event.getDescription(),
                 event.getStartsAt(), event.getEndsAt(), event.getTimezone(), Boolean.TRUE.equals(event.getAllDay()),
-                Boolean.TRUE.equals(event.getShowAsBusy()), event.getWorkItemId(), event.getCreatedByUserId(),
-                event.getCreatedAt(), event.getUpdatedAt());
+                event.getWorkItemId(), event.getCreatedByUserId(), event.getCreatedAt(), event.getUpdatedAt());
         if (inserted != 1) {
             throw new IllegalStateException("Expected one calendar_event row to be inserted but got " + inserted);
         }
@@ -151,9 +148,9 @@ public class CalendarEventService {
         event.setCreatedAt(current.getCreatedAt());
         event.setUpdatedAt(DateUtils.now());
         int updated = calendarEventRepository.update(
-                event.getId(), event.getUserId(), event.getEventType(), event.getTitle(), event.getDescription(),
+                event.getId(), event.getUserId(), event.getTitle(), event.getDescription(),
                 event.getStartsAt(), event.getEndsAt(), event.getTimezone(), Boolean.TRUE.equals(event.getAllDay()),
-                Boolean.TRUE.equals(event.getShowAsBusy()), event.getWorkItemId(), event.getUpdatedAt());
+                event.getWorkItemId(), event.getUpdatedAt());
         if (updated != 1) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Calendar event not found");
         }
@@ -179,7 +176,7 @@ public class CalendarEventService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Project user not found");
         }
         validateRange(from, to);
-        return calendarEventRepository.findBusyByUserIdAndRange(userId.trim(), from, to)
+        return calendarEventRepository.findByUserIdAndRange(userId.trim(), from, to)
                 .stream()
                 .map(CalendarEventConflictView::from)
                 .toList();
@@ -189,13 +186,6 @@ public class CalendarEventService {
                                    AppUser target,
                                    AppUser actor,
                                    CalendarEvent current) {
-        if (!StringUtils.hasText(request.eventType())) {
-            throw createBadRequestException("Event type is required");
-        }
-        String eventType = request.eventType().trim().toUpperCase(Locale.ROOT);
-        if (!EVENT_TYPE_PATTERN.matcher(eventType).matches()) {
-            throw createBadRequestException("Event type must contain 1-40 uppercase letters, numbers, or underscores");
-        }
         if (!StringUtils.hasText(request.title()) || request.title().trim().length() > MAX_TITLE_LENGTH) {
             throw createBadRequestException("Event title is required and must be at most 200 characters");
         }
@@ -218,14 +208,12 @@ public class CalendarEventService {
 
         CalendarEvent event = new CalendarEvent();
         event.setUserId(target.getId());
-        event.setEventType(eventType);
         event.setTitle(request.title().trim());
         event.setDescription(description);
         event.setStartsAt(request.startsAt());
         event.setEndsAt(request.endsAt());
         event.setTimezone(timezone);
         event.setAllDay(request.allDay() == null ? Boolean.FALSE : request.allDay());
-        event.setShowAsBusy(request.showAsBusy() == null ? Boolean.TRUE : request.showAsBusy());
         event.setWorkItemId(workItemId);
         event.setCreatedByUserId(current == null ? actor.getId() : current.getCreatedByUserId());
         return event;

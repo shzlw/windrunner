@@ -13,13 +13,13 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns'
-import { ChevronLeft, ChevronRight, Plus, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Plus, Save, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { NativeSelect } from '@/components/ui/native-select'
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -36,34 +36,14 @@ import {
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
-type CalendarView = 'month' | 'week'
-type EventFilter = 'ALL' | 'BUSY' | 'TASK' | 'VACATION' | 'MEETING' | 'FOCUS'
+type CalendarView = 'month' | 'week' | 'team'
 type EventForm = {
   title: string
-  eventType: string
   startsAt: string
   endsAt: string
   description: string
   allDay: boolean
-  showAsBusy: boolean
 }
-
-const EVENT_FILTERS: Array<{ value: EventFilter; label: string }> = [
-  { value: 'ALL', label: 'All events' },
-  { value: 'BUSY', label: 'Busy time' },
-  { value: 'TASK', label: 'Scheduled work' },
-  { value: 'VACATION', label: 'Time off' },
-  { value: 'MEETING', label: 'Meetings' },
-  { value: 'FOCUS', label: 'Focus time' },
-]
-
-const EVENT_TYPES = [
-  { value: 'TASK', label: 'Scheduled work' },
-  { value: 'VACATION', label: 'Time off' },
-  { value: 'MEETING', label: 'Meeting' },
-  { value: 'FOCUS', label: 'Focus time' },
-  { value: 'OTHER', label: 'Other' },
-]
 
 function isAdminLike(user: AuthUser | null) {
   return user?.globalRole === 'ADMIN' || user?.globalRole === 'SUPERADMIN'
@@ -73,12 +53,7 @@ function formatInputDate(value: string) {
   return format(new Date(value), "yyyy-MM-dd'T'HH:mm")
 }
 
-function eventAccent(eventType: string) {
-  if (eventType === 'VACATION') return 'border-l-rose-500 bg-rose-50 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200'
-  if (eventType === 'MEETING') return 'border-l-violet-500 bg-violet-50 text-violet-800 dark:bg-violet-950/30 dark:text-violet-200'
-  if (eventType === 'FOCUS') return 'border-l-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200'
-  return 'border-l-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
-}
+const EVENT_ACCENT = 'border-l-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200'
 
 function overlapsDay(event: CalendarEvent, day: Date) {
   const dayStart = startOfDay(day)
@@ -93,12 +68,10 @@ function getDefaultForm(day: Date): EventForm {
   end.setHours(10)
   return {
     title: '',
-    eventType: 'TASK',
     startsAt: formatInputDate(start.toISOString()),
     endsAt: formatInputDate(end.toISOString()),
     description: '',
     allDay: false,
-    showAsBusy: true,
   }
 }
 
@@ -106,8 +79,8 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
   const [scopes, setScopes] = useState<CalendarScope[]>([])
   const [selectedScopeKeys, setSelectedScopeKeys] = useState<string[]>([])
   const [currentDate, setCurrentDate] = useState(() => new Date())
-  const [view, setView] = useState<CalendarView>('month')
-  const [filter, setFilter] = useState<EventFilter>('ALL')
+  const [view, setView] = useState<CalendarView>('team')
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -159,6 +132,7 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
     }
     let cancelled = false
     setIsLoading(true)
+    setLoadError(null)
     void Promise.all(selectedScopes.map((scope) => listCalendarEvents(range.from, range.to, scope.type, scope.id)))
       .then((eventGroups) => {
         if (!cancelled) {
@@ -168,7 +142,10 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
         }
       })
       .catch((error) => {
-        if (!cancelled) toast.error(error instanceof Error ? error.message : 'Unable to load calendar events')
+        if (!cancelled) {
+          setEvents([])
+          setLoadError(error instanceof Error ? error.message : 'Unable to load calendar events')
+        }
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
@@ -185,15 +162,11 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
     return names
   }, [currentUser, scopes])
 
-  const selectablePeople = useMemo(() => Array.from(ownerNames.entries())
-    .filter(([userId]) => userId !== currentUser?.id)
-    .sort((left, right) => left[1].localeCompare(right[1]) || left[0].localeCompare(right[0])), [currentUser?.id, ownerNames])
+  const selectedPeople = useMemo(() => Array.from(ownerNames.entries())
+    .filter(([userId]) => selectedScopeKeys.includes(`USER:${userId}`))
+    .sort((left, right) => left[1].localeCompare(right[1]) || left[0].localeCompare(right[0])), [selectedScopeKeys, ownerNames])
 
-  const visibleEvents = useMemo(() => events.filter((event) => {
-    if (filter === 'BUSY') return event.showAsBusy
-    if (filter === 'ALL') return true
-    return event.eventType === filter
-  }), [events, filter])
+  const visibleEvents = events
 
   const monthDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentDate))
@@ -213,10 +186,18 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
   function toggleScope(scopeKey: string) {
     setSelectedScopeKeys((current) => {
       if (current.includes(scopeKey)) {
-        return current.length === 1 ? current : current.filter((key) => key !== scopeKey)
+        return current.filter((key) => key !== scopeKey)
       }
       return [...current, scopeKey]
     })
+  }
+
+  function toggleTeam(scope: CalendarScope) {
+    const keys = scope.members.map((member) => `USER:${member.userId}`)
+    setSelectedScopeKeys((current) => keys.every((key) => current.includes(key))
+      ? current.filter((key) => !keys.includes(key))
+      : Array.from(new Set([...current, ...keys])))
+    setView('team')
   }
 
   function openNewEvent(day = currentDate) {
@@ -229,12 +210,10 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
     setEditingEvent(event)
     setForm({
       title: event.title,
-      eventType: event.eventType,
       startsAt: formatInputDate(event.startsAt),
       endsAt: formatInputDate(event.endsAt),
       description: event.description ?? '',
       allDay: event.allDay,
-      showAsBusy: event.showAsBusy,
     })
     setSheetOpen(true)
   }
@@ -249,14 +228,12 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
     setIsSaving(true)
     const request: CalendarEventRequest = {
       userId: editingEvent?.userId ?? currentUser.id,
-      eventType: form.eventType,
       title: form.title.trim(),
       description: form.description.trim() || null,
       startsAt: new Date(form.startsAt).toISOString(),
       endsAt: new Date(form.endsAt).toISOString(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       allDay: form.allDay,
-      showAsBusy: form.showAsBusy,
     }
     try {
       const saved = editingEvent
@@ -292,7 +269,7 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
       <button
         key={event.id}
         type="button"
-        className={cn('w-full overflow-hidden rounded border-l-4 px-2 py-1 text-left text-xs hover:brightness-95', eventAccent(event.eventType))}
+        className={cn('w-full overflow-hidden rounded border-l-4 px-2 py-1 text-left text-xs hover:brightness-95', EVENT_ACCENT)}
         onClick={() => openEvent(event)}
         title={`${event.title} · ${ownerNames.get(event.userId) ?? 'Unknown user'}`}
       >
@@ -320,13 +297,10 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
             <span className="min-w-32 text-sm font-semibold">{format(currentDate, view === 'month' ? 'MMMM yyyy' : 'MMM d, yyyy')}</span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <NativeSelect aria-label="Filter events" value={filter} onChange={(event) => setFilter(event.target.value as EventFilter)} className="w-40">
-              {EVENT_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </NativeSelect>
             <div className="flex rounded-lg border p-0.5">
-              {(['month', 'week'] as CalendarView[]).map((item) => (
+              {(['team', 'month', 'week'] as CalendarView[]).map((item) => (
                 <Button key={item} type="button" size="sm" variant={view === item ? 'secondary' : 'ghost'} onClick={() => setView(item)}>
-                  {item === 'month' ? 'Month' : 'Week'}
+                  {item === 'team' ? 'Team schedule' : item === 'month' ? 'Month' : 'Week'}
                 </Button>
               ))}
             </div>
@@ -354,30 +328,21 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
               {scopes.length > 0 ? <div className="pt-3">
                 <div className="px-2 pb-1 text-xs font-medium text-muted-foreground">Teams</div>
                 {scopes.map((scope) => (
-                  <Button
-                    key={scope.teamId}
-                    type="button"
-                    variant={selectedScopeKeys.includes(`TEAM:${scope.teamId}`) ? 'secondary' : 'ghost'}
-                    className="w-full justify-start truncate"
-                    onClick={() => toggleScope(`TEAM:${scope.teamId}`)}
-                  >
-                    {scope.teamName}
-                  </Button>
-                ))}
-              </div> : null}
-
-              {selectablePeople.length > 0 ? <div className="pt-3">
-                <div className="px-2 pb-1 text-xs font-medium text-muted-foreground">People</div>
-                {selectablePeople.map(([userId, displayName]) => (
-                  <Button
-                    key={userId}
-                    type="button"
-                    variant={selectedScopeKeys.includes(`USER:${userId}`) ? 'secondary' : 'ghost'}
-                    className="w-full justify-start truncate"
-                    onClick={() => toggleScope(`USER:${userId}`)}
-                  >
-                    {displayName}
-                  </Button>
+                  <div key={scope.teamId} className="py-2">
+                    <label className="flex items-center gap-2 px-2 text-sm font-semibold">
+                      <Checkbox checked={scope.members.length > 0 && scope.members.every((member) => selectedScopeKeys.includes(`USER:${member.userId}`))} disabled={scope.members.length === 0} onCheckedChange={() => toggleTeam(scope)} />
+                      <span className="min-w-0 flex-1 truncate">{scope.teamName}</span>
+                      <span className="text-xs text-muted-foreground">{scope.members.length}</span>
+                    </label>
+                    <div className="mt-2 space-y-1 pl-5">
+                      {scope.members.map((member) => (
+                        <label key={member.userId} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
+                          <Checkbox checked={selectedScopeKeys.includes(`USER:${member.userId}`)} onCheckedChange={() => toggleScope(`USER:${member.userId}`)} />
+                          <span className="truncate">{member.displayName}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div> : null}
             </div>
@@ -387,6 +352,49 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
           <div>
             {isLoading ? (
               <div className="flex min-h-96 items-center justify-center text-sm text-muted-foreground">Loading calendar…</div>
+            ) : loadError ? (
+              <p role="alert" className="p-4 text-sm text-destructive">{loadError}</p>
+            ) : selectedPeople.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">Select a team or people to compare their schedules.</p>
+            ) : view === 'team' ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="font-medium">{selectedPeople.length} people · {format(weekDays[0], 'MMM d')}–{format(weekDays[6], 'MMM d, yyyy')}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1100px] table-fixed border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="sticky left-0 z-10 w-40 bg-background p-3 text-left">Person</th>
+                        {weekDays.map((day) => <th key={day.toISOString()} className={cn('border-l p-2 text-left font-medium', isToday(day) && 'text-primary')}>{format(day, 'EEE, MMM d')}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedPeople.map(([userId, name]) => (
+                        <tr key={userId} className="border-b">
+                          <th scope="row" className="sticky left-0 z-10 bg-background p-3 text-left align-top font-medium">{name}</th>
+                          {weekDays.map((day) => {
+                            const dayEvents = events.filter((event) => event.userId === userId && overlapsDay(event, day))
+                            const shownEvents = visibleEvents.filter((event) => event.userId === userId && overlapsDay(event, day))
+                            return (
+                              <td key={day.toISOString()} className={cn('border-l p-2 align-top', dayEvents.length > 0 && 'bg-muted/20')}>
+                                <div className="min-h-24 space-y-2">
+                                  {shownEvents.map((event) => (
+                                    <button key={event.id} type="button" className={cn('w-full rounded border-l-4 p-2 text-left text-xs', EVENT_ACCENT)} onClick={() => openEvent(event)}>
+                                      <span className="block font-medium break-words">{event.title}</span>
+                                      <span className="mt-1 block">{event.allDay ? 'All day' : `${format(new Date(Math.max(new Date(event.startsAt).getTime(), startOfDay(day).getTime())), 'h:mm a')}–${format(new Date(Math.min(new Date(event.endsAt).getTime(), addDays(startOfDay(day), 1).getTime())), 'h:mm a')}`}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             ) : view === 'month' ? (
               <div className="overflow-x-auto">
                 <div className="min-w-[760px]">
@@ -435,21 +443,18 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
           <div className="flex-1 px-4 py-3">
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-2"><label className="block text-sm font-semibold" htmlFor="calendar-event-title">Title</label><Input id="calendar-event-title" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} disabled={!canEditEvent} required /></div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2"><label className="block text-sm font-semibold" htmlFor="calendar-event-type">Type</label><NativeSelect id="calendar-event-type" value={form.eventType} onChange={(event) => setForm((current) => ({ ...current, eventType: event.target.value }))} disabled={!canEditEvent}>{EVENT_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</NativeSelect></div>
-              <div className="space-y-2"><label className="block text-sm font-semibold" htmlFor="calendar-event-owner">Owner</label><Input id="calendar-event-owner" value={ownerNames.get(editingEvent?.userId ?? currentUser.id) ?? currentUser.username} disabled /></div>
-            </div>
+            <div className="space-y-2"><span className="block text-sm font-semibold">Calendar</span><p className="text-sm text-muted-foreground">{ownerNames.get(editingEvent?.userId ?? currentUser.id) ?? currentUser.username}</p></div>
+            <label className="flex items-center gap-2 text-sm"><Checkbox checked={form.allDay} onCheckedChange={(checked) => setForm((current) => ({ ...current, allDay: checked }))} disabled={!canEditEvent} />All day</label>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2"><label className="block text-sm font-semibold" htmlFor="calendar-event-start">Starts</label><Input id="calendar-event-start" type="datetime-local" value={form.startsAt} onChange={(event) => setForm((current) => ({ ...current, startsAt: event.target.value }))} disabled={!canEditEvent} required /></div>
               <div className="space-y-2"><label className="block text-sm font-semibold" htmlFor="calendar-event-end">Ends</label><Input id="calendar-event-end" type="datetime-local" value={form.endsAt} onChange={(event) => setForm((current) => ({ ...current, endsAt: event.target.value }))} disabled={!canEditEvent} required /></div>
             </div>
-            <div className="space-y-2"><label className="block text-sm font-semibold" htmlFor="calendar-event-description">Notes</label><Textarea id="calendar-event-description" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} disabled={!canEditEvent} placeholder="Optional context" /></div>
-            <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={form.allDay} onChange={(event) => setForm((current) => ({ ...current, allDay: event.target.checked }))} disabled={!canEditEvent} />All day</label><label className="flex items-center gap-2"><input type="checkbox" checked={form.showAsBusy} onChange={(event) => setForm((current) => ({ ...current, showAsBusy: event.target.checked }))} disabled={!canEditEvent} />Show as busy</label></div>
+            <div className="space-y-2"><label className="block text-sm font-semibold" htmlFor="calendar-event-description">Notes</label><Textarea id="calendar-event-description" rows={3} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} disabled={!canEditEvent} placeholder="Optional context" /></div>
             <div className="flex flex-wrap items-center gap-2">
-              {editingEvent && canEditEvent ? <DeleteConfirmPopover trigger={<Button type="button" variant="destructive" className="mr-auto"><Trash2 />Delete</Button>} title="Delete calendar event?" description="This permanently removes the event from the calendar." onConfirm={handleDelete} /> : null}
-              <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>Close</Button>
-              {canEditEvent ? <Button type="submit" disabled={isSaving || !form.title.trim()}>{isSaving ? 'Saving…' : 'Save event'}</Button> : null}
+              {canEditEvent ? <Button type="submit" className="gap-2" disabled={isSaving || !form.title.trim()}>{isSaving ? <Loader2 className="size-4 animate-spin" /> : editingEvent ? <Save className="size-4" /> : <Plus className="size-4" />}{isSaving ? 'Saving…' : editingEvent ? 'Save changes' : 'Create event'}</Button> : null}
+              <Button type="button" variant="outline" className="gap-2" disabled={isSaving} onClick={() => setSheetOpen(false)}><X className="size-4" />{canEditEvent ? 'Cancel' : 'Close'}</Button>
             </div>
+            {editingEvent && canEditEvent ? <div className="border-t pt-4"><DeleteConfirmPopover trigger={<Button type="button" variant="destructive" disabled={isSaving}><Trash2 />Delete event</Button>} title="Delete calendar event?" description="This permanently removes the event from the calendar." onConfirm={handleDelete} /></div> : null}
           </form>
           </div>
         </SheetContent>

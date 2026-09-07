@@ -14,14 +14,14 @@ import java.util.Optional;
 @Repository
 public interface CalendarEventRepository extends CrudRepository<CalendarEvent, String> {
 
-    String COLUMNS = "id, user_id, event_type, title, description, starts_at, ends_at, timezone, all_day, show_as_busy, work_item_id, created_by_user_id, created_at, updated_at";
+    String COLUMNS = "id, user_id, title, description, starts_at, ends_at, timezone, all_day, work_item_id, created_by_user_id, created_at, updated_at";
 
     @Query("SELECT " + COLUMNS + " FROM calendar_event WHERE id = :id")
     Optional<CalendarEvent> findById(@Param("id") String id);
 
     @Query("""
-            SELECT id, user_id, event_type, title, description, starts_at, ends_at, timezone,
-                   all_day, show_as_busy, work_item_id, created_by_user_id, created_at, updated_at
+            SELECT id, user_id, title, description, starts_at, ends_at, timezone,
+                   all_day, work_item_id, created_by_user_id, created_at, updated_at
             FROM calendar_event
             WHERE user_id = :userId
               AND ends_at > :from
@@ -33,8 +33,8 @@ public interface CalendarEventRepository extends CrudRepository<CalendarEvent, S
                                              @Param("to") OffsetDateTime to);
 
     @Query("""
-            SELECT id, user_id, event_type, title, description, starts_at, ends_at, timezone,
-                   all_day, show_as_busy, work_item_id, created_by_user_id, created_at, updated_at
+            SELECT id, user_id, title, description, starts_at, ends_at, timezone,
+                   all_day, work_item_id, created_by_user_id, created_at, updated_at
             FROM calendar_event
             WHERE user_id IN (:userIds)
               AND ends_at > :from
@@ -45,40 +45,25 @@ public interface CalendarEventRepository extends CrudRepository<CalendarEvent, S
                                               @Param("from") OffsetDateTime from,
                                               @Param("to") OffsetDateTime to);
 
-    @Query("""
-            SELECT id, user_id, event_type, title, description, starts_at, ends_at, timezone,
-                   all_day, show_as_busy, work_item_id, created_by_user_id, created_at, updated_at
-            FROM calendar_event
-            WHERE user_id = :userId
-              AND show_as_busy = TRUE
-              AND ends_at > :from
-              AND starts_at < :to
-            ORDER BY starts_at, ends_at, id
-            """)
-    List<CalendarEvent> findBusyByUserIdAndRange(@Param("userId") String userId,
-                                                 @Param("from") OffsetDateTime from,
-                                                 @Param("to") OffsetDateTime to);
 
     @Modifying
     @Query("""
             INSERT INTO calendar_event (
-                id, user_id, event_type, title, description, starts_at, ends_at, timezone,
-                all_day, show_as_busy, work_item_id, created_by_user_id, created_at, updated_at
+                id, user_id, title, description, starts_at, ends_at, timezone,
+                all_day, work_item_id, created_by_user_id, created_at, updated_at
             ) VALUES (
-                :id, :userId, :eventType, :title, :description, :startsAt, :endsAt, :timezone,
-                :allDay, :showAsBusy, :workItemId, :createdByUserId, :createdAt, :updatedAt
+                :id, :userId, :title, :description, :startsAt, :endsAt, :timezone,
+                :allDay, :workItemId, :createdByUserId, :createdAt, :updatedAt
             )
             """)
     int insert(@Param("id") String id,
                @Param("userId") String userId,
-               @Param("eventType") String eventType,
                @Param("title") String title,
                @Param("description") String description,
                @Param("startsAt") OffsetDateTime startsAt,
                @Param("endsAt") OffsetDateTime endsAt,
                @Param("timezone") String timezone,
                @Param("allDay") boolean allDay,
-               @Param("showAsBusy") boolean showAsBusy,
                @Param("workItemId") String workItemId,
                @Param("createdByUserId") String createdByUserId,
                @Param("createdAt") OffsetDateTime createdAt,
@@ -87,14 +72,12 @@ public interface CalendarEventRepository extends CrudRepository<CalendarEvent, S
     @Modifying
     @Query("""
             UPDATE calendar_event
-            SET event_type = :eventType,
-                title = :title,
+            SET title = :title,
                 description = :description,
                 starts_at = :startsAt,
                 ends_at = :endsAt,
                 timezone = :timezone,
                 all_day = :allDay,
-                show_as_busy = :showAsBusy,
                 work_item_id = :workItemId,
                 updated_at = :updatedAt
             WHERE id = :id
@@ -102,14 +85,12 @@ public interface CalendarEventRepository extends CrudRepository<CalendarEvent, S
             """)
     int update(@Param("id") String id,
                @Param("userId") String userId,
-               @Param("eventType") String eventType,
                @Param("title") String title,
                @Param("description") String description,
                @Param("startsAt") OffsetDateTime startsAt,
                @Param("endsAt") OffsetDateTime endsAt,
                @Param("timezone") String timezone,
                @Param("allDay") boolean allDay,
-               @Param("showAsBusy") boolean showAsBusy,
                @Param("workItemId") String workItemId,
                @Param("updatedAt") OffsetDateTime updatedAt);
 

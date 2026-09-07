@@ -7,7 +7,6 @@ import java.time.OffsetDateTime;
 public record CalendarEventConflictView(
         String id,
         String userId,
-        String eventType,
         String title,
         OffsetDateTime startsAt,
         OffsetDateTime endsAt,
@@ -19,7 +18,6 @@ public record CalendarEventConflictView(
         return new CalendarEventConflictView(
                 event.getId(),
                 event.getUserId(),
-                event.getEventType(),
                 event.getTitle(),
                 event.getStartsAt(),
                 event.getEndsAt(),

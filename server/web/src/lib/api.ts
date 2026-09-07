@@ -339,14 +339,12 @@ export interface CalendarScope {
 export interface CalendarEvent {
   id: string
   userId: string
-  eventType: string
   title: string
   description: string | null
   startsAt: string
   endsAt: string
   timezone: string
   allDay: boolean
-  showAsBusy: boolean
   workItemId: string | null
   createdByUserId: string
   createdAt: string
@@ -355,14 +353,12 @@ export interface CalendarEvent {
 
 export interface CalendarEventRequest {
   userId?: string | null
-  eventType: string
   title: string
   description?: string | null
   startsAt: string
   endsAt: string
   timezone?: string | null
   allDay?: boolean
-  showAsBusy?: boolean
   workItemId?: string | null
 }
 

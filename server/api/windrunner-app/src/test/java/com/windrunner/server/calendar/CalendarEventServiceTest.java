@@ -2,6 +2,7 @@ package com.windrunner.server.calendar;
 
 import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.calendar.domain.CalendarEvent;
+import com.windrunner.server.calendar.api.CalendarEventRequest;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
@@ -58,6 +59,26 @@ class CalendarEventServiceTest {
                 teamRepository,
                 teamMemberRepository,
                 new EntityIdGenerator());
+    }
+
+    @Test
+    void createsEventWithTitleAndDatesWithoutCategoryOrBusyFlag() {
+        AppUser actor = user("actor");
+        when(appUserRepository.findById("actor")).thenReturn(Optional.of(actor));
+        when(calendarEventRepository.insert(anyString(), eq("actor"), eq("Vacation"), isNull(),
+                eq(rangeStart()), eq(rangeEnd()), eq("UTC"), eq(true), isNull(), eq("actor"), any(), any()))
+                .thenReturn(1);
+
+        var event = calendarEventService.createEvent(new CalendarEventRequest(
+                "actor", "Vacation", null, rangeStart(), rangeEnd(), "UTC", true, null), actor);
+
+        assertThat(event.title()).isEqualTo("Vacation");
+        assertThat(event.allDay()).isTrue();
+        assertThat(event.startsAt()).isEqualTo(rangeStart());
+        assertThat(event.endsAt()).isEqualTo(rangeEnd());
+        assertThat(event.createdByUserId()).isEqualTo("actor");
+        assertThat(event.createdAt()).isNotNull();
+        assertThat(event.updatedAt()).isEqualTo(event.createdAt());
     }
 
     @Test

@@ -17,9 +17,6 @@ public class CalendarEvent {
     @Column("user_id")
     private String userId;
 
-    @Column("event_type")
-    private String eventType;
-
     private String title;
     private String description;
 
@@ -33,9 +30,6 @@ public class CalendarEvent {
 
     @Column("all_day")
     private Boolean allDay;
-
-    @Column("show_as_busy")
-    private Boolean showAsBusy;
 
     @Column("work_item_id")
     private String workItemId;
