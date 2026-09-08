@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Bot, CalendarDays, ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { Bot, CalendarDays, ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, KeyRound, ListTodo, Loader2, Maximize2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 
@@ -15,6 +15,7 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
@@ -67,6 +68,7 @@ export type AiAgentPageOutletContext = {
   isLoadingSessions: boolean
   refreshChatSessions: (preferredSessionId?: string) => Promise<void>
   createChatSession: () => Promise<ChatSession | null>
+  openStandaloneAiAgent: (sessionId?: string | null) => void
   onStreamingChange: (isStreaming: boolean) => void
   registerOpenAssistant: (handler: (() => void | Promise<void>) | null) => () => void
 }
@@ -455,6 +457,16 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     navigate('/app/ai-agent')
   }
 
+  function openStandaloneAiAgent(sessionId?: string | null) {
+    const activeSessionId = sessionId || new URLSearchParams(location.search).get('chatSessionId') || selectedAiAgentSessionId
+    const params = new URLSearchParams()
+    if (activeSessionId) {
+      params.set('chatSessionId', activeSessionId)
+    }
+    const query = params.toString()
+    navigate(`/app/ai-agent${query ? `?${query}` : ''}`)
+  }
+
   const registerOpenAssistant = useCallback((handler: (() => void | Promise<void>) | null) => {
     openAssistantHandlerRef.current = handler
     return () => {
@@ -505,6 +517,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     isLoadingSessions: isLoadingChatSessions,
     refreshChatSessions,
     createChatSession,
+    openStandaloneAiAgent,
     onStreamingChange: setIsChatStreaming,
     registerOpenAssistant,
   }
@@ -540,6 +553,13 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                       <Bot />
                       <span>{t('navigation.aiAgent')}</span>
                     </SidebarMenuButton>
+                    <SidebarMenuAction
+                      showOnHover
+                      className="right-1 w-4 [&>svg]:size-3"
+                      render={<button type="button" onClick={() => openStandaloneAiAgent()} aria-label={t('pane.expandAiAgent')} title={t('pane.expandAiAgent')} />}
+                    >
+                      <Maximize2 />
+                    </SidebarMenuAction>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton

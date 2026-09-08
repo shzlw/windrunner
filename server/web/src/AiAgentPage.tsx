@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router'
-import { AlertTriangle, Loader2, Plus, Search, X } from 'lucide-react'
+import { AlertTriangle, Loader2, Maximize2, Plus, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 
@@ -22,6 +22,7 @@ type AiAgentPageProps = {
   projectId?: string
   onGraphChangeProposalSaved?: () => void | Promise<void>
   showWelcome?: boolean
+  showStandaloneAction?: boolean
 }
 
 function projectTitle(project: Project, fallback: string) {
@@ -47,7 +48,7 @@ function referencesForNodes(nodes: ProjectNode[]) {
   } satisfies ChatWorkItemReference]))
 }
 
-export default function AiAgentPage({ projectId: routeProjectId, onGraphChangeProposalSaved, showWelcome = false }: AiAgentPageProps = {}) {
+export default function AiAgentPage({ projectId: routeProjectId, onGraphChangeProposalSaved, showWelcome = false, showStandaloneAction = false }: AiAgentPageProps = {}) {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
@@ -60,6 +61,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     isLoadingSessions,
     refreshChatSessions,
     createChatSession,
+    openStandaloneAiAgent,
     onStreamingChange,
   } = useOutletContext<AiAgentPageOutletContext>()
   const hasLoadedSessionsRef = useRef(!isLoadingSessions)
@@ -620,8 +622,23 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-12 shrink-0 items-center border-b px-4 py-2 md:px-5">
+      <div className={showStandaloneAction
+        ? 'flex min-h-12 shrink-0 items-center justify-between gap-2 border-b px-4 py-2 pr-14 md:px-5 md:pr-14'
+        : 'flex min-h-12 shrink-0 items-center justify-between gap-2 border-b px-4 py-2 md:px-5'}>
         <h1 className="text-xl font-semibold leading-none tracking-normal">{t('aiAgent.title')}</h1>
+        {showStandaloneAction ? (
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className="size-7 rounded-[min(var(--radius-md),12px)] p-0 [&_svg]:size-4"
+            onClick={() => openStandaloneAiAgent(selectedSession?.id ?? requestedSessionId)}
+            aria-label={t('pane.expandAiAgent')}
+            title={t('pane.expandAiAgent')}
+          >
+            <Maximize2 className="h-4 w-4" />
+          </Button>
+        ) : null}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

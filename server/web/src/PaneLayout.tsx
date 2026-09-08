@@ -156,7 +156,7 @@ export default function PaneLayout({ mode, content, chat, artifact, className }:
               type="button"
               size="icon-sm"
               variant="ghost"
-              className="absolute top-2 right-2 z-10 hidden bg-background/90 shadow-sm md:flex"
+              className="absolute top-2 right-2 z-10 hidden size-7 rounded-[min(var(--radius-md),12px)] p-0 md:flex [&_svg]:size-4"
               onClick={toggleChatPanel}
               aria-label={t('pane.collapseConversation')}
               title={t('pane.collapseConversation')}

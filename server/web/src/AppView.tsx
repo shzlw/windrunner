@@ -79,7 +79,7 @@ export default function AppView() {
   return (
     <PaneLayout
       mode={hasChatPanel ? 'split' : 'artifact'}
-      chat={hasChatPanel ? <AiAgentPage projectId={projectId} showWelcome={false} onGraphChangeProposalSaved={notifyArtifactChange} /> : undefined}
+      chat={hasChatPanel ? <AiAgentPage projectId={projectId} showWelcome={false} showStandaloneAction onGraphChangeProposalSaved={notifyArtifactChange} /> : undefined}
       artifact={outlet}
     />
   )
