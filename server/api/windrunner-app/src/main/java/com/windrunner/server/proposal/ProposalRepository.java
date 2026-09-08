@@ -79,16 +79,6 @@ public interface ProposalRepository extends CrudRepository<Proposal, String> {
     @Query("UPDATE proposal SET status = 'APPLYING', updated_at = NOW() WHERE id = :id AND chat_session_id = :sessionId AND actor_id = :actorId AND status = 'PENDING'")
     int claimForDecision(@Param("id") String id, @Param("sessionId") String sessionId, @Param("actorId") String actorId);
 
-    /**
-     * The legacy argument names are retained at this boundary so existing callers keep compiling.
-     * The generic parent stores workflow metadata; entity-specific data belongs to proposal_change.
-     */
-    @Modifying
-    @Query("INSERT INTO proposal (id, workflow_type, chat_session_id, source_message_id, actor_id, status) VALUES (:id, :workflowType, :sessionId, :messageId, :actorId, 'PENDING')")
-    void insert(@Param("id") String id, @Param("workflowType") String workflowType, @Param("sessionId") String sessionId, @Param("messageId") String messageId,
-                @Param("actorId") String actorId, @Param("kind") String kind, @Param("draft") String draft,
-                @Param("before") String before, @Param("after") String after);
-
     @Modifying
     @Query("INSERT INTO proposal (id, workflow_type, chat_session_id, source_message_id, actor_id, status) VALUES (:id, :workflowType, :sessionId, :messageId, :actorId, 'PENDING')")
     void insertParent(@Param("id") String id, @Param("workflowType") String workflowType,

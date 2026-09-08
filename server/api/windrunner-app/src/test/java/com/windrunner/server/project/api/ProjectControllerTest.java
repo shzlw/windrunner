@@ -7,6 +7,7 @@ import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectContentDeletionService;
 import com.windrunner.server.project.ProjectMembershipService;
 import com.windrunner.server.project.ProjectRoles;
+import com.windrunner.server.project.ProjectService;
 import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.project.persistence.ProjectRepository;
@@ -92,7 +93,7 @@ class ProjectControllerTest {
     }
 
     private ProjectController controller() {
-        return new ProjectController(
+        ProjectService projectService = new ProjectService(
                 projectRepository,
                 projectMemberRepository,
                 projectTeamRepository,
@@ -102,7 +103,17 @@ class ProjectControllerTest {
                 auditLogService,
                 authService,
                 new EntityIdGenerator(),
-                projectContentDeletionService, mock(ProjectMembershipService.class));
+                projectContentDeletionService);
+        return new ProjectController(
+                projectRepository,
+                projectMemberRepository,
+                projectTeamRepository,
+                teamRepository,
+                appUserRepository,
+                projectAccessService,
+                authService,
+                mock(ProjectMembershipService.class),
+                projectService);
     }
 
     private AppUser actor() {

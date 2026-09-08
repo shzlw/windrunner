@@ -105,3 +105,12 @@ CREATE INDEX mail_notification_ready_idx
     ON mail_notification (available_at, recipient_user_id) WHERE attempts < 3;
 CREATE INDEX mail_notification_recipient_idx
     ON mail_notification (recipient_user_id, available_at) WHERE attempts < 3;
+
+CREATE INDEX IF NOT EXISTS auth_session_user_exp_idx
+    ON auth_session (user_id, expires_at);
+
+CREATE INDEX IF NOT EXISTS team_join_request_pending_team_idx
+    ON team_join_request (team_id, created_at) WHERE status = 'PENDING';
+
+CREATE INDEX IF NOT EXISTS mail_notification_created_at_idx
+    ON mail_notification (created_at);

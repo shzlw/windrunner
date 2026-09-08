@@ -48,6 +48,8 @@ class ProposalServiceTest {
     @Mock
     ProposalRepository proposalRepository;
     @Mock
+    ProposalChangeRepository proposalChangeRepository;
+    @Mock
     AuthService authService;
     @Mock
     ChatSessionRepository chatSessionRepository;
@@ -134,13 +136,26 @@ class ProposalServiceTest {
     Proposal stored(ProposalDraft draft, ProposalKind kind, Map<String, String> before, Map<String, String> after) {
         Proposal p = new Proposal();
         p.setId("proposal");
-        p.setKind(kind.name());
         p.setStatus("PENDING");
-        p.setDraftJson(JsonUtils.toJson(draft));
-        p.setBeforeJson(JsonUtils.toJson(before));
-        p.setAfterJson(JsonUtils.toJson(after));
+        p.setWorkflowType("IDENTITY");
+        p.setChatSessionId("session");
+        p.setActorId("admin");
+        ProposalChange change = new ProposalChange();
+        change.setId("change");
+        change.setProposalId("proposal");
+        change.setEntityType(kind.name());
+        change.setOperation(draft.action().equals("ADD") ? "CREATE" : draft.action().equals("REMOVE") ? "DELETE" : draft.action());
+        change.setStatus("PENDING");
+        change.setPayload(JsonUtils.toJson(draft));
+        change.setBeforeSnapshot(JsonUtils.toJson(before));
+        change.setAfterSnapshot(JsonUtils.toJson(after));
         when(proposalRepository.findForDecision("IDENTITY", "proposal", "session", "admin")).thenReturn(Optional.of(p));
         lenient().when(proposalRepository.claimForDecision("proposal", "session", "admin")).thenReturn(1);
+        lenient().when(proposalChangeRepository.findByProposalId("proposal")).thenReturn(List.of(change));
+        lenient().when(proposalChangeRepository.decide("change", "proposal", "APPLIED", null)).thenReturn(1);
+        lenient().when(proposalChangeRepository.decide("change", "proposal", "REJECTED", null)).thenReturn(1);
+        lenient().when(proposalRepository.decide("proposal", "session", "admin", "APPLIED")).thenReturn(1);
+        lenient().when(proposalRepository.decide("proposal", "session", "admin", "REJECTED")).thenReturn(1);
         return p;
     }
 
@@ -209,7 +224,8 @@ class ProposalServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().status()).isEqualTo("PENDING");
         assertThat(result.getFirst().changedFields()).containsExactly("role");
-        verify(proposalRepository).insert(anyString(), eq("IDENTITY"), eq("session"), eq("message"), eq("admin"), eq("TEAM_MEMBERSHIP"), anyString(), anyString(), anyString());
+        verify(proposalRepository).insertParent(anyString(), eq("IDENTITY"), eq("session"), eq("message"), eq("admin"));
+        verify(proposalChangeRepository).insert(anyString(), anyString(), eq(0), eq("TEAM_MEMBERSHIP"), anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
         verify(teamService, never()).addMember(any(), any(), any());
         verifyNoInteractions(projectMembershipService);
     }

@@ -4,6 +4,7 @@ import com.windrunner.server.tools.Tool;
 import com.windrunner.server.tools.ToolAuthorizationService;
 import com.windrunner.server.tools.ToolExecutionContext;
 import com.windrunner.server.utils.FileUtils;
+import com.windrunner.server.work.AiReviewLimits;
 import com.windrunner.server.work.EntryService;
 import com.windrunner.server.work.domain.Entry;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +47,23 @@ public class FetchEntriesTool implements Tool<FetchEntriesTool.Parameters> {
         long offset = parameters.offset() == null ? 0 : Math.max(0, parameters.offset());
         List<Entry> results = entries.listPageForTool(projectId, workItemId, limit, offset);
         long total = entries.countForTool(projectId, workItemId);
-        return new Response(results, results.size(), total, limit, offset, offset + results.size() < total);
+        List<Entry> bounded = results.stream().map(this::bounded).toList();
+        return new Response(bounded, bounded.size(), total, limit, offset, offset + results.size() < total);
+    }
+
+    private Entry bounded(Entry entry) {
+        Entry copy = new Entry();
+        copy.setId(entry.getId());
+        copy.setProjectId(entry.getProjectId());
+        copy.setWorkItemId(entry.getWorkItemId());
+        copy.setSortIndex(entry.getSortIndex());
+        copy.setAuthorUserId(entry.getAuthorUserId());
+        copy.setAuthorDisplayName(entry.getAuthorDisplayName());
+        copy.setType(entry.getType());
+        copy.setBody(AiReviewLimits.bounded(entry.getBody(), AiReviewLimits.MAX_TEXT_LENGTH));
+        copy.setCreatedAt(entry.getCreatedAt());
+        copy.setUpdatedAt(entry.getUpdatedAt());
+        return copy;
     }
 
     public record Parameters(String projectId, String workItemId, Integer limit, Integer offset) {

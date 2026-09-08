@@ -62,7 +62,7 @@ public class FetchProjectSummaryTool implements Tool<FetchProjectSummaryTool.Par
                         toEntryCounts(entries.countByTypeForProject(projectId)),
                         toRelationshipCounts(relationships.countByTypeForProject(projectId)),
                         workItems.summarizeDueDates(projectId),
-                        assignees.countByProjectId(projectId).stream().map(row -> new AssigneeCount(
+                        assignees.countByProjectId(projectId).stream().limit(50).map(row -> new AssigneeCount(
                                 row.assigneeType(), row.assigneeId(), row.assigneeLabel(), row.count())).toList()));
     }
 

@@ -121,7 +121,7 @@ public class ChatService {
         return messages;
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public ChatSessionPageView listSessions(String userId, String requestedQuery, int requestedLimit, int requestedOffset) {
         int limit = Math.min(Math.max(requestedLimit, 1), 50);
         int offset = Math.max(requestedOffset, 0);

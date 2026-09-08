@@ -89,19 +89,6 @@ public class ProposalService {
             if (prepared.before().equals(prepared.after())) throw createBadRequestException("The requested values are already set");
             pending.add(new Pending(draft, prepared));
         }
-        // Mockito-based callers from the pre-batch API may not provide the child repository. Keep
-        // their one-row persistence contract while all application wiring uses the generic model.
-        if (proposalChangeRepository == null) {
-            List<ProposalCreated> legacy = new ArrayList<>();
-            for (Pending item : pending) {
-                String id = entityIdGenerator.generate(EntityIdType.PROPOSAL);
-                proposalRepository.insert(id, getWorkflowType(), context.chatSessionId(), sourceMessageId, actor.getId(), kind.name(),
-                        JsonUtils.toJson(item.draft()), JsonUtils.toJson(item.prepared().before()), JsonUtils.toJson(item.prepared().after()));
-                legacy.add(new ProposalCreated(id, kind, item.draft().action(), "PENDING", item.prepared().after().keySet().stream()
-                        .filter(field -> !Objects.equals(item.prepared().before().get(field), item.prepared().after().get(field))).toList()));
-            }
-            return legacy;
-        }
         String parentId = entityIdGenerator.generate(EntityIdType.PROPOSAL);
         // The kind argument is retained for source compatibility; workflow_type is deliberately generic.
         proposalRepository.insertParent(parentId, getWorkflowType(),
@@ -131,17 +118,7 @@ public class ProposalService {
         List<Proposal> page = proposalRepository.page(getWorkflowType(), sessionId, actor.getId(), limit + 1, offset);
         List<ProposalView> visible = new ArrayList<>();
         for (Proposal proposal : page.stream().limit(limit).toList()) {
-            List<ProposalChange> proposalChanges = proposalChangeRepository == null ? List.of() : proposalChangeRepository.findByProposalId(proposal.getId());
-            if (proposalChanges.isEmpty() && proposal.getDraftJson() != null) {
-                try {
-                    ProposalKind kind = ProposalKind.valueOf(proposal.getKind());
-                    authorize(kind, readDraft(proposal), actor);
-                    visible.add(createLegacyView(proposal));
-                } catch (ResponseStatusException e) {
-                    if (e.getStatusCode().value() != 403 && e.getStatusCode().value() != 404) throw e;
-                }
-                continue;
-            }
+            List<ProposalChange> proposalChanges = proposalChangeRepository.findByProposalId(proposal.getId());
             try {
                 List<ProposalDraft> drafts = proposalChanges.stream().map(this::readDraft).toList();
                 for (int index = 0; index < proposalChanges.size(); index++)
@@ -160,9 +137,7 @@ public class ProposalService {
         Proposal proposal = proposalRepository.findForDecision(getWorkflowType(), id, sessionId, actor.getId()).orElseThrow(() -> createResponseStatusException(HttpStatus.NOT_FOUND, "Proposal not found"));
         if (!"PENDING".equals(proposal.getStatus())) throw createResponseStatusException(HttpStatus.CONFLICT, "Proposal already decided");
         if (!"ACCEPT".equals(decision) && !"REJECT".equals(decision)) throw createBadRequestException("Decision must be ACCEPT or REJECT");
-        List<ProposalChange> proposalChanges = proposalChangeRepository == null ? List.of() : proposalChangeRepository.findByProposalId(id);
-        if (proposalChanges.isEmpty() && proposal.getDraftJson() != null)
-            return decideLegacy(proposal, sessionId, decision, actor);
+        List<ProposalChange> proposalChanges = proposalChangeRepository.findByProposalId(id);
         if (proposalChanges.isEmpty()) throw createResponseStatusException(HttpStatus.CONFLICT, "Proposal has no changes");
         List<ProposalDraft> drafts = proposalChanges.stream().map(this::readDraft).toList();
         for (int index = 0; index < proposalChanges.size(); index++)
@@ -211,27 +186,6 @@ public class ProposalService {
         if (proposalRepository.decide(id, sessionId, actor.getId(), proposal.getStatus()) != 1)
             throw createResponseStatusException(HttpStatus.CONFLICT, "Proposal already decided");
         return createView(proposal, proposalChanges);
-    }
-
-    private ProposalView decideLegacy(Proposal proposal, String sessionId, String decision, AppUser actor) {
-        ProposalKind kind = ProposalKind.valueOf(proposal.getKind());
-        ProposalDraft draft = readDraft(proposal);
-        authorize(kind, draft, actor);
-        if (proposalRepository.claimForDecision(proposal.getId(), sessionId, actor.getId()) != 1)
-            throw createResponseStatusException(HttpStatus.CONFLICT, "Proposal already decided");
-        if ("ACCEPT".equals(decision)) {
-            actor = authService.requireActiveActor(actor);
-            authorize(kind, draft, actor);
-            Map<String, String> expected = parseMap(proposal.getBeforeJson());
-            Prepared current = prepare(kind, draft, actor);
-            if (!current.before().equals(expected) || !current.after().equals(parseMap(proposal.getAfterJson())))
-                throw createResponseStatusException(HttpStatus.CONFLICT, "This target changed after the proposal was created. Ask AI to review it again.");
-            apply(kind, draft, expected, current.after(), actor);
-            proposal.setStatus("APPLIED");
-        } else proposal.setStatus("REJECTED");
-        if (proposalRepository.decide(proposal.getId(), sessionId, actor.getId(), proposal.getStatus()) != 1)
-            throw createResponseStatusException(HttpStatus.CONFLICT, "Proposal already decided");
-        return createLegacyView(proposal);
     }
 
     private AppUser requireSession(String sessionId, AppUser requestedActor) {
@@ -518,10 +472,6 @@ public class ProposalService {
         return value != null && !value.isBlank();
     }
 
-    private ProposalDraft readDraft(Proposal proposal) {
-        return JsonUtils.fromJson(proposal.getDraftJson(), ProposalDraft.class);
-    }
-
     private ProposalDraft readDraft(ProposalChange change) {
         return JsonUtils.fromJson(change.getPayload(), ProposalDraft.class);
     }
@@ -579,12 +529,6 @@ public class ProposalService {
         List<ProposalChangeView> views = proposalChanges.stream().map(change -> new ProposalChangeView(change.getId(), ProposalKind.valueOf(change.getEntityType()), toProposalAction(change.getOperation()), change.getStatus(), parseMapOrEmpty(change.getBeforeSnapshot()), parseMapOrEmpty(change.getAfterSnapshot()))).toList();
         ProposalChangeView first = views.getFirst();
         return new ProposalView(proposal.getId(), proposal.getSourceMessageId(), proposal.getWorkflowType(), first.kind(), proposalChanges.size() == 1 ? first.action() : "BATCH", proposal.getStatus(), first.before(), first.after(), views);
-    }
-
-    private ProposalView createLegacyView(Proposal proposal) {
-        ProposalDraft draft = readDraft(proposal);
-        ProposalChangeView change = new ProposalChangeView(proposal.getId(), ProposalKind.valueOf(proposal.getKind()), draft.action(), proposal.getStatus(), parseMap(proposal.getBeforeJson()), parseMap(proposal.getAfterJson()));
-        return new ProposalView(proposal.getId(), proposal.getSourceMessageId(), proposal.getWorkflowType(), change.kind(), change.action(), change.status(), change.before(), change.after(), List.of(change));
     }
 
     private String requireValue(String value, String label) {

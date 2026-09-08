@@ -21,16 +21,4 @@ public class Proposal {
     private OffsetDateTime appliedAt;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
-
-    /**
-     * Compatibility accessors kept for callers/tests that construct the old one-change shape.
-     */
-    @org.springframework.data.annotation.Transient
-    private String kind;
-    @org.springframework.data.annotation.Transient
-    private String draftJson;
-    @org.springframework.data.annotation.Transient
-    private String beforeJson;
-    @org.springframework.data.annotation.Transient
-    private String afterJson;
 }
