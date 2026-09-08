@@ -26,7 +26,6 @@ export default function AppView() {
     setArtifactRefreshKey((current) => current + 1)
   }, [])
   const outlet = useOutlet({ ...appContext, artifactRefreshKey })
-  const isHome = location.pathname === '/app' || location.pathname === '/app/home'
   const isAiAgent = location.pathname === '/app/ai-agent' || location.pathname.startsWith('/app/ai-agent/')
   const hasChatPanel = searchParams.get('chatPanel') === 'open'
   const userId = location.pathname === '/app/users' ? searchParams.get('userId') : null
@@ -67,24 +66,20 @@ export default function AppView() {
   }, [appContext, artifactContexts, location.hash, location.pathname, navigate, searchParams, t])
 
   useEffect(() => {
-    if (isHome || isAiAgent) {
+    if (isAiAgent) {
       return
     }
     return appContext.registerOpenAssistant(openAssistant)
-  }, [appContext, isAiAgent, isHome, openAssistant])
-
-  if (isHome) {
-    return <PaneLayout mode="full" content={outlet} />
-  }
+  }, [appContext, isAiAgent, openAssistant])
 
   if (isAiAgent) {
-    return <PaneLayout mode="chat" chat={<AiAgentPage />} />
+    return <PaneLayout mode="chat" chat={<AiAgentPage showWelcome={true} />} />
   }
 
   return (
     <PaneLayout
       mode={hasChatPanel ? 'split' : 'artifact'}
-      chat={hasChatPanel ? <AiAgentPage projectId={projectId} onGraphChangeProposalSaved={notifyArtifactChange} /> : undefined}
+      chat={hasChatPanel ? <AiAgentPage projectId={projectId} showWelcome={false} onGraphChangeProposalSaved={notifyArtifactChange} /> : undefined}
       artifact={outlet}
     />
   )

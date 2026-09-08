@@ -21,6 +21,7 @@ type ContextType = 'projects' | 'teams' | 'users'
 type AiAgentPageProps = {
   projectId?: string
   onGraphChangeProposalSaved?: () => void | Promise<void>
+  showWelcome?: boolean
 }
 
 function projectTitle(project: Project, fallback: string) {
@@ -46,12 +47,13 @@ function referencesForNodes(nodes: ProjectNode[]) {
   } satisfies ChatWorkItemReference]))
 }
 
-export default function AiAgentPage({ projectId: routeProjectId, onGraphChangeProposalSaved }: AiAgentPageProps = {}) {
+export default function AiAgentPage({ projectId: routeProjectId, onGraphChangeProposalSaved, showWelcome = false }: AiAgentPageProps = {}) {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const {
+    displayName,
     chatSessions,
     selectedSessionId,
     newChatRequestKey,
@@ -535,6 +537,8 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
       onStreamingChange={onStreamingChange}
       onGraphChangeProposalSaved={onGraphChangeProposalSaved}
       showHeader={false}
+      showWelcome={showWelcome}
+      welcomeName={displayName}
       allowEmptyProject
       composerFooter={projectContext}
       projectReferences={new Map(projects.map((project) => [project.id, projectTitle(project, t('common.untitledProject'))] as const))}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
-import { Bot, CalendarDays, ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, Home, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
+import { Bot, CalendarDays, ChevronDown, Eye, EyeOff, Bookmark, FileClock, FolderOpen, KeyRound, ListTodo, Loader2, MessageSquareText, MoreHorizontal, Pencil, Plus, Trash2, TrendingUp, UserCircle, Users, UsersRound, Wind } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 
@@ -45,12 +45,10 @@ import SubscriptionsPage from './SubscriptionsPage'
 import MyWorkPage from './MyWorkPage'
 import CalendarPage from './CalendarPage'
 import AppView from './AppView'
-import HomePage from './HomePage'
 import NotificationCenter, { NotificationProvider } from './components/NotificationCenter'
 
 const baseMenuItems = [
   { labelKey: 'navigation.projects', path: '/app/projects', icon: FolderOpen },
-  { labelKey: 'navigation.myWork', path: '/app/my-work', icon: ListTodo },
   { labelKey: 'navigation.calendar', path: '/app/calendar', icon: CalendarDays },
   { labelKey: 'navigation.subscriptions', path: '/app/subscriptions', icon: Bookmark },
   { labelKey: 'navigation.teams', path: '/app/teams', icon: UsersRound },
@@ -62,13 +60,13 @@ const administrationMenuItems = [
   { labelKey: 'navigation.aiAnalytics', path: '/app/ai-analytics', icon: TrendingUp },
 ]
 export type AiAgentPageOutletContext = {
+  displayName?: string | null
   chatSessions: ChatSessionSummary[]
   selectedSessionId: string | null
   newChatRequestKey: number
   isLoadingSessions: boolean
   refreshChatSessions: (preferredSessionId?: string) => Promise<void>
   createChatSession: () => Promise<ChatSession | null>
-  onSubmitHomeCommand: (prompt: string) => Promise<void>
   onStreamingChange: (isStreaming: boolean) => void
   registerOpenAssistant: (handler: (() => void | Promise<void>) | null) => () => void
 }
@@ -83,7 +81,7 @@ function authRedirectPath(user: AuthUser | null) {
     return '/login'
   }
 
-  return user.mustChangePassword ? '/change-password' : '/app/home'
+  return user.mustChangePassword ? '/change-password' : '/app/ai-agent'
 }
 
 function formatRelativeAge(timestamp: string | undefined, t: TFunction) {
@@ -436,7 +434,6 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     }
 
     const keepsArtifact = location.pathname !== '/app'
-      && location.pathname !== '/app/home'
       && !location.pathname.startsWith('/app/ai-agent')
     if (keepsArtifact) {
       const params = new URLSearchParams(location.search)
@@ -467,17 +464,6 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     }
   }, [])
 
-  async function handleHomeCommand(prompt: string) {
-    setNewChatRequestKey((current) => current + 1)
-    const session = await createChatSession()
-    if (!session) {
-      return
-    }
-    const params = new URLSearchParams({ prompt, autoSend: '1' })
-    params.set('chatSessionId', session.id)
-    navigate(`/app/ai-agent?${params.toString()}`)
-  }
-
   useEffect(() => {
     const requestedSessionId = new URLSearchParams(location.search).get('chatSessionId')
     if (requestedSessionId) setSelectedAiAgentSessionId(requestedSessionId)
@@ -499,7 +485,6 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   function handleSelectSession(sessionId: string) {
     setSelectedAiAgentSessionId(sessionId)
     const keepsArtifact = location.pathname !== '/app'
-      && location.pathname !== '/app/home'
       && !location.pathname.startsWith('/app/ai-agent')
     const nextPath = keepsArtifact ? location.pathname : '/app/ai-agent'
     const nextParams = new URLSearchParams(location.search)
@@ -513,13 +498,13 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
   }
 
   const aiAgentPageContext: AiAgentPageOutletContext = {
+    displayName: currentUser?.displayName || currentUser?.username,
     chatSessions: aiAgentSessions,
     selectedSessionId: selectedAiAgentSessionId,
     newChatRequestKey,
     isLoadingSessions: isLoadingChatSessions,
     refreshChatSessions,
     createChatSession,
-    onSubmitHomeCommand: handleHomeCommand,
     onStreamingChange: setIsChatStreaming,
     registerOpenAssistant,
   }
@@ -531,7 +516,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
           <SidebarHeader className="pb-0">
             <div className="flex h-10 items-center justify-between group-data-[collapsible=icon]:justify-center">
               <NavLink
-                to={workspaceDestination('/app/home')}
+                to={workspaceDestination('/app/ai-agent')}
                 className="flex h-8 items-center gap-2 overflow-hidden rounded-md p-2 group-data-[collapsible=icon]:hidden"
               >
                 <div className="min-w-0 flex-1 text-left text-lg leading-tight">
@@ -548,21 +533,22 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      render={<NavLink to={workspaceDestination('/app/home')} />}
-                      isActive={location.pathname === '/app' || location.pathname === '/app/home'}
-                      tooltip={t('navigation.home')}
+                      render={<button type="button" onClick={() => void handleAiAgent()} />}
+                      isActive={location.pathname === '/app/ai-agent' || location.pathname.startsWith('/app/ai-agent/')}
+                      tooltip={t('navigation.aiAgent')}
                     >
-                      <Home />
-                      <span>{t('navigation.home')}</span>
+                      <Bot />
+                      <span>{t('navigation.aiAgent')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      render={<button type="button" onClick={() => void handleAiAgent()} />}
-                      tooltip={t('pane.openAiAgent')}
+                      render={<NavLink to={workspaceDestination('/app/my-work')} />}
+                      isActive={location.pathname === '/app/my-work' || location.pathname.startsWith('/app/my-work/')}
+                      tooltip={t('navigation.myWork')}
                     >
-                      <Bot />
-                      <span>{t('navigation.aiAgent')}</span>
+                      <ListTodo />
+                      <span>{t('navigation.myWork')}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
@@ -599,7 +585,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
             </SidebarGroup>
             <SidebarSeparator className="mx-0" />
             <SidebarGroup className="shrink-0 pt-2">
-              <SidebarGroupLabel className="h-6 px-2">{t('navigation.workspace')}</SidebarGroupLabel>
+              <SidebarGroupLabel className="h-6 px-2">{t('navigation.browse')}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu className="pt-2">
                   {menuItems.map((item) => (
@@ -710,7 +696,7 @@ function AdminOnlyRoute({
   children: ReactElement
 }) {
   if (!isAdminLike(currentUser)) {
-    return <Navigate to="/app/home" replace />
+    return <Navigate to="/app/ai-agent" replace />
   }
 
   return children
@@ -738,7 +724,7 @@ function LoginPage({
 
   const fromPath = typeof location.state === 'object' && location.state && 'from' in location.state
     ? String(location.state.from)
-    : '/app/home'
+    : '/app/ai-agent'
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -862,7 +848,7 @@ function ChangePasswordPage({
     try {
       const user = await updatePassword(newPassword)
       onUserChange(user)
-      navigate('/app/home', { replace: true })
+      navigate('/app/ai-agent', { replace: true })
     } catch (submitError) {
       setErrorMessage(submitError instanceof Error ? submitError.message : t('auth.failedUpdatePassword'))
     } finally {
@@ -1010,8 +996,8 @@ function App() {
         element={<ProtectedApp currentUser={currentUser} />}
       >
         <Route element={<AppView />}>
-          <Route index element={<Navigate to="home" replace />} />
-          <Route path="home" element={<HomePage displayName={currentUser?.displayName} />} />
+          <Route index element={<Navigate to="ai-agent" replace />} />
+          <Route path="home" element={<Navigate to="/app/ai-agent" replace />} />
           <Route path="ai-agent" element={null} />
           <Route path="projects" element={<ProjectsPage currentUser={currentUser} />} />
           <Route path="projects/:projectId" element={<ProjectWorkspacePage currentUser={currentUser} />} />

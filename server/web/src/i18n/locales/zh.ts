@@ -121,12 +121,11 @@ const zh = {
   notifications: { title: '通知', open: '打开', secondsAgo: '{{count}} 秒前', minutesAgo: '{{count}} 分钟前', hoursAgo: '{{count}} 小时前', daysAgo: '{{count}} 天前', unread: '{{count}} 条未读通知', markAllRead: '全部标为已读', caughtUp: '你已经看完所有通知。' },
   pane: { openAiAgent: '打开 AI Agent', expandAiAgent: '展开 AI Agent', workspacePanes: '工作区面板', chat: '聊天', artifact: '内容', collapseConversation: '折叠对话' },
   navigation: {
-    home: '首页',
     aiAgent: 'AI Agent',
     newChat: '新建聊天',
     search: '搜索',
     recentConversations: '最近对话',
-    workspace: '工作区',
+    browse: '浏览',
     projects: '项目',
     myWork: '我的工作',
     calendar: '日历',

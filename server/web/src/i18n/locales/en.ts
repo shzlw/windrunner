@@ -963,12 +963,11 @@ const en = {
     collapseConversation: 'Collapse conversation',
   },
   navigation: {
-    home: 'Home',
     aiAgent: 'AI Agent',
     newChat: 'New chat',
     search: 'Search',
     recentConversations: 'Recent conversations',
-    workspace: 'Workspace',
+    browse: 'Browse',
     projects: 'Projects',
     myWork: 'My Work',
     calendar: 'Calendar',

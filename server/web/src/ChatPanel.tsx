@@ -5,7 +5,7 @@ import type { Components } from 'react-markdown'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import { useParams } from 'react-router'
-import { AlertTriangle, ArrowUp, Bot, FileText, FolderOpen, Loader2, Mic, Plus, Square, User, UserRound, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, ArrowUp, Bot, FileText, FolderOpen, ListTodo, Loader2, Mic, Plus, Square, User, UserRound, UsersRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -32,6 +32,12 @@ import {
 } from '@/lib/api'
 
 const MESSAGE_PAGE_SIZE = 30
+
+const welcomeQuickActions = [
+  { labelKey: 'home.attention', promptKey: 'home.attentionPrompt', icon: ListTodo },
+  { labelKey: 'home.teamHelp', promptKey: 'home.teamHelpPrompt', icon: UsersRound },
+  { labelKey: 'home.summarizeProjects', promptKey: 'home.summarizeProjectsPrompt', icon: FolderOpen },
+] as const
 
 type ChatMessageState = ApiChatMessage & {
   id: string
@@ -244,6 +250,8 @@ export default function ChatPanel({
   initialDraft,
   autoSubmitInitialDraft = false,
   composerFooter,
+  showWelcome = false,
+  welcomeName,
   onClose,
 }: {
   projectId?: string
@@ -272,6 +280,8 @@ export default function ChatPanel({
   initialDraft?: string
   autoSubmitInitialDraft?: boolean
   composerFooter?: ReactNode
+  showWelcome?: boolean
+  welcomeName?: string | null
   onClose?: () => void
 }) {
   const { t } = useTranslation()
@@ -873,11 +883,43 @@ export default function ChatPanel({
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex h-full min-h-56 flex-col items-center justify-center gap-5 p-6">
-              <h2 className="text-center text-xl font-semibold tracking-tight">{t('chat.greeting')}</h2>
-              <div className="w-full max-w-2xl">
+            <div className={showWelcome
+              ? 'mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center gap-8 p-6 md:gap-10'
+              : 'flex h-full min-h-56 flex-col items-center justify-center gap-5 p-6'}>
+              {showWelcome ? (
+                <section className="w-full max-w-3xl space-y-2 text-center">
+                  <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">
+                    {t('home.greeting', { name: welcomeName?.trim() || t('common.there') })}
+                  </h2>
+                  <p className="text-muted-foreground">{t('home.subtitle')}</p>
+                </section>
+              ) : <h2 className="text-center text-xl font-semibold tracking-tight">{t('chat.greeting')}</h2>}
+              <div className={showWelcome ? 'w-full max-w-3xl' : 'w-full max-w-2xl'}>
                 {renderComposer()}
               </div>
+              {showWelcome ? (
+                <section className="w-full max-w-3xl space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground">{t('home.tryAsking')}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {welcomeQuickActions.map((action) => (
+                      <Button
+                        key={action.labelKey}
+                        type="button"
+                        variant="outline"
+                        className="gap-2"
+                        disabled={isStreaming}
+                        onClick={() => {
+                          setDraft(t(action.promptKey))
+                          textareaRef.current?.focus()
+                        }}
+                      >
+                        <action.icon className="h-4 w-4 text-muted-foreground" />
+                        {t(action.labelKey)}
+                      </Button>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
             </div>
           ) : (
             <>
