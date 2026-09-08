@@ -5,7 +5,7 @@ import type {ScalarOptions} from '@scalar/docusaurus';
 
 const config: Config = {
   title: 'Windrunner',
-  tagline: 'Ask the project. Move work forward.',
+  tagline: 'Talk to your work.',
   favicon: 'img/favicon.svg',
 
   future: {

@@ -3,23 +3,23 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/shzlwio/windrunner?logo=docker&label=docker%20pulls)](https://hub.docker.com/r/shzlwio/windrunner)
 
-> Work with your team and AI. Keep every project moving.
+> Talk to your work.
 
-Windrunner is a self-hosted project workspace for coordinating work and
-tracking progress. Keep work items, entries, decisions, blockers,
-relationships, and evidence together, then ask AI questions with the right
-project context.
+Windrunner is a self-hosted, AI-native Work Hub for teams that shouldn't need to learn a tool to manage work.
+
+Work enters however you work — chat, API, MCP — and becomes a structured Work Graph: teams, projects, work items, decisions and their relationships, linked so humans and agents share one truth. Every operation is AI-native: you describe intent, AI proposes the structured change, you review.
+
+Chat by default, workspace when you need control — inspect, troubleshoot and manually alter any detail when you need to, not because you have to.
 
 ## Features
 
-- Shared project workspaces with structured work items, entries, and typed relationships.
-- Project-context AI for finding blockers, understanding progress, and proposing updates for review.
-- Manual workflows for assigning, searching, filtering, following, and reviewing work.
-- Teams, access controls, notifications, subscriptions, and audit logs.
-- REST API, OpenAPI, CLI, and MCP integrations for tools and agents.
-- Configurable OpenAI, OpenRouter, Ollama, Groq, Gemini, and Claude providers.
-- Docker Compose and PostgreSQL deployment.
-- English and Simplified Chinese web interfaces.
+- **Work Graph, not tickets** — typed work items and relationships keep blockers, dependencies and decisions consistent.
+- **AI-native operations** — all reads and writes go through AI with auditable proposals, not bolted-on chat.
+- **Chat as the interface** — create, assign, link and query work in natural language.
+- **Workspace when you need it** — traditional tree + inspector for triage and troubleshooting, secondary by design.
+- **Open and agentic** — REST API, OpenAPI, CLI and MCP for any tool or agent to feed or query work.
+- **Private and extensible** — self-hosted on Docker + PostgreSQL, with access controls, audit logs, and i18n customization.
+- **Model-agnostic** — works with OpenAI, OpenRouter, Ollama, Groq, Gemini, Claude and more.
 
 ## Quick start
 

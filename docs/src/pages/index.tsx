@@ -145,7 +145,7 @@ type Feature = (typeof collaborationFeatures)[number] | (typeof stackFeatures)[n
 
 const websiteUrl = 'https://shzlw.github.io/windrunner/';
 const websiteDescription =
-  'An AI-powered project workspace where teams coordinate work, track progress, and review contextual AI updates in one place.';
+  'A self-hosted, AI-native Work Hub where work becomes a structured Work Graph — chat by default, workspace when you need control.';
 
 const websiteStructuredData = {
   '@context': 'https://schema.org',
@@ -231,12 +231,13 @@ export default function Home(): ReactNode {
         <header className="home-hero">
           <div className="container home-hero-grid">
             <div className="home-hero-copy">
-              <p className="home-hero-eyebrow">AI-powered project collaboration</p>
-              <h1 className="hero__title">Work with your team and AI. Keep every project moving.</h1>
+              <p className="home-hero-eyebrow">Self-hosted · AI-native Work Hub</p>
+              <h1 className="hero__title">Talk to your work.</h1>
               <p className="hero__subtitle">
-                Windrunner brings work items, decisions, blockers, evidence, and
-                progress into one shared workspace — so teams can coordinate work,
-                ask questions in context, and review AI-proposed updates.
+                Windrunner turns chat, API and MCP into a structured Work Graph
+                — teams, projects, work items and relationships linked so humans
+                and agents share one truth. Chat moves work forward; the
+                workspace lets you inspect and refine what AI built.
               </p>
               <div className="home-hero-actions">
                 <Link
