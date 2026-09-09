@@ -62,6 +62,13 @@ public class WorkspaceChangeProposalService {
         return workspaceChangeProposalRepository.findByProjectId(projectId).stream().map(proposal -> createView(proposal, workspaceChangeRepository.findByProposalId(proposal.getId()))).toList();
     }
 
+    public List<WorkspaceChangeProposalView> list(String projectId, String chatSessionId) {
+        if (WorkItemService.isBlank(chatSessionId)) return list(projectId);
+        return workspaceChangeProposalRepository.findByProjectIdAndChatSessionId(projectId, chatSessionId.trim()).stream()
+                .map(proposal -> createView(proposal, workspaceChangeRepository.findByProposalId(proposal.getId())))
+                .toList();
+    }
+
     public WorkspaceChangeProposalView get(String projectId, String proposalId) {
         WorkspaceChangeProposal proposal = workspaceChangeProposalRepository.findInProject(proposalId, projectId)
                 .orElseThrow(() -> WorkItemService.createNotFoundException("Workspace proposal not found"));
@@ -97,6 +104,46 @@ public class WorkspaceChangeProposalService {
                 WorkItemService.isBlank(request.feedback()) ? null : request.feedback().trim());
         refreshProposalStatus(projectId, proposalId);
         return get(projectId, proposalId);
+    }
+
+    @Transactional
+    public WorkspaceChangeProposalView decideAll(String projectId, String proposalId,
+                                                 DecisionRequest request, String actorId) {
+        if (request == null || WorkItemService.isBlank(request.decision()))
+            throw WorkItemService.createBadRequestException("Proposal decision is required");
+        workspaceChangeProposalRepository.findInProjectForUpdate(proposalId, projectId)
+                .orElseThrow(() -> WorkItemService.createNotFoundException("Workspace proposal not found"));
+        List<WorkspaceChange> openChanges = workspaceChangeRepository.findByProposalId(proposalId).stream()
+                .filter(change -> Set.of("PENDING", "NEEDS_UPDATE").contains(change.getStatus()))
+                .toList();
+        if (openChanges.isEmpty())
+            throw WorkItemService.createBadRequestException("This workspace proposal has already been decided");
+
+        String decision = request.decision().trim().toUpperCase();
+        if (!Set.of("ACCEPT", "REJECT").contains(decision))
+            throw WorkItemService.createBadRequestException("Workspace proposal decision must be ACCEPT or REJECT");
+
+        List<WorkspaceChange> changes = "ACCEPT".equals(decision)
+                ? openChanges.stream().sorted(Comparator.comparingInt(this::applicationOrder)
+                        .thenComparingInt(WorkspaceChange::getSortIndex)).toList()
+                : openChanges;
+        String status = "ACCEPT".equals(decision) ? "APPLIED" : "REJECTED";
+        for (WorkspaceChange change : changes) {
+            if ("ACCEPT".equals(decision)) apply(projectId, change, actorId);
+            workspaceChangeRepository.decide(change.getId(), proposalId, projectId, status, null);
+        }
+        refreshProposalStatus(projectId, proposalId);
+        return get(projectId, proposalId);
+    }
+
+    private int applicationOrder(WorkspaceChange change) {
+        if ("WORK_ITEM".equals(change.getEntityType()) && "ADD".equals(change.getAction())) return 0;
+        if ("WORK_ITEM".equals(change.getEntityType()) && "UPDATE".equals(change.getAction())) return 50;
+        if ("ENTRY".equals(change.getEntityType()) && !"DELETE".equals(change.getAction())) return 100;
+        if ("RELATIONSHIP".equals(change.getEntityType()) && !"DELETE".equals(change.getAction())) return 200;
+        if ("RELATIONSHIP".equals(change.getEntityType())) return 300;
+        if ("ENTRY".equals(change.getEntityType())) return 400;
+        return 500;
     }
 
     private void apply(String projectId, WorkspaceChange change, String actorId) {

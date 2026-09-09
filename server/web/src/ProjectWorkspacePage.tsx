@@ -136,6 +136,7 @@ type WorkItemFilterField = 'STATUS' | 'PRIORITY' | 'DUE_DATE' | 'ASSIGNEE'
 
 type ProjectWorkspaceOutletContext = {
   artifactRefreshKey: number
+  notifyWorkspaceProposalChange: () => void
 }
 type WorkItemFilterOperator = 'AND' | 'OR'
 
@@ -2673,7 +2674,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
   const location = useLocation()
   const { projectId } = useParams()
   const [searchParams] = useSearchParams()
-  const { artifactRefreshKey } = useOutletContext<ProjectWorkspaceOutletContext>()
+  const { artifactRefreshKey, notifyWorkspaceProposalChange } = useOutletContext<ProjectWorkspaceOutletContext>()
   const requestedWorkItemId = searchParams.get('workItemId')?.trim() || null
   const [project, setProject] = useState<Project | null>(null)
   const [workspacePanelLayout] = useState(readWorkspacePanelLayout)
@@ -4267,6 +4268,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         await decideGraphChangeProposal(projectId, proposalId, change.id, change.entityType, decision)
       }
       await reloadTreeAndProposals(selectedNodeId ?? undefined)
+      notifyWorkspaceProposalChange()
       toast.success(decision === 'ACCEPT'
         ? deferredCount > 0
           ? t('workspace.changesAcceptedWithPending')

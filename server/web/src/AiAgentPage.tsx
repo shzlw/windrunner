@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ChatPanel, { type ChatWorkItemReference } from '@/ChatPanel'
-import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, listChatSessionContext, listNodes, listProjects, listTeams, loadSelectableUsers, type ChatSessionContext, type Project, type ProjectNode, type Team, type User } from '@/lib/api'
+import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, listChatSessionContext, listNodes, listProjects, listTeams, loadSelectableUsers, type ChatSessionContext, type GraphChangeProposal, type Project, type ProjectNode, type Team, type User } from '@/lib/api'
 import type { AiAgentPageOutletContext } from './App'
 
 const maxSelectedProjects = 10
@@ -21,6 +21,7 @@ type ContextType = 'projects' | 'teams' | 'users'
 type AiAgentPageProps = {
   projectId?: string
   onGraphChangeProposalSaved?: () => void | Promise<void>
+  workspaceProposalRefreshKey?: number
   showWelcome?: boolean
   showStandaloneAction?: boolean
 }
@@ -48,7 +49,21 @@ function referencesForNodes(nodes: ProjectNode[]) {
   } satisfies ChatWorkItemReference]))
 }
 
-export default function AiAgentPage({ projectId: routeProjectId, onGraphChangeProposalSaved, showWelcome = false, showStandaloneAction = false }: AiAgentPageProps = {}) {
+function proposalWorkItemId(proposal: GraphChangeProposal) {
+  for (const change of proposal.changes) {
+    if (change.entityType === 'NODE') return change.targetId
+    if (change.entityType === 'ENTRY') {
+      const workItemId = change.entry?.workItemId ?? change.previousEntry?.workItemId
+      if (workItemId) return workItemId
+    }
+    const relationship = change.relationship ?? change.previousRelationship
+    if (relationship?.fromEntityType === 'WORK_ITEM') return relationship.fromEntityId
+    if (relationship?.toEntityType === 'WORK_ITEM') return relationship.toEntityId
+  }
+  return null
+}
+
+export default function AiAgentPage({ projectId: routeProjectId, onGraphChangeProposalSaved, workspaceProposalRefreshKey = 0, showWelcome = false, showStandaloneAction = false }: AiAgentPageProps = {}) {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
@@ -538,6 +553,22 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
       onSessionActivity={() => refreshChatSessions().catch(showSessionError)}
       onStreamingChange={onStreamingChange}
       onGraphChangeProposalSaved={onGraphChangeProposalSaved}
+      workspaceProposalRefreshKey={workspaceProposalRefreshKey}
+      onReviewWorkspaceProposal={async (proposal) => {
+        const nextParams = new URLSearchParams({ chatPanel: 'open' })
+        const sessionId = selectedSession?.id ?? requestedSessionId
+        if (sessionId) nextParams.set('chatSessionId', sessionId)
+        const workItemId = proposalWorkItemId(proposal)
+        if (workItemId) nextParams.set('workItemId', workItemId)
+        if (sessionId) {
+          try {
+            await addChatSessionContext(sessionId, 'PROJECT', proposal.projectId)
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddProject'))
+          }
+        }
+        navigate(`/app/projects/${proposal.projectId}?${nextParams.toString()}`)
+      }}
       showHeader={false}
       showWelcome={showWelcome}
       welcomeName={displayName}

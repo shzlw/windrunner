@@ -6,8 +6,12 @@ import com.windrunner.server.utils.JsonUtils;
 import com.windrunner.server.work.domain.Relationship;
 import com.windrunner.server.work.domain.WorkspaceChangeProposal;
 import com.windrunner.server.work.api.ChangeDraft;
+import com.windrunner.server.work.api.DecisionRequest;
 import com.windrunner.server.work.api.ProposalDraft;
 import com.windrunner.server.work.api.RelationshipDraft;
+import com.windrunner.server.work.api.WorkItemPayload;
+import com.windrunner.server.work.domain.WorkItem;
+import com.windrunner.server.work.domain.WorkspaceChange;
 import com.windrunner.server.work.persistence.WorkspaceChangeProposalRepository;
 import com.windrunner.server.work.persistence.WorkspaceChangeRepository;
 import org.junit.jupiter.api.Test;
@@ -52,6 +56,52 @@ class WorkspaceChangeProposalServiceTest {
         Relationship proposed = createRelationshipUpdate("  ");
 
         assertThat(proposed.getReason()).isNull();
+    }
+
+    @Test
+    void rejectsEveryOpenChangeInOneDecision() {
+        WorkspaceChangeProposal proposal = new WorkspaceChangeProposal();
+        proposal.setId("proposal-1");
+        proposal.setProjectId("project-1");
+        proposal.setStatus("PENDING");
+        WorkspaceChange first = createChange("change-1", "PENDING");
+        WorkspaceChange second = createChange("change-2", "NEEDS_UPDATE");
+        WorkspaceChange rejectedFirst = createChange("change-1", "REJECTED");
+        WorkspaceChange rejectedSecond = createChange("change-2", "REJECTED");
+
+        when(workspaceChangeProposalRepository.findInProjectForUpdate("proposal-1", "project-1"))
+                .thenReturn(Optional.of(proposal));
+        when(workspaceChangeProposalRepository.findInProject("proposal-1", "project-1"))
+                .thenReturn(Optional.of(proposal));
+        when(workspaceChangeRepository.findByProposalId("proposal-1"))
+                .thenReturn(List.of(first, second), List.of(rejectedFirst, rejectedSecond));
+
+        WorkspaceChangeProposalService service = new WorkspaceChangeProposalService(
+                workspaceChangeProposalRepository, workspaceChangeRepository, workItems, entries, relationships, entityIdGenerator);
+        service.decideAll("project-1", "proposal-1", new DecisionRequest("REJECT", null), "actor-1");
+
+        verify(workspaceChangeRepository).decide("change-1", "proposal-1", "project-1", "REJECTED", null);
+        verify(workspaceChangeRepository).decide("change-2", "proposal-1", "project-1", "REJECTED", null);
+        verify(workspaceChangeProposalRepository).updateStatus("proposal-1", "project-1", "COMPLETED");
+    }
+
+    private WorkspaceChange createChange(String id, String status) {
+        WorkspaceChange change = new WorkspaceChange();
+        change.setId(id);
+        change.setProposalId("proposal-1");
+        change.setProjectId("project-1");
+        change.setSortIndex(0);
+        change.setEntityType("WORK_ITEM");
+        change.setAction("UPDATE");
+        change.setTargetId("work-item-1");
+        change.setSummary("Update work item");
+        change.setStatus(status);
+        WorkItem workItem = new WorkItem();
+        workItem.setId("work-item-1");
+        workItem.setProjectId("project-1");
+        workItem.setTitle("Work item");
+        change.setPayloadJson(JsonUtils.toJson(new WorkItemPayload(workItem, List.of())));
+        return change;
     }
 
     private Relationship createRelationshipUpdate(String requestedReason) {

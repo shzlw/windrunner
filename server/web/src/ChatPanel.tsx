@@ -18,6 +18,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import VoiceWaveform from '@/components/VoiceWaveform'
 import { IdentityProposalCard } from '@/IdentityProposalCards'
 import { useIdentityProposals } from '@/useIdentityProposals'
+import { WorkspaceProposalCard } from '@/WorkspaceProposalCards'
+import { useWorkspaceProposals } from '@/useWorkspaceProposals'
 import { cn } from '@/lib/utils'
 import { translateStatus, translateWorkItemType } from '@/i18n/labels'
 import useVoiceTranscription, { formatRecordingTime } from '@/hooks/use-voice-transcription'
@@ -28,6 +30,7 @@ import {
   type ChatContext,
   type ChatMessage as ApiChatMessage,
   type ChatSession,
+  type GraphChangeProposal,
   type IdentityProposal,
 } from '@/lib/api'
 
@@ -236,6 +239,8 @@ export default function ChatPanel({
   onSessionActivity,
   onStreamingChange,
   onGraphChangeProposalSaved,
+  workspaceProposalRefreshKey = 0,
+  onReviewWorkspaceProposal,
   workItemReferences = new Map(),
   onWorkItemReferenceClick,
   projectReferences = new Map(),
@@ -265,6 +270,8 @@ export default function ChatPanel({
   onSessionActivity?: () => void | Promise<void>
   onStreamingChange?: (isStreaming: boolean) => void
   onGraphChangeProposalSaved?: () => void | Promise<void>
+  workspaceProposalRefreshKey?: number
+  onReviewWorkspaceProposal: (proposal: GraphChangeProposal) => void
   workItemReferences?: Map<string, ChatWorkItemReference>
   onWorkItemReferenceClick?: (workItemId: string) => void | Promise<void>
   projectReferences?: Map<string, string>
@@ -338,6 +345,13 @@ export default function ChatPanel({
   const identityProposalState = useIdentityProposals(
     sessionId,
     isStreaming,
+    () => { void onGraphChangeProposalSaved?.() },
+  )
+  const workspaceProposalState = useWorkspaceProposals(
+    sessionId,
+    chatProjectIds,
+    isStreaming,
+    workspaceProposalRefreshKey,
     () => { void onGraphChangeProposalSaved?.() },
   )
 
@@ -818,6 +832,19 @@ export default function ChatPanel({
     proposalAnchors.set(anchorIndex, anchored)
   }
 
+  const workspaceProposalAnchors = new Map<number, GraphChangeProposal[]>()
+  for (const proposal of workspaceProposalState.proposals) {
+    const sourceIndex = messages.findIndex((message) => message.id === proposal.sourceMessageId)
+    if (sourceIndex < 0) {
+      continue
+    }
+    const assistantIndex = sourceIndex + 1
+    const anchorIndex = messages[assistantIndex]?.role === 'assistant' ? assistantIndex : sourceIndex
+    const anchored = workspaceProposalAnchors.get(anchorIndex) ?? []
+    anchored.push(proposal)
+    workspaceProposalAnchors.set(anchorIndex, anchored)
+  }
+
   function renderProposalCards(proposals: IdentityProposal[]) {
     return (
       <section aria-label={t('identityProposals.heading')} className="space-y-3 px-3">
@@ -828,6 +855,24 @@ export default function ChatPanel({
             busy={identityProposalState.busy}
             isStreaming={isStreaming}
             onDecide={identityProposalState.decide}
+          />
+        ))}
+      </section>
+    )
+  }
+
+  function renderWorkspaceProposalCards(proposals: GraphChangeProposal[]) {
+    return (
+      <section aria-label={t('workspaceProposals.heading')} className="space-y-3 px-3">
+        {proposals.map((proposal) => (
+          <WorkspaceProposalCard
+            key={proposal.id}
+            proposal={proposal}
+            projectName={projectReferences.get(proposal.projectId) ?? t('common.unknownProject')}
+            busy={workspaceProposalState.busy}
+            isStreaming={isStreaming}
+            onDecide={workspaceProposalState.decide}
+            onReview={onReviewWorkspaceProposal}
           />
         ))}
       </section>
@@ -965,6 +1010,7 @@ export default function ChatPanel({
                     </MessageContent>
                   </Message>
                   {proposalAnchors.get(index)?.length ? renderProposalCards(proposalAnchors.get(index)!) : null}
+                  {workspaceProposalAnchors.get(index)?.length ? renderWorkspaceProposalCards(workspaceProposalAnchors.get(index)!) : null}
                 </Fragment>
               ))}
               {hasNewMessages ? (
@@ -977,6 +1023,7 @@ export default function ChatPanel({
             </>
           )}
           {identityProposalState.error ? <p role="alert" className="px-3 text-sm text-destructive">{identityProposalState.error}</p> : null}
+          {workspaceProposalState.error ? <p role="alert" className="px-3 text-sm text-destructive">{workspaceProposalState.error}</p> : null}
           {identityProposalState.page?.hasMore ? (
             <div className="px-3">
               <Button variant="outline" size="sm" disabled={identityProposalState.loadingMore} onClick={() => void identityProposalState.loadMore()}>

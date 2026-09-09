@@ -1262,7 +1262,7 @@ export async function listNodeEdges(projectId: string): Promise<ProjectNodeEdge[
     }))
 }
 
-export async function listGraphChangeProposals(projectId: string): Promise<GraphChangeProposal[]> {
+export async function listGraphChangeProposals(projectId: string, chatSessionId?: string): Promise<GraphChangeProposal[]> {
   type StoredChange = Omit<GraphChangeProposalChange, 'entityType' | 'node' | 'previousNode' | 'edge'> & {
     entityType: 'WORK_ITEM' | 'ENTRY' | 'RELATIONSHIP'
     workItem?: WorkItemView | null
@@ -1273,7 +1273,10 @@ export async function listGraphChangeProposals(projectId: string): Promise<Graph
     previousRelationship?: Relationship | null
   }
   type StoredProposal = Omit<GraphChangeProposal, 'changes'> & { changes: StoredChange[] }
-  const proposals = await request<StoredProposal[]>(`/internal-api/v1/projects/${projectId}/graph-change-proposals`, { method: 'GET' })
+  const params = new URLSearchParams()
+  if (chatSessionId) params.set('chatSessionId', chatSessionId)
+  const query = params.toString()
+  const proposals = await request<StoredProposal[]>(`/internal-api/v1/projects/${projectId}/graph-change-proposals${query ? `?${query}` : ''}`, { method: 'GET' })
   const proposalWorkItems = proposals.flatMap((proposal) => proposal.changes.flatMap((change) => [change.workItem, change.previousWorkItem].filter((value): value is WorkItemView => Boolean(value))))
 
   return proposals.map((proposal) => ({
@@ -1317,6 +1320,17 @@ export async function decideGraphChangeProposal(
       body: JSON.stringify({ entityType, decision, feedback: feedback ?? null }),
     },
   )
+}
+
+export async function decideWorkspaceProposal(
+  projectId: string,
+  proposalId: string,
+  decision: 'ACCEPT' | 'REJECT',
+): Promise<void> {
+  await request<void>(`/internal-api/v1/projects/${projectId}/graph-change-proposals/${proposalId}/decision`, {
+    method: 'POST',
+    body: JSON.stringify({ decision }),
+  })
 }
 
 

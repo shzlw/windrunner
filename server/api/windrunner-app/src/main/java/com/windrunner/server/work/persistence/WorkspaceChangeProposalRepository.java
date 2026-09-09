@@ -29,6 +29,14 @@ public interface WorkspaceChangeProposalRepository extends CrudRepository<Worksp
     @Query("SELECT " + COLUMNS + " FROM workspace_change_proposal WHERE project_id = :projectId ORDER BY created_at DESC, id DESC")
     List<WorkspaceChangeProposal> findByProjectId(@Param("projectId") String projectId);
 
+    @Query("SELECT " + COLUMNS + " FROM workspace_change_proposal WHERE project_id = :projectId AND chat_session_id = :chatSessionId ORDER BY created_at DESC, id DESC")
+    List<WorkspaceChangeProposal> findByProjectIdAndChatSessionId(@Param("projectId") String projectId,
+                                                                  @Param("chatSessionId") String chatSessionId);
+
+    @Query("SELECT " + COLUMNS + " FROM workspace_change_proposal WHERE id = :id AND project_id = :projectId FOR UPDATE")
+    Optional<WorkspaceChangeProposal> findInProjectForUpdate(@Param("id") String id,
+                                                              @Param("projectId") String projectId);
+
     @Query("""
             SELECT
                 (SELECT COUNT(*) FROM workspace_change_proposal WHERE created_at >= :since) AS proposals_created,
