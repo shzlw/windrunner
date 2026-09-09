@@ -20,6 +20,7 @@ import { IdentityProposalCard } from '@/IdentityProposalCards'
 import { useIdentityProposals } from '@/useIdentityProposals'
 import { WorkspaceProposalCard } from '@/WorkspaceProposalCards'
 import { useWorkspaceProposals } from '@/useWorkspaceProposals'
+import { WorkItemResultCards, type ChatWorkItemReference } from '@/WorkItemResultCards'
 import { cn } from '@/lib/utils'
 import { translateStatus, translateWorkItemType } from '@/i18n/labels'
 import useVoiceTranscription, { formatRecordingTime } from '@/hooks/use-voice-transcription'
@@ -52,16 +53,8 @@ type SelectedChatContext = {
   context: ChatContext
 }
 
-export type ChatWorkItemReference = {
-  id: string
-  title: string
-  type: string
-  status: string
-  dueDate?: string | null
-  projectId?: string
-}
-
 const artifactReferencePattern = /\[\[(project|workitem|team|user):([A-Za-z0-9_-]+)\]\]/g
+const workItemReferencePattern = /\[\[workitem:([A-Za-z0-9_-]+)\]\]/g
 
 function createMessageId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -82,10 +75,11 @@ const markdownSanitizeSchema = {
   },
 }
 
-function artifactMarkersToLinks(content: string, t: TFunction) {
+function artifactMarkersToLinks(content: string, t: TFunction, compactWorkItemIds?: Set<string>) {
   return content.replace(
     artifactReferencePattern,
     (_marker, referenceType: 'project' | 'workitem' | 'team' | 'user', referenceId: string) => {
+      if (referenceType === 'workitem' && compactWorkItemIds?.has(referenceId)) return ''
       const label = referenceType === 'project'
         ? t('common.project')
         : referenceType === 'team'
@@ -109,9 +103,10 @@ function renderAssistantContent(
   onProjectReferenceClick?: (projectId: string) => void,
   onTeamReferenceClick?: (teamId: string) => void,
   onUserReferenceClick?: (userId: string) => void,
+  compactWorkItemIds?: Set<string>,
 ) {
   content = content.replace(incompleteTrailingMarkerPattern, '')
-  const markdown = artifactMarkersToLinks(content, t)
+  const markdown = artifactMarkersToLinks(content, t, compactWorkItemIds)
 
   const components: Components = {
     h1: ({ children }) => <h3 className="mb-2 mt-4 text-base font-semibold first:mt-0">{children}</h3>,
@@ -227,6 +222,20 @@ function renderAssistantContent(
   )
 }
 
+function workItemResults(content: string, references: Map<string, ChatWorkItemReference>) {
+  const result: ChatWorkItemReference[] = []
+  const seen = new Set<string>()
+  for (const match of content.matchAll(workItemReferencePattern)) {
+    const id = match[1]
+    const reference = references.get(id)
+    if (reference && !seen.has(id)) {
+      seen.add(id)
+      result.push(reference)
+    }
+  }
+  return result.length > 1 ? result : []
+}
+
 export default function ChatPanel({
   projectId = '',
   projectIds,
@@ -243,6 +252,7 @@ export default function ChatPanel({
   onReviewWorkspaceProposal,
   workItemReferences = new Map(),
   onWorkItemReferenceClick,
+  onViewAllWorkItems,
   projectReferences = new Map(),
   onProjectReferenceClick,
   teamReferences = new Map(),
@@ -274,6 +284,7 @@ export default function ChatPanel({
   onReviewWorkspaceProposal: (proposal: GraphChangeProposal) => void
   workItemReferences?: Map<string, ChatWorkItemReference>
   onWorkItemReferenceClick?: (workItemId: string) => void | Promise<void>
+  onViewAllWorkItems?: () => void | Promise<void>
   projectReferences?: Map<string, string>
   onProjectReferenceClick?: (projectId: string) => void | Promise<void>
   teamReferences?: Map<string, string>
@@ -976,43 +987,57 @@ export default function ChatPanel({
                   </Button>
                 </div>
               ) : null}
-              {messages.map((message, index) => (
-                <Fragment key={message.id}>
-                  <Message align={message.role === 'user' ? 'end' : 'start'}>
-                    <MessageAvatar className="h-8 w-8 border bg-background">
-                      {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                    </MessageAvatar>
-                    <MessageContent>
-                      <Bubble
-                        align={message.role === 'user' ? 'end' : 'start'}
-                        variant={message.status === 'error' ? 'destructive' : message.role === 'user' ? 'default' : 'muted'}
-                      >
-                        <BubbleContent className="min-w-0">
-                          {message.status === 'error' ? (
-                            <span className="flex min-w-0 items-start gap-2">
-                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                              <span className="min-w-0">{message.content}</span>
-                            </span>
-                          ) : (
-                            message.content
-                              ? message.role === 'assistant'
-                                ? renderAssistantContent(message.content, t, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick)
-                                : <span className="whitespace-pre-wrap">{message.content}</span>
-                              : (
-                                <span className="flex min-h-5 items-center gap-2 text-sm leading-none text-muted-foreground">
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  <span>{t('chat.thinking')}</span>
-                                </span>
-                              )
-                          )}
-                        </BubbleContent>
-                      </Bubble>
-                    </MessageContent>
-                  </Message>
-                  {proposalAnchors.get(index)?.length ? renderProposalCards(proposalAnchors.get(index)!) : null}
-                  {workspaceProposalAnchors.get(index)?.length ? renderWorkspaceProposalCards(workspaceProposalAnchors.get(index)!) : null}
-                </Fragment>
-              ))}
+              {messages.map((message, index) => {
+                const resultReferences = message.role === 'assistant' ? workItemResults(message.content, workItemReferences) : []
+                return (
+                  <Fragment key={message.id}>
+                    <Message align={message.role === 'user' ? 'end' : 'start'}>
+                      <MessageAvatar className="h-8 w-8 border bg-background">
+                        {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                      </MessageAvatar>
+                      <MessageContent>
+                        <Bubble
+                          align={message.role === 'user' ? 'end' : 'start'}
+                          variant={message.status === 'error' ? 'destructive' : message.role === 'user' ? 'default' : 'muted'}
+                        >
+                          <BubbleContent className="min-w-0">
+                            {message.status === 'error' ? (
+                              <span className="flex min-w-0 items-start gap-2">
+                                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                <span className="min-w-0">{message.content}</span>
+                              </span>
+                            ) : (
+                              message.content
+                                ? message.role === 'assistant'
+                                  ? renderAssistantContent(message.content, t, workItemReferences, projectReferences, teamReferences, userReferences, onWorkItemReferenceClick, onProjectReferenceClick, onTeamReferenceClick, onUserReferenceClick, new Set(resultReferences.map((reference) => reference.id)))
+                                  : <span className="whitespace-pre-wrap">{message.content}</span>
+                                : (
+                                  <span className="flex min-h-5 items-center gap-2 text-sm leading-none text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <span>{t('chat.thinking')}</span>
+                                  </span>
+                                )
+                            )}
+                          </BubbleContent>
+                        </Bubble>
+                      </MessageContent>
+                    </Message>
+                    {resultReferences.length > 0 ? (
+                      <WorkItemResultCards
+                        references={resultReferences}
+                        projectNames={projectReferences}
+                        userNames={userReferences}
+                        teamNames={teamReferences}
+                        onOpenWorkItem={onWorkItemReferenceClick ? (workItemId) => { void onWorkItemReferenceClick(workItemId) } : undefined}
+                        onOpenProject={onProjectReferenceClick ? (projectId) => { void onProjectReferenceClick(projectId) } : undefined}
+                        onViewAll={onViewAllWorkItems ? () => { void onViewAllWorkItems() } : undefined}
+                      />
+                    ) : null}
+                    {proposalAnchors.get(index)?.length ? renderProposalCards(proposalAnchors.get(index)!) : null}
+                    {workspaceProposalAnchors.get(index)?.length ? renderWorkspaceProposalCards(workspaceProposalAnchors.get(index)!) : null}
+                  </Fragment>
+                )
+              })}
               {hasNewMessages ? (
                 <div className="sticky bottom-2 flex justify-center">
                   <Button type="button" size="sm" variant="secondary" onClick={scrollToLatestMessage}>

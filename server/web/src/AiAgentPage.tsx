@@ -11,8 +11,9 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import ChatPanel, { type ChatWorkItemReference } from '@/ChatPanel'
-import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, listChatSessionContext, listNodes, listProjects, listTeams, loadSelectableUsers, type ChatSessionContext, type GraphChangeProposal, type Project, type ProjectNode, type Team, type User } from '@/lib/api'
+import ChatPanel from '@/ChatPanel'
+import type { ChatWorkItemReference } from '@/WorkItemResultCards'
+import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, getWorkspace, listChatSessionContext, listProjects, listTeams, loadSelectableUsers, type ChatSessionContext, type GraphChangeProposal, type Project, type Team, type User, type Workspace } from '@/lib/api'
 import type { AiAgentPageOutletContext } from './App'
 
 const maxSelectedProjects = 10
@@ -34,19 +35,23 @@ function userTitle(user: User) {
   return user.displayName?.trim() || user.username
 }
 
-function fieldValue(node: ProjectNode, name: string) {
-  return node.fields.find((field) => field.name === name)?.value
-}
-
-function referencesForNodes(nodes: ProjectNode[]) {
-  return new Map(nodes.map((node) => [node.id, {
-    id: node.id,
-    title: node.title,
-    type: node.type,
-    status: String(fieldValue(node, 'status') ?? 'OPEN'),
-    dueDate: String(fieldValue(node, 'dueDate') ?? '').trim() || null,
-    projectId: node.projectId,
-  } satisfies ChatWorkItemReference]))
+function referencesForWorkspaces(workspaces: Workspace[]) {
+  return new Map(workspaces.flatMap((workspace) => {
+    const blockedWorkItemIds = new Set(workspace.relationships
+      .filter((relationship) => relationship.type === 'BLOCKED_BY' && relationship.fromEntityType === 'WORK_ITEM')
+      .map((relationship) => relationship.fromEntityId))
+    return workspace.workItems.map(({ workItem, assignees }) => [workItem.id, {
+      id: workItem.id,
+      title: workItem.title,
+      type: workItem.type,
+      status: workItem.status,
+      priority: workItem.priority,
+      dueDate: workItem.dueDate,
+      projectId: workItem.projectId,
+      assignees,
+      blocked: workItem.status === 'BLOCKED' || blockedWorkItemIds.has(workItem.id),
+    } satisfies ChatWorkItemReference] as const)
+  }))
 }
 
 function proposalWorkItemId(proposal: GraphChangeProposal) {
@@ -232,10 +237,10 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     }
 
     let isMounted = true
-    Promise.all(selectedProjectIds.map((projectId) => listNodes(projectId)))
-      .then((nodeLists) => {
+    Promise.all(selectedProjectIds.map((projectId) => getWorkspace(projectId)))
+      .then((workspaces) => {
         if (isMounted) {
-          setReferences(referencesForNodes(nodeLists.flat()))
+          setReferences(referencesForWorkspaces(workspaces))
         }
       })
       .catch((error) => {
@@ -576,7 +581,10 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
       composerFooter={projectContext}
       projectReferences={new Map(projects.map((project) => [project.id, projectTitle(project, t('common.untitledProject'))] as const))}
       workItemReferences={visibleReferences}
-      teamReferences={new Map(sessionContexts.filter((context) => context.entityType === 'TEAM').map((context) => [context.entityId, context.label]))}
+      teamReferences={new Map([
+        ...teams.map((team) => [team.id, team.name] as const),
+        ...sessionContexts.filter((context) => context.entityType === 'TEAM').map((context) => [context.entityId, context.label] as const),
+      ])}
       userReferences={new Map([
         ...users.map((user) => [user.id, userTitle(user)] as const),
         ...sessionContexts.filter((context) => context.entityType === 'USER').map((context) => [context.entityId, context.label] as const),
@@ -602,6 +610,12 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
           }
         }
         navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
+      }}
+      onViewAllWorkItems={() => {
+        const nextParams = new URLSearchParams({ chatPanel: 'open' })
+        const sessionId = selectedSession?.id ?? requestedSessionId
+        if (sessionId) nextParams.set('chatSessionId', sessionId)
+        navigate(`/app/my-work?${nextParams.toString()}`)
       }}
       onProjectReferenceClick={async (projectId) => {
         const nextParams = new URLSearchParams({ chatPanel: 'open' })
