@@ -610,6 +610,44 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
         ...sessionContexts.filter((context) => context.entityType === 'USER').map((context) => [context.entityId, context.label] as const),
       ])}
       onClarificationChoice={selectClarificationChoice}
+      onOpenResultWorkItem={async (projectId, workItemId) => {
+        const nextParams = new URLSearchParams({ chatPanel: 'open', workItemId })
+        const sessionId = selectedSession?.id ?? requestedSessionId
+        if (sessionId) {
+          nextParams.set('chatSessionId', sessionId)
+          try {
+            await Promise.all([
+              addChatSessionContext(sessionId, 'PROJECT', projectId),
+              addChatSessionContext(sessionId, 'WORK_ITEM', workItemId),
+            ])
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddWorkItem'))
+          }
+        }
+        navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
+      }}
+      onOpenFullHistory={async (projectId, workItemId) => {
+        const nextParams = new URLSearchParams({ chatPanel: 'open', workItemId, inspector: 'history' })
+        const sessionId = selectedSession?.id ?? requestedSessionId
+        if (sessionId) {
+          nextParams.set('chatSessionId', sessionId)
+          try {
+            await Promise.all([
+              addChatSessionContext(sessionId, 'PROJECT', projectId),
+              addChatSessionContext(sessionId, 'WORK_ITEM', workItemId),
+            ])
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddWorkItem'))
+          }
+        }
+        navigate(`/app/projects/${projectId}?${nextParams.toString()}`)
+      }}
+      onOpenCalendar={(teamId, from, to) => {
+        const nextParams = new URLSearchParams({ chatPanel: 'open', teamId, from, to })
+        const sessionId = selectedSession?.id ?? requestedSessionId
+        if (sessionId) nextParams.set('chatSessionId', sessionId)
+        navigate(`/app/calendar?${nextParams.toString()}`)
+      }}
       onWorkItemReferenceClick={async (workItemId) => {
         const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
         const nextParams = new URLSearchParams({

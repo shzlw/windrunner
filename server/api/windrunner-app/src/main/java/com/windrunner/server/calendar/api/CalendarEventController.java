@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -90,5 +91,15 @@ public class CalendarEventController {
             HttpServletRequest request) {
         AppUser actor = authService.requireCurrentUser(request);
         return ApiResponse.success(calendarEventService.listConflicts(projectId, userId, from, to, actor));
+    }
+
+    @GetMapping("/workload")
+    public ApiResponse<CalendarWorkloadView> getWorkload(
+            @RequestParam(name = "teamId") String teamId,
+            @RequestParam(name = "from") LocalDate from,
+            @RequestParam(name = "to") LocalDate to,
+            HttpServletRequest request) {
+        AppUser actor = authService.requireCurrentUser(request);
+        return ApiResponse.success(calendarEventService.getTeamWorkload(actor, teamId, from, to));
     }
 }

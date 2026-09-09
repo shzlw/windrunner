@@ -52,4 +52,20 @@ class WorkItemTimelineServiceTest {
         });
         assertThat(events.get(3).toDueDate()).isEqualTo("2026-06-10");
     }
+
+    @Test
+    void returnsLatestEventsNewestFirst() {
+        when(auditLogRepository.findWorkItemTimeline("project-1", "work-1", 200)).thenReturn(List.of(
+                new AuditLogRepository.WorkItemTimelineRow(
+                        "audit-1", OffsetDateTime.parse("2026-06-01T09:00:00Z"), "user-1", "CREATE",
+                        null, "{\"status\":\"OPEN\"}", null),
+                new AuditLogRepository.WorkItemTimelineRow(
+                        "audit-2", OffsetDateTime.parse("2026-06-02T09:00:00Z"), "user-1", "UPDATE",
+                        "{\"status\":\"OPEN\",\"dueDate\":null}", "{\"status\":\"IN_PROGRESS\",\"dueDate\":\"2026-06-10\"}",
+                        "{\"status\":{\"from\":\"OPEN\",\"to\":\"IN_PROGRESS\"},\"dueDate\":{\"from\":null,\"to\":\"2026-06-10\"}}")));
+
+        var latest = new WorkItemTimelineService(auditLogRepository).listLatest("project-1", "work-1", 2);
+
+        assertThat(latest).extracting("kind").containsExactly("DUE_DATE_CHANGED", "STARTED");
+    }
 }

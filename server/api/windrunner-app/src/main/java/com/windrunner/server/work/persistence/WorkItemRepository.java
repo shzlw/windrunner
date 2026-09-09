@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -132,7 +134,7 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
                               @Param("rawQuery") String rawQuery);
 
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE id IN (:ids)")
-    List<WorkItem> findByIds(@Param("ids") java.util.Collection<String> ids);
+    List<WorkItem> findByIds(@Param("ids") Collection<String> ids);
 
     @Query("""
             SELECT w.id, w.project_id, w.parent_work_item_id, w.sort_index, w.type, w.title, w.status, w.due_date, w.priority, w.created_by_user_id, w.created_at, w.updated_at
@@ -215,7 +217,7 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
                                       @Param("status") String status,
                                       @Param("type") String type,
                                       @Param("priority") String priority,
-                                      @Param("updatedAfter") java.time.OffsetDateTime updatedAfter,
+                                      @Param("updatedAfter") OffsetDateTime updatedAfter,
                                       @Param("limit") int limit,
                                       @Param("offset") long offset);
 
@@ -232,7 +234,7 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
                          @Param("status") String status,
                          @Param("type") String type,
                          @Param("priority") String priority,
-                         @Param("updatedAfter") java.time.OffsetDateTime updatedAfter);
+                         @Param("updatedAfter") OffsetDateTime updatedAfter);
 
     @Query("SELECT " + COLUMNS + " FROM work_item WHERE id = :id")
     Optional<WorkItem> findById(@Param("id") String id);
@@ -287,11 +289,11 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
 
     @Modifying
     @Query("INSERT INTO work_item (id, project_id, parent_work_item_id, sort_index, type, title, status, due_date, priority, created_by_user_id, search_vec) VALUES (:id, :projectId, :parentId, :sortIndex, :type, :title, :status, :dueDate, :priority, :createdByUserId, to_tsvector('simple', :searchVec))")
-    void insert(@Param("id") String id, @Param("projectId") String projectId, @Param("parentId") String parentId, @Param("sortIndex") int sortIndex, @Param("type") String type, @Param("title") String title, @Param("status") String status, @Param("dueDate") java.time.LocalDate dueDate, @Param("priority") String priority, @Param("createdByUserId") String createdByUserId, @Param("searchVec") String searchVec);
+    void insert(@Param("id") String id, @Param("projectId") String projectId, @Param("parentId") String parentId, @Param("sortIndex") int sortIndex, @Param("type") String type, @Param("title") String title, @Param("status") String status, @Param("dueDate") LocalDate dueDate, @Param("priority") String priority, @Param("createdByUserId") String createdByUserId, @Param("searchVec") String searchVec);
 
     @Modifying
     @Query("UPDATE work_item SET parent_work_item_id = :parentId, sort_index = :sortIndex, type = :type, title = :title, status = :status, due_date = :dueDate, priority = :priority, updated_at = NOW(), search_vec = to_tsvector('simple', :searchVec) WHERE id = :id AND project_id = :projectId")
-    int update(@Param("id") String id, @Param("projectId") String projectId, @Param("parentId") String parentId, @Param("sortIndex") int sortIndex, @Param("type") String type, @Param("title") String title, @Param("status") String status, @Param("dueDate") java.time.LocalDate dueDate, @Param("priority") String priority, @Param("searchVec") String searchVec);
+    int update(@Param("id") String id, @Param("projectId") String projectId, @Param("parentId") String parentId, @Param("sortIndex") int sortIndex, @Param("type") String type, @Param("title") String title, @Param("status") String status, @Param("dueDate") LocalDate dueDate, @Param("priority") String priority, @Param("searchVec") String searchVec);
 
     @Modifying
     @Query("UPDATE work_item SET sort_index = :sortIndex WHERE id = :id AND project_id = :projectId")
@@ -316,11 +318,93 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
             String title,
             String type,
             String status,
-            java.time.LocalDate dueDate,
+            LocalDate dueDate,
             String priority,
-            java.time.OffsetDateTime updatedAt
+            OffsetDateTime updatedAt
     ) {
     }
+
+    record AttentionAssignmentRow(
+            String category,
+            String projectId,
+            String projectName,
+            String workItemId,
+            String title,
+            String type,
+            String status,
+            LocalDate dueDate,
+            String priority,
+            OffsetDateTime assignedAt,
+            boolean blocked
+    ) {
+    }
+
+    @Query("""
+            WITH assigned AS (
+                SELECT w.project_id,
+                       p.name AS project_name,
+                       w.id AS work_item_id,
+                       w.title,
+                       w.type,
+                       w.status,
+                       w.due_date,
+                       w.priority,
+                       MAX(a.created_at) AS assigned_at,
+                       (w.status = 'BLOCKED' OR EXISTS (
+                           SELECT 1
+                           FROM relationship r
+                           WHERE r.project_id = w.project_id
+                             AND r.type = 'BLOCKED_BY'
+                             AND r.from_entity_type = 'WORK_ITEM'
+                             AND r.from_entity_id = w.id
+                       )) AS blocked
+                FROM work_item w
+                JOIN project p ON p.id = w.project_id
+                JOIN work_item_assignee a ON a.work_item_id = w.id
+                WHERE w.project_id IN (:projectIds)
+                  AND w.status NOT IN ('DONE', 'ANSWERED', 'APPROVED', 'REJECTED', 'CANCELLED')
+                  AND (
+                    (a.assignee_type = 'USER' AND a.assignee_id = :userId)
+                    OR (a.assignee_type = 'TEAM' AND EXISTS (
+                        SELECT 1 FROM team_member tm
+                        WHERE tm.team_id = a.assignee_id AND tm.user_id = :userId
+                    ))
+                  )
+                GROUP BY w.project_id, p.name, w.id, w.title, w.type, w.status, w.due_date, w.priority
+            ), categorized AS (
+                SELECT 'OVERDUE' AS category, assigned.* FROM assigned WHERE due_date < :today
+                UNION ALL
+                SELECT 'BLOCKED' AS category, assigned.* FROM assigned WHERE blocked
+                UNION ALL
+                SELECT 'DUE_SOON' AS category, assigned.* FROM assigned
+                    WHERE due_date >= :today AND due_date <= :dueSoonThrough
+                UNION ALL
+                SELECT 'NEW' AS category, assigned.* FROM assigned WHERE assigned_at >= :assignedAfter
+            ), ranked AS (
+                SELECT categorized.*,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY category
+                           ORDER BY CASE WHEN category = 'NEW' THEN assigned_at END DESC NULLS LAST,
+                                    due_date ASC NULLS LAST,
+                                    assigned_at DESC,
+                                    work_item_id
+                       ) AS category_position
+                FROM categorized
+            )
+            SELECT category, project_id, project_name, work_item_id, title, type, status,
+                   due_date, priority, assigned_at, blocked
+            FROM ranked
+            WHERE category_position <= :sectionLimit
+            ORDER BY CASE category WHEN 'OVERDUE' THEN 1 WHEN 'BLOCKED' THEN 2 WHEN 'DUE_SOON' THEN 3 ELSE 4 END,
+                     category_position
+            """)
+    List<AttentionAssignmentRow> findAttentionAssignments(
+            @Param("userId") String userId,
+            @Param("projectIds") List<String> projectIds,
+            @Param("today") LocalDate today,
+            @Param("dueSoonThrough") LocalDate dueSoonThrough,
+            @Param("assignedAfter") OffsetDateTime assignedAfter,
+            @Param("sectionLimit") int sectionLimit);
 
     @Query("""
             SELECT w.project_id, p.name AS project_name, w.id AS work_item_id, w.title, w.type, w.status,

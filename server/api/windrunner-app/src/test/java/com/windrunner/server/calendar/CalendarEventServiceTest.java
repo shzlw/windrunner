@@ -10,6 +10,7 @@ import com.windrunner.server.project.domain.Project;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.team.domain.Team;
+import com.windrunner.server.team.domain.TeamMember;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.team.persistence.TeamRepository;
 import com.windrunner.server.user.domain.AppUser;
@@ -27,6 +28,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -111,7 +113,7 @@ class CalendarEventServiceTest {
         project.setId("project-1");
         project.setName("Platform");
         when(projectRepository.findVisibleToUser("actor")).thenReturn(List.of(project));
-        when(workItemRepository.findCalendarAssignmentsByUserIds(List.of("project-1"), List.of("actor"), 500))
+        when(workItemRepository.findCalendarAssignmentsByUserIds(List.of("project-1"), List.of("actor"), 501))
                 .thenReturn(List.of(new WorkItemRepository.CalendarAssignmentRow(
                         "work-1", "project-1", "Platform", "API migration", "BLOCKED",
                         LocalDate.of(2026, 6, 10), "USER", "actor")));
@@ -126,6 +128,26 @@ class CalendarEventServiceTest {
         assertThat(items.getFirst().dueDate()).isEqualTo(LocalDate.of(2026, 6, 10));
         assertThat(items.getFirst().status()).isEqualTo("BLOCKED");
         assertThat(items.getFirst().overdue()).isTrue();
+    }
+
+    @Test
+    void excludesWorkItemStartingAtExclusiveRangeEnd() {
+        AppUser actor = user("actor");
+        when(appUserRepository.findById("actor")).thenReturn(Optional.of(actor));
+        Project project = new Project();
+        project.setId("project-1");
+        when(projectRepository.findVisibleToUser("actor")).thenReturn(List.of(project));
+        when(workItemRepository.findCalendarAssignmentsByUserIds(List.of("project-1"), List.of("actor"), 501))
+                .thenReturn(List.of(new WorkItemRepository.CalendarAssignmentRow(
+                        "work-1", "project-1", "Platform", "July work", "IN_PROGRESS",
+                        LocalDate.of(2026, 7, 10), "USER", "actor")));
+        when(auditLogRepository.findWorkItemStatusHistory(List.of("work-1"))).thenReturn(List.of(
+                new AuditLogRepository.WorkItemStatusRow(
+                        "work-1", OffsetDateTime.parse("2026-07-01T00:00:00Z"), "IN_PROGRESS")));
+
+        var items = calendarEventService.listWorkItems(actor, "USER", "actor", rangeStart(), rangeEnd());
+
+        assertThat(items).isEmpty();
     }
 
     @Test
@@ -164,6 +186,89 @@ class CalendarEventServiceTest {
                 .isInstanceOfSatisfying(ResponseStatusException.class, exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
 
         verify(calendarEventRepository, never()).delete(anyString(), anyString());
+    }
+
+    @Test
+    void summarizesTeamWorkloadWithoutAttributingTeamAssignmentsToEveryMember() {
+        AppUser actor = user("actor");
+        Team team = new Team();
+        team.setId("team-1");
+        team.setName("Platform");
+        TeamMember membership = new TeamMember();
+        membership.setTeamId("team-1");
+        membership.setUserId("actor");
+        when(teamRepository.findById("team-1")).thenReturn(Optional.of(team));
+        when(teamMemberRepository.findByTeamIdAndUserId("team-1", "actor")).thenReturn(Optional.of(membership));
+        when(teamMemberRepository.findByTeamId("team-1")).thenReturn(List.of(membership));
+        when(appUserRepository.findAllById(List.of("actor"))).thenReturn(List.of(actor));
+        Project project = new Project();
+        project.setId("project-1");
+        project.setName("Platform");
+        when(projectRepository.findVisibleToUser("actor")).thenReturn(List.of(project));
+        when(workItemRepository.findCalendarAssignmentsForTeam(List.of("project-1"), List.of("actor"), "team-1", 501))
+                .thenReturn(List.of(
+                        new WorkItemRepository.CalendarAssignmentRow(
+                                "work-1", "project-1", "Platform", "API migration", "IN_PROGRESS",
+                                LocalDate.of(2026, 6, 10), "USER", "actor"),
+                        new WorkItemRepository.CalendarAssignmentRow(
+                                "work-2", "project-1", "Platform", "Team backlog", "OPEN",
+                                null, "TEAM", "team-1")));
+        when(auditLogRepository.findWorkItemStatusHistory(List.of("work-1", "work-2"))).thenReturn(List.of(
+                new AuditLogRepository.WorkItemStatusRow(
+                        "work-1", OffsetDateTime.parse("2026-06-02T12:00:00Z"), "IN_PROGRESS")));
+        CalendarEvent event = new CalendarEvent();
+        event.setId("event-1");
+        event.setUserId("actor");
+        event.setTitle("Planning");
+        event.setStartsAt(OffsetDateTime.parse("2026-06-03T09:00:00Z"));
+        event.setEndsAt(OffsetDateTime.parse("2026-06-03T10:00:00Z"));
+        event.setTimezone("UTC");
+        when(calendarEventRepository.findByUserIdsAndRange(eq(List.of("actor")), any(), any())).thenReturn(List.of(event));
+
+        var workload = calendarEventService.getTeamWorkload(
+                actor, "team-1", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
+
+        assertThat(workload.members()).singleElement().satisfies(member -> {
+            assertThat(member.scheduledWorkItemCount()).isEqualTo(1);
+            assertThat(member.calendarEventCount()).isEqualTo(1);
+            assertThat(member.calendarEventMinutes()).isEqualTo(60);
+            assertThat(member.unplannedWorkItemCount()).isZero();
+        });
+        assertThat(workload.workItemsTruncated()).isFalse();
+        assertThat(workload.teamAssignedWorkItemCount()).isEqualTo(1);
+        assertThat(workload.teamAssignedWorkItems()).extracting("workItemId").containsExactly("work-2");
+    }
+
+    @Test
+    void reportsWhenTeamWorkItemsAreTruncated() {
+        AppUser actor = user("actor");
+        Team team = new Team();
+        team.setId("team-1");
+        team.setName("Platform");
+        TeamMember membership = new TeamMember();
+        membership.setTeamId("team-1");
+        membership.setUserId("actor");
+        when(teamRepository.findById("team-1")).thenReturn(Optional.of(team));
+        when(teamMemberRepository.findByTeamIdAndUserId("team-1", "actor")).thenReturn(Optional.of(membership));
+        when(teamMemberRepository.findByTeamId("team-1")).thenReturn(List.of(membership));
+        when(appUserRepository.findAllById(List.of("actor"))).thenReturn(List.of(actor));
+        Project project = new Project();
+        project.setId("project-1");
+        when(projectRepository.findVisibleToUser("actor")).thenReturn(List.of(project));
+        List<WorkItemRepository.CalendarAssignmentRow> assignments = IntStream.range(0, 501)
+                .mapToObj(index -> new WorkItemRepository.CalendarAssignmentRow(
+                        "work-" + index, "project-1", "Platform", "Work " + index, "OPEN",
+                        null, "USER", "actor"))
+                .toList();
+        when(workItemRepository.findCalendarAssignmentsForTeam(
+                List.of("project-1"), List.of("actor"), "team-1", 501)).thenReturn(assignments);
+
+        var workload = calendarEventService.getTeamWorkload(
+                actor, "team-1", LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 7));
+
+        assertThat(workload.workItemsTruncated()).isTrue();
+        assertThat(workload.members()).singleElement().satisfies(member ->
+                assertThat(member.unplannedWorkItemCount()).isEqualTo(500));
     }
 
     private AppUser user(String id) {

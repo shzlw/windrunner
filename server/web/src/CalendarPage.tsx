@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { NavLink } from 'react-router'
+import { NavLink, useSearchParams } from 'react-router'
 import {
   addDays,
   addMonths,
@@ -103,9 +103,13 @@ function getDefaultForm(day: Date): EventForm {
 }
 
 export default function CalendarPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const [searchParams] = useSearchParams()
+  const requestedTeamId = searchParams.get('teamId')?.trim() || null
+  const requestedFrom = searchParams.get('from')
+  const currentUserId = currentUser?.id
   const [scopes, setScopes] = useState<CalendarScope[]>([])
   const [selectedScopeKeys, setSelectedScopeKeys] = useState<string[]>([])
-  const [currentDate, setCurrentDate] = useState(() => new Date())
+  const [currentDate, setCurrentDate] = useState(() => requestedFrom && !Number.isNaN(new Date(`${requestedFrom}T00:00:00`).getTime()) ? new Date(`${requestedFrom}T00:00:00`) : new Date())
   const [view, setView] = useState<CalendarView>('team')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -117,21 +121,34 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
   const [form, setForm] = useState<EventForm>(() => getDefaultForm(new Date()))
 
   useEffect(() => {
-    if (!currentUser) return
-    const defaultScope = `USER:${currentUser.id}`
-    setSelectedScopeKeys([defaultScope])
+    if (!requestedFrom) return
+    const requestedDate = new Date(`${requestedFrom}T00:00:00`)
+    if (!Number.isNaN(requestedDate.getTime())) {
+      queueMicrotask(() => setCurrentDate(requestedDate))
+    }
+  }, [requestedFrom])
+
+  useEffect(() => {
+    if (!currentUserId) return
+    const defaultScope = requestedTeamId ? `TEAM:${requestedTeamId}` : `USER:${currentUserId}`
     let cancelled = false
     void listCalendarScopes()
       .then((nextScopes) => {
-        if (!cancelled) setScopes(nextScopes)
+        if (!cancelled) {
+          setSelectedScopeKeys([defaultScope])
+          setScopes(nextScopes)
+        }
       })
       .catch((error) => {
-        if (!cancelled) toast.error(error instanceof Error ? error.message : 'Unable to load calendar scopes')
+        if (!cancelled) {
+          setSelectedScopeKeys([defaultScope])
+          toast.error(error instanceof Error ? error.message : 'Unable to load calendar scopes')
+        }
       })
     return () => {
       cancelled = true
     }
-  }, [currentUser?.id])
+  }, [currentUserId, requestedTeamId])
 
   const selectedScopes = useMemo(() => selectedScopeKeys.flatMap((scopeKey) => {
     const separator = scopeKey.indexOf(':')
@@ -153,15 +170,25 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
   }, [currentDate, view])
 
   useEffect(() => {
-    if (!currentUser || selectedScopes.length === 0) {
-      setEvents([])
-      setWorkItems([])
-      setIsLoading(false)
-      return
-    }
     let cancelled = false
-    setIsLoading(true)
-    setLoadError(null)
+    if (!currentUserId || selectedScopes.length === 0) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setEvents([])
+          setWorkItems([])
+          setIsLoading(false)
+        }
+      })
+      return () => {
+        cancelled = true
+      }
+    }
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setIsLoading(true)
+        setLoadError(null)
+      }
+    })
     void Promise.all([
       Promise.all(selectedScopes.map((scope) => listCalendarEvents(range.from, range.to, scope.type, scope.id))),
       Promise.all(selectedScopes.map((scope) => listCalendarWorkItems(range.from, range.to, scope.type, scope.id))),
@@ -189,7 +216,7 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
     return () => {
       cancelled = true
     }
-  }, [currentUser?.id, range.from, range.to, selectedScopes])
+  }, [currentUserId, range.from, range.to, selectedScopes])
 
   const ownerNames = useMemo(() => {
     const names = new Map<string, string>()

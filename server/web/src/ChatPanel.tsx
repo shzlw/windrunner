@@ -22,6 +22,9 @@ import { useIdentityProposals } from '@/useIdentityProposals'
 import { WorkspaceProposalCard } from '@/WorkspaceProposalCards'
 import { useWorkspaceProposals } from '@/useWorkspaceProposals'
 import { WorkItemResultCards, type ChatWorkItemReference } from '@/WorkItemResultCards'
+import AttentionResults from '@/AttentionResults'
+import CalendarWorkloadResult from '@/CalendarWorkloadResult'
+import WorkItemTimelineResult from '@/WorkItemTimelineResult'
 import { cn } from '@/lib/utils'
 import { translateStatus, translateWorkItemType } from '@/i18n/labels'
 import useVoiceTranscription, { formatRecordingTime } from '@/hooks/use-voice-transcription'
@@ -63,6 +66,9 @@ export type ChatClarificationChoice = {
 const artifactReferencePattern = /\[\[(project|workitem|team|user):([A-Za-z0-9_-]+)\]\]/g
 const clarificationChoicePattern = /\[\[choice:(project|workitem|team|user):([A-Za-z0-9_-]+)\]\]/g
 const workItemReferencePattern = /\[\[workitem:([A-Za-z0-9_-]+)\]\]/g
+const attentionResultPattern = /\[\[attention\]\]/g
+const timelineResultPattern = /\[\[timeline:([A-Za-z0-9_-]+):([A-Za-z0-9_-]+)\]\]/g
+const calendarWorkloadResultPattern = /\[\[calendar-workload:([A-Za-z0-9_-]+):(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})\]\]/g
 
 function createMessageId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -74,6 +80,7 @@ function createMessageId() {
 // A partially-streamed artifact marker (e.g. "[[team:team_ab" without its "]]")
 // would flash as raw text before completing, so it is hidden until closed.
 const incompleteTrailingMarkerPattern = /\[\[(?:choice:)?(?:project|workitem|team|user):[^\]\s]*$/
+const incompleteTrailingResultPattern = /\[\[(?:attention|timeline|calendar-workload)(?::[^\]\s]*)?$/
 
 const markdownSanitizeSchema = {
   ...defaultSchema,
@@ -114,7 +121,11 @@ function renderAssistantContent(
   compactWorkItemIds?: Set<string>,
 ) {
   content = content.replace(incompleteTrailingMarkerPattern, '')
+  content = content.replace(incompleteTrailingResultPattern, '')
   content = content.replace(clarificationChoicePattern, '')
+  content = content.replace(attentionResultPattern, '')
+  content = content.replace(timelineResultPattern, '')
+  content = content.replace(calendarWorkloadResultPattern, '')
   const markdown = artifactMarkersToLinks(content, t, compactWorkItemIds)
 
   const components: Components = {
@@ -273,6 +284,32 @@ function workItemResults(content: string, references: Map<string, ChatWorkItemRe
   return result.length > 1 ? result : []
 }
 
+function timelineResults(content: string) {
+  const results: { projectId: string; workItemId: string }[] = []
+  const seen = new Set<string>()
+  for (const match of content.matchAll(timelineResultPattern)) {
+    const key = `${match[1]}:${match[2]}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      results.push({ projectId: match[1], workItemId: match[2] })
+    }
+  }
+  return results.slice(0, 3)
+}
+
+function calendarWorkloadResults(content: string) {
+  const results: { teamId: string; from: string; to: string }[] = []
+  const seen = new Set<string>()
+  for (const match of content.matchAll(calendarWorkloadResultPattern)) {
+    const key = `${match[1]}:${match[2]}:${match[3]}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      results.push({ teamId: match[1], from: match[2], to: match[3] })
+    }
+  }
+  return results.slice(0, 2)
+}
+
 export default function ChatPanel({
   projectId = '',
   projectIds,
@@ -297,6 +334,9 @@ export default function ChatPanel({
   userReferences = new Map(),
   onUserReferenceClick,
   onClarificationChoice,
+  onOpenResultWorkItem,
+  onOpenFullHistory,
+  onOpenCalendar,
   className,
   flush = false,
   showHeader = true,
@@ -330,6 +370,9 @@ export default function ChatPanel({
   userReferences?: Map<string, string>
   onUserReferenceClick?: (userId: string) => void | Promise<void>
   onClarificationChoice?: (choice: ChatClarificationChoice) => void | Promise<void>
+  onOpenResultWorkItem?: (projectId: string, workItemId: string) => void | Promise<void>
+  onOpenFullHistory?: (projectId: string, workItemId: string) => void | Promise<void>
+  onOpenCalendar?: (teamId: string, from: string, to: string) => void | Promise<void>
   className?: string
   flush?: boolean
   showHeader?: boolean
@@ -1072,7 +1115,11 @@ export default function ChatPanel({
                 </div>
               ) : null}
               {messages.map((message, index) => {
-                const resultReferences = message.role === 'assistant' ? workItemResults(message.content, workItemReferences) : []
+                const hasAttentionResult = message.role === 'assistant' && message.content.includes('[[attention]]')
+                const timelines = message.role === 'assistant' ? timelineResults(message.content) : []
+                const workloads = message.role === 'assistant' ? calendarWorkloadResults(message.content) : []
+                const hasStructuredResult = hasAttentionResult || timelines.length > 0 || workloads.length > 0
+                const resultReferences = message.role === 'assistant' && !hasStructuredResult ? workItemResults(message.content, workItemReferences) : []
                 const choices = message.role === 'assistant' && index === messages.length - 1 && !isStreaming
                   ? clarificationChoices(message.content, workItemReferences, projectReferences, teamReferences, userReferences)
                   : []
@@ -1110,6 +1157,33 @@ export default function ChatPanel({
                       </MessageContent>
                     </Message>
                     {choices.length > 0 ? renderClarificationChoices(choices) : null}
+                    {hasAttentionResult ? (
+                      <AttentionResults
+                        onOpenWorkItem={onOpenResultWorkItem ? (projectId, workItemId) => { void onOpenResultWorkItem(projectId, workItemId) } : undefined}
+                        onOpenProject={onProjectReferenceClick ? (projectId) => { void onProjectReferenceClick(projectId) } : undefined}
+                        onOpenMyWork={onViewAllWorkItems ? () => { void onViewAllWorkItems() } : undefined}
+                      />
+                    ) : null}
+                    {timelines.map((timeline) => (
+                      <WorkItemTimelineResult
+                        key={`${timeline.projectId}:${timeline.workItemId}`}
+                        projectId={timeline.projectId}
+                        workItemId={timeline.workItemId}
+                        userNames={userReferences}
+                        teamNames={teamReferences}
+                        onOpenFullHistory={onOpenFullHistory ? (projectId, workItemId) => { void onOpenFullHistory(projectId, workItemId) } : undefined}
+                      />
+                    ))}
+                    {workloads.map((workload) => (
+                      <CalendarWorkloadResult
+                        key={`${workload.teamId}:${workload.from}:${workload.to}`}
+                        teamId={workload.teamId}
+                        from={workload.from}
+                        to={workload.to}
+                        onOpenWorkItem={onOpenResultWorkItem ? (projectId, workItemId) => { void onOpenResultWorkItem(projectId, workItemId) } : undefined}
+                        onOpenCalendar={onOpenCalendar ? (teamId, from, to) => { void onOpenCalendar(teamId, from, to) } : undefined}
+                      />
+                    ))}
                     {resultReferences.length > 0 ? (
                       <WorkItemResultCards
                         references={resultReferences}

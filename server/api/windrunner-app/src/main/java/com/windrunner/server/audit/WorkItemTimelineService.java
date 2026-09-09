@@ -30,6 +30,14 @@ public class WorkItemTimelineService {
                 .toList();
     }
 
+    public List<WorkItemTimelineEvent> listLatest(String projectId, String workItemId, int limit) {
+        List<WorkItemTimelineEvent> events = list(projectId, workItemId);
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        int fromIndex = Math.max(0, events.size() - safeLimit);
+        List<WorkItemTimelineEvent> latest = new ArrayList<>(events.subList(fromIndex, events.size()));
+        return List.copyOf(latest.reversed());
+    }
+
     private List<WorkItemTimelineEvent> toEvents(AuditLogRepository.WorkItemTimelineRow row) {
         Map<String, Object> before = parseObject(row.beforeJson());
         Map<String, Object> after = parseObject(row.afterJson());

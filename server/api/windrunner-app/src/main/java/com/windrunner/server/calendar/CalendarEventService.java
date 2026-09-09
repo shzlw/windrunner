@@ -8,6 +8,9 @@ import com.windrunner.server.calendar.api.CalendarEventView;
 import com.windrunner.server.calendar.api.CalendarScopeMemberView;
 import com.windrunner.server.calendar.api.CalendarScopeView;
 import com.windrunner.server.calendar.api.CalendarWorkItemView;
+import com.windrunner.server.calendar.api.CalendarWorkloadMemberView;
+import com.windrunner.server.calendar.api.CalendarWorkloadView;
+import com.windrunner.server.calendar.api.CalendarWorkloadWorkItemView;
 import com.windrunner.server.calendar.domain.CalendarEvent;
 import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.id.EntityIdGenerator;
@@ -33,6 +36,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.DateTimeException;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -53,6 +58,9 @@ public class CalendarEventService {
     private static final int MAX_TITLE_LENGTH = 200;
     private static final int MAX_DESCRIPTION_LENGTH = 20_000;
     private static final int MAX_WORK_ITEM_RESULTS = 500;
+    private static final int MAX_WORKLOAD_DAYS = 31;
+    private static final int MAX_WORKLOAD_MEMBERS = 50;
+    private static final int MAX_WORKLOAD_ITEMS_PER_MEMBER = 3;
 
     private final CalendarEventRepository calendarEventRepository;
     private final AuditLogRepository auditLogRepository;
@@ -119,7 +127,15 @@ public class CalendarEventService {
                                                     String scopeType,
                                                     String scopeId,
                                                     OffsetDateTime from,
-        OffsetDateTime to) {
+                                                    OffsetDateTime to) {
+        return findWorkItems(actor, scopeType, scopeId, from, to).items();
+    }
+
+    private CalendarWorkItemResult findWorkItems(AppUser actor,
+                                                 String scopeType,
+                                                 String scopeId,
+                                                 OffsetDateTime from,
+                                                 OffsetDateTime to) {
         validateRange(from, to);
         requireAuthenticatedActor(actor);
         String normalizedScopeType = normalizeScopeType(scopeType);
@@ -128,10 +144,10 @@ public class CalendarEventService {
             AppUser target = requireReadableTargetUser(scopeId, actor);
             List<String> projectIds = findVisibleProjectIds(actor);
             if (projectIds.isEmpty()) {
-                return List.of();
+                return new CalendarWorkItemResult(List.of(), false);
             }
             rows = workItemRepository.findCalendarAssignmentsByUserIds(
-                    projectIds, List.of(target.getId()), MAX_WORK_ITEM_RESULTS);
+                    projectIds, List.of(target.getId()), MAX_WORK_ITEM_RESULTS + 1);
         } else {
             Team team = requireReadableTeam(scopeId, actor);
             List<String> memberIds = teamMemberRepository.findByTeamId(team.getId()).stream()
@@ -139,26 +155,30 @@ public class CalendarEventService {
                     .distinct()
                     .toList();
             if (memberIds.isEmpty()) {
-                return List.of();
+                return new CalendarWorkItemResult(List.of(), false);
             }
             List<String> projectIds = findVisibleProjectIds(actor);
             if (projectIds.isEmpty()) {
-                return List.of();
+                return new CalendarWorkItemResult(List.of(), false);
             }
             rows = workItemRepository.findCalendarAssignmentsForTeam(
-                    projectIds, memberIds, team.getId(), MAX_WORK_ITEM_RESULTS);
+                    projectIds, memberIds, team.getId(), MAX_WORK_ITEM_RESULTS + 1);
         }
 
         if (rows.isEmpty()) {
-            return List.of();
+            return new CalendarWorkItemResult(List.of(), false);
         }
 
-        Map<String, LocalDate> startedOnByWorkItemId = findLatestStartedDates(rows, actor);
+        boolean truncated = rows.size() > MAX_WORK_ITEM_RESULTS;
+        List<WorkItemRepository.CalendarAssignmentRow> boundedRows = truncated
+                ? rows.subList(0, MAX_WORK_ITEM_RESULTS)
+                : rows;
+        Map<String, LocalDate> startedOnByWorkItemId = findLatestStartedDates(boundedRows, actor);
         LocalDate fromDate = from.toLocalDate();
-        LocalDate toDate = to.toLocalDate();
+        LocalDate toDate = to.minusNanos(1).toLocalDate();
         LocalDate today = LocalDate.now(resolveZone(actor.getTimezone()));
         Map<String, CalendarWorkItemView> workItemsByAssignment = new LinkedHashMap<>();
-        for (WorkItemRepository.CalendarAssignmentRow row : rows) {
+        for (WorkItemRepository.CalendarAssignmentRow row : boundedRows) {
             LocalDate startedOn = startedOnByWorkItemId.get(row.workItemId());
             boolean overdue = row.dueDate() != null && row.dueDate().isBefore(today);
             CalendarWorkItemView view = new CalendarWorkItemView(
@@ -177,13 +197,94 @@ public class CalendarEventService {
                 workItemsByAssignment.put(key, view);
             }
         }
-        return List.copyOf(workItemsByAssignment.values());
+        return new CalendarWorkItemResult(List.copyOf(workItemsByAssignment.values()), truncated);
     }
 
     public CalendarEventView getEvent(String id, AppUser actor) {
         CalendarEvent event = requireEvent(id);
         requireEventReadAccess(event, actor);
         return CalendarEventView.from(event);
+    }
+
+    public CalendarWorkloadView getTeamWorkload(AppUser actor, String teamId, LocalDate from, LocalDate to) {
+        requireAuthenticatedActor(actor);
+        if (from == null || to == null || to.isBefore(from) || from.plusDays(MAX_WORKLOAD_DAYS - 1L).isBefore(to)) {
+            throw createBadRequestException("Calendar workload range must be between 1 and 31 days");
+        }
+        Team team = requireReadableTeam(teamId, actor);
+        ZoneId zone = resolveZone(actor.getTimezone());
+        OffsetDateTime rangeStart = from.atStartOfDay(zone).toOffsetDateTime();
+        OffsetDateTime rangeEnd = to.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
+        List<CalendarEventView> events = listEvents(actor, "TEAM", team.getId(), rangeStart, rangeEnd);
+        CalendarWorkItemResult workItemResult = findWorkItems(actor, "TEAM", team.getId(), rangeStart, rangeEnd);
+        List<CalendarWorkItemView> workItems = workItemResult.items();
+
+        Map<String, AppUser> usersById = new LinkedHashMap<>();
+        List<String> memberIds = teamMemberRepository.findByTeamId(team.getId()).stream()
+                .map(TeamMember::getUserId)
+                .distinct()
+                .toList();
+        appUserRepository.findAllById(memberIds).forEach(user -> usersById.put(user.getId(), user));
+        List<AppUser> members = usersById.values().stream()
+                .sorted(Comparator.comparing(this::getDisplayName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+
+        List<CalendarWorkloadMemberView> memberViews = members.stream()
+                .limit(MAX_WORKLOAD_MEMBERS)
+                .map(member -> buildWorkloadMember(member, workItems, events, rangeStart.toInstant(), rangeEnd.toInstant()))
+                .toList();
+        List<CalendarWorkItemView> teamAssigned = workItems.stream()
+                .filter(item -> "TEAM".equals(item.assigneeType()) && team.getId().equals(item.assigneeId()))
+                .toList();
+        return new CalendarWorkloadView(
+                team.getId(), team.getName(), from, to, memberViews, members.size() > MAX_WORKLOAD_MEMBERS,
+                workItemResult.truncated(), teamAssigned.size(),
+                teamAssigned.stream().limit(5).map(CalendarWorkloadWorkItemView::from).toList());
+    }
+
+    private CalendarWorkloadMemberView buildWorkloadMember(
+            AppUser member,
+            List<CalendarWorkItemView> workItems,
+            List<CalendarEventView> events,
+            Instant rangeStart,
+            Instant rangeEnd) {
+        List<CalendarWorkItemView> assigned = workItems.stream()
+                .filter(item -> "USER".equals(item.assigneeType()) && member.getId().equals(item.assigneeId()))
+                .toList();
+        List<CalendarWorkItemView> scheduled = assigned.stream().filter(item -> item.startedOn() != null).toList();
+        List<CalendarWorkItemView> unplanned = assigned.stream().filter(item -> item.startedOn() == null).toList();
+        List<CalendarEventView> memberEvents = events.stream()
+                .filter(event -> member.getId().equals(event.userId()))
+                .toList();
+        long eventMinutes = memberEvents.stream()
+                .mapToLong(event -> overlapMinutes(event, rangeStart, rangeEnd))
+                .sum();
+        return new CalendarWorkloadMemberView(
+                member.getId(), getDisplayName(member),
+                scheduled.size(), scheduled.stream().limit(MAX_WORKLOAD_ITEMS_PER_MEMBER).map(CalendarWorkloadWorkItemView::from).toList(),
+                memberEvents.size(), eventMinutes, countConflicts(memberEvents),
+                unplanned.size(), unplanned.stream().limit(MAX_WORKLOAD_ITEMS_PER_MEMBER).map(CalendarWorkloadWorkItemView::from).toList());
+    }
+
+    private long overlapMinutes(CalendarEventView event, Instant rangeStart, Instant rangeEnd) {
+        Instant start = event.startsAt().toInstant().isAfter(rangeStart) ? event.startsAt().toInstant() : rangeStart;
+        Instant end = event.endsAt().toInstant().isBefore(rangeEnd) ? event.endsAt().toInstant() : rangeEnd;
+        return end.isAfter(start) ? Duration.between(start, end).toMinutes() : 0;
+    }
+
+    private int countConflicts(List<CalendarEventView> events) {
+        List<CalendarEventView> sorted = events.stream().sorted(Comparator.comparing(CalendarEventView::startsAt)).toList();
+        int conflicts = 0;
+        for (int left = 0; left < sorted.size(); left++) {
+            for (int right = left + 1; right < sorted.size(); right++) {
+                if (!sorted.get(right).startsAt().isBefore(sorted.get(left).endsAt())) break;
+                if (sorted.get(left).startsAt().isBefore(sorted.get(right).endsAt())) conflicts++;
+            }
+        }
+        return conflicts;
+    }
+
+    private record CalendarWorkItemResult(List<CalendarWorkItemView> items, boolean truncated) {
     }
 
     @Transactional

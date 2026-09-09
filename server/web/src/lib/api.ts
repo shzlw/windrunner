@@ -149,6 +149,32 @@ export interface UserNotificationPage {
   totalItems: number
 }
 
+export interface AttentionWorkItem {
+  projectId: string
+  projectName: string
+  workItemId: string
+  title: string
+  type: string
+  status: string
+  dueDate: string | null
+  priority: string | null
+  assignedAt: string
+  blocked: boolean
+}
+
+export interface AttentionSummary {
+  overdueAssignments: AttentionWorkItem[]
+  hasMoreOverdueAssignments: boolean
+  blockedAssignments: AttentionWorkItem[]
+  hasMoreBlockedAssignments: boolean
+  dueSoonWork: AttentionWorkItem[]
+  hasMoreDueSoonWork: boolean
+  newAssignments: AttentionWorkItem[]
+  hasMoreNewAssignments: boolean
+  importantUnreadNotifications: UserNotification[]
+  hasMoreImportantUnreadNotifications: boolean
+}
+
 export type ProjectNodeFieldDataType = 'text' | 'number' | 'boolean' | 'date' | 'user' | 'team'
 
 export interface ProjectNodeField {
@@ -391,6 +417,40 @@ export interface CalendarWorkItem {
   startedOn: string | null
   dueDate: string | null
   overdue: boolean
+}
+
+export interface CalendarWorkloadWorkItem {
+  workItemId: string
+  projectId: string
+  projectName: string
+  title: string
+  status: WorkItem['status']
+  startedOn: string | null
+  dueDate: string | null
+}
+
+export interface CalendarWorkloadMember {
+  userId: string
+  displayName: string
+  scheduledWorkItemCount: number
+  scheduledWorkItems: CalendarWorkloadWorkItem[]
+  calendarEventCount: number
+  calendarEventMinutes: number
+  conflictCount: number
+  unplannedWorkItemCount: number
+  unplannedWorkItems: CalendarWorkloadWorkItem[]
+}
+
+export interface CalendarWorkload {
+  teamId: string
+  teamName: string
+  from: string
+  to: string
+  members: CalendarWorkloadMember[]
+  hasMoreMembers: boolean
+  workItemsTruncated: boolean
+  teamAssignedWorkItemCount: number
+  teamAssignedWorkItems: CalendarWorkloadWorkItem[]
 }
 
 export interface ChatMessage {
@@ -1419,6 +1479,11 @@ export async function listCalendarWorkItems(
   return request<CalendarWorkItem[]>(`/internal-api/v1/calendar/work-items?${params.toString()}`, { method: 'GET' })
 }
 
+export async function getCalendarWorkload(teamId: string, from: string, to: string): Promise<CalendarWorkload> {
+  const params = new URLSearchParams({ teamId, from, to })
+  return request<CalendarWorkload>(`/internal-api/v1/calendar/workload?${params.toString()}`, { method: 'GET' })
+}
+
 export async function createCalendarEvent(event: CalendarEventRequest): Promise<CalendarEvent> {
   return request<CalendarEvent>('/internal-api/v1/calendar/events', {
     method: 'POST',
@@ -1692,6 +1757,10 @@ export async function getNotifications(options: { unread?: boolean; limit?: numb
   if (options.offset !== undefined) params.set('offset', String(options.offset))
   const query = params.toString()
   return request<UserNotificationPage>(`/internal-api/v1/notifications${query ? `?${query}` : ''}`, { method: 'GET' })
+}
+
+export async function getAttentionSummary(): Promise<AttentionSummary> {
+  return request<AttentionSummary>('/internal-api/v1/attention', { method: 'GET' })
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {

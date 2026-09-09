@@ -2676,6 +2676,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
   const [searchParams] = useSearchParams()
   const { artifactRefreshKey, notifyWorkspaceProposalChange } = useOutletContext<ProjectWorkspaceOutletContext>()
   const requestedWorkItemId = searchParams.get('workItemId')?.trim() || null
+  const requestedInspectorMode = searchParams.get('inspector') === 'history' ? 'history' : 'task'
   const [project, setProject] = useState<Project | null>(null)
   const [workspacePanelLayout] = useState(readWorkspacePanelLayout)
   const inspectorPanelRef = usePanelRef()
@@ -3340,7 +3341,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         setSelectedNodeId(initialSelectedNode?.id ?? null)
         setForm(createFormState(initialSelectedNode))
         if (initialSelectedNode) {
-          setInspectorMode('task')
+          setInspectorMode(requestedInspectorMode)
           highlightChatReference(initialSelectedNode.id)
         }
       } catch (error) {
@@ -3360,7 +3361,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     return () => {
       isMounted = false
     }
-  }, [projectId, requestedWorkItemId])
+  }, [projectId, requestedInspectorMode, requestedWorkItemId])
 
   useEffect(() => {
     if (selectedNode) {
