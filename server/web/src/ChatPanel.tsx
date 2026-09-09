@@ -13,6 +13,7 @@ import type { TFunction } from 'i18next'
 import { Bubble, BubbleContent } from '@/components/ui/bubble'
 import { Button } from '@/components/ui/button'
 import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import VoiceWaveform from '@/components/VoiceWaveform'
@@ -53,7 +54,14 @@ type SelectedChatContext = {
   context: ChatContext
 }
 
+export type ChatClarificationChoice = {
+  entityType: 'project' | 'workitem' | 'team' | 'user'
+  entityId: string
+  label: string
+}
+
 const artifactReferencePattern = /\[\[(project|workitem|team|user):([A-Za-z0-9_-]+)\]\]/g
+const clarificationChoicePattern = /\[\[choice:(project|workitem|team|user):([A-Za-z0-9_-]+)\]\]/g
 const workItemReferencePattern = /\[\[workitem:([A-Za-z0-9_-]+)\]\]/g
 
 function createMessageId() {
@@ -65,7 +73,7 @@ function createMessageId() {
 
 // A partially-streamed artifact marker (e.g. "[[team:team_ab" without its "]]")
 // would flash as raw text before completing, so it is hidden until closed.
-const incompleteTrailingMarkerPattern = /\[\[(?:project|workitem|team|user):[^\]\s]*$/
+const incompleteTrailingMarkerPattern = /\[\[(?:choice:)?(?:project|workitem|team|user):[^\]\s]*$/
 
 const markdownSanitizeSchema = {
   ...defaultSchema,
@@ -106,6 +114,7 @@ function renderAssistantContent(
   compactWorkItemIds?: Set<string>,
 ) {
   content = content.replace(incompleteTrailingMarkerPattern, '')
+  content = content.replace(clarificationChoicePattern, '')
   const markdown = artifactMarkersToLinks(content, t, compactWorkItemIds)
 
   const components: Components = {
@@ -222,6 +231,34 @@ function renderAssistantContent(
   )
 }
 
+function clarificationChoices(
+  content: string,
+  references: Map<string, ChatWorkItemReference>,
+  projectReferences: Map<string, string>,
+  teamReferences: Map<string, string>,
+  userReferences: Map<string, string>,
+) {
+  const choices: ChatClarificationChoice[] = []
+  const seen = new Set<string>()
+  for (const match of content.matchAll(clarificationChoicePattern)) {
+    const entityType = match[1] as ChatClarificationChoice['entityType']
+    const entityId = match[2]
+    const key = `${entityType}:${entityId}`
+    if (seen.has(key)) continue
+    const label = entityType === 'project'
+      ? projectReferences.get(entityId)
+      : entityType === 'team'
+        ? teamReferences.get(entityId)
+        : entityType === 'user'
+          ? userReferences.get(entityId)
+          : references.get(entityId)?.title
+    if (!label) continue
+    seen.add(key)
+    choices.push({ entityType, entityId, label })
+  }
+  return choices.length > 1 ? choices.slice(0, 8) : []
+}
+
 function workItemResults(content: string, references: Map<string, ChatWorkItemReference>) {
   const result: ChatWorkItemReference[] = []
   const seen = new Set<string>()
@@ -259,6 +296,7 @@ export default function ChatPanel({
   onTeamReferenceClick,
   userReferences = new Map(),
   onUserReferenceClick,
+  onClarificationChoice,
   className,
   flush = false,
   showHeader = true,
@@ -291,6 +329,7 @@ export default function ChatPanel({
   onTeamReferenceClick?: (teamId: string) => void | Promise<void>
   userReferences?: Map<string, string>
   onUserReferenceClick?: (userId: string) => void | Promise<void>
+  onClarificationChoice?: (choice: ChatClarificationChoice) => void | Promise<void>
   className?: string
   flush?: boolean
   showHeader?: boolean
@@ -319,6 +358,7 @@ export default function ChatPanel({
   const [hasNewMessages, setHasNewMessages] = useState(false)
   const [isStartingSession, setIsStartingSession] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
+  const [pendingClarificationChoice, setPendingClarificationChoice] = useState<string | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const isAtBottomRef = useRef(true)
   const forceScrollToLatestRef = useRef(false)
@@ -563,10 +603,9 @@ export default function ChatPanel({
     viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
   }
 
-  async function handleSend(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const content = draft.trim()
-    if (!content || isStreaming || isRecording || isTranscribing || isLoadingSession) {
+  async function sendMessage(messageContent: string, clearDraft = true) {
+    const content = messageContent.trim()
+    if (!content || isStreaming || isRecording || isTranscribing || isLoadingSession || pendingClarificationChoice) {
       return
     }
 
@@ -618,7 +657,7 @@ export default function ChatPanel({
     requestSessionIdRef.current = activeSessionId
     isRequestInFlightRef.current = true
     abortControllerRef.current = controller
-    setDraft('')
+    if (clearDraft) setDraft('')
     setMessages((current) => [...current, userMessage, assistantMessage])
     setIsStreaming(true)
     onStreamingChange?.(true)
@@ -709,6 +748,25 @@ export default function ChatPanel({
     }
   }
 
+  async function handleSend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await sendMessage(draft)
+  }
+
+  async function handleClarificationChoice(choice: ChatClarificationChoice) {
+    if (!onClarificationChoice || isStreaming || pendingClarificationChoice) return
+    const choiceKey = `${choice.entityType}:${choice.entityId}`
+    setPendingClarificationChoice(choiceKey)
+    try {
+      await onClarificationChoice(choice)
+      await sendMessage(t('chat.clarificationSelection', { label: choice.label }), false)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('chat.failedSelectClarification'))
+    } finally {
+      setPendingClarificationChoice(null)
+    }
+  }
+
   function handleTextareaKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
@@ -721,7 +779,7 @@ export default function ChatPanel({
   }
 
   function renderComposer() {
-    const voiceButtonDisabled = isLoadingSession || isStreaming || isTranscribing
+    const voiceButtonDisabled = isLoadingSession || isStreaming || isTranscribing || Boolean(pendingClarificationChoice)
 
     return (
       <form ref={composerFormRef} className="w-full" onSubmit={handleSend}>
@@ -750,7 +808,7 @@ export default function ChatPanel({
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleTextareaKeyDown}
             placeholder={t('home.askAnything')}
-            disabled={isLoadingSession || isRecording || isTranscribing}
+            disabled={isLoadingSession || isRecording || isTranscribing || Boolean(pendingClarificationChoice)}
             className="max-h-32 min-h-16 resize-none border-0 px-1 py-1 shadow-none focus-visible:border-0 focus-visible:ring-0"
           />
           <div className="flex items-center justify-between gap-2 pt-1">
@@ -796,7 +854,7 @@ export default function ChatPanel({
                       <Mic className="h-4 w-4" />
                     </Button>
                   ) : null}
-                  <Button type="submit" size="icon" disabled={isLoadingSession || isTranscribing || !draft.trim()} aria-label={t('chat.sendMessage')}>
+                  <Button type="submit" size="icon" disabled={isLoadingSession || isTranscribing || Boolean(pendingClarificationChoice) || !draft.trim()} aria-label={t('chat.sendMessage')}>
                     <ArrowUp className="h-4 w-4" />
                   </Button>
                 </>
@@ -886,6 +944,32 @@ export default function ChatPanel({
             onReview={onReviewWorkspaceProposal}
           />
         ))}
+      </section>
+    )
+  }
+
+  function renderClarificationChoices(choices: ChatClarificationChoice[]) {
+    return (
+      <section aria-label={t('chat.clarificationChoices')} className="ml-11 max-w-xl space-y-1.5">
+        <RadioGroup
+          value={pendingClarificationChoice ?? ''}
+          disabled={!onClarificationChoice || Boolean(pendingClarificationChoice)}
+          onValueChange={(choiceKey) => {
+            const choice = choices.find((item) => `${item.entityType}:${item.entityId}` === choiceKey)
+            if (choice) void handleClarificationChoice(choice)
+          }}
+        >
+          {choices.map((choice) => {
+            const choiceKey = `${choice.entityType}:${choice.entityId}`
+            return (
+              <label key={choiceKey} className="flex min-h-10 cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/60 has-data-checked:border-primary has-data-checked:bg-primary/5 has-data-disabled:cursor-not-allowed has-data-disabled:opacity-50">
+                <RadioGroupItem value={choiceKey} />
+                <span className="min-w-0 flex-1 truncate">{choice.label}</span>
+                {pendingClarificationChoice === choiceKey ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" /> : null}
+              </label>
+            )
+          })}
+        </RadioGroup>
       </section>
     )
   }
@@ -989,6 +1073,9 @@ export default function ChatPanel({
               ) : null}
               {messages.map((message, index) => {
                 const resultReferences = message.role === 'assistant' ? workItemResults(message.content, workItemReferences) : []
+                const choices = message.role === 'assistant' && index === messages.length - 1 && !isStreaming
+                  ? clarificationChoices(message.content, workItemReferences, projectReferences, teamReferences, userReferences)
+                  : []
                 return (
                   <Fragment key={message.id}>
                     <Message align={message.role === 'user' ? 'end' : 'start'}>
@@ -1022,6 +1109,7 @@ export default function ChatPanel({
                         </Bubble>
                       </MessageContent>
                     </Message>
+                    {choices.length > 0 ? renderClarificationChoices(choices) : null}
                     {resultReferences.length > 0 ? (
                       <WorkItemResultCards
                         references={resultReferences}

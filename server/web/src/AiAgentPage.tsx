@@ -11,7 +11,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import ChatPanel from '@/ChatPanel'
+import ChatPanel, { type ChatClarificationChoice } from '@/ChatPanel'
 import type { ChatWorkItemReference } from '@/WorkItemResultCards'
 import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, getWorkspace, listChatSessionContext, listProjects, listTeams, loadSelectableUsers, type ChatSessionContext, type GraphChangeProposal, type Project, type Team, type User, type Workspace } from '@/lib/api'
 import type { AiAgentPageOutletContext } from './App'
@@ -383,6 +383,26 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     toast.error(error instanceof Error ? error.message : t('aiAgent.failedRefreshSessions'))
   }
 
+  async function selectClarificationChoice(choice: ChatClarificationChoice) {
+    const sessionId = selectedSession?.id ?? requestedSessionId
+    if (!sessionId) throw new Error(t('chat.startBeforeSending'))
+
+    const entityType = ({ project: 'PROJECT', workitem: 'WORK_ITEM', team: 'TEAM', user: 'USER' } as const)[choice.entityType]
+    const existing = sessionContexts.find((context) => context.entityType === entityType && context.entityId === choice.entityId)
+    if (!existing) {
+      if (entityType === 'PROJECT' && !selectedProjectIds.includes(choice.entityId) && selectedProjectIds.length >= maxSelectedProjects) {
+        throw new Error(t('aiAgent.maxProjects', { count: maxSelectedProjects }))
+      }
+      const context = await addChatSessionContext(sessionId, entityType, choice.entityId)
+      setSessionContexts((current) => current.some((item) => item.entityType === context.entityType && item.entityId === context.entityId)
+        ? current
+        : [...current, context])
+    }
+    if (entityType === 'PROJECT') {
+      setSelectedProjectIds((current) => current.includes(choice.entityId) ? current : [...current, choice.entityId])
+    }
+  }
+
   const projectContext = (
     <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs">
       {projects.length > 0 || teams.length > 0 || users.length > 0 ? (
@@ -589,6 +609,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
         ...users.map((user) => [user.id, userTitle(user)] as const),
         ...sessionContexts.filter((context) => context.entityType === 'USER').map((context) => [context.entityId, context.label] as const),
       ])}
+      onClarificationChoice={selectClarificationChoice}
       onWorkItemReferenceClick={async (workItemId) => {
         const projectId = visibleReferences.get(workItemId)?.projectId ?? activeChatProjectId
         const nextParams = new URLSearchParams({
