@@ -159,7 +159,7 @@ export default function ProjectsPage({ currentUser }: { currentUser: AuthUser | 
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     const loadTimer = window.setTimeout(() => {

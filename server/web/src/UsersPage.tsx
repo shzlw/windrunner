@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 
@@ -178,7 +178,22 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
   const [query, setQuery] = useState('')
   const requestedUserId = searchParams.get('userId')
 
-  async function loadPage(nextPage: number) {
+  const clearSelection = useCallback(() => {
+    setSelectedUserId(null)
+    setSelectedUser(null)
+    setForm(emptyForm)
+    setSheetMode('create')
+    setIsSheetOpen(false)
+    setPasswordResetValue('')
+    setForcePasswordChange(true)
+    if (searchParams.has('userId')) {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('userId')
+      setSearchParams(nextParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
+  const loadPage = useCallback(async (nextPage: number) => {
     setIsListLoading(true)
 
     try {
@@ -203,9 +218,9 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
     } finally {
       setIsListLoading(false)
     }
-  }
+  }, [clearSelection, pageSize, selectedUserId, t])
 
-  async function selectUser(userId: string, options: { openSheet?: boolean } = {}) {
+  const selectUser = useCallback(async (userId: string, options: { openSheet?: boolean } = {}) => {
     const { openSheet = true } = options
 
     setSelectedUserId(userId)
@@ -232,35 +247,28 @@ export default function UsersPage({ currentUser }: { currentUser: AuthUser | nul
     } finally {
       setIsDetailLoading(false)
     }
-  }
-
-  function clearSelection() {
-    setSelectedUserId(null)
-    setSelectedUser(null)
-    setForm(emptyForm)
-    setSheetMode('create')
-    setIsSheetOpen(false)
-    setPasswordResetValue('')
-    setForcePasswordChange(true)
-    if (searchParams.has('userId')) {
-      const nextParams = new URLSearchParams(searchParams)
-      nextParams.delete('userId')
-      setSearchParams(nextParams, { replace: true })
-    }
-  }
+  }, [isSheetOpen, searchParams, setSearchParams, sheetMode, t])
 
   useEffect(() => {
     queueMicrotask(() => {
       void loadPage(page)
     })
-  }, [page, pageSize])
+  }, [loadPage, page])
 
   useEffect(() => {
     if (!requestedUserId || isListLoading || selectedUserId === requestedUserId) {
       return
     }
-    void selectUser(requestedUserId)
-  }, [isListLoading, requestedUserId, selectedUserId])
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void selectUser(requestedUserId)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isListLoading, requestedUserId, selectUser, selectedUserId])
 
   function openCreateSheet() {
     setSheetMode('create')

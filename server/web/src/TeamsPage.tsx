@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ChevronLeft, ChevronRight, Loader2, Plus, Search, UsersRound, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router'
@@ -95,7 +95,7 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
     return `${path}?${params.toString()}`
   }
 
-  async function loadPage() {
+  const loadPage = useCallback(async () => {
     setIsLoading(true)
 
     try {
@@ -110,13 +110,13 @@ export default function TeamsPage({ currentUser }: { currentUser: AuthUser | nul
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [t])
 
   useEffect(() => {
     queueMicrotask(() => {
       void loadPage()
     })
-  }, [])
+  }, [loadPage])
 
   function openCreateSheet() {
     setCreateName('')

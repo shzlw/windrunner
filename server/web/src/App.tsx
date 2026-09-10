@@ -391,7 +391,6 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
 
   useEffect(() => {
     let isMounted = true
-    setIsLoadingChatSessions(true)
     listChatSessions('', 20, 0)
       .then((page) => {
         if (!isMounted) return
@@ -411,7 +410,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [t])
 
   const createChatSession = useCallback(async (): Promise<ChatSession | null> => {
     if (isStartingSession || isChatStreaming) return null
@@ -426,7 +425,7 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
     } finally {
       setIsStartingSession(false)
     }
-  }, [isChatStreaming, isStartingSession, refreshChatSessions])
+  }, [isChatStreaming, isStartingSession, refreshChatSessions, t])
 
   async function handleNewChat() {
     setNewChatRequestKey((current) => current + 1)
@@ -478,7 +477,10 @@ function AppLayout({ currentUser }: { currentUser: AuthUser | null }) {
 
   useEffect(() => {
     const requestedSessionId = new URLSearchParams(location.search).get('chatSessionId')
-    if (requestedSessionId) setSelectedAiAgentSessionId(requestedSessionId)
+    if (!requestedSessionId) {
+      return
+    }
+    queueMicrotask(() => setSelectedAiAgentSessionId(requestedSessionId))
   }, [location.search])
 
   function workspaceDestination(path: string) {

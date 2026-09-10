@@ -19,4 +19,11 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: ['src/components/ui/**/*.tsx'],
+    rules: {
+      // These shared primitives intentionally export styling helpers and hooks alongside components.
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

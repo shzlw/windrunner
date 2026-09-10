@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -113,7 +113,7 @@ export default function AuditLogsPage() {
   const [pageSize, setPageSize] = useState(25)
   const [query, setQuery] = useState('')
 
-  async function loadPage(nextPage: number) {
+  const loadPage = useCallback(async (nextPage: number) => {
     setIsListLoading(true)
 
     try {
@@ -141,7 +141,7 @@ export default function AuditLogsPage() {
     } finally {
       setIsListLoading(false)
     }
-  }
+  }, [pageSize, selectedAuditLogId, t])
 
   function selectAuditLog(auditLog: AuditLog) {
     setSelectedAuditLogId(auditLog.id)
@@ -155,7 +155,7 @@ export default function AuditLogsPage() {
     queueMicrotask(() => {
       void loadPage(page)
     })
-  }, [page, pageSize])
+  }, [loadPage, page])
 
   const normalizedQuery = query.trim().toLowerCase()
   const filteredAuditLogs = auditLogs.filter((auditLog) => {

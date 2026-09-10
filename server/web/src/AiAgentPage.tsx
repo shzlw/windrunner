@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router'
 import { AlertTriangle, Loader2, Maximize2, Plus, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -84,10 +84,6 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     openStandaloneAiAgent,
     onStreamingChange,
   } = useOutletContext<AiAgentPageOutletContext>()
-  const hasLoadedSessionsRef = useRef(!isLoadingSessions)
-  if (!isLoadingSessions) {
-    hasLoadedSessionsRef.current = true
-  }
   const [projects, setProjects] = useState<Project[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -112,7 +108,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
       return projects
     }
     return projects.filter((project) => projectTitle(project, t('common.untitledProject')).toLowerCase().includes(query))
-  }, [contextQuery, projects])
+  }, [contextQuery, projects, t])
   const filteredTeams = useMemo(() => {
     const query = contextQuery.trim().toLowerCase()
     if (!query) {
@@ -148,8 +144,12 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
   useEffect(() => {
     let isMounted = true
     if (!selectedSession?.id) {
-      setSessionContexts([])
-      return
+      queueMicrotask(() => {
+        if (isMounted) {
+          setSessionContexts([])
+        }
+      })
+      return () => { isMounted = false }
     }
     listChatSessionContext(selectedSession.id)
       .then((contexts) => {
@@ -258,7 +258,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     return () => {
       isMounted = false
     }
-  }, [selectedProjectIds])
+  }, [selectedProjectIds, t])
 
   function toggleProject(projectId: string) {
     setSelectedProjectIds((current) => {
@@ -546,7 +546,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     </div>
   )
 
-  const chatContent = sessionsLoading && !hasLoadedSessionsRef.current ? (
+  const chatContent = sessionsLoading && chatSessions.length === 0 ? (
     <div className="flex h-full min-h-0 items-center justify-center bg-background text-muted-foreground">
       <Loader2 className="h-5 w-5 animate-spin" />
     </div>

@@ -44,7 +44,7 @@ export default function SubscriptionsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [pageSize])
+  }, [pageSize, t])
 
   useEffect(() => {
     queueMicrotask(() => {

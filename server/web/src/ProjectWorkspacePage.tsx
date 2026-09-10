@@ -593,10 +593,16 @@ function serializeFields(fields: NodeFormField[]): ProjectNodeField[] {
 }
 
 function formFingerprint(form: NodeFormState) {
+  const fields = serializeFields(form.fields).map((field) => {
+    const fingerprintField = { ...field }
+    delete fingerprintField.order
+    return fingerprintField
+  })
+
   return JSON.stringify({
     type: form.type.trim(),
     title: form.title.trim(),
-    fields: serializeFields(form.fields).map(({ order, ...field }) => field),
+    fields,
   })
 }
 
@@ -1141,11 +1147,20 @@ function WorkItemEntries({
 
   useEffect(() => {
     if (startAdding) {
-      setIsAdding(true)
-      setNewType(defaultType)
-      onEntryComposerOpened()
+      let cancelled = false
+      queueMicrotask(() => {
+        if (cancelled) {
+          return
+        }
+        setIsAdding(true)
+        setNewType(defaultType)
+        onEntryComposerOpened()
+      })
+      return () => {
+        cancelled = true
+      }
     }
-  }, [onEntryComposerOpened, startAdding])
+  }, [defaultType, onEntryComposerOpened, startAdding])
 
   function beginEntryEdit(entry: Entry) {
     setEditingEntryId(entry.id)
@@ -1757,9 +1772,18 @@ function TreeRowContent({
 
   useEffect(() => {
     if (autoEditTitleNodeId === node.id && !proposal) {
-      setDraftTitle('')
-      setIsEditingTitle(true)
-      onAutoEditTitleStarted()
+      let cancelled = false
+      queueMicrotask(() => {
+        if (cancelled) {
+          return
+        }
+        setDraftTitle('')
+        setIsEditingTitle(true)
+        onAutoEditTitleStarted()
+      })
+      return () => {
+        cancelled = true
+      }
     }
   }, [autoEditTitleNodeId, node.id, onAutoEditTitleStarted, proposal])
 
@@ -2912,7 +2936,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       .filter((entry) => !invalidMoveDestinationIds.has(entry.workItemId))
       .map((entry) => ({ entityType: 'ENTRY' as const, entityId: entry.id, parentWorkItemId: entry.workItemId, label: entry.body.trim().replace(/\s+/g, ' ').slice(0, 100) || t('workspace.untitledUpdate'), detail: t('workspace.update'), depth: (flattenedTree.find((node) => node.id === entry.workItemId)?.depth ?? 0) + 1 }))
     return [...workItems, ...updates].filter((item) => !normalizedQuery || [item.label, item.detail, item.entityId].some((value) => value.toLowerCase().includes(normalizedQuery)))
-  }, [entries, flattenedTree, invalidMoveDestinationIds, moveQuery])
+  }, [entries, flattenedTree, invalidMoveDestinationIds, moveQuery, t])
   const handleInlineTitleUpdate = useCallback(async (node: ProjectNode, title: string) => {
     if (!projectId) {
       throw new Error('Project is unavailable.')
@@ -2977,7 +3001,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       })
     }
     toast.success(t('workspace.acceptedAnswerUpdated'))
-  }, [projectId, selectedNodeId])
+  }, [projectId, selectedNodeId, t])
   const refreshBlockers = useCallback(() => {
     if (!projectId) return
     void getWorkspace(projectId)
@@ -2986,7 +3010,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
         setRelationships(workspace.relationships)
       })
       .catch((error) => toast.error(error instanceof Error ? error.message : t('workspace.failedRefreshBlockers')))
-  }, [projectId])
+  }, [projectId, t])
   const handleAddBlocker = useCallback(async (nodeId: string, blockerId: string) => {
     if (!projectId) return
     setIsSavingBlocker(true)
@@ -3007,7 +3031,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSavingBlocker(false)
     }
-  }, [projectId])
+  }, [projectId, t])
   const handleRemoveBlocker = useCallback(async (relationshipId: string) => {
     if (!projectId) return
     setIsSavingBlocker(true)
@@ -3020,7 +3044,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSavingBlocker(false)
     }
-  }, [projectId])
+  }, [projectId, t])
   const handleUpdateBlockerReason = useCallback(async (relationshipId: string, reason: string | null) => {
     if (!projectId) return
     setIsSavingBlocker(true)
@@ -3033,7 +3057,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSavingBlocker(false)
     }
-  }, [projectId])
+  }, [projectId, t])
   const blockerUi = useMemo<BlockerUi>(() => ({
     relationshipsByNodeId: blockedByRelationshipsByNodeId,
     workItems: blockerWorkItems,
@@ -3070,7 +3094,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSavingBlocker(false)
     }
-  }, [projectId])
+  }, [projectId, t])
   const handleRemoveWorkItemRelationship = useCallback(async (relationshipId: string) => {
     if (!projectId) return
     setIsSavingBlocker(true)
@@ -3083,7 +3107,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSavingBlocker(false)
     }
-  }, [projectId])
+  }, [projectId, t])
   const workItemRelationshipUi = useMemo<WorkItemRelationshipUi>(() => ({
     workItems: blockerWorkItems,
     isSaving: isSavingBlocker,
@@ -3106,7 +3130,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSaving(false)
     }
-  }, [entryInspectorBody, entryInspectorType, projectId, selectedEntry])
+  }, [entryInspectorBody, entryInspectorType, projectId, selectedEntry, t])
   const handleReviewInspectorEntryWithAi = useCallback(async () => {
     if (!projectId || !selectedEntry) return
     const body = entryInspectorBody.trim()
@@ -3124,7 +3148,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSaving(false)
     }
-  }, [entryInspectorBody, entryInspectorType, projectId, selectedEntry])
+  }, [entryInspectorBody, entryInspectorType, projectId, selectedEntry, t])
   const handleAcceptInspectorEntryReview = useCallback(async () => {
     if (!projectId || !selectedEntry || !entryInspectorReview) return
     setIsSaving(true)
@@ -3139,7 +3163,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSaving(false)
     }
-  }, [entryInspectorReview, projectId, selectedEntry])
+  }, [entryInspectorReview, projectId, selectedEntry, t])
   const handleRejectInspectorEntryReview = useCallback(async () => {
     if (!projectId || !selectedEntry || !entryInspectorReview) return
     setIsSaving(true)
@@ -3153,7 +3177,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSaving(false)
     }
-  }, [entryInspectorReview, projectId, selectedEntry])
+  }, [entryInspectorReview, projectId, selectedEntry, t])
   const handleRefineInspectorEntryReview = useCallback(async () => {
     if (!projectId || !selectedEntry || !entryInspectorReview) return
     setIsSaving(true)
@@ -3172,7 +3196,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsSaving(false)
     }
-  }, [entryInspectorReview, entryInspectorReviewFeedback, entryInspectorType, projectId, selectedEntry])
+  }, [entryInspectorReview, entryInspectorReviewFeedback, entryInspectorType, projectId, selectedEntry, t])
   function keepEditingInspectorEntrySuggestion() {
     if (!entryInspectorReview) return
     setEntryInspectorBody(entryInspectorReview.proposedBody)
@@ -3220,7 +3244,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsRunningWorkItemFilters(false)
     }
-  }, [projectId, workItemFilterConditions, workItemSearchQuery])
+  }, [projectId, t, workItemFilterConditions, workItemSearchQuery])
   const handleClearWorkItemFilters = useCallback(async () => {
     if (!projectId) return
     setIsRunningWorkItemFilters(true)
@@ -3239,7 +3263,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsRunningWorkItemFilters(false)
     }
-  }, [projectId])
+  }, [projectId, t])
   const handleRunCreatedSort = useCallback(async () => {
     if (!projectId) return
     const nextDirection: Exclude<CreatedSortDirection, null> = createdSortDirection === 'DESC' ? 'ASC' : 'DESC'
@@ -3256,7 +3280,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setIsRunningCreatedSort(false)
     }
-  }, [createdSortDirection, projectId])
+  }, [createdSortDirection, projectId, t])
   useEffect(() => {
     if (!projectId) {
       return
@@ -3376,15 +3400,24 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
   }, [selectedNode])
   useEffect(() => {
     if (selectedEntry) {
-      setEntryInspectorType(selectedEntry.type)
-      setEntryInspectorBody(selectedEntry.body)
-      setEntryInspectorReview(null)
-      setEntryInspectorReviewFeedback('')
+      let cancelled = false
+      queueMicrotask(() => {
+        if (cancelled) {
+          return
+        }
+        setEntryInspectorType(selectedEntry.type)
+        setEntryInspectorBody(selectedEntry.body)
+        setEntryInspectorReview(null)
+        setEntryInspectorReviewFeedback('')
+      })
+      return () => {
+        cancelled = true
+      }
     }
   }, [selectedEntry])
   useEffect(() => {
     if (focusedNodeId && !findTreeNode(tree, focusedNodeId)) {
-      setFocusedNodeId(null)
+      queueMicrotask(() => setFocusedNodeId(null))
     }
   }, [focusedNodeId, tree])
   useEffect(() => {
@@ -3421,10 +3454,6 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
       cancelled = true
     }
   }, [projectId, selectedNodeId])
-
-  if (!projectId) {
-    return <Navigate to="/app/projects" replace />
-  }
 
   function workspaceDestination(path: string) {
     const params = new URLSearchParams(location.search)
@@ -3700,7 +3729,7 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     void reloadGraphChangeProposals().catch((error) => {
       toast.error(error instanceof Error ? error.message : t('workspace.failedRefreshSuggestions'))
     })
-  }, [artifactRefreshKey, projectId, reloadGraphChangeProposals])
+  }, [artifactRefreshKey, projectId, reloadGraphChangeProposals, t])
 
   async function reloadWorkspaceRelationships() {
     if (!projectId) {
@@ -4280,6 +4309,10 @@ export default function ProjectWorkspacePage({ currentUser }: ProjectWorkspacePa
     } finally {
       setDecidingProposalChangeId(null)
     }
+  }
+
+  if (!projectId) {
+    return <Navigate to="/app/projects" replace />
   }
 
   if (isLoading) {

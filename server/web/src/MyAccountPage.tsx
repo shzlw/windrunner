@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -232,13 +232,12 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
   const [systemInformation, setSystemInformation] = useState<SystemInformation | null>(null)
   const [isLoadingSystemInformation, setIsLoadingSystemInformation] = useState(false)
 
-  async function loadApiKeys(nextPage = apiKeyPage, nextPageSize = apiKeyPageSize) {
+  const loadApiKeys = useCallback(async (nextPage = 0, nextPageSize = apiKeyPageSize) => {
     setIsLoadingApiKeys(true)
     try {
-      const response = await listMyApiKeys(nextPage, nextPageSize)
+      let response = await listMyApiKeys(nextPage, nextPageSize)
       if (response.items.length === 0 && nextPage > 0 && response.totalPages > 0 && nextPage >= response.totalPages) {
-        await loadApiKeys(response.totalPages - 1, nextPageSize)
-        return
+        response = await listMyApiKeys(response.totalPages - 1, nextPageSize)
       }
       setApiKeys(response.items)
       setApiKeyPage(response.page)
@@ -252,9 +251,9 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
     } finally {
       setIsLoadingApiKeys(false)
     }
-  }
+  }, [apiKeyPageSize, t])
 
-  async function loadUser() {
+  const loadUser = useCallback(async () => {
     setIsLoading(true)
 
     try {
@@ -283,13 +282,13 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [apiKeyPageSize, loadApiKeys, onUserChange, t])
 
   useEffect(() => {
     queueMicrotask(() => {
       void loadUser()
     })
-  }, [onUserChange])
+  }, [loadUser])
 
   async function handleLogout() {
     setIsLoggingOut(true)
@@ -385,7 +384,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
       if (createdApiKey?.id === apiKeyId) {
         setCreatedApiKey(null)
       }
-      await loadApiKeys()
+      await loadApiKeys(apiKeyPage, apiKeyPageSize)
       toast.success(t('account.keyRevoked'))
     } catch (revokeError) {
       toast.error(revokeError instanceof Error ? revokeError.message : t('account.failedRevokeKey'))
@@ -643,7 +642,7 @@ export default function MyAccountPage({ currentUser, onUserChange }: MyAccountPa
                     <p className="mt-1 text-sm text-muted-foreground">{t('account.apiKeysDescription')}</p>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button variant="outline" size="sm" onClick={() => void loadApiKeys()} disabled={isLoadingApiKeys} className="gap-2">
+                    <Button variant="outline" size="sm" onClick={() => void loadApiKeys(apiKeyPage, apiKeyPageSize)} disabled={isLoadingApiKeys} className="gap-2">
                       <RefreshCw className={`h-4 w-4 ${isLoadingApiKeys ? 'animate-spin' : ''}`} />
                       {isLoadingApiKeys ? t('account.refreshing') : t('common.refresh')}
                     </Button>

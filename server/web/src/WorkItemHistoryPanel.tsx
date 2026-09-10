@@ -145,7 +145,7 @@ export default function WorkItemHistoryPanel({
         setIsLoadingMore(false)
       }
     },
-    [projectId, workItemId],
+    [projectId, t, workItemId],
   )
 
   useEffect(() => {
@@ -156,7 +156,11 @@ export default function WorkItemHistoryPanel({
 
   useEffect(() => {
     let cancelled = false
-    setIsTimelineLoading(true)
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setIsTimelineLoading(true)
+      }
+    })
     void listWorkItemTimeline(projectId, workItemId)
       .then((data) => {
         if (!cancelled) setTimeline(data)

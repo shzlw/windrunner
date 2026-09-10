@@ -49,12 +49,19 @@ export function NotificationProvider({ currentUser, children }: { currentUser: A
   const userId = currentUser?.id ?? null
 
   useEffect(() => {
-    setNotifications([])
-    setUnreadCount(0)
-    seenIds.current = new Set()
-    if (!userId) return
-
     let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setNotifications([])
+      setUnreadCount(0)
+      seenIds.current = new Set()
+    })
+    if (!userId) {
+      return () => {
+        cancelled = true
+      }
+    }
+
     let refreshId = 0
     function refreshNotifications() {
       const requestId = ++refreshId
@@ -112,7 +119,7 @@ export function NotificationProvider({ currentUser, children }: { currentUser: A
       window.clearInterval(refreshTimer)
       source.close()
     }
-  }, [userId])
+  }, [t, userId])
 
   async function markRead(notification: UserNotification) {
     if (!notification.read) {
