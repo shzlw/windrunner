@@ -7,6 +7,7 @@ import com.windrunner.server.calendar.api.CalendarEventRequest;
 import com.windrunner.server.calendar.api.CalendarEventView;
 import com.windrunner.server.calendar.api.CalendarScopeMemberView;
 import com.windrunner.server.calendar.api.CalendarScopeView;
+import com.windrunner.server.calendar.api.CalendarWorkItemListView;
 import com.windrunner.server.calendar.api.CalendarWorkItemView;
 import com.windrunner.server.calendar.api.CalendarWorkloadMemberView;
 import com.windrunner.server.calendar.api.CalendarWorkloadView;
@@ -123,12 +124,13 @@ public class CalendarEventService {
                 .toList();
     }
 
-    public List<CalendarWorkItemView> listWorkItems(AppUser actor,
-                                                    String scopeType,
-                                                    String scopeId,
-                                                    OffsetDateTime from,
-                                                    OffsetDateTime to) {
-        return findWorkItems(actor, scopeType, scopeId, from, to).items();
+    public CalendarWorkItemListView listWorkItems(AppUser actor,
+                                                  String scopeType,
+                                                  String scopeId,
+                                                  OffsetDateTime from,
+                                                  OffsetDateTime to) {
+        CalendarWorkItemResult result = findWorkItems(actor, scopeType, scopeId, from, to);
+        return new CalendarWorkItemListView(result.items(), result.truncated());
     }
 
     private CalendarWorkItemResult findWorkItems(AppUser actor,

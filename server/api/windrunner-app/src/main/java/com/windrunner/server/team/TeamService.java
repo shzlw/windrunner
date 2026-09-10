@@ -1,6 +1,10 @@
 package com.windrunner.server.team;
 
-import com.windrunner.server.audit.*;
+import com.windrunner.server.audit.AuditActions;
+import com.windrunner.server.audit.AuditEntityTypes;
+import com.windrunner.server.audit.AuditLogEntry;
+import com.windrunner.server.audit.AuditLogService;
+import com.windrunner.server.audit.AuditOutcomes;
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
@@ -28,7 +32,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 @RequiredArgsConstructor
 @Service
@@ -52,7 +62,7 @@ public class TeamService {
         if (teams.isEmpty()) return teams;
         Map<String, List<TeamMember>> membersByTeamId = new LinkedHashMap<>();
         teamMemberRepository.findByTeamIds(teams.stream().map(Team::getId).toList())
-                .forEach(member -> membersByTeamId.computeIfAbsent(member.getTeamId(), ignored -> new java.util.ArrayList<>()).add(member));
+                .forEach(member -> membersByTeamId.computeIfAbsent(member.getTeamId(), ignored -> new ArrayList<>()).add(member));
         Map<String, String> displayNamesByUserId = new LinkedHashMap<>();
         appUserRepository.findAllById(membersByTeamId.values().stream().flatMap(List::stream).map(TeamMember::getUserId).distinct().toList())
                 .forEach(user -> displayNamesByUserId.put(user.getId(), user.getDisplayName() != null && !user.getDisplayName().isBlank() ? user.getDisplayName().trim() : user.getUsername()));

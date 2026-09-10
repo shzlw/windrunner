@@ -419,6 +419,11 @@ export interface CalendarWorkItem {
   overdue: boolean
 }
 
+export interface CalendarWorkItemList {
+  items: CalendarWorkItem[]
+  truncated: boolean
+}
+
 export interface CalendarWorkloadWorkItem {
   workItemId: string
   projectId: string
@@ -1473,10 +1478,10 @@ export async function listCalendarWorkItems(
   to: string,
   scopeType: CalendarScopeType = 'USER',
   scopeId?: string,
-): Promise<CalendarWorkItem[]> {
+): Promise<CalendarWorkItemList> {
   const params = new URLSearchParams({ from, to, scopeType })
   if (scopeId) params.set('scopeId', scopeId)
-  return request<CalendarWorkItem[]>(`/internal-api/v1/calendar/work-items?${params.toString()}`, { method: 'GET' })
+  return request<CalendarWorkItemList>(`/internal-api/v1/calendar/work-items?${params.toString()}`, { method: 'GET' })
 }
 
 export async function getCalendarWorkload(teamId: string, from: string, to: string): Promise<CalendarWorkload> {

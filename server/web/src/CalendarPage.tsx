@@ -16,6 +16,7 @@ import {
 } from 'date-fns'
 import { ChevronLeft, ChevronRight, Loader2, Plus, Save, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 import DeleteConfirmPopover from '@/components/DeleteConfirmPopover'
 import { Button } from '@/components/ui/button'
@@ -103,6 +104,7 @@ function getDefaultForm(day: Date): EventForm {
 }
 
 export default function CalendarPage({ currentUser }: { currentUser: AuthUser | null }) {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const requestedTeamId = searchParams.get('teamId')?.trim() || null
   const requestedFrom = searchParams.get('from')
@@ -114,6 +116,7 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
   const [loadError, setLoadError] = useState<string | null>(null)
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [workItems, setWorkItems] = useState<CalendarWorkItem[]>([])
+  const [workItemsTruncated, setWorkItemsTruncated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -176,6 +179,7 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
         if (!cancelled) {
           setEvents([])
           setWorkItems([])
+          setWorkItemsTruncated(false)
           setIsLoading(false)
         }
       })
@@ -187,6 +191,7 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
       if (!cancelled) {
         setIsLoading(true)
         setLoadError(null)
+        setWorkItemsTruncated(false)
       }
     })
     void Promise.all([
@@ -199,7 +204,8 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
           eventGroups.flat().forEach((event) => uniqueEvents.set(event.id, event))
           setEvents(Array.from(uniqueEvents.values()))
           const uniqueWorkItems = new Map<string, CalendarWorkItem>()
-          workItemGroups.flat().forEach((item) => uniqueWorkItems.set(`${item.workItemId}:${item.assigneeType}:${item.assigneeId}`, item))
+          setWorkItemsTruncated(workItemGroups.some((group) => group.truncated))
+          workItemGroups.flatMap((group) => group.items).forEach((item) => uniqueWorkItems.set(`${item.workItemId}:${item.assigneeType}:${item.assigneeId}`, item))
           setWorkItems(Array.from(uniqueWorkItems.values()))
         }
       })
@@ -207,6 +213,7 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
         if (!cancelled) {
           setEvents([])
           setWorkItems([])
+          setWorkItemsTruncated(false)
           setLoadError(error instanceof Error ? error.message : 'Unable to load calendar events')
         }
       })
@@ -507,6 +514,7 @@ export default function CalendarPage({ currentUser }: { currentUser: AuthUser | 
               <p className="p-4 text-sm text-muted-foreground">Select a team or people to compare their schedules.</p>
             ) : (
               <>
+                {workItemsTruncated ? <p role="status" className="mb-4 border-b pb-3 text-xs text-amber-700 dark:text-amber-300">{t('calendar.workItemsTruncated')}</p> : null}
                 {unscheduledWorkItems.length > 0 ? (
                   <div className="mb-4 border-b pb-3">
                     <div className="mb-2 flex items-center gap-2 text-sm font-semibold">

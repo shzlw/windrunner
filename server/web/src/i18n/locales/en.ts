@@ -331,6 +331,9 @@ const en = {
     workItemsTruncated: 'Work-item counts are incomplete because this team has more than 500 active assignments.',
     failedLoad: 'Failed to load calendar workload.',
   },
+  calendar: {
+    workItemsTruncated: 'Some work items are not shown because this calendar has more than 500 assignments. Narrow the date range or selection to see fewer results.',
+  },
   aiAgent: {
     addContext: 'Add context',
     people: 'People',

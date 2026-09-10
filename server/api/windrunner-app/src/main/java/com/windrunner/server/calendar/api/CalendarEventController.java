@@ -41,7 +41,7 @@ public class CalendarEventController {
     }
 
     @GetMapping("/work-items")
-    public ApiResponse<List<CalendarWorkItemView>> listWorkItems(
+    public ApiResponse<CalendarWorkItemListView> listWorkItems(
             @RequestParam(name = "from") OffsetDateTime from,
             @RequestParam(name = "to") OffsetDateTime to,
             @RequestParam(name = "scopeType", required = false, defaultValue = "USER") String scopeType,

@@ -121,13 +121,14 @@ class CalendarEventServiceTest {
                 new AuditLogRepository.WorkItemStatusRow(
                         "work-1", OffsetDateTime.parse("2026-06-02T12:00:00Z"), "IN_PROGRESS")));
 
-        var items = calendarEventService.listWorkItems(actor, "USER", "actor", rangeStart(), rangeEnd());
+        var result = calendarEventService.listWorkItems(actor, "USER", "actor", rangeStart(), rangeEnd());
 
-        assertThat(items).hasSize(1);
-        assertThat(items.getFirst().startedOn()).isEqualTo(LocalDate.of(2026, 6, 2));
-        assertThat(items.getFirst().dueDate()).isEqualTo(LocalDate.of(2026, 6, 10));
-        assertThat(items.getFirst().status()).isEqualTo("BLOCKED");
-        assertThat(items.getFirst().overdue()).isTrue();
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().getFirst().startedOn()).isEqualTo(LocalDate.of(2026, 6, 2));
+        assertThat(result.items().getFirst().dueDate()).isEqualTo(LocalDate.of(2026, 6, 10));
+        assertThat(result.items().getFirst().status()).isEqualTo("BLOCKED");
+        assertThat(result.items().getFirst().overdue()).isTrue();
+        assertThat(result.truncated()).isFalse();
     }
 
     @Test
@@ -145,9 +146,10 @@ class CalendarEventServiceTest {
                 new AuditLogRepository.WorkItemStatusRow(
                         "work-1", OffsetDateTime.parse("2026-07-01T00:00:00Z"), "IN_PROGRESS")));
 
-        var items = calendarEventService.listWorkItems(actor, "USER", "actor", rangeStart(), rangeEnd());
+        var result = calendarEventService.listWorkItems(actor, "USER", "actor", rangeStart(), rangeEnd());
 
-        assertThat(items).isEmpty();
+        assertThat(result.items()).isEmpty();
+        assertThat(result.truncated()).isFalse();
     }
 
     @Test
@@ -269,6 +271,14 @@ class CalendarEventServiceTest {
         assertThat(workload.workItemsTruncated()).isTrue();
         assertThat(workload.members()).singleElement().satisfies(member ->
                 assertThat(member.unplannedWorkItemCount()).isEqualTo(500));
+
+        var result = calendarEventService.listWorkItems(
+                actor, "TEAM", "team-1",
+                OffsetDateTime.parse("2026-06-01T00:00:00Z"),
+                OffsetDateTime.parse("2026-06-08T00:00:00Z"));
+
+        assertThat(result.items()).hasSize(500);
+        assertThat(result.truncated()).isTrue();
     }
 
     private AppUser user(String id) {

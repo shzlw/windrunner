@@ -103,6 +103,9 @@ const zh = {
   calendarWorkload: {
     title: '团队工作量', scheduled: '{{count}} 项已排期', events: '{{count}} 个事件 · {{hours}} 小时', conflicts: '{{count}} 个冲突', unplanned: '{{count}} 项未排期', teamAssigned: '{{count}} 项团队任务尚未分配到个人', openCalendar: '打开日历', morePeople: '更多人员', noMembers: '未找到团队成员。', workItemsTruncated: '该团队有超过 500 个活跃分配，工作项数量并不完整。', failedLoad: '加载日历工作量失败。',
   },
+  calendar: {
+    workItemsTruncated: '由于此日历有超过 500 个分配，部分工作项未显示。请缩小日期范围或选择范围，以减少结果数量。',
+  },
   aiAgent: {
     addContext: '添加上下文', people: '人员', loadingContext: '正在加载上下文…', noMatchingProjects: '没有匹配的项目', noMatchingTeams: '没有匹配的团队', noMatchingPeople: '没有匹配的人员', useAsContext: '将 {{label}} 用作上下文', removeFromContext: '从上下文移除 {{label}}', projectPrefix: '项目：', aiUnavailable: 'AI 不可用', aiUnavailableDescription: '配置 AI 提供商后即可提问和生成内容。', title: 'AI Agent', failedLoadContext: '加载聊天上下文失败。', failedLoadAiAgent: '加载 AI Agent 失败。', failedLoadProjectContext: '加载项目上下文失败。', maxProjects: '最多可添加 {{count}} 个项目作为上下文。', failedUpdateContext: '更新上下文失败。', failedClearContext: '清除上下文失败。', failedRefreshSessions: '刷新聊天会话失败。', failedAddWorkItem: '添加工作项上下文失败。', failedAddProject: '添加项目上下文失败。', failedAddTeam: '添加团队上下文失败。', failedAddUser: '添加用户上下文失败。', failedRemoveContext: '移除上下文失败。', failedAddPage: '将此页面添加到 AI 上下文失败。',
   },

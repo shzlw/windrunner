@@ -17,9 +17,20 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -42,8 +53,8 @@ public class ExternalWorkItemController {
                                                             @RequestParam(name = "type", required = false) String type,
                                                             @RequestParam(name = "priority", required = false) String priority,
                                                             @RequestParam(name = "updatedAfter", required = false)
-                                                            @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME)
-                                                            java.time.OffsetDateTime updatedAfter,
+                                                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                                                            OffsetDateTime updatedAfter,
                                                             HttpServletRequest request) {
         AppUser actor = externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
@@ -62,7 +73,7 @@ public class ExternalWorkItemController {
                 (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
-    private List<WorkItem> findWorkItemsPage(String projectId, int limit, long offset, String status, String type, String priority, java.time.OffsetDateTime updatedAfter) {
+    private List<WorkItem> findWorkItemsPage(String projectId, int limit, long offset, String status, String type, String priority, OffsetDateTime updatedAfter) {
         return workItemRepository.findPageForProject(projectId,
                 normalizedEnumFilter(status),
                 normalizedEnumFilter(type),
@@ -72,7 +83,7 @@ public class ExternalWorkItemController {
                 offset);
     }
 
-    private long countWorkItems(String projectId, String status, String type, String priority, java.time.OffsetDateTime updatedAfter) {
+    private long countWorkItems(String projectId, String status, String type, String priority, OffsetDateTime updatedAfter) {
         return workItemRepository.countForProject(projectId,
                 normalizedEnumFilter(status),
                 normalizedEnumFilter(type),
@@ -156,8 +167,7 @@ public class ExternalWorkItemController {
 
     private WorkItem requireWorkItem(String id) {
         return workItemRepository.findById(id)
-                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
-                        org.springframework.http.HttpStatus.NOT_FOUND, "Work item not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Work item not found"));
     }
 
     private static ResponseStatusException createBadRequestException(String message) {
