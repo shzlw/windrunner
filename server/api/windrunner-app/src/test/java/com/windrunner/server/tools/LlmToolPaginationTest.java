@@ -110,7 +110,7 @@ class LlmToolPaginationTest {
 
         assertThat(response.total()).isEqualTo(21);
         assertThat(response.hasMore()).isTrue();
-        verify(workItemRepository, never()).findPageForProject("project-1", null, null, null, null, 20, 0L);
+        verify(workItemRepository, never()).findPageForProject("project-1", null, null, null, null, null, 20, 0L);
     }
 
     @Test

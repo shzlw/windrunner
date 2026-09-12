@@ -13,6 +13,7 @@ import com.windrunner.server.work.api.WorkItemRequest;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.domain.WorkItemAssignee;
 import com.windrunner.server.work.persistence.WorkItemRepository;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +50,8 @@ public class ExternalWorkItemController {
     public ApiResponse<List<ExternalWorkItemResponse>> list(@PathVariable("projectId") String projectId,
                                                             @RequestParam(name = "page", defaultValue = "0") int page,
                                                             @RequestParam(name = "size", defaultValue = "50") int size,
+                                                            @Parameter(description = "Exact parent work item id. Use PROJECT_ROOT for top-level work items; omit to include all parents.")
+                                                            @RequestParam(name = "parentWorkItemId", required = false) String parentWorkItemId,
                                                             @RequestParam(name = "status", required = false) String status,
                                                             @RequestParam(name = "type", required = false) String type,
                                                             @RequestParam(name = "priority", required = false) String priority,
@@ -60,8 +63,10 @@ public class ExternalWorkItemController {
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.max(1, Math.min(size, 100));
-        List<WorkItem> items = findWorkItemsPage(projectId, normalizedSize, (long) normalizedPage * normalizedSize, status, type, priority, updatedAfter);
-        long totalItems = countWorkItems(projectId, status, type, priority, updatedAfter);
+        String normalizedParentWorkItemId = normalizeParentWorkItemFilter(parentWorkItemId);
+        List<WorkItem> items = findWorkItemsPage(projectId, normalizedParentWorkItemId, normalizedSize,
+                (long) normalizedPage * normalizedSize, status, type, priority, updatedAfter);
+        long totalItems = countWorkItems(projectId, normalizedParentWorkItemId, status, type, priority, updatedAfter);
         Map<String, List<WorkItemAssignee>> assigneesByWorkItemId =
                 workItems.findAssigneesByWorkItemIds(items.stream().map(WorkItem::getId).toList());
         return ApiResponse.page(
@@ -73,8 +78,10 @@ public class ExternalWorkItemController {
                 (int) Math.ceil(totalItems / (double) normalizedSize));
     }
 
-    private List<WorkItem> findWorkItemsPage(String projectId, int limit, long offset, String status, String type, String priority, OffsetDateTime updatedAfter) {
+    private List<WorkItem> findWorkItemsPage(String projectId, String parentWorkItemId, int limit, long offset,
+                                             String status, String type, String priority, OffsetDateTime updatedAfter) {
         return workItemRepository.findPageForProject(projectId,
+                parentWorkItemId,
                 normalizedEnumFilter(status),
                 normalizedEnumFilter(type),
                 normalizedEnumFilter(priority),
@@ -83,8 +90,10 @@ public class ExternalWorkItemController {
                 offset);
     }
 
-    private long countWorkItems(String projectId, String status, String type, String priority, OffsetDateTime updatedAfter) {
+    private long countWorkItems(String projectId, String parentWorkItemId, String status, String type,
+                                String priority, OffsetDateTime updatedAfter) {
         return workItemRepository.countForProject(projectId,
+                parentWorkItemId,
                 normalizedEnumFilter(status),
                 normalizedEnumFilter(type),
                 normalizedEnumFilter(priority),
@@ -101,6 +110,16 @@ public class ExternalWorkItemController {
             return null;
         }
         return value.trim().toUpperCase();
+    }
+
+    private static String normalizeParentWorkItemFilter(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        ExternalInputValidation.requireMaxLength(
+                normalized, "Parent work item id", ExternalInputValidation.MAX_ID_LENGTH);
+        return "PROJECT_ROOT".equalsIgnoreCase(normalized) ? "PROJECT_ROOT" : normalized;
     }
 
     @PostMapping("/projects/{projectId}/work-items")

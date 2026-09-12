@@ -67,7 +67,7 @@ class ExternalWorkItemControllerTest {
     void listRequiresReadScopeAndProjectViewer() {
         when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ)).thenReturn(actor());
 
-        controller().list(PROJECT_ID, 0, 50, null, null, null, null, request);
+        controller().list(PROJECT_ID, 0, 50, null, null, null, null, null, request);
 
         verify(projectAccessService).requireProjectRole(PROJECT_ID, actor(), ProjectRoles.VIEWER);
     }
@@ -77,12 +77,12 @@ class ExternalWorkItemControllerTest {
         when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ)).thenReturn(actor());
         WorkItem item = workItem("witm-1", PROJECT_ID, "OPEN");
         List<WorkItemAssignee> assignees = List.of(new WorkItemAssignee());
-        when(workItemRepository.findPageForProject(PROJECT_ID, null, null, null, null, 25, 0L)).thenReturn(List.of(item));
-        when(workItemRepository.countForProject(PROJECT_ID, null, null, null, null)).thenReturn(42L);
+        when(workItemRepository.findPageForProject(PROJECT_ID, null, null, null, null, null, 25, 0L)).thenReturn(List.of(item));
+        when(workItemRepository.countForProject(PROJECT_ID, null, null, null, null, null)).thenReturn(42L);
         when(workItems.findAssigneesByWorkItemIds(List.of("witm-1"))).thenReturn(Map.of("witm-1", assignees));
 
         ApiResponse<List<ExternalWorkItemResponse>> response = controller().list(
-                PROJECT_ID, 0, 25, null, null, null, null, request);
+                PROJECT_ID, 0, 25, null, null, null, null, null, request);
 
         assertThat(response.data()).hasSize(1);
         assertThat(response.data().get(0)).isEqualTo(ExternalWorkItemResponse.from(item, assignees));
@@ -93,17 +93,18 @@ class ExternalWorkItemControllerTest {
     }
 
     @Test
-    void listNormalizesPaginationAndBlankFilters() {
+    void listNormalizesPaginationAndFilters() {
         when(externalAccessService.requireScope(request, ApiKeyScopes.WORK_ITEMS_READ)).thenReturn(actor());
-        when(workItemRepository.findPageForProject(PROJECT_ID, "OPEN", null, null,
+        when(workItemRepository.findPageForProject(PROJECT_ID, "PROJECT_ROOT", "OPEN", null, null,
                 OffsetDateTime.parse("2026-01-01T00:00:00Z"), 100, 0L)).thenReturn(List.of());
-        when(workItemRepository.countForProject(PROJECT_ID, "OPEN", null, null,
+        when(workItemRepository.countForProject(PROJECT_ID, "PROJECT_ROOT", "OPEN", null, null,
                 OffsetDateTime.parse("2026-01-01T00:00:00Z"))).thenReturn(0L);
 
-        // lowercase input is uppercased to match how enum values are stored
-        controller().list(PROJECT_ID, -3, 500, " open ", " ", "", OffsetDateTime.parse("2026-01-01T00:00:00Z"), request);
+        // Enum values and the root sentinel are normalized while exact parent ids remain case-sensitive.
+        controller().list(PROJECT_ID, -3, 500, " project_root ", " open ", " ", "",
+                OffsetDateTime.parse("2026-01-01T00:00:00Z"), request);
 
-        verify(workItemRepository).findPageForProject(PROJECT_ID, "OPEN", null, null,
+        verify(workItemRepository).findPageForProject(PROJECT_ID, "PROJECT_ROOT", "OPEN", null, null,
                 OffsetDateTime.parse("2026-01-01T00:00:00Z"), 100, 0L);
     }
 

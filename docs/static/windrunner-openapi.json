@@ -910,6 +910,15 @@
             }
           },
           {
+            "name": "parentWorkItemId",
+            "in": "query",
+            "description": "Exact parent work item id. Use PROJECT_ROOT for top-level work items; omit to include all parents.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "status",
             "in": "query",
             "required": false,

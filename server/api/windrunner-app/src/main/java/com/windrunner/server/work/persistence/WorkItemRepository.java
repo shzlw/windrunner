@@ -206,6 +206,9 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
             SELECT w.id, w.project_id, w.parent_work_item_id, w.sort_index, w.type, w.title, w.status, w.due_date, w.priority, w.created_by_user_id, w.created_at, w.updated_at
             FROM work_item w
             WHERE w.project_id = :projectId
+              AND (:parentWorkItemId IS NULL
+                OR (:parentWorkItemId = 'PROJECT_ROOT' AND w.parent_work_item_id IS NULL)
+                OR w.parent_work_item_id = :parentWorkItemId)
               AND (:status IS NULL OR w.status = :status)
               AND (:type IS NULL OR w.type = :type)
               AND (:priority IS NULL OR w.priority = :priority)
@@ -214,6 +217,7 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
             LIMIT :limit OFFSET :offset
             """)
     List<WorkItem> findPageForProject(@Param("projectId") String projectId,
+                                      @Param("parentWorkItemId") String parentWorkItemId,
                                       @Param("status") String status,
                                       @Param("type") String type,
                                       @Param("priority") String priority,
@@ -225,12 +229,16 @@ public interface WorkItemRepository extends CrudRepository<WorkItem, String> {
             SELECT COUNT(*)
             FROM work_item w
             WHERE w.project_id = :projectId
+              AND (:parentWorkItemId IS NULL
+                OR (:parentWorkItemId = 'PROJECT_ROOT' AND w.parent_work_item_id IS NULL)
+                OR w.parent_work_item_id = :parentWorkItemId)
               AND (:status IS NULL OR w.status = :status)
               AND (:type IS NULL OR w.type = :type)
               AND (:priority IS NULL OR w.priority = :priority)
               AND (CAST(:updatedAfter AS TIMESTAMPTZ) IS NULL OR w.updated_at > CAST(:updatedAfter AS TIMESTAMPTZ))
             """)
     long countForProject(@Param("projectId") String projectId,
+                         @Param("parentWorkItemId") String parentWorkItemId,
                          @Param("status") String status,
                          @Param("type") String type,
                          @Param("priority") String priority,
