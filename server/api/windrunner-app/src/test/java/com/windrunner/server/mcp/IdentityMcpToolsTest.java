@@ -1,18 +1,22 @@
 package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
+import com.windrunner.server.tools.ToolExecutionContext;
+import com.windrunner.server.tools.calendar.FetchTeamCalendarWorkloadTool;
 import com.windrunner.server.tools.identity.FetchTeamMembersTool;
 import com.windrunner.server.tools.identity.FetchTeamDetailsTool;
 import com.windrunner.server.tools.identity.FetchTeamProjectsTool;
 import com.windrunner.server.tools.identity.FetchTeamsTool;
 import com.windrunner.server.tools.identity.FetchUserDetailsTool;
 import com.windrunner.server.tools.identity.FetchUsersTool;
+import com.windrunner.server.user.domain.AppUser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,6 +42,8 @@ class IdentityMcpToolsTest {
     private FetchUsersTool users;
     @Mock
     private FetchUserDetailsTool userDetails;
+    @Mock
+    private FetchTeamCalendarWorkloadTool teamCalendarWorkload;
 
     @Test
     void listTeamsDelegatesToBoundedProgressiveTool() throws Exception {
@@ -81,7 +87,30 @@ class IdentityMcpToolsTest {
         verify(userDetails).execute(eq(new FetchUserDetailsTool.Parameters(List.of("user-1"))), any());
     }
 
+    @Test
+    void teamWorkloadRequiresAllUnderlyingReadScopes() throws Exception {
+        AppUser actor = new AppUser();
+        actor.setId("user-1");
+        ToolExecutionContext context = new ToolExecutionContext(actor, null, List.of("project-1"));
+        when(authorization.requireScopes(
+                ApiKeyScopes.TEAMS_READ,
+                ApiKeyScopes.TEAM_MEMBERS_READ,
+                ApiKeyScopes.WORK_ITEMS_READ,
+                ApiKeyScopes.CALENDAR_EVENTS_READ)).thenReturn(actor);
+        when(authorization.toolContext(actor)).thenReturn(context);
+        when(teamCalendarWorkload.execute(any(FetchTeamCalendarWorkloadTool.Parameters.class), eq(context)))
+                .thenReturn(null);
+        LocalDate from = LocalDate.of(2026, 9, 14);
+        LocalDate to = LocalDate.of(2026, 9, 20);
+
+        assertThat(tools().getTeamWorkload("team-1", from, to)).isNull();
+
+        verify(teamCalendarWorkload).execute(
+                eq(new FetchTeamCalendarWorkloadTool.Parameters("team-1", from, to)), eq(context));
+    }
+
     private IdentityMcpTools tools() {
-        return new IdentityMcpTools(authorization, teams, teamDetails, teamMembers, teamProjects, users, userDetails);
+        return new IdentityMcpTools(
+                authorization, teams, teamDetails, teamMembers, teamProjects, users, userDetails, teamCalendarWorkload);
     }
 }

@@ -1,6 +1,7 @@
 package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
+import com.windrunner.server.tools.attention.FetchMyAttentionTool;
 import com.windrunner.server.external.auth.ExternalAccessService;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.tools.work.FetchEntriesTool;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,6 +53,8 @@ class WorkItemMcpToolsTest {
     @Mock
     private FetchRelationshipsTool fetchRelationships;
     @Mock
+    private FetchMyAttentionTool attention;
+    @Mock
     private HttpServletRequest request;
     private AppUser actor;
 
@@ -58,7 +62,7 @@ class WorkItemMcpToolsTest {
     void setUpRequestContext() {
         actor = new AppUser();
         actor.setId("user-1");
-        when(request.getAttribute(McpAuthenticationFilter.ACTOR_REQUEST_ATTRIBUTE)).thenReturn(actor);
+        lenient().when(request.getAttribute(McpAuthenticationFilter.ACTOR_REQUEST_ATTRIBUTE)).thenReturn(actor);
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
     }
 
@@ -108,6 +112,19 @@ class WorkItemMcpToolsTest {
         verify(fetchRelationships).execute(eq(new FetchRelationshipsTool.Parameters("project-1", "item-1", 5, 0)), any());
     }
 
+    @Test
+    void attentionSummaryRequiresWorkItemAndNotificationScopes() throws Exception {
+        when(externalAccessService.requireScopes(
+                request, ApiKeyScopes.WORK_ITEMS_READ, ApiKeyScopes.NOTIFICATIONS_READ)).thenReturn(actor);
+        when(attention.execute(any(FetchMyAttentionTool.Parameters.class), any())).thenReturn(null);
+
+        assertThat(controller().getAttentionSummary()).isNull();
+
+        verify(externalAccessService).requireScopes(
+                request, ApiKeyScopes.WORK_ITEMS_READ, ApiKeyScopes.NOTIFICATIONS_READ);
+        verify(attention).execute(any(FetchMyAttentionTool.Parameters.class), any());
+    }
+
     private WorkItemMcpTools controller() {
         return new WorkItemMcpTools(
                 searchService,
@@ -117,6 +134,7 @@ class WorkItemMcpToolsTest {
                 workItems,
                 assignees,
                 fetchEntries,
-                fetchRelationships);
+                fetchRelationships,
+                attention);
     }
 }

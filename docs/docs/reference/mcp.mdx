@@ -69,6 +69,10 @@ Read tools:
 | `list_project_blockers` | `work_items:read` + `relationships:read` | Server-side blocker results with bounded pagination |
 | `get_project_summary` | `projects:read` + `work_items:read` + `entries:read` + `relationships:read` | Server-side project totals and distributions |
 | `list_my_work` | *(any valid key)* | A bounded, paginated page of items assigned to the key owner |
+| `get_attention_summary` | `work_items:read` + `notifications:read` | Bounded overdue, blocked, due-soon, new-assignment, and unread-notification sections for the key owner |
+| `get_work_item_timeline` | `work_items:read` | The latest significant lifecycle events for one work item |
+| `list_project_assignees` | `project_access:read` + `users:read` + `teams:read` | Bounded users and teams eligible for assignment in one project |
+| `get_team_workload` | `teams:read` + `team_members:read` + `work_items:read` + `calendar_events:read` | Read-only team workload comparison for an inclusive range of up to 31 days |
 
 Write tools:
 
@@ -87,9 +91,12 @@ collection responses include `total` and `hasMore` where pagination applies.
 Fetch another page only when the question requires it, then use a targeted
 detail tool for the selected ID.
 
-Project summaries and blocker results are aggregated on the server, so they do
-not require loading every work item or entry into the model. This keeps MCP
-usage aligned with the same progressive-fetch behavior used by AI Agent.
+Project summaries, attention, timelines, and workload results are aggregated
+on the server, so they do not require loading every underlying record into the
+model. This keeps MCP usage aligned with the same progressive-fetch behavior
+used by AI Agent. Workload results describe apparent workload rather than
+guaranteed availability; check their truncation flags before drawing a
+conclusion.
 
 ## Safety
 

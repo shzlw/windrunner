@@ -21,6 +21,8 @@ public final class ApiKeyScopes {
     public static final String ENTRIES_WRITE = "entries:write";
     public static final String RELATIONSHIPS_READ = "relationships:read";
     public static final String RELATIONSHIPS_WRITE = "relationships:write";
+    public static final String CALENDAR_EVENTS_READ = "calendar_events:read";
+    public static final String NOTIFICATIONS_READ = "notifications:read";
     public static final String AUDIT_LOGS_READ = "audit_logs:read";
 
     public static final List<String> ORDERED_SCOPES = List.of(
@@ -40,6 +42,8 @@ public final class ApiKeyScopes {
             ENTRIES_WRITE,
             RELATIONSHIPS_READ,
             RELATIONSHIPS_WRITE,
+            CALENDAR_EVENTS_READ,
+            NOTIFICATIONS_READ,
             AUDIT_LOGS_READ
     );
 

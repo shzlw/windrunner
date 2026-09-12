@@ -675,7 +675,7 @@ const en = {
     revokeDescription: 'This key will stop working immediately.',
     revoke: 'Revoke',
     revoking: 'Revoking…',
-    scopeGroups: { teams: 'Teams', users: 'Users', projects: 'Projects', workItems: 'Work items', entries: 'Entries', relationships: 'Relationships', audit: 'Audit' },
+    scopeGroups: { teams: 'Teams', users: 'Users', projects: 'Projects', workItems: 'Work items', entries: 'Entries', relationships: 'Relationships', calendar: 'Calendar', notifications: 'Notifications', audit: 'Audit' },
     scopeOptions: {
       teamsReadLabel: 'Read teams', teamsReadDescription: 'Read teams from the external API.',
       teamsWriteLabel: 'Write teams', teamsWriteDescription: 'Create, update, and delete teams.',
@@ -693,6 +693,8 @@ const en = {
       entriesWriteLabel: 'Write entries', entriesWriteDescription: 'Create, update, and delete entries.',
       relationshipsReadLabel: 'Read relationships', relationshipsReadDescription: 'Read dependencies, blockers, answers, and other semantic links.',
       relationshipsWriteLabel: 'Write relationships', relationshipsWriteDescription: 'Create and delete semantic relationships.',
+      calendarEventsReadLabel: 'Read calendar events', calendarEventsReadDescription: 'Read calendar events and team workload.',
+      notificationsReadLabel: 'Read notifications', notificationsReadDescription: 'Read notifications for the key owner.',
       auditLogsReadLabel: 'Read audit logs', auditLogsReadDescription: 'Read global or project audit logs.',
     },
   },

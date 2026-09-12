@@ -1,9 +1,16 @@
 package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
+import com.windrunner.server.calendar.api.CalendarWorkloadView;
 import com.windrunner.server.tools.Tool;
 import com.windrunner.server.tools.ToolExecutionContext;
-import com.windrunner.server.tools.identity.*;
+import com.windrunner.server.tools.calendar.FetchTeamCalendarWorkloadTool;
+import com.windrunner.server.tools.identity.FetchTeamDetailsTool;
+import com.windrunner.server.tools.identity.FetchTeamMembersTool;
+import com.windrunner.server.tools.identity.FetchTeamProjectsTool;
+import com.windrunner.server.tools.identity.FetchTeamsTool;
+import com.windrunner.server.tools.identity.FetchUserDetailsTool;
+import com.windrunner.server.tools.identity.FetchUsersTool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
@@ -11,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -29,6 +37,7 @@ public class IdentityMcpTools {
     private final FetchTeamProjectsTool teamProjects;
     private final FetchUsersTool users;
     private final FetchUserDetailsTool userDetails;
+    private final FetchTeamCalendarWorkloadTool teamCalendarWorkload;
 
     @McpTool(
             name = "list_teams",
@@ -116,8 +125,30 @@ public class IdentityMcpTools {
         return new UserDetails(user.id(), user.username(), user.displayName(), user.email(), user.title(), user.bio());
     }
 
+    @McpTool(
+            name = "get_team_workload",
+            description = "Return a read-only workload comparison for one accessible team over an inclusive date range of 1 to 31 days. Results include scheduled and unplanned assigned work, calendar events, conflicts, team-assigned work, and explicit truncation flags. Treat this as apparent workload, not proof of availability.",
+            generateOutputSchema = true,
+            annotations = @McpAnnotations(
+                    readOnlyHint = true,
+                    destructiveHint = false,
+                    idempotentHint = true,
+                    openWorldHint = false))
+    public CalendarWorkloadView getTeamWorkload(String teamId, LocalDate from, LocalDate to) {
+        ToolExecutionContext context = createIdentityContext(
+                ApiKeyScopes.TEAMS_READ,
+                ApiKeyScopes.TEAM_MEMBERS_READ,
+                ApiKeyScopes.WORK_ITEMS_READ,
+                ApiKeyScopes.CALENDAR_EVENTS_READ);
+        return execute(teamCalendarWorkload, new FetchTeamCalendarWorkloadTool.Parameters(teamId, from, to), context);
+    }
+
     private ToolExecutionContext createIdentityContext(String scope) {
         return authorization.toolContext(authorization.requireScope(scope));
+    }
+
+    private ToolExecutionContext createIdentityContext(String... scopes) {
+        return authorization.toolContext(authorization.requireScopes(scopes));
     }
 
     @SuppressWarnings("unchecked")

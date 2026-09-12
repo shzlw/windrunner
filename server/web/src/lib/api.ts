@@ -28,6 +28,8 @@ export type ApiKeyScope =
   | 'entries:write'
   | 'relationships:read'
   | 'relationships:write'
+  | 'calendar_events:read'
+  | 'notifications:read'
   | 'audit_logs:read'
 
 export interface ApiKey {

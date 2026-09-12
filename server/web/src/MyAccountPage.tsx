@@ -112,6 +112,18 @@ const API_KEY_SCOPE_GROUPS: Array<{
     ],
   },
   {
+    label: 'Calendar',
+    options: [
+      { value: 'calendar_events:read', label: 'Read calendar events', description: 'Read calendar events and team workload.' },
+    ],
+  },
+  {
+    label: 'Notifications',
+    options: [
+      { value: 'notifications:read', label: 'Read notifications', description: 'Read notifications for the key owner.' },
+    ],
+  },
+  {
     label: 'Audit',
     options: [
       { value: 'audit_logs:read', label: 'Read audit logs', description: 'Read global or project audit logs.' },
@@ -130,6 +142,8 @@ const scopeGroupKeys: Record<string, string> = {
   'Work items': 'account.scopeGroups.workItems',
   Entries: 'account.scopeGroups.entries',
   Relationships: 'account.scopeGroups.relationships',
+  Calendar: 'account.scopeGroups.calendar',
+  Notifications: 'account.scopeGroups.notifications',
   Audit: 'account.scopeGroups.audit',
 }
 
@@ -150,6 +164,8 @@ const scopeOptionKeys: Record<ApiKeyScope, { label: string; description: string 
   'entries:write': { label: 'account.scopeOptions.entriesWriteLabel', description: 'account.scopeOptions.entriesWriteDescription' },
   'relationships:read': { label: 'account.scopeOptions.relationshipsReadLabel', description: 'account.scopeOptions.relationshipsReadDescription' },
   'relationships:write': { label: 'account.scopeOptions.relationshipsWriteLabel', description: 'account.scopeOptions.relationshipsWriteDescription' },
+  'calendar_events:read': { label: 'account.scopeOptions.calendarEventsReadLabel', description: 'account.scopeOptions.calendarEventsReadDescription' },
+  'notifications:read': { label: 'account.scopeOptions.notificationsReadLabel', description: 'account.scopeOptions.notificationsReadDescription' },
   'audit_logs:read': { label: 'account.scopeOptions.auditLogsReadLabel', description: 'account.scopeOptions.auditLogsReadDescription' },
 }
 

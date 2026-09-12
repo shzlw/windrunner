@@ -1,11 +1,13 @@
 package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
+import com.windrunner.server.attention.api.AttentionSummaryView;
 import com.windrunner.server.external.auth.ExternalAccessService;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.tools.Tool;
 import com.windrunner.server.tools.ToolExecutionContext;
+import com.windrunner.server.tools.attention.FetchMyAttentionTool;
 import com.windrunner.server.tools.work.FetchEntriesTool;
 import com.windrunner.server.tools.work.FetchRelationshipsTool;
 import com.windrunner.server.user.domain.AppUser;
@@ -43,6 +45,7 @@ public class WorkItemMcpTools {
     private final WorkItemAssigneeRepository assignees;
     private final FetchEntriesTool fetchEntries;
     private final FetchRelationshipsTool fetchRelationships;
+    private final FetchMyAttentionTool attention;
 
     @McpTool(
             name = "search_work_items",
@@ -135,6 +138,21 @@ public class WorkItemMcpTools {
         long total = assignedWorkService.countAssignedToUser(actor);
         return new MyWorkPage(items, items.size(), total, normalizedLimit, normalizedOffset,
                 normalizedOffset + items.size() < total);
+    }
+
+    @McpTool(
+            name = "get_attention_summary",
+            description = "Return a bounded priority summary for the API-key owner: overdue, blocked, due-soon, and newly assigned work plus important unread notifications. Each section has a hasMore flag; omitted items are not evidence that no additional matches exist.",
+            generateOutputSchema = true,
+            annotations = @McpAnnotations(
+                    readOnlyHint = true,
+                    destructiveHint = false,
+                    idempotentHint = true,
+                    openWorldHint = false))
+    public AttentionSummaryView getAttentionSummary() {
+        AppUser actor = requireScopes(ApiKeyScopes.WORK_ITEMS_READ, ApiKeyScopes.NOTIFICATIONS_READ);
+        return execute(attention, new FetchMyAttentionTool.Parameters(),
+                new ToolExecutionContext(actor, null, List.of()));
     }
 
     /**

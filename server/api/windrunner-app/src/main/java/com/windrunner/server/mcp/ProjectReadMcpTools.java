@@ -1,9 +1,18 @@
 package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
+import com.windrunner.server.audit.api.WorkItemTimelineSummaryView;
 import com.windrunner.server.tools.Tool;
 import com.windrunner.server.tools.ToolExecutionContext;
-import com.windrunner.server.tools.work.*;
+import com.windrunner.server.tools.identity.FetchProjectAssigneesTool;
+import com.windrunner.server.tools.work.FetchEntriesTool;
+import com.windrunner.server.tools.work.FetchProjectBlockersTool;
+import com.windrunner.server.tools.work.FetchProjectSummaryTool;
+import com.windrunner.server.tools.work.FetchRelationshipsTool;
+import com.windrunner.server.tools.work.FetchWorkItemTimelineTool;
+import com.windrunner.server.tools.work.FetchWorkItemsTool;
+import com.windrunner.server.tools.work.FindRelationshipsExactTool;
+import com.windrunner.server.tools.work.SearchEntriesTool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
@@ -26,6 +35,8 @@ public class ProjectReadMcpTools {
     private final FetchProjectSummaryTool summary;
     private final SearchEntriesTool searchEntries;
     private final FindRelationshipsExactTool exactRelationships;
+    private final FetchWorkItemTimelineTool workItemTimeline;
+    private final FetchProjectAssigneesTool projectAssignees;
 
     @McpTool(
             name = "list_work_items",
@@ -143,6 +154,40 @@ public class ProjectReadMcpTools {
         AuthorizedProject authorizedProject = authorizeProject(projectId, ApiKeyScopes.RELATIONSHIPS_READ);
         return execute(exactRelationships, new FindRelationshipsExactTool.Parameters(
                 authorizedProject.projectId(), fromType, fromId, toType, toId, relationshipType), authorizedProject.context());
+    }
+
+    @McpTool(
+            name = "get_work_item_timeline",
+            description = "Return the latest significant lifecycle events for one work item, ordered newest first. The bounded result includes creation, assignment, status, start, pause, resume, completion, reopening, and due-date changes; it is not the complete audit log.",
+            generateOutputSchema = true,
+            annotations = @McpAnnotations(
+                    readOnlyHint = true,
+                    destructiveHint = false,
+                    idempotentHint = true,
+                    openWorldHint = false))
+    public WorkItemTimelineSummaryView getWorkItemTimeline(String projectId, String workItemId, Integer limit) {
+        AuthorizedProject authorizedProject = authorizeProject(projectId, ApiKeyScopes.WORK_ITEMS_READ);
+        return execute(workItemTimeline, new FetchWorkItemTimelineTool.Parameters(
+                authorizedProject.projectId(), workItemId, limit), authorizedProject.context());
+    }
+
+    @McpTool(
+            name = "list_project_assignees",
+            description = "Find active users and linked teams eligible for work-item assignment in one project. Search by user name, username, email, or team name and use only returned IDs when assigning work. The result is bounded.",
+            generateOutputSchema = true,
+            annotations = @McpAnnotations(
+                    readOnlyHint = true,
+                    destructiveHint = false,
+                    idempotentHint = true,
+                    openWorldHint = false))
+    public FetchProjectAssigneesTool.Result listProjectAssignees(String projectId, String query, Integer limit) {
+        AuthorizedProject authorizedProject = authorizeProject(
+                projectId,
+                ApiKeyScopes.PROJECT_ACCESS_READ,
+                ApiKeyScopes.USERS_READ,
+                ApiKeyScopes.TEAMS_READ);
+        return execute(projectAssignees, new FetchProjectAssigneesTool.Parameters(
+                authorizedProject.projectId(), query, limit), authorizedProject.context());
     }
 
     private AuthorizedProject authorizeProject(String projectId, String... scopes) {

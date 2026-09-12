@@ -34,7 +34,7 @@ export type E2EContext = {
   csrfToken?: string;
 };
 
-/** All scopes used by the public v1 REST API. */
+/** All scopes used by the public v1 REST API and MCP server. */
 export const EXTERNAL_API_SCOPES = [
   'teams:read',
   'teams:write',
@@ -52,6 +52,8 @@ export const EXTERNAL_API_SCOPES = [
   'entries:write',
   'relationships:read',
   'relationships:write',
+  'calendar_events:read',
+  'notifications:read',
   'audit_logs:read',
 ] as const;
 
