@@ -97,6 +97,8 @@ the desired order; use `--parent-id` to target a child work-item stream.
 
 ```bash
 windrunner work-items list PROJECT_ID --status OPEN --json
+windrunner work-items list PROJECT_ID --parent-id PROJECT_ROOT --json
+windrunner work-items list PROJECT_ID --parent-id PARENT_WORK_ITEM_ID --json
 
 windrunner work-items create PROJECT_ID \
   --title "Fix login" \
@@ -110,6 +112,10 @@ windrunner work-items update WORK_ITEM_ID \
 windrunner work-items move WORK_ITEM_ID --parent-id PARENT_ID --before ENTRY:entry-1
 windrunner work-items delete WORK_ITEM_ID --yes
 ```
+
+For `work-items list`, omit `--parent-id` to include all hierarchy levels. Use
+`PROJECT_ROOT` to return only top-level items, or provide a work-item ID to
+return its direct children.
 
 Use `--assignee USER:<id>` or `--assignee TEAM:<id>` to assign work. Repeat
 `--assignee` to provide multiple assignments:

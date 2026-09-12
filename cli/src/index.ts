@@ -537,6 +537,7 @@ addAgentHelp(
       .command("list")
       .description("List work items in a project")
       .argument("<projectId>", "Project id")
+      .option("--parent-id <workItemId|PROJECT_ROOT>", "Filter by exact parent; use PROJECT_ROOT for top-level items")
       .option("--status <status>", "Filter by status")
       .option("--type <type>", "Filter by type")
       .option("--priority <priority>", "Filter by priority"),
@@ -545,13 +546,14 @@ addAgentHelp(
 
 Examples:
   windrunner work-items list PROJECT_ID
-  windrunner work-items list PROJECT_ID --status OPEN --size 25 --json`,
+  windrunner work-items list PROJECT_ID --parent-id PROJECT_ROOT --status OPEN --size 25 --json`,
 ).action(
   async (
     projectId: string,
     options: {
       page: string;
       size: string;
+      parentId?: string;
       status?: string;
       type?: string;
       priority?: string;
@@ -565,6 +567,7 @@ Examples:
       `/projects/${encode(projectId)}/work-items${queryString({
         page: numberValue(options.page, "page"),
         size: numberValue(options.size, "size"),
+        parentWorkItemId: options.parentId,
         status: options.status,
         type: options.type,
         priority: options.priority,

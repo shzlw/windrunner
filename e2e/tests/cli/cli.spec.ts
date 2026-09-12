@@ -176,6 +176,7 @@ test.describe('CLI against a running server', () => {
 
       const secondWorkItem = await runJson<any>([
         'work-items', 'create', createdProjectId, '--title', uniqueName('second-work-item'), '--type', 'NOTE',
+        '--parent-id', firstWorkItemId,
       ], authenticated.apiKey);
       secondWorkItemId = secondWorkItem.workItem.id as string;
       expect(secondWorkItemId).toBeTruthy();
@@ -187,6 +188,26 @@ test.describe('CLI against a running server', () => {
         '--updated-after', '1970-01-01T00:00:00Z',
       ], authenticated.apiKey);
       expect(listedWorkItems).toEqual(expect.arrayContaining([
+        expect.objectContaining({workItem: expect.objectContaining({id: firstWorkItemId})}),
+      ]));
+
+      const rootWorkItems = await runJson<any[]>([
+        'work-items', 'list', createdProjectId, '--parent-id', 'PROJECT_ROOT',
+      ], authenticated.apiKey);
+      expect(rootWorkItems).toEqual(expect.arrayContaining([
+        expect.objectContaining({workItem: expect.objectContaining({id: firstWorkItemId})}),
+      ]));
+      expect(rootWorkItems).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({workItem: expect.objectContaining({id: secondWorkItemId})}),
+      ]));
+
+      const childWorkItems = await runJson<any[]>([
+        'work-items', 'list', createdProjectId, '--parent-id', firstWorkItemId,
+      ], authenticated.apiKey);
+      expect(childWorkItems).toEqual(expect.arrayContaining([
+        expect.objectContaining({workItem: expect.objectContaining({id: secondWorkItemId})}),
+      ]));
+      expect(childWorkItems).not.toEqual(expect.arrayContaining([
         expect.objectContaining({workItem: expect.objectContaining({id: firstWorkItemId})}),
       ]));
 
