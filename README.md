@@ -2,6 +2,9 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Docker Pulls](https://img.shields.io/docker/pulls/shzlwio/windrunner?logo=docker&label=docker%20pulls)](https://hub.docker.com/r/shzlwio/windrunner)
+[![Version](https://img.shields.io/github/v/tag/shzlw/windrunner?sort=semver&label=version)](https://github.com/shzlw/windrunner/tags)
+[![Docker Image Version](https://img.shields.io/docker/v/shzlwio/windrunner?sort=semver)](https://hub.docker.com/r/shzlwio/windrunner/tags)
+[![CI](https://github.com/shzlw/windrunner/actions/workflows/ci.yml/badge.svg)](https://github.com/shzlw/windrunner/actions/workflows/ci.yml)
 
 > Talk to your work.
 

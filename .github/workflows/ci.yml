@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    name: Web lint and application build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: server/web/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Install web dependencies
+        working-directory: ./server/web
+        run: npm ci
+
+      - name: Lint web
+        working-directory: ./server/web
+        run: npm run lint
+
+      - name: Build application
+        env:
+          WINDRUNNER_LLM_PROVIDER: none
+        run: SKIP_NPM_CI=1 ./server/build.sh
+
+  docs:
+    name: Documentation build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./docs
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: ./docs
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: ./docs
+        run: npm run build
+
+  cli:
+    name: CLI build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./cli
+        run: npm ci
+
+      - name: Build
+        working-directory: ./cli
+        run: npm run build
