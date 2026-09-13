@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Bot,
   CheckCircle2,
+  GitBranch,
   KeyRound,
   ListTodo,
   ListTree,
@@ -15,6 +16,7 @@ import {
   Server,
   Terminal,
   TrendingUp,
+  Users,
 } from 'lucide-react';
 
 const collaborationFeatures = [
@@ -229,6 +231,52 @@ const agentScenarios = [
   },
 ] as const;
 
+const agentInputs = [
+  {
+    icon: Users,
+    label: 'Teams and people',
+    detail: 'Ownership, members, and capacity',
+  },
+  {
+    icon: ListTree,
+    label: 'Projects',
+    detail: 'Structure, goals, and team context',
+  },
+  {
+    icon: ListTodo,
+    label: 'Work items',
+    detail: 'Status, priority, dates, and assignments',
+  },
+  {
+    icon: GitBranch,
+    label: 'Entries and relationships',
+    detail: 'Decisions, blockers, dependencies, and context',
+  },
+] as const;
+
+const agentAnswers = [
+  {
+    icon: Users,
+    label: 'Find who can help',
+    detail: 'Teams, people, and ownership',
+  },
+  {
+    icon: ListTodo,
+    label: 'See what needs attention',
+    detail: 'Overdue, blocked, and due-soon work',
+  },
+  {
+    icon: MessageSquareText,
+    label: 'Understand what happened',
+    detail: 'Timeline and current progress',
+  },
+  {
+    icon: CheckCircle2,
+    label: 'Review changes before applying',
+    detail: 'Clear proposals for workspace updates',
+  },
+] as const;
+
 function FeatureCard({icon: Icon, title, description, to, accent}: Feature) {
   return (
     <Link
@@ -372,6 +420,102 @@ function AgentFlowPreview(): ReactNode {
   );
 }
 
+function AgentDataFlow(): ReactNode {
+  return (
+    <section className="home-data-section" aria-labelledby="home-data-title">
+      <div className="container">
+        <div className="home-data-heading">
+          <p className="home-data-eyebrow">Data in · answers out</p>
+          <h2 id="home-data-title">Bring your work to Windrunner. Ask it anything.</h2>
+          <p>
+            Keep your team’s people, projects, and context structured in one
+            shared work graph. Windrunner turns it into clear answers in chat.
+          </p>
+        </div>
+
+        <div className="home-data-flow">
+          <div className="home-data-column">
+            <div className="home-data-column-heading">
+              <span>Feed the work graph</span>
+              <strong>Data in</strong>
+            </div>
+            <div className="home-data-list">
+              {agentInputs.map(({icon: Icon, label, detail}) => (
+                <div className="home-data-item" key={label}>
+                  <span className="home-data-item-icon">
+                    <Icon size={17} strokeWidth={1.8} aria-hidden="true" />
+                  </span>
+                  <span className="home-data-item-copy">
+                    <strong>{label}</strong>
+                    <span>{detail}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="home-data-connector home-data-connector--in" aria-hidden="true">
+            <svg viewBox="0 0 100 194" preserveAspectRatio="none">
+              <defs>
+                <marker id="home-data-arrow-in" markerWidth="4.5" markerHeight="4.5" refX="4" refY="2.25" orient="auto">
+                  <path d="M0,0 L4.5,2.25 L0,4.5 Z" fill="currentColor" />
+                </marker>
+              </defs>
+              <path className="home-data-flow-line" d="M2 53.5 C36 53.5, 65 97, 96 97" markerEnd="url(#home-data-arrow-in)" />
+              <path className="home-data-flow-line" d="M2 94.5 C36 94.5, 65 97, 96 97" markerEnd="url(#home-data-arrow-in)" />
+              <path className="home-data-flow-line" d="M2 135.5 C36 135.5, 65 97, 96 97" markerEnd="url(#home-data-arrow-in)" />
+              <path className="home-data-flow-line" d="M2 176.5 C36 176.5, 65 97, 96 97" markerEnd="url(#home-data-arrow-in)" />
+            </svg>
+          </div>
+
+          <div className="home-data-core">
+            <div className="home-data-core-icon">
+              <Bot size={30} strokeWidth={1.7} aria-hidden="true" />
+            </div>
+            <strong>Windrunner</strong>
+            <span>Understands the connected work graph</span>
+          </div>
+
+          <div className="home-data-connector home-data-connector--out" aria-hidden="true">
+            <svg viewBox="0 0 100 194" preserveAspectRatio="none">
+              <defs>
+                <marker id="home-data-arrow-out" markerWidth="4.5" markerHeight="4.5" refX="4" refY="2.25" orient="auto">
+                  <path d="M0,0 L4.5,2.25 L0,4.5 Z" fill="currentColor" />
+                </marker>
+              </defs>
+              <path className="home-data-flow-line" d="M4 97 C36 97, 65 53.5, 98 53.5" markerEnd="url(#home-data-arrow-out)" />
+              <path className="home-data-flow-line" d="M4 97 C36 97, 65 94.5, 98 94.5" markerEnd="url(#home-data-arrow-out)" />
+              <path className="home-data-flow-line" d="M4 97 C36 97, 65 135.5, 98 135.5" markerEnd="url(#home-data-arrow-out)" />
+              <path className="home-data-flow-line" d="M4 97 C36 97, 65 176.5, 98 176.5" markerEnd="url(#home-data-arrow-out)" />
+            </svg>
+          </div>
+
+          <div className="home-data-column">
+            <div className="home-data-column-heading">
+              <span>Ask in chat</span>
+              <strong>Answers out</strong>
+            </div>
+            <div className="home-data-list">
+              {agentAnswers.map(({icon: Icon, label, detail}) => (
+                <div className="home-data-item home-data-answer" key={label}>
+                  <span className="home-data-item-icon">
+                    <Icon size={17} strokeWidth={1.8} aria-hidden="true" />
+                  </span>
+                  <span className="home-data-item-copy">
+                    <strong>{label}</strong>
+                    <span>{detail}</span>
+                  </span>
+                  <ArrowRight className="home-data-answer-arrow" size={16} strokeWidth={1.8} aria-hidden="true" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home(): ReactNode {
   return (
     <Layout
@@ -420,6 +564,8 @@ export default function Home(): ReactNode {
             <AgentFlowPreview />
           </div>
         </header>
+
+        <AgentDataFlow />
 
         <section className="container home-features">
           <h2 className="home-features-title">One workspace for people, progress, and AI</h2>
