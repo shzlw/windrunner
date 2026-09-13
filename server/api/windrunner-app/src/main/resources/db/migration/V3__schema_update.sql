@@ -2,8 +2,12 @@ CREATE TABLE proposal
 (
     id                   VARCHAR(64) PRIMARY KEY,
     workflow_type        VARCHAR(40) NOT NULL,
-    chat_session_id      VARCHAR(64) NOT NULL,
-    source_message_id    VARCHAR(64) NOT NULL,
+    project_id           VARCHAR(64),
+    source_type          VARCHAR(20) NOT NULL DEFAULT 'CHAT',
+    chat_session_id      VARCHAR(64),
+    source_message_id    VARCHAR(64),
+    source_text          TEXT,
+    source_api_key_id    VARCHAR(64),
     actor_id             VARCHAR(64) NOT NULL,
     status               VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     reviewed_by_actor_id VARCHAR(64),
@@ -15,6 +19,10 @@ CREATE TABLE proposal
 
 CREATE INDEX proposal_session_idx
     ON proposal (chat_session_id, actor_id, created_at DESC, id);
+
+CREATE INDEX proposal_project_idx
+    ON proposal (project_id, created_at DESC, id)
+    WHERE project_id IS NOT NULL;
 
 CREATE TABLE proposal_change
 (
@@ -40,6 +48,103 @@ CREATE INDEX proposal_change_order_idx
 
 CREATE INDEX proposal_change_entity_idx
     ON proposal_change (entity_type, operation, status);
+
+INSERT INTO proposal (
+    id,
+    workflow_type,
+    project_id,
+    source_type,
+    chat_session_id,
+    source_message_id,
+    source_text,
+    actor_id,
+    status,
+    created_at,
+    updated_at
+)
+SELECT
+    workspace_proposal.id,
+    'WORKSPACE',
+    workspace_proposal.project_id,
+    'CHAT',
+    workspace_proposal.chat_session_id,
+    workspace_proposal.source_message_id,
+    workspace_proposal.source_text,
+    chat_session.user_id,
+    CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM workspace_change open_change
+            WHERE open_change.proposal_id = workspace_proposal.id
+              AND open_change.status IN ('PENDING', 'NEEDS_UPDATE')
+        ) THEN 'PENDING'
+        WHEN NOT EXISTS (
+            SELECT 1
+            FROM workspace_change non_applied_change
+            WHERE non_applied_change.proposal_id = workspace_proposal.id
+              AND non_applied_change.status <> 'APPLIED'
+        ) THEN 'APPLIED'
+        WHEN NOT EXISTS (
+            SELECT 1
+            FROM workspace_change non_rejected_change
+            WHERE non_rejected_change.proposal_id = workspace_proposal.id
+              AND non_rejected_change.status <> 'REJECTED'
+        ) THEN 'REJECTED'
+        ELSE 'COMPLETED'
+    END,
+    workspace_proposal.created_at,
+    workspace_proposal.updated_at
+FROM workspace_change_proposal workspace_proposal
+JOIN chat_session ON chat_session.id = workspace_proposal.chat_session_id;
+
+INSERT INTO proposal_change (
+    id,
+    proposal_id,
+    sort_index,
+    entity_type,
+    operation,
+    target_ref,
+    payload,
+    before_snapshot,
+    after_snapshot,
+    base_version,
+    status,
+    feedback,
+    applied_at,
+    created_at,
+    updated_at
+)
+SELECT
+    workspace_change.id,
+    workspace_change.proposal_id,
+    workspace_change.sort_index,
+    workspace_change.entity_type,
+    workspace_change.action,
+    jsonb_build_object(
+        'projectId', workspace_change.project_id,
+        'targetId', workspace_change.target_id,
+        'summary', workspace_change.summary
+    ),
+    COALESCE(workspace_change.payload_json, '{}'::jsonb),
+    COALESCE(workspace_change.previous_json, '{}'::jsonb),
+    COALESCE(workspace_change.payload_json, '{}'::jsonb),
+    CASE
+        WHEN workspace_change.previous_json IS NULL THEN '{}'::jsonb
+        WHEN workspace_change.entity_type = 'WORK_ITEM' THEN
+            jsonb_build_object('updatedAt', workspace_change.previous_json #>> '{workItem,updatedAt}')
+        WHEN workspace_change.entity_type = 'ENTRY' THEN
+            jsonb_build_object('updatedAt', workspace_change.previous_json ->> 'updatedAt')
+        ELSE workspace_change.previous_json
+    END,
+    workspace_change.status,
+    workspace_change.feedback,
+    workspace_change.applied_at,
+    workspace_change.created_at,
+    workspace_change.updated_at
+FROM workspace_change;
+
+DROP TABLE workspace_change;
+DROP TABLE workspace_change_proposal;
 
 ALTER TABLE team_member
     ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();

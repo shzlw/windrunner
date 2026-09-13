@@ -3,8 +3,8 @@ package com.windrunner.server.proposal;
 /**
  * Selects typed handlers while leaving workflow-specific status transitions to the workflow service.
  */
-public interface ProposalWorkflow<T> {
+public interface ProposalWorkflow<T, P> {
     String getWorkflowType();
 
-    ProposalHandler<T> handler(String entityType);
+    ProposalHandler<T, P> handler(String entityType);
 }

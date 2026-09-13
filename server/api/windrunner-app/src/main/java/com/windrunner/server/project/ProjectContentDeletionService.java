@@ -3,8 +3,12 @@ package com.windrunner.server.project;
 import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.chat.persistence.ChatSessionContextRepository;
 import com.windrunner.server.notification.persistence.UserNotificationRepository;
+import com.windrunner.server.proposal.ProposalRepository;
 import com.windrunner.server.subscription.persistence.SubscriptionRepository;
-import com.windrunner.server.work.persistence.*;
+import com.windrunner.server.work.persistence.EntryRepository;
+import com.windrunner.server.work.persistence.RelationshipRepository;
+import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
+import com.windrunner.server.work.persistence.WorkItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,8 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProjectContentDeletionService {
 
-    private final WorkspaceChangeRepository workspaceChangeRepository;
-    private final WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
+    private final ProposalRepository proposalRepository;
     private final WorkItemAssigneeRepository workItemAssigneeRepository;
     private final RelationshipRepository relationshipRepository;
     private final EntryRepository entryRepository;
@@ -30,8 +33,8 @@ public class ProjectContentDeletionService {
 
     @Transactional
     public void deleteProjectContent(String projectId) {
-        workspaceChangeRepository.deleteByProjectId(projectId);
-        workspaceChangeProposalRepository.deleteByProjectId(projectId);
+        proposalRepository.deleteChangesByProjectId(projectId);
+        proposalRepository.deleteByProjectId(projectId);
         workItemAssigneeRepository.deleteByProjectId(projectId);
         relationshipRepository.deleteByProjectId(projectId);
         entryRepository.deleteByProjectId(projectId);

@@ -18,8 +18,6 @@ import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.WorkItemRepository;
-import com.windrunner.server.work.persistence.WorkspaceChangeProposalRepository;
-import com.windrunner.server.work.persistence.WorkspaceChangeRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -44,10 +42,6 @@ class ChatServiceTest {
     private ChatMessageRepository messageRepository;
     @Mock
     private ChatSessionSummaryRepository summaryRepository;
-    @Mock
-    private WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
-    @Mock
-    private WorkspaceChangeRepository workspaceChangeRepository;
     @Mock
     private EntityIdGenerator idGenerator;
     @Mock

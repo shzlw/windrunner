@@ -24,7 +24,7 @@ import static com.windrunner.server.proposal.identity.IdentityProposalUtils.*;
 
 @Component
 @RequiredArgsConstructor
-final class ProjectMembershipProposalHandler implements ProposalHandler<ProposalDraft> {
+final class ProjectMembershipProposalHandler implements ProposalHandler<ProposalDraft, ProposalPreparedChange> {
     private final ProjectAccessService projectAccessService;
     private final ProjectMembershipService projectMembershipService;
     private final ProjectRepository projectRepository;

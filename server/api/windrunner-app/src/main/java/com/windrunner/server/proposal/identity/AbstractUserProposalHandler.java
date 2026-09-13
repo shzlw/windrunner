@@ -16,7 +16,7 @@ import java.util.*;
 
 import static com.windrunner.server.proposal.identity.IdentityProposalUtils.*;
 
-abstract class AbstractUserProposalHandler implements ProposalHandler<ProposalDraft> {
+abstract class AbstractUserProposalHandler implements ProposalHandler<ProposalDraft, ProposalPreparedChange> {
     private final ProposalKind kind;
     private final Set<String> allowedFields;
     protected final UserAdminService userAdminService;

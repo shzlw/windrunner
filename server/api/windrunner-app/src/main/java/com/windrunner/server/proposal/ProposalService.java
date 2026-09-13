@@ -65,7 +65,7 @@ public class ProposalService {
      * The active workflow supplies entity-specific authorization, snapshots, and application.
      * The null fallback is retained only for legacy one-change rows and isolated callers.
      */
-    private final ProposalWorkflow<ProposalDraft> proposalWorkflow;
+    private final ProposalWorkflow<ProposalDraft, ProposalPreparedChange> proposalWorkflow;
 
     @Transactional
     public List<ProposalCreated> create(ToolExecutionContext context, String sourceMessageId, ProposalKind kind, List<ProposalDraft> drafts) {

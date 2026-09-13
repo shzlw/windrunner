@@ -6,12 +6,16 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ProposalChangeRepository extends CrudRepository<ProposalChange, String> {
     String COLUMNS = "id, proposal_id, sort_index, entity_type, operation, target_ref::text AS target_ref, payload::text AS payload, before_snapshot::text AS before_snapshot, after_snapshot::text AS after_snapshot, base_version::text AS base_version, status, feedback, applied_at, created_at, updated_at";
 
     @Query("SELECT " + COLUMNS + " FROM proposal_change WHERE proposal_id = :proposalId ORDER BY sort_index, id")
     List<ProposalChange> findByProposalId(@Param("proposalId") String proposalId);
+
+    @Query("SELECT " + COLUMNS + " FROM proposal_change WHERE id = :id AND proposal_id = :proposalId")
+    Optional<ProposalChange> findInProposal(@Param("id") String id, @Param("proposalId") String proposalId);
 
     @Modifying
     @Query("INSERT INTO proposal_change (id, proposal_id, sort_index, entity_type, operation, target_ref, payload, before_snapshot, after_snapshot, base_version, status) VALUES (:id, :proposalId, :sortIndex, :entityType, :operation, CAST(:targetRef AS jsonb), CAST(:payload AS jsonb), CAST(:beforeSnapshot AS jsonb), CAST(:afterSnapshot AS jsonb), CAST(:baseVersion AS jsonb), 'PENDING')")
@@ -22,7 +26,7 @@ public interface ProposalChangeRepository extends CrudRepository<ProposalChange,
                 @Param("baseVersion") String baseVersion);
 
     @Modifying
-    @Query("UPDATE proposal_change SET status = :status, feedback = :feedback, applied_at = CASE WHEN :status = 'APPLIED' THEN NOW() ELSE applied_at END, updated_at = NOW() WHERE id = :id AND proposal_id = :proposalId AND status = 'PENDING'")
+    @Query("UPDATE proposal_change SET status = :status, feedback = :feedback, applied_at = CASE WHEN :status = 'APPLIED' THEN NOW() ELSE applied_at END, updated_at = NOW() WHERE id = :id AND proposal_id = :proposalId AND status IN ('PENDING', 'NEEDS_UPDATE')")
     int decide(@Param("id") String id, @Param("proposalId") String proposalId, @Param("status") String status,
                @Param("feedback") String feedback);
 }

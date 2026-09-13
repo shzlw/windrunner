@@ -3,8 +3,12 @@ package com.windrunner.server.project;
 import com.windrunner.server.calendar.persistence.CalendarEventRepository;
 import com.windrunner.server.chat.persistence.ChatSessionContextRepository;
 import com.windrunner.server.notification.persistence.UserNotificationRepository;
+import com.windrunner.server.proposal.ProposalRepository;
 import com.windrunner.server.subscription.persistence.SubscriptionRepository;
-import com.windrunner.server.work.persistence.*;
+import com.windrunner.server.work.persistence.EntryRepository;
+import com.windrunner.server.work.persistence.RelationshipRepository;
+import com.windrunner.server.work.persistence.WorkItemAssigneeRepository;
+import com.windrunner.server.work.persistence.WorkItemRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -16,9 +20,7 @@ import static org.mockito.Mockito.verify;
 class ProjectContentDeletionServiceTest {
 
     @Mock
-    private WorkspaceChangeRepository workspaceChangeRepository;
-    @Mock
-    private WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
+    private ProposalRepository proposalRepository;
     @Mock
     private WorkItemAssigneeRepository workItemAssigneeRepository;
     @Mock
@@ -38,11 +40,11 @@ class ProjectContentDeletionServiceTest {
 
     @Test
     void deletesProjectOwnedOperationalDataButNotHistoryTables() {
-        new ProjectContentDeletionService(workspaceChangeRepository, workspaceChangeProposalRepository, workItemAssigneeRepository, relationshipRepository, entryRepository,
+        new ProjectContentDeletionService(proposalRepository, workItemAssigneeRepository, relationshipRepository, entryRepository,
                 subscriptionRepository, userNotificationRepository, chatSessionContextRepository, workItemRepository, calendarEventRepository).deleteProjectContent("proj-1");
 
-        verify(workspaceChangeRepository).deleteByProjectId("proj-1");
-        verify(workspaceChangeProposalRepository).deleteByProjectId("proj-1");
+        verify(proposalRepository).deleteChangesByProjectId("proj-1");
+        verify(proposalRepository).deleteByProjectId("proj-1");
         verify(workItemAssigneeRepository).deleteByProjectId("proj-1");
         verify(relationshipRepository).deleteByProjectId("proj-1");
         verify(entryRepository).deleteByProjectId("proj-1");

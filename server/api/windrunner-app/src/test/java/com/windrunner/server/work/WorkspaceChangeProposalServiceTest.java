@@ -2,29 +2,33 @@ package com.windrunner.server.work;
 
 import com.windrunner.server.id.EntityIdGenerator;
 import com.windrunner.server.id.EntityIdType;
+import com.windrunner.server.proposal.Proposal;
+import com.windrunner.server.proposal.ProposalChange;
+import com.windrunner.server.proposal.ProposalChangeRepository;
+import com.windrunner.server.proposal.ProposalHandler;
+import com.windrunner.server.proposal.ProposalRepository;
+import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.utils.JsonUtils;
-import com.windrunner.server.work.domain.Relationship;
-import com.windrunner.server.work.domain.WorkspaceChangeProposal;
 import com.windrunner.server.work.api.ChangeDraft;
 import com.windrunner.server.work.api.DecisionRequest;
 import com.windrunner.server.work.api.ProposalDraft;
-import com.windrunner.server.work.api.RelationshipDraft;
+import com.windrunner.server.work.api.WorkItemDraft;
 import com.windrunner.server.work.api.WorkItemPayload;
 import com.windrunner.server.work.domain.WorkItem;
-import com.windrunner.server.work.domain.WorkspaceChange;
-import com.windrunner.server.work.persistence.WorkspaceChangeProposalRepository;
-import com.windrunner.server.work.persistence.WorkspaceChangeRepository;
+import com.windrunner.server.work.proposal.WorkspacePreparedChange;
+import com.windrunner.server.work.proposal.WorkspaceProposalChange;
+import com.windrunner.server.work.proposal.WorkspaceProposalTarget;
+import com.windrunner.server.work.proposal.WorkspaceProposalWorkflow;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,113 +36,113 @@ import static org.mockito.Mockito.when;
 class WorkspaceChangeProposalServiceTest {
 
     @Mock
-    private WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
+    private ProposalRepository proposalRepository;
     @Mock
-    private WorkspaceChangeRepository workspaceChangeRepository;
+    private ProposalChangeRepository proposalChangeRepository;
     @Mock
-    private WorkItemService workItems;
-    @Mock
-    private EntryService entries;
-    @Mock
-    private RelationshipService relationships;
+    private WorkspaceProposalWorkflow proposalWorkflow;
     @Mock
     private EntityIdGenerator entityIdGenerator;
+    @Mock
+    private ProposalHandler<WorkspaceProposalChange, WorkspacePreparedChange> proposalHandler;
 
     @Test
-    void relationshipUpdateWithNullReasonPreservesExistingReason() {
-        Relationship proposed = createRelationshipUpdate(null);
+    void createsWorkspaceChangesInTheUnifiedProposalTables() {
+        AppUser actor = new AppUser();
+        actor.setId("actor-1");
+        ChangeDraft changeDraft = new ChangeDraft(
+                "WORK_ITEM", "ADD", null, "new-task", "Create work item",
+                new WorkItemDraft("Task", "TASK", "OPEN", null, null, null, List.of()),
+                null, null);
+        WorkItem workItem = new WorkItem();
+        workItem.setId("work-item-1");
+        workItem.setProjectId("project-1");
+        workItem.setTitle("Task");
+        String payload = JsonUtils.toJson(new WorkItemPayload(workItem, List.of()));
+        Proposal proposal = new Proposal();
+        proposal.setId("proposal-1");
+        proposal.setProjectId("project-1");
+        proposal.setStatus("PENDING");
+        ProposalChange storedChange = createChange("change-1", "PENDING");
+        storedChange.setOperation("ADD");
+        storedChange.setPayload(payload);
 
-        assertThat(proposed.getReason()).isEqualTo("Existing reason");
-    }
+        when(entityIdGenerator.generate(EntityIdType.WORK_ITEM))
+                .thenReturn("work-item-1");
+        when(entityIdGenerator.generate(EntityIdType.PROPOSAL))
+                .thenReturn("proposal-1");
+        when(entityIdGenerator.generate(EntityIdType.PROPOSAL_CHANGE))
+                .thenReturn("change-1");
+        when(proposalWorkflow.handler("WORK_ITEM")).thenReturn(proposalHandler);
+        when(proposalHandler.prepare(any(), same(actor)))
+                .thenReturn(new WorkspacePreparedChange(payload, null, "{}"));
+        when(proposalRepository.findWorkspaceInProject("proposal-1", "project-1"))
+                .thenReturn(Optional.of(proposal));
+        when(proposalChangeRepository.findByProposalId("proposal-1")).thenReturn(List.of(storedChange));
 
-    @Test
-    void relationshipUpdateWithBlankReasonClearsExistingReason() {
-        Relationship proposed = createRelationshipUpdate("  ");
+        WorkspaceChangeProposalService service = new WorkspaceChangeProposalService(
+                proposalRepository, proposalChangeRepository, proposalWorkflow, entityIdGenerator);
+        service.create("project-1", "chat-1", "message-1", "Create it", actor,
+                new ProposalDraft(List.of(changeDraft)));
 
-        assertThat(proposed.getReason()).isNull();
+        verify(proposalRepository).insertWorkspace(
+                "proposal-1", "project-1", "chat-1", "message-1", "Create it", "actor-1");
+        verify(proposalChangeRepository).insert(
+                "change-1", "proposal-1", 0, "WORK_ITEM", "ADD",
+                JsonUtils.toJson(new WorkspaceProposalTarget("project-1", "work-item-1", "Create work item")),
+                payload, "{}", payload, "{}");
     }
 
     @Test
     void rejectsEveryOpenChangeInOneDecision() {
-        WorkspaceChangeProposal proposal = new WorkspaceChangeProposal();
+        Proposal proposal = new Proposal();
         proposal.setId("proposal-1");
         proposal.setProjectId("project-1");
         proposal.setStatus("PENDING");
-        WorkspaceChange first = createChange("change-1", "PENDING");
-        WorkspaceChange second = createChange("change-2", "NEEDS_UPDATE");
-        WorkspaceChange rejectedFirst = createChange("change-1", "REJECTED");
-        WorkspaceChange rejectedSecond = createChange("change-2", "REJECTED");
+        ProposalChange first = createChange("change-1", "PENDING");
+        ProposalChange second = createChange("change-2", "NEEDS_UPDATE");
+        ProposalChange rejectedFirst = createChange("change-1", "REJECTED");
+        ProposalChange rejectedSecond = createChange("change-2", "REJECTED");
+        AppUser actor = new AppUser();
+        actor.setId("actor-1");
 
-        when(workspaceChangeProposalRepository.findInProjectForUpdate("proposal-1", "project-1"))
+        when(proposalRepository.findWorkspaceInProjectForUpdate("proposal-1", "project-1"))
                 .thenReturn(Optional.of(proposal));
-        when(workspaceChangeProposalRepository.findInProject("proposal-1", "project-1"))
+        when(proposalRepository.findWorkspaceInProject("proposal-1", "project-1"))
                 .thenReturn(Optional.of(proposal));
-        when(workspaceChangeRepository.findByProposalId("proposal-1"))
-                .thenReturn(List.of(first, second), List.of(rejectedFirst, rejectedSecond));
+        when(proposalChangeRepository.findByProposalId("proposal-1"))
+                .thenReturn(List.of(first, second), List.of(rejectedFirst, rejectedSecond),
+                        List.of(rejectedFirst, rejectedSecond));
+        when(proposalChangeRepository.decide("change-1", "proposal-1", "REJECTED", null)).thenReturn(1);
+        when(proposalChangeRepository.decide("change-2", "proposal-1", "REJECTED", null)).thenReturn(1);
+        when(proposalRepository.updateWorkspaceStatus("proposal-1", "project-1", "REJECTED", "actor-1"))
+                .thenReturn(1);
 
         WorkspaceChangeProposalService service = new WorkspaceChangeProposalService(
-                workspaceChangeProposalRepository, workspaceChangeRepository, workItems, entries, relationships, entityIdGenerator);
-        service.decideAll("project-1", "proposal-1", new DecisionRequest("REJECT", null), "actor-1");
+                proposalRepository, proposalChangeRepository, proposalWorkflow, entityIdGenerator);
+        service.decideAll("project-1", "proposal-1", new DecisionRequest("REJECT", null), actor);
 
-        verify(workspaceChangeRepository).decide("change-1", "proposal-1", "project-1", "REJECTED", null);
-        verify(workspaceChangeRepository).decide("change-2", "proposal-1", "project-1", "REJECTED", null);
-        verify(workspaceChangeProposalRepository).updateStatus("proposal-1", "project-1", "COMPLETED");
+        verify(proposalChangeRepository).decide("change-1", "proposal-1", "REJECTED", null);
+        verify(proposalChangeRepository).decide("change-2", "proposal-1", "REJECTED", null);
+        verify(proposalRepository).updateWorkspaceStatus("proposal-1", "project-1", "REJECTED", "actor-1");
     }
 
-    private WorkspaceChange createChange(String id, String status) {
-        WorkspaceChange change = new WorkspaceChange();
+    private ProposalChange createChange(String id, String status) {
+        ProposalChange change = new ProposalChange();
         change.setId(id);
         change.setProposalId("proposal-1");
-        change.setProjectId("project-1");
         change.setSortIndex(0);
         change.setEntityType("WORK_ITEM");
-        change.setAction("UPDATE");
-        change.setTargetId("work-item-1");
-        change.setSummary("Update work item");
+        change.setOperation("UPDATE");
+        change.setTargetRef(JsonUtils.toJson(
+                new WorkspaceProposalTarget("project-1", "work-item-1", "Update work item")));
         change.setStatus(status);
         WorkItem workItem = new WorkItem();
         workItem.setId("work-item-1");
         workItem.setProjectId("project-1");
         workItem.setTitle("Work item");
-        change.setPayloadJson(JsonUtils.toJson(new WorkItemPayload(workItem, List.of())));
+        change.setPayload(JsonUtils.toJson(new WorkItemPayload(workItem, List.of())));
+        change.setBeforeSnapshot("{}");
         return change;
-    }
-
-    private Relationship createRelationshipUpdate(String requestedReason) {
-        Relationship current = new Relationship();
-        current.setId("relationship-1");
-        current.setProjectId("project-1");
-        current.setFromEntityType("WORK_ITEM");
-        current.setFromEntityId("work-item-1");
-        current.setToEntityType("WORK_ITEM");
-        current.setToEntityId("work-item-2");
-        current.setType("BLOCKS");
-        current.setReason("Existing reason");
-
-        WorkspaceChangeProposal proposal = new WorkspaceChangeProposal();
-        proposal.setId("proposal-1");
-        proposal.setProjectId("project-1");
-        proposal.setStatus("PENDING");
-
-        when(entityIdGenerator.generate(EntityIdType.WORKSPACE_CHANGE_PROPOSAL)).thenReturn("proposal-1");
-        when(entityIdGenerator.generate(EntityIdType.WORKSPACE_CHANGE)).thenReturn("change-1");
-        when(relationships.list("project-1")).thenReturn(List.of(current));
-        when(workspaceChangeProposalRepository.findInProject("proposal-1", "project-1")).thenReturn(Optional.of(proposal));
-        when(workspaceChangeRepository.findByProposalId("proposal-1")).thenReturn(List.of());
-
-        WorkspaceChangeProposalService workspaceChangeProposalService = new WorkspaceChangeProposalService(
-                workspaceChangeProposalRepository, workspaceChangeRepository, workItems, entries, relationships, entityIdGenerator);
-        var relationshipDraft = new RelationshipDraft(
-                null, null, null, null, null, requestedReason, null);
-        var changeDraft = new ChangeDraft(
-                "RELATIONSHIP", "UPDATE", "relationship-1", null, "Update relationship", null, null,
-                relationshipDraft);
-        workspaceChangeProposalService.create("project-1", "chat-1", "message-1", "Update it",
-                new ProposalDraft(List.of(changeDraft)));
-
-        ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
-        verify(workspaceChangeRepository).insert(eq("change-1"), eq("proposal-1"), eq("project-1"), anyInt(),
-                eq("RELATIONSHIP"), eq("UPDATE"), eq("relationship-1"), anyString(), payload.capture(), any());
-        return JsonUtils.fromJson(payload.getValue(), Relationship.class);
     }
 }

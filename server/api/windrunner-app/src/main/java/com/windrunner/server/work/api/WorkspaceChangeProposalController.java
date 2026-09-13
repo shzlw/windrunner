@@ -41,7 +41,7 @@ public class WorkspaceChangeProposalController {
                                                            jakarta.servlet.http.HttpServletRequest request) {
         AppUser actor = authService.requireCurrentUser(request);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
-        return ApiResponse.success(workspaceChangeProposalService.decide(projectId, proposalId, changeId, body, actor.getId()));
+        return ApiResponse.success(workspaceChangeProposalService.decide(projectId, proposalId, changeId, body, actor));
     }
 
     @PostMapping("/{proposalId}/decision")
@@ -51,6 +51,6 @@ public class WorkspaceChangeProposalController {
                                                               jakarta.servlet.http.HttpServletRequest request) {
         AppUser actor = authService.requireCurrentUser(request);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
-        return ApiResponse.success(workspaceChangeProposalService.decideAll(projectId, proposalId, body, actor.getId()));
+        return ApiResponse.success(workspaceChangeProposalService.decideAll(projectId, proposalId, body, actor));
     }
 }

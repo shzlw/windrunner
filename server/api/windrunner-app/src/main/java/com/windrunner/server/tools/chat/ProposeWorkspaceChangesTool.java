@@ -29,6 +29,7 @@ public class ProposeWorkspaceChangesTool {
                 "propose_workspace_changes",
                 FileUtils.loadSystemPrompt("propose-workspace-changes-tool.md"),
                 ProposalDraft.class,
-                draft -> workspaceChangeProposalService.create(authorizedProjectId, chatSessionId, sourceMessageId, sourceText, draft));
+                draft -> workspaceChangeProposalService.create(authorizedProjectId, chatSessionId, sourceMessageId,
+                        sourceText, context.actor(), draft));
     }
 }

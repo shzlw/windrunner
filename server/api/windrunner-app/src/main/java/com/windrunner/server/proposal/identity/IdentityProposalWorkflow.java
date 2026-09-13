@@ -1,6 +1,7 @@
 package com.windrunner.server.proposal.identity;
 
 import com.windrunner.server.proposal.ProposalHandler;
+import com.windrunner.server.proposal.ProposalPreparedChange;
 import com.windrunner.server.proposal.ProposalDraft;
 import com.windrunner.server.proposal.ProposalWorkflow;
 import org.springframework.stereotype.Component;
@@ -8,10 +9,10 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 @Component
-public final class IdentityProposalWorkflow implements ProposalWorkflow<ProposalDraft> {
+public final class IdentityProposalWorkflow implements ProposalWorkflow<ProposalDraft, ProposalPreparedChange> {
     public static final String WORKFLOW_TYPE = "IDENTITY";
 
-    private final Map<String, ProposalHandler<ProposalDraft>> handlers;
+    private final Map<String, ProposalHandler<ProposalDraft, ProposalPreparedChange>> handlers;
 
     public IdentityProposalWorkflow(TeamProposalHandler team,
                                     TeamMembershipProposalHandler teamMembership,
@@ -32,8 +33,8 @@ public final class IdentityProposalWorkflow implements ProposalWorkflow<Proposal
     }
 
     @Override
-    public ProposalHandler<ProposalDraft> handler(String entityType) {
-        ProposalHandler<ProposalDraft> handler = handlers.get(entityType);
+    public ProposalHandler<ProposalDraft, ProposalPreparedChange> handler(String entityType) {
+        ProposalHandler<ProposalDraft, ProposalPreparedChange> handler = handlers.get(entityType);
         if (handler == null)
             throw new IllegalArgumentException("Unsupported identity proposal entity type: " + entityType);
         return handler;

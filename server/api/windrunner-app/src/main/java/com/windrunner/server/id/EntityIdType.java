@@ -22,8 +22,6 @@ public enum EntityIdType {
     WORK_ITEM_ASSIGNEE("wias"),
     ENTRY("entr"),
     RELATIONSHIP("rela"),
-    WORKSPACE_CHANGE_PROPOSAL("wcpr"),
-    WORKSPACE_CHANGE("wchg"),
     WORK_ITEM_SUBSCRIPTION("wisu"),
     USER_NOTIFICATION("unot");
 

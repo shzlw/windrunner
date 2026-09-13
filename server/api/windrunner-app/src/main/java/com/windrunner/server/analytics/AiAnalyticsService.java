@@ -4,7 +4,6 @@ import com.windrunner.server.analytics.api.AiAnalyticsSummary;
 import com.windrunner.server.llm.LlmUsageService;
 import com.windrunner.server.llm.api.LlmUsageSummary;
 import com.windrunner.server.proposal.ProposalRepository;
-import com.windrunner.server.work.persistence.WorkspaceChangeProposalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +20,6 @@ public class AiAnalyticsService {
 
     private final LlmUsageService llmUsageService;
     private final ProposalRepository proposalRepository;
-    private final WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
 
     @Transactional(readOnly = true)
     public AiAnalyticsSummary summarize(List<String> projectIds, OffsetDateTime since) {
@@ -32,15 +30,15 @@ public class AiAnalyticsService {
                 .orElse(new LlmUsageSummary.Feature("CHAT", 0, 0, 0, 0, 0));
         ProposalRepository.AnalyticsRow identity = proposalRepository.summarizeAnalytics(since)
                 .orElseGet(ProposalRepository.AnalyticsRow::empty);
-        WorkspaceChangeProposalRepository.AnalyticsRow workspace = projectIds.isEmpty()
-                ? WorkspaceChangeProposalRepository.AnalyticsRow.empty()
-                : workspaceChangeProposalRepository.summarizeAnalyticsForProjects(projectIds, since)
-                .orElseGet(WorkspaceChangeProposalRepository.AnalyticsRow::empty);
+        ProposalRepository.AnalyticsRow workspace = projectIds.isEmpty()
+                ? ProposalRepository.AnalyticsRow.empty()
+                : proposalRepository.summarizeAnalyticsForProjects(projectIds, since)
+                .orElseGet(ProposalRepository.AnalyticsRow::empty);
 
         Map<String, MutableEntitySummary> entities = new LinkedHashMap<>();
         proposalRepository.summarizeAnalyticsByEntity(since).forEach(row -> add(entities, row));
         if (!projectIds.isEmpty())
-            workspaceChangeProposalRepository.summarizeAnalyticsByEntityForProjects(projectIds, since).forEach(row -> add(entities, row));
+            proposalRepository.summarizeAnalyticsByEntityForProjects(projectIds, since).forEach(row -> add(entities, row));
 
         long questionsAsked = chat.requests();
         long questionsAnswered = Math.max(0, chat.requests() - chat.failures());
@@ -64,10 +62,6 @@ public class AiAnalyticsService {
         entities.computeIfAbsent(row.entityType(), MutableEntitySummary::new).add(row);
     }
 
-    private void add(Map<String, MutableEntitySummary> entities, WorkspaceChangeProposalRepository.AnalyticsEntityRow row) {
-        entities.computeIfAbsent(row.entityType(), MutableEntitySummary::new).add(row);
-    }
-
     private static final class MutableEntitySummary {
         private final String entityType;
         private long changesProposed;
@@ -81,14 +75,6 @@ public class AiAnalyticsService {
         }
 
         private void add(ProposalRepository.AnalyticsEntityRow row) {
-            changesProposed += row.changesProposed();
-            changesAccepted += row.changesAccepted();
-            changesRejected += row.changesRejected();
-            changesNeedsUpdate += row.changesNeedsUpdate();
-            changesPending += row.changesPending();
-        }
-
-        private void add(WorkspaceChangeProposalRepository.AnalyticsEntityRow row) {
             changesProposed += row.changesProposed();
             changesAccepted += row.changesAccepted();
             changesRejected += row.changesRejected();

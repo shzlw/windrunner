@@ -27,8 +27,6 @@ import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
 import com.windrunner.server.work.domain.WorkItem;
 import com.windrunner.server.work.persistence.WorkItemRepository;
-import com.windrunner.server.work.persistence.WorkspaceChangeProposalRepository;
-import com.windrunner.server.work.persistence.WorkspaceChangeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -60,8 +58,6 @@ public class ChatService {
     private final ChatSessionContextRepository contextRepository;
     private final ChatMessageRepository messageRepository;
     private final ChatSessionSummaryRepository summaryRepository;
-    private final WorkspaceChangeProposalRepository workspaceChangeProposalRepository;
-    private final WorkspaceChangeRepository workspaceChangeRepository;
     private final EntityIdGenerator idGenerator;
     private final ProposalRepository proposalRepository;
     private final ProjectRepository projectRepository;
@@ -163,8 +159,6 @@ public class ChatService {
         proposalRepository.deleteChangesBySessionId(sessionId);
         proposalRepository.deleteBySessionId(sessionId);
         contextRepository.deleteBySessionId(sessionId);
-        workspaceChangeRepository.deleteByChatSessionId(sessionId);
-        workspaceChangeProposalRepository.deleteByChatSessionId(sessionId);
         summaryRepository.deleteBySessionId(sessionId);
         messageRepository.deleteBySessionId(sessionId);
         if (sessionRepository.deleteSession(sessionId, userId) == 0) {

@@ -21,15 +21,17 @@ class ProposeWorkspaceChangesToolTest {
         AtomicReference<String> chatSessionId = new AtomicReference<>();
         AtomicReference<String> sourceMessageId = new AtomicReference<>();
         AtomicReference<String> sourceText = new AtomicReference<>();
+        AtomicReference<AppUser> receivedActor = new AtomicReference<>();
         AtomicReference<ProposalDraft> receivedDraft = new AtomicReference<>();
-        WorkspaceChangeProposalService workspaceChangeProposalService = new WorkspaceChangeProposalService(null, null, null, null, null, null) {
+        WorkspaceChangeProposalService workspaceChangeProposalService = new WorkspaceChangeProposalService(null, null, null, null) {
             @Override
             public WorkspaceChangeProposalView create(String project, String session, String message, String text,
-                                                      ProposalDraft draft) {
+                                                      AppUser actor, ProposalDraft draft) {
                 projectId.set(project);
                 chatSessionId.set(session);
                 sourceMessageId.set(message);
                 sourceText.set(text);
+                receivedActor.set(actor);
                 receivedDraft.set(draft);
                 return null;
             }
@@ -48,6 +50,7 @@ class ProposeWorkspaceChangesToolTest {
         assertThat(chatSessionId).hasValue("session-1");
         assertThat(sourceMessageId).hasValue("message-1");
         assertThat(sourceText).hasValue("Create a task");
+        assertThat(receivedActor).hasValue(actor);
         assertThat(receivedDraft).hasValue(draft);
         assertThat(tool.name()).isEqualTo("propose_workspace_changes");
     }

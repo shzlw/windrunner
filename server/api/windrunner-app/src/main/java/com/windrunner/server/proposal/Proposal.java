@@ -12,8 +12,12 @@ public class Proposal {
     @Id
     private String id;
     private String workflowType;
+    private String projectId;
+    private String sourceType;
     private String chatSessionId;
     private String sourceMessageId;
+    private String sourceText;
+    private String sourceApiKeyId;
     private String actorId;
     private String status;
     private String reviewedByActorId;

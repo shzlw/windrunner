@@ -1,8 +1,8 @@
 package com.windrunner.server.work.api;
 
+import com.windrunner.server.proposal.Proposal;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.Relationship;
-import com.windrunner.server.work.domain.WorkspaceChangeProposal;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -18,7 +18,7 @@ public record WorkspaceChangeProposalView(
         OffsetDateTime updatedAt,
         List<ChangeView> changes
 ) {
-    public static WorkspaceChangeProposalView of(WorkspaceChangeProposal proposal, List<ChangeView> changes) {
+    public static WorkspaceChangeProposalView of(Proposal proposal, List<ChangeView> changes) {
         return new WorkspaceChangeProposalView(proposal.getId(), proposal.getProjectId(), proposal.getChatSessionId(),
                 proposal.getSourceMessageId(), proposal.getSourceText(), proposal.getStatus(), proposal.getCreatedAt(),
                 proposal.getUpdatedAt(), changes);
