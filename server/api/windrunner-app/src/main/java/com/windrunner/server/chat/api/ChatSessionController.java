@@ -7,7 +7,16 @@ import com.windrunner.server.chat.ChatService;
 import com.windrunner.server.user.domain.AppUser;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -15,6 +24,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/internal-api/v1/chat-sessions")
 public class ChatSessionController {
+    private static final String PROJECT_FOCUS_PATH = "project-focus";
+
     private final ChatService chatService;
     private final AuthService authService;
 
@@ -76,6 +87,23 @@ public class ChatSessionController {
         UserContext user = authService.requireUserContext(request);
         return ApiResponse.success(chatService.addContext(sessionId, user.userId(), actor,
                 body == null ? null : body.entityType(), body == null ? null : body.entityId()));
+    }
+
+    @PutMapping("/{sessionId}/context/" + PROJECT_FOCUS_PATH)
+    public ApiResponse<ChatSessionContextView> setProjectFocus(@PathVariable String sessionId,
+                                                               @RequestBody ChatProjectFocusRequest body,
+                                                               HttpServletRequest request) {
+        AppUser actor = authService.requireCurrentUser(request);
+        UserContext user = authService.requireUserContext(request);
+        return ApiResponse.success(chatService.setProjectFocus(sessionId, user.userId(), actor,
+                body == null ? null : body.projectId()));
+    }
+
+    @DeleteMapping("/{sessionId}/context/" + PROJECT_FOCUS_PATH)
+    public ApiResponse<Void> clearProjectFocus(@PathVariable String sessionId, HttpServletRequest request) {
+        UserContext user = authService.requireUserContext(request);
+        chatService.clearProjectFocus(sessionId, user.userId());
+        return ApiResponse.success();
     }
 
     @DeleteMapping("/{sessionId}/context/{contextId}")

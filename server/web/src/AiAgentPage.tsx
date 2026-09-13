@@ -1,23 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router'
-import { AlertTriangle, Loader2, Maximize2, Plus, Search, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, Loader2, Maximize2, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ChatPanel, { type ChatClarificationChoice } from '@/ChatPanel'
 import type { ChatWorkItemReference } from '@/WorkItemResultCards'
-import { addChatSessionContext, deleteChatSessionContext, getLlmStatus, getWorkspace, listChatSessionContext, listProjects, listTeams, loadSelectableUsers, type ChatSessionContext, type GraphChangeProposal, type Project, type Team, type User, type Workspace } from '@/lib/api'
+import { addChatSessionContext, CHAT_CONTEXT_ENTITY_TYPES, clearChatSessionProjectFocus, deleteChatSessionContext, getLlmStatus, getWorkspace, listChatSessionContext, listProjects, listTeams, loadSelectableUsers, setChatSessionProjectFocus, type ChatSessionContext, type GraphChangeProposal, type Project, type Team, type User, type Workspace } from '@/lib/api'
 import type { AiAgentPageOutletContext } from './App'
 
-const maxSelectedProjects = 10
-type ContextType = 'projects' | 'teams' | 'users'
+const BLOCKED_BY_RELATIONSHIP_TYPE = 'BLOCKED_BY'
 
 type AiAgentPageProps = {
   projectId?: string
@@ -38,7 +35,7 @@ function userTitle(user: User) {
 function referencesForWorkspaces(workspaces: Workspace[]) {
   return new Map(workspaces.flatMap((workspace) => {
     const blockedWorkItemIds = new Set(workspace.relationships
-      .filter((relationship) => relationship.type === 'BLOCKED_BY' && relationship.fromEntityType === 'WORK_ITEM')
+      .filter((relationship) => relationship.type === BLOCKED_BY_RELATIONSHIP_TYPE && relationship.fromEntityType === CHAT_CONTEXT_ENTITY_TYPES.WORK_ITEM)
       .map((relationship) => relationship.fromEntityId))
     return workspace.workItems.map(({ workItem, assignees }) => [workItem.id, {
       id: workItem.id,
@@ -62,8 +59,8 @@ function proposalWorkItemId(proposal: GraphChangeProposal) {
       if (workItemId) return workItemId
     }
     const relationship = change.relationship ?? change.previousRelationship
-    if (relationship?.fromEntityType === 'WORK_ITEM') return relationship.fromEntityId
-    if (relationship?.toEntityType === 'WORK_ITEM') return relationship.toEntityId
+    if (relationship?.fromEntityType === CHAT_CONTEXT_ENTITY_TYPES.WORK_ITEM) return relationship.fromEntityId
+    if (relationship?.toEntityType === CHAT_CONTEXT_ENTITY_TYPES.WORK_ITEM) return relationship.toEntityId
   }
   return null
 }
@@ -87,20 +84,18 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
   const [projects, setProjects] = useState<Project[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [users, setUsers] = useState<User[]>([])
-  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
-  const [contextType, setContextType] = useState<ContextType>('projects')
+  const [focusedProjectId, setFocusedProjectId] = useState('')
   const [contextQuery, setContextQuery] = useState('')
+  const [isProjectSwitcherOpen, setIsProjectSwitcherOpen] = useState(false)
   const [references, setReferences] = useState<Map<string, ChatWorkItemReference>>(new Map())
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingReferences, setIsLoadingReferences] = useState(false)
   const [isLlmAvailable, setIsLlmAvailable] = useState(false)
   const [sessionContexts, setSessionContexts] = useState<ChatSessionContext[]>([])
 
-  const selectedProjects = useMemo(
-    () => selectedProjectIds
-      .map((projectId) => projects.find((project) => project.id === projectId))
-      .filter((project): project is Project => Boolean(project)),
-    [projects, selectedProjectIds],
+  const focusedProject = useMemo(
+    () => projects.find((project) => project.id === focusedProjectId),
+    [focusedProjectId, projects],
   )
   const filteredProjects = useMemo(() => {
     const query = contextQuery.trim().toLowerCase()
@@ -109,29 +104,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     }
     return projects.filter((project) => projectTitle(project, t('common.untitledProject')).toLowerCase().includes(query))
   }, [contextQuery, projects, t])
-  const filteredTeams = useMemo(() => {
-    const query = contextQuery.trim().toLowerCase()
-    if (!query) {
-      return teams
-    }
-    return teams.filter((team) => [team.name, team.description ?? '', team.id].some((value) => value.toLowerCase().includes(query)))
-  }, [contextQuery, teams])
-  const filteredUsers = useMemo(() => {
-    const query = contextQuery.trim().toLowerCase()
-    if (!query) {
-      return users
-    }
-    return users.filter((user) => [userTitle(user), user.username, user.title ?? '', user.id].some((value) => value.toLowerCase().includes(query)))
-  }, [contextQuery, users])
-  const selectedTeamIds = useMemo(
-    () => new Set(sessionContexts.filter((context) => context.entityType === 'TEAM').map((context) => context.entityId)),
-    [sessionContexts],
-  )
-  const selectedUserIds = useMemo(
-    () => new Set(sessionContexts.filter((context) => context.entityType === 'USER').map((context) => context.entityId)),
-    [sessionContexts],
-  )
-  const activeChatProjectId = routeProjectId || selectedProjectIds[0] || ''
+  const activeChatProjectId = focusedProjectId
   const requestedSessionId = searchParams.get('chatSessionId')
   const initialPrompt = searchParams.get('prompt') ?? ''
   const autoSubmitInitialDraft = searchParams.get('autoSend') === '1'
@@ -155,7 +128,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
       .then((contexts) => {
         if (isMounted) {
           setSessionContexts(contexts)
-          setSelectedProjectIds(contexts.filter((context) => context.entityType === 'PROJECT').map((context) => context.entityId))
+          setFocusedProjectId(contexts.filter((context) => context.entityType === CHAT_CONTEXT_ENTITY_TYPES.PROJECT).at(-1)?.entityId ?? '')
         }
       })
       .catch((error) => {
@@ -172,9 +145,8 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     let isMounted = true
     queueMicrotask(() => {
       if (isMounted) {
-        setSelectedProjectIds([])
+        setFocusedProjectId('')
         setContextQuery('')
-        setContextType('projects')
       }
     })
     return () => {
@@ -204,15 +176,14 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
           const defaultProjectId = routeProjectId && nextProjects.some((project) => project.id === routeProjectId)
             ? routeProjectId
             : ''
-          setSelectedProjectIds((current) => {
+          setFocusedProjectId((current) => {
             if (newChatRequestKey > 0) {
-              return []
+              return ''
             }
-            if (defaultProjectId && current.length === 0) {
-              return [defaultProjectId]
+            if (defaultProjectId && !current) {
+              return defaultProjectId
             }
-            const stillAvailable = current.filter((projectId) => nextProjects.some((project) => project.id === projectId))
-            return stillAvailable
+            return nextProjects.some((project) => project.id === current) ? current : ''
         })
       } catch (error) {
         if (isMounted) {
@@ -232,15 +203,18 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
   }, [newChatRequestKey, routeProjectId, t])
 
   useEffect(() => {
-    if (selectedProjectIds.length === 0) {
+    if (!focusedProjectId) {
       return
     }
 
     let isMounted = true
-    Promise.all(selectedProjectIds.map((projectId) => getWorkspace(projectId)))
-      .then((workspaces) => {
+    queueMicrotask(() => {
+      if (isMounted) setIsLoadingReferences(true)
+    })
+    getWorkspace(focusedProjectId)
+      .then((workspace) => {
         if (isMounted) {
-          setReferences(referencesForWorkspaces(workspaces))
+          setReferences(referencesForWorkspaces([workspace]))
         }
       })
       .catch((error) => {
@@ -258,85 +232,46 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     return () => {
       isMounted = false
     }
-  }, [selectedProjectIds, t])
+  }, [focusedProjectId, t])
 
-  function toggleProject(projectId: string) {
-    setSelectedProjectIds((current) => {
-      if (current.includes(projectId)) {
-        return current.filter((currentProjectId) => currentProjectId !== projectId)
-      }
-      if (current.length >= maxSelectedProjects) {
-        toast.error(t('aiAgent.maxProjects', { count: maxSelectedProjects }))
-        return current
-      }
-      return [...current, projectId]
-    })
-    if (selectedSession?.id) {
-      const existing = sessionContexts.find((context) => context.entityType === 'PROJECT' && context.entityId === projectId)
-      if (existing) {
-      void deleteChatSessionContext(selectedSession.id, existing.id).catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedUpdateContext')))
-        setSessionContexts((current) => current.filter((context) => context.id !== existing.id))
-      } else {
-        void addChatSessionContext(selectedSession.id, 'PROJECT', projectId)
-          .then((context) => setSessionContexts((current) => [...current, context]))
-          .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedUpdateContext')))
-      }
-    }
+  async function refreshSessionContexts(sessionId: string) {
+    const contexts = await listChatSessionContext(sessionId)
+    setSessionContexts(contexts)
+    setFocusedProjectId(contexts.filter((context) => context.entityType === CHAT_CONTEXT_ENTITY_TYPES.PROJECT).at(-1)?.entityId ?? '')
   }
 
-  async function toggleTeam(teamId: string) {
-    const existing = selectedSession && sessionContexts.find((context) => context.entityType === 'TEAM' && context.entityId === teamId)
-    if (existing && selectedSession) {
-      void deleteChatSessionContext(selectedSession.id, existing.id)
-        .then(() => setSessionContexts((current) => current.filter((context) => context.id !== existing.id)))
-          .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedUpdateContext')))
-      return
-    }
-
-    let sessionId = selectedSession?.id
+  async function focusProject(projectId: string) {
+    let sessionId = selectedSession?.id ?? requestedSessionId
     if (!sessionId) {
       const session = await createChatSession()
-      sessionId = session?.id
+      sessionId = session?.id ?? null
     }
-    if (!sessionId) {
-      return
-    }
+    if (!sessionId) return
 
-    void addChatSessionContext(sessionId, 'TEAM', teamId)
-      .then((context) => setSessionContexts((current) => [...current.filter((item) => item.id !== context.id), context]))
-      .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddTeam')))
+    await setChatSessionProjectFocus(sessionId, projectId)
+    await refreshSessionContexts(sessionId)
+    setContextQuery('')
+    setIsProjectSwitcherOpen(false)
   }
 
-  async function toggleUser(userId: string) {
-    const existing = selectedSession && sessionContexts.find((context) => context.entityType === 'USER' && context.entityId === userId)
-    if (existing && selectedSession) {
-      void deleteChatSessionContext(selectedSession.id, existing.id)
-        .then(() => setSessionContexts((current) => current.filter((context) => context.id !== existing.id)))
-        .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedUpdateContext')))
-      return
-    }
-
-    let sessionId = selectedSession?.id
-    if (!sessionId) {
-      const session = await createChatSession()
-      sessionId = session?.id
-    }
-    if (!sessionId) {
-      return
-    }
-
-    void addChatSessionContext(sessionId, 'USER', userId)
-      .then((context) => setSessionContexts((current) => [...current.filter((item) => item.id !== context.id), context]))
-        .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddUser')))
+  async function focusWorkItem(sessionId: string, projectId: string, workItemId: string) {
+    await setChatSessionProjectFocus(sessionId, projectId)
+    await addChatSessionContext(sessionId, CHAT_CONTEXT_ENTITY_TYPES.WORK_ITEM, workItemId)
+    await refreshSessionContexts(sessionId)
   }
 
-  function removeProject(projectId: string) {
-    setSelectedProjectIds((current) => current.filter((currentProjectId) => currentProjectId !== projectId))
-    const existing = selectedSession && sessionContexts.find((context) => context.entityType === 'PROJECT' && context.entityId === projectId)
-    if (existing && selectedSession) {
-      void deleteChatSessionContext(selectedSession.id, existing.id)
-        .then(() => setSessionContexts((current) => current.filter((context) => context.id !== existing.id)))
-        .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedRemoveContext')))
+  async function clearProjectFocus() {
+    const sessionId = selectedSession?.id ?? requestedSessionId
+    if (!sessionId) {
+      setFocusedProjectId('')
+      return
+    }
+    try {
+      await clearChatSessionProjectFocus(sessionId)
+      setFocusedProjectId('')
+      setSessionContexts((current) => current.filter((context) => context.entityType !== CHAT_CONTEXT_ENTITY_TYPES.PROJECT && context.entityType !== CHAT_CONTEXT_ENTITY_TYPES.WORK_ITEM))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('aiAgent.failedRemoveContext'))
     }
   }
 
@@ -347,37 +282,16 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     void deleteChatSessionContext(selectedSession.id, context.id)
       .then(() => {
         setSessionContexts((current) => current.filter((item) => item.id !== context.id))
-        if (context.entityType === 'PROJECT') {
-          setSelectedProjectIds((current) => current.filter((projectId) => projectId !== context.entityId))
-        }
       })
       .catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedRemoveContext')))
   }
 
-  function clearContexts() {
-    if (!selectedSession) {
-      setSelectedProjectIds([])
-      return
-    }
-    const contexts = [...sessionContexts]
-    contexts.forEach((context) => {
-      void deleteChatSessionContext(selectedSession.id, context.id).catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedClearContext')))
-    })
-    setSelectedProjectIds([])
-    setSessionContexts([])
-  }
-
   const visibleReferences = useMemo(() => {
-    if (selectedProjectIds.length === 0) {
-      return references
-    }
-    return new Map(
-      [...references].filter(([, reference]) => !reference.projectId || selectedProjectIds.includes(reference.projectId)),
-    )
-  }, [references, selectedProjectIds])
+    if (!focusedProjectId) return new Map<string, ChatWorkItemReference>()
+    return new Map([...references].filter(([, reference]) => !reference.projectId || reference.projectId === focusedProjectId))
+  }, [focusedProjectId, references])
   const sessionsLoading = isLoadingSessions
-  const referencesLoading = selectedProjectIds.length > 0 && isLoadingReferences
-  const hasContext = selectedProjects.length > 0 || sessionContexts.length > 0
+  const referencesLoading = Boolean(focusedProjectId) && isLoadingReferences
 
   function showSessionError(error: unknown) {
     toast.error(error instanceof Error ? error.message : t('aiAgent.failedRefreshSessions'))
@@ -387,161 +301,92 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
     const sessionId = selectedSession?.id ?? requestedSessionId
     if (!sessionId) throw new Error(t('chat.startBeforeSending'))
 
-    const entityType = ({ project: 'PROJECT', workitem: 'WORK_ITEM', team: 'TEAM', user: 'USER' } as const)[choice.entityType]
+    const entityType = ({
+      project: CHAT_CONTEXT_ENTITY_TYPES.PROJECT,
+      workitem: CHAT_CONTEXT_ENTITY_TYPES.WORK_ITEM,
+      team: CHAT_CONTEXT_ENTITY_TYPES.TEAM,
+      user: CHAT_CONTEXT_ENTITY_TYPES.USER,
+    } as const)[choice.entityType]
+    if (entityType === CHAT_CONTEXT_ENTITY_TYPES.PROJECT) {
+      await focusProject(choice.entityId)
+      return { projectId: choice.entityId }
+    }
     const existing = sessionContexts.find((context) => context.entityType === entityType && context.entityId === choice.entityId)
+    if (existing && entityType === CHAT_CONTEXT_ENTITY_TYPES.WORK_ITEM && existing.projectId && existing.projectId !== focusedProjectId) {
+      await setChatSessionProjectFocus(sessionId, existing.projectId)
+      await refreshSessionContexts(sessionId)
+      return { projectId: existing.projectId }
+    }
     if (!existing) {
-      if (entityType === 'PROJECT' && !selectedProjectIds.includes(choice.entityId) && selectedProjectIds.length >= maxSelectedProjects) {
-        throw new Error(t('aiAgent.maxProjects', { count: maxSelectedProjects }))
-      }
       const context = await addChatSessionContext(sessionId, entityType, choice.entityId)
-      setSessionContexts((current) => current.some((item) => item.entityType === context.entityType && item.entityId === context.entityId)
-        ? current
-        : [...current, context])
+      if (entityType === CHAT_CONTEXT_ENTITY_TYPES.WORK_ITEM && context.projectId) {
+        await setChatSessionProjectFocus(sessionId, context.projectId)
+        await refreshSessionContexts(sessionId)
+        return { projectId: context.projectId }
+      } else {
+        setSessionContexts((current) => current.some((item) => item.entityType === context.entityType && item.entityId === context.entityId)
+          ? current
+          : [...current, context])
+      }
     }
-    if (entityType === 'PROJECT') {
-      setSelectedProjectIds((current) => current.includes(choice.entityId) ? current : [...current, choice.entityId])
-    }
+    return undefined
   }
 
   const projectContext = (
     <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs">
-      {projects.length > 0 || teams.length > 0 || users.length > 0 ? (
-        <Popover onOpenChange={(open) => { if (!open) setContextQuery('') }}>
-          <PopoverTrigger
-            render={(
-              <Button type="button" size={hasContext ? 'icon-xs' : 'xs'} variant="ghost" className="gap-1.5 text-muted-foreground" aria-label={t('aiAgent.addContext')} title={t('aiAgent.addContext')}>
-                <Plus className="h-3.5 w-3.5" />
-                <span className={hasContext ? 'sr-only' : undefined}>{t('aiAgent.addContext')}</span>
-              </Button>
-            )}
-          />
-          <PopoverContent align="start" className="w-[22rem] gap-0 p-0">
-            <PopoverHeader className="border-b px-4 py-3">
-              <PopoverTitle>{t('aiAgent.addContext')}</PopoverTitle>
-            </PopoverHeader>
-            <Tabs value={contextType} onValueChange={(value) => { setContextType(value as ContextType); setContextQuery('') }}>
-              <TabsList variant="line" className="w-full rounded-none border-b px-3">
-                <TabsTrigger value="projects">{t('common.projects')}</TabsTrigger>
-                <TabsTrigger value="teams">{t('navigation.teams')}</TabsTrigger>
-                <TabsTrigger value="users">{t('aiAgent.people')}</TabsTrigger>
-              </TabsList>
+      {focusedProject ? (
+        <Badge variant="outline" className="h-7 max-w-full gap-0 p-0 text-xs font-normal">
+          <span className="ml-2 h-2 w-2 shrink-0 rounded-full bg-blue-500" aria-hidden="true" />
+          <Popover open={isProjectSwitcherOpen} onOpenChange={(open) => { setIsProjectSwitcherOpen(open); if (!open) setContextQuery('') }}>
+            <PopoverTrigger render={(
+              <button type="button" className="flex min-w-0 items-center gap-1.5 px-2 py-1" aria-label={t('aiAgent.changeProject')}>
+                <span className="shrink-0 text-muted-foreground">{t('aiAgent.workingIn')}</span>
+                <span className="max-w-56 truncate">{projectTitle(focusedProject, t('common.untitledProject'))}</span>
+                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+              </button>
+            )} />
+            <PopoverContent align="start" className="w-[22rem] gap-0 p-0">
+              <PopoverHeader className="border-b px-4 py-3">
+                <PopoverTitle>{t('aiAgent.changeProject')}</PopoverTitle>
+              </PopoverHeader>
               <div className="border-b p-3">
                 <div className="relative">
                   <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={contextQuery}
-                    onChange={(event) => setContextQuery(event.target.value)}
-                    placeholder={t('common.search')}
-                    className="pl-9"
-                    autoFocus
-                  />
+                  <Input value={contextQuery} onChange={(event) => setContextQuery(event.target.value)} placeholder={t('common.search')} className="pl-9" autoFocus />
                 </div>
               </div>
-              <TabsContent value="projects" className="mt-0">
-                <div className="max-h-72 overflow-y-auto p-2">
-                  {filteredProjects.length === 0 ? (
-                    <div className="py-6 text-center text-sm text-muted-foreground">{t('aiAgent.noMatchingProjects')}</div>
-                  ) : filteredProjects.map((project) => {
-                    const isSelected = selectedProjectIds.includes(project.id)
-                    return (
-                      <div key={project.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleProject(project.id)}
-                          aria-label={t('aiAgent.useAsContext', { label: projectTitle(project, t('common.untitledProject')) })}
-                        />
-                        <button
-                          type="button"
-                          className="min-w-0 flex-1 truncate text-left text-sm"
-                          onClick={() => toggleProject(project.id)}
-                        >
-                          {projectTitle(project, t('common.untitledProject'))}
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </TabsContent>
-              <TabsContent value="teams" className="mt-0">
-                <div className="max-h-72 overflow-y-auto p-2">
-                  {filteredTeams.length === 0 ? (
-                    <div className="py-6 text-center text-sm text-muted-foreground">{t('aiAgent.noMatchingTeams')}</div>
-                  ) : filteredTeams.map((team) => {
-                    const isSelected = selectedTeamIds.has(team.id)
-                    return (
-                      <div key={team.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => void toggleTeam(team.id)}
-                          aria-label={t('aiAgent.useAsContext', { label: team.name })}
-                        />
-                        <button
-                          type="button"
-                          className="min-w-0 flex-1 truncate text-left text-sm"
-                          onClick={() => void toggleTeam(team.id)}
-                        >
-                          {team.name}
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </TabsContent>
-              <TabsContent value="users" className="mt-0">
-                <div className="max-h-72 overflow-y-auto p-2">
-                  {filteredUsers.length === 0 ? (
-                    <div className="py-6 text-center text-sm text-muted-foreground">{t('aiAgent.noMatchingPeople')}</div>
-                  ) : filteredUsers.map((user) => {
-                    const isSelected = selectedUserIds.has(user.id)
-                    return (
-                      <div key={user.id} className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => void toggleUser(user.id)}
-                          aria-label={t('aiAgent.useAsContext', { label: userTitle(user) })}
-                        />
-                        <button
-                          type="button"
-                          className="min-w-0 flex-1 truncate text-left text-sm"
-                          onClick={() => void toggleUser(user.id)}
-                        >
-                          <span className="block truncate">{userTitle(user)}</span>
-                          {user.title ? <span className="block truncate text-xs text-muted-foreground">{user.title}</span> : null}
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              </TabsContent>
-            </Tabs>
-            <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
-              <span>{t('common.selected', { count: contextType === 'projects' ? selectedProjects.length : contextType === 'teams' ? selectedTeamIds.size : selectedUserIds.size })}</span>
-              <Button type="button" size="xs" variant="ghost" onClick={clearContexts} disabled={!hasContext}>{t('common.clearAll')}</Button>
-            </div>
-          </PopoverContent>
-        </Popover>
-      ) : null}
-      {selectedProjects.map((project) => (
-        <Badge key={project.id} variant="outline" className="h-7 max-w-full gap-2 px-2.5 pr-1 text-xs font-normal">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" aria-hidden="true" />
-          <span className="shrink-0 text-muted-foreground">{t('aiAgent.projectPrefix')}</span>
-          <span className="max-w-56 truncate">{projectTitle(project, t('common.untitledProject'))}</span>
-          <button type="button" className="rounded-sm p-1 hover:bg-muted" onClick={() => removeProject(project.id)} aria-label={t('aiAgent.removeFromContext', { label: projectTitle(project, t('common.untitledProject')) })}>
+              <div className="max-h-72 overflow-y-auto p-2">
+                {filteredProjects.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">{t('aiAgent.noMatchingProjects')}</div>
+                ) : filteredProjects.map((project) => (
+                  <button
+                    key={project.id}
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm hover:bg-muted"
+                    onClick={() => void focusProject(project.id).catch((error) => toast.error(error instanceof Error ? error.message : t('aiAgent.failedUpdateContext')))}
+                  >
+                    <Check className={project.id === focusedProjectId ? 'h-4 w-4 opacity-100' : 'h-4 w-4 opacity-0'} />
+                    <span className="min-w-0 flex-1 truncate">{projectTitle(project, t('common.untitledProject'))}</span>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <button type="button" className="mr-1 rounded-sm p-1 hover:bg-muted" onClick={() => void clearProjectFocus()} aria-label={t('aiAgent.clearProjectFocus')}>
             <X className="h-3 w-3" />
           </button>
         </Badge>
-      ))}
-      {sessionContexts.filter((context) => context.entityType !== 'PROJECT').map((context) => (
+      ) : null}
+      {sessionContexts.filter((context) => context.entityType !== CHAT_CONTEXT_ENTITY_TYPES.PROJECT).map((context) => (
         <Badge key={context.id} variant="outline" className="h-7 max-w-full gap-2 px-2.5 pr-1 text-xs font-normal">
           <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" aria-hidden="true" />
-          <span className="shrink-0 text-muted-foreground">{context.entityType === 'TEAM' ? `${t('common.team')}:` : context.entityType === 'USER' ? `${t('common.user')}:` : `${t('common.workItem')}:`}</span>
+          <span className="shrink-0 text-muted-foreground">{context.entityType === CHAT_CONTEXT_ENTITY_TYPES.TEAM ? `${t('common.team')}:` : context.entityType === CHAT_CONTEXT_ENTITY_TYPES.USER ? `${t('common.user')}:` : `${t('common.workItem')}:`}</span>
           <span className="max-w-56 truncate">{context.label}</span>
           <button type="button" className="rounded-sm p-1 hover:bg-muted" onClick={() => removeContext(context)} aria-label={t('aiAgent.removeFromContext', { label: context.label })}>
             <X className="h-3 w-3" />
           </button>
         </Badge>
       ))}
-      {hasContext ? <Button type="button" size="xs" variant="ghost" className="text-muted-foreground" onClick={clearContexts}>{t('common.clearAll')}</Button> : null}
       {referencesLoading ? <span className="text-muted-foreground">{t('aiAgent.loadingContext')}</span> : null}
     </div>
   )
@@ -563,7 +408,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
   ) : (
     <ChatPanel
       projectId={activeChatProjectId}
-      projectIds={selectedProjectIds}
+      projectIds={focusedProjectId ? [focusedProjectId] : []}
       sessionId={selectedSession?.id}
       initialDraft={initialPrompt}
       autoSubmitInitialDraft={autoSubmitInitialDraft}
@@ -587,7 +432,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
         if (workItemId) nextParams.set('workItemId', workItemId)
         if (sessionId) {
           try {
-            await addChatSessionContext(sessionId, 'PROJECT', proposal.projectId)
+            await setChatSessionProjectFocus(sessionId, proposal.projectId)
           } catch (error) {
             toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddProject'))
           }
@@ -603,11 +448,11 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
       workItemReferences={visibleReferences}
       teamReferences={new Map([
         ...teams.map((team) => [team.id, team.name] as const),
-        ...sessionContexts.filter((context) => context.entityType === 'TEAM').map((context) => [context.entityId, context.label] as const),
+        ...sessionContexts.filter((context) => context.entityType === CHAT_CONTEXT_ENTITY_TYPES.TEAM).map((context) => [context.entityId, context.label] as const),
       ])}
       userReferences={new Map([
         ...users.map((user) => [user.id, userTitle(user)] as const),
-        ...sessionContexts.filter((context) => context.entityType === 'USER').map((context) => [context.entityId, context.label] as const),
+        ...sessionContexts.filter((context) => context.entityType === CHAT_CONTEXT_ENTITY_TYPES.USER).map((context) => [context.entityId, context.label] as const),
       ])}
       onClarificationChoice={selectClarificationChoice}
       onOpenResultWorkItem={async (projectId, workItemId) => {
@@ -616,10 +461,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
         if (sessionId) {
           nextParams.set('chatSessionId', sessionId)
           try {
-            await Promise.all([
-              addChatSessionContext(sessionId, 'PROJECT', projectId),
-              addChatSessionContext(sessionId, 'WORK_ITEM', workItemId),
-            ])
+            await focusWorkItem(sessionId, projectId, workItemId)
           } catch (error) {
             toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddWorkItem'))
           }
@@ -632,10 +474,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
         if (sessionId) {
           nextParams.set('chatSessionId', sessionId)
           try {
-            await Promise.all([
-              addChatSessionContext(sessionId, 'PROJECT', projectId),
-              addChatSessionContext(sessionId, 'WORK_ITEM', workItemId),
-            ])
+            await focusWorkItem(sessionId, projectId, workItemId)
           } catch (error) {
             toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddWorkItem'))
           }
@@ -660,10 +499,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
         }
         if (sessionId && projectId) {
           try {
-            await Promise.all([
-              addChatSessionContext(sessionId, 'PROJECT', projectId),
-              addChatSessionContext(sessionId, 'WORK_ITEM', workItemId),
-            ])
+            await focusWorkItem(sessionId, projectId, workItemId)
           } catch (error) {
             toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddWorkItem'))
           }
@@ -684,7 +520,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
         }
         if (sessionId) {
           try {
-            await addChatSessionContext(sessionId, 'PROJECT', projectId)
+            await setChatSessionProjectFocus(sessionId, projectId)
           } catch (error) {
             toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddProject'))
           }
@@ -697,7 +533,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
         const sessionId = selectedSession?.id ?? requestedSessionId
         if (sessionId) {
           try {
-            await addChatSessionContext(sessionId, 'TEAM', teamId)
+            await addChatSessionContext(sessionId, CHAT_CONTEXT_ENTITY_TYPES.TEAM, teamId)
           } catch (error) {
             toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddTeam'))
           }
@@ -712,7 +548,7 @@ export default function AiAgentPage({ projectId: routeProjectId, onGraphChangePr
         }
         if (sessionId) {
           try {
-            await addChatSessionContext(sessionId, 'USER', userId)
+            await addChatSessionContext(sessionId, CHAT_CONTEXT_ENTITY_TYPES.USER, userId)
           } catch (error) {
             toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddUser'))
           }

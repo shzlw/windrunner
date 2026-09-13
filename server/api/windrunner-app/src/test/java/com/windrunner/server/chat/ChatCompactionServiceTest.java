@@ -65,7 +65,7 @@ class ChatCompactionServiceTest {
 
         assertThat(result.summary()).isEqualTo("compact summary");
         assertThat(result.messages()).hasSize(13);
-        assertThat(result.messages().getLast()).isEqualTo(new LlmMessage("user", "new message"));
+        assertThat(result.messages().getLast()).isEqualTo(new LlmMessage(ChatMessageRoles.USER, "new message"));
         verify(chatService).saveChatSessionSummary("session-1", null, "compact summary", messages.get(27));
     }
 
@@ -101,7 +101,7 @@ class ChatCompactionServiceTest {
         for (int index = 0; index < count; index++) {
             ChatMessage message = new ChatMessage();
             message.setId("message-" + index);
-            message.setRole(index % 2 == 0 ? "user" : "assistant");
+            message.setRole(index % 2 == 0 ? ChatMessageRoles.USER : ChatMessageRoles.ASSISTANT);
             message.setContent("x".repeat(contentLength));
             message.setCreatedAt(start.plusSeconds(index));
             messages.add(message);

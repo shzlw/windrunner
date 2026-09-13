@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import type { AiAgentPageOutletContext } from './App'
 import AiAgentPage from './AiAgentPage'
 import PaneLayout from './PaneLayout'
-import { addChatSessionContext, type ChatContextEntityType } from '@/lib/api'
+import { addChatSessionContext, CHAT_CONTEXT_ENTITY_TYPES, setChatSessionProjectFocus, type ChatContextEntityType } from '@/lib/api'
 
 type PageArtifactContext = {
   entityType: ChatContextEntityType
@@ -35,10 +35,10 @@ export default function AppView() {
   const userId = location.pathname === '/app/users' ? searchParams.get('userId') : null
   const workItemId = projectId && location.pathname.startsWith('/app/projects/') ? searchParams.get('workItemId') : null
   const artifactContexts: PageArtifactContext[] = [
-    projectId ? { entityType: 'PROJECT', entityId: projectId, label: 'project' } : null,
-    workItemId ? { entityType: 'WORK_ITEM', entityId: workItemId, label: 'work item' } : null,
-    teamId ? { entityType: 'TEAM', entityId: teamId, label: 'team' } : null,
-    userId ? { entityType: 'USER', entityId: userId, label: 'user' } : null,
+    projectId ? { entityType: CHAT_CONTEXT_ENTITY_TYPES.PROJECT, entityId: projectId, label: 'project' } : null,
+    workItemId ? { entityType: CHAT_CONTEXT_ENTITY_TYPES.WORK_ITEM, entityId: workItemId, label: 'work item' } : null,
+    teamId ? { entityType: CHAT_CONTEXT_ENTITY_TYPES.TEAM, entityId: teamId, label: 'team' } : null,
+    userId ? { entityType: CHAT_CONTEXT_ENTITY_TYPES.USER, entityId: userId, label: 'user' } : null,
   ].filter((context): context is PageArtifactContext => Boolean(context))
   const openAssistant = useCallback(async () => {
     let sessionId = searchParams.get('chatSessionId')
@@ -52,7 +52,13 @@ export default function AppView() {
       }
       const activeSessionId = sessionId
       try {
-        await Promise.all(artifactContexts.map((context) => addChatSessionContext(activeSessionId, context.entityType, context.entityId)))
+        const projectContext = artifactContexts.find((context) => context.entityType === CHAT_CONTEXT_ENTITY_TYPES.PROJECT)
+        if (projectContext) {
+          await setChatSessionProjectFocus(activeSessionId, projectContext.entityId)
+        }
+        await Promise.all(artifactContexts
+          .filter((context) => context.entityType !== CHAT_CONTEXT_ENTITY_TYPES.PROJECT)
+          .map((context) => addChatSessionContext(activeSessionId, context.entityType, context.entityId)))
         await appContext.refreshChatSessions(activeSessionId)
       } catch (error) {
         toast.error(error instanceof Error ? error.message : t('aiAgent.failedAddPage'))

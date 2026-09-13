@@ -43,11 +43,18 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.windrunner.server.chat.ChatContextEntityTypes.PROJECT;
+import static com.windrunner.server.chat.ChatContextEntityTypes.TEAM;
+import static com.windrunner.server.chat.ChatContextEntityTypes.USER;
+import static com.windrunner.server.chat.ChatContextEntityTypes.WORK_ITEM;
+
 @RequiredArgsConstructor
 @Service
 public class ChatService {
     private static final int MAX_TITLE_LENGTH = 120;
     private static final int MAX_CONTEXTS_PER_SESSION = 50;
+    private static final String PROJECT_ID_REQUIRED_MESSAGE = "Project id is required";
+    private static final String FOCUSED_PROJECT_CONTEXT_LOAD_ERROR = "Focused project context could not be loaded";
 
     private final ChatSessionRepository sessionRepository;
     private final ChatSessionContextRepository contextRepository;
@@ -193,6 +200,51 @@ public class ChatService {
     }
 
     @Transactional
+    public ChatSessionContextView setProjectFocus(String sessionId, String userId, AppUser actor,
+                                                  String requestedProjectId) {
+        requireSession(sessionId, userId);
+        String projectId = requestedProjectId == null ? "" : requestedProjectId.trim();
+        if (projectId.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, PROJECT_ID_REQUIRED_MESSAGE);
+        ContextDescriptor descriptor = resolveContext(PROJECT, projectId, actor);
+
+        ChatSessionContext focusedContext = null;
+        for (ChatSessionContext context : contextRepository.findBySessionId(sessionId)) {
+            if (PROJECT.equals(context.getEntityType())) {
+                if (projectId.equals(context.getEntityId())) focusedContext = context;
+                else contextRepository.delete(context.getId(), sessionId);
+                continue;
+            }
+            if (WORK_ITEM.equals(context.getEntityType())) {
+                WorkItem item = workItemRepository.findById(context.getEntityId()).orElse(null);
+                if (item == null || !projectId.equals(item.getProjectId()))
+                    contextRepository.delete(context.getId(), sessionId);
+            }
+        }
+
+        if (focusedContext == null) {
+            String id = idGenerator.generate(EntityIdType.CHAT_SESSION_CONTEXT);
+            contextRepository.insert(id, sessionId, PROJECT, projectId);
+            focusedContext = contextRepository.findByIdAndSessionId(id, sessionId)
+                    .orElseGet(() -> contextRepository.findBySessionId(sessionId).stream()
+                            .filter(context -> PROJECT.equals(context.getEntityType()) && projectId.equals(context.getEntityId()))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalStateException(FOCUSED_PROJECT_CONTEXT_LOAD_ERROR)));
+        }
+        return new ChatSessionContextView(focusedContext.getId(), PROJECT, projectId,
+                descriptor.label(), descriptor.projectId(), focusedContext.getCreatedAt());
+    }
+
+    @Transactional
+    public void clearProjectFocus(String sessionId, String userId) {
+        requireSession(sessionId, userId);
+        for (ChatSessionContext context : contextRepository.findBySessionId(sessionId)) {
+            if (PROJECT.equals(context.getEntityType()) || WORK_ITEM.equals(context.getEntityType()))
+                contextRepository.delete(context.getId(), sessionId);
+        }
+    }
+
+    @Transactional
     public void deleteContext(String sessionId, String contextId, String userId) {
         requireSession(sessionId, userId);
         if (contextRepository.delete(contextId, sessionId) == 0)
@@ -212,7 +264,7 @@ public class ChatService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat message content is required");
         String id = idGenerator.generate(EntityIdType.CHAT_MESSAGE);
         messageRepository.insert(id, chatSessionId, role, content);
-        if ("user".equalsIgnoreCase(role)) {
+        if (ChatMessageRoles.USER.equalsIgnoreCase(role)) {
             sessionRepository.setTitleFromFirstMessage(chatSessionId, id, titleFromFirstMessage(content));
         }
         sessionRepository.touch(chatSessionId);
@@ -246,28 +298,28 @@ public class ChatService {
 
     private String normalizeEntityType(String requestedType) {
         String value = requestedType == null ? "" : requestedType.trim().toUpperCase(Locale.ROOT);
-        if (!List.of("PROJECT", "TEAM", "USER", "WORK_ITEM").contains(value))
+        if (!List.of(PROJECT, TEAM, USER, WORK_ITEM).contains(value))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported chat context type");
         return value;
     }
 
     private ContextDescriptor resolveContext(String entityType, String entityId, AppUser actor) {
         switch (entityType) {
-            case "PROJECT" -> {
+            case PROJECT -> {
                 projectAccessService.requireProjectRole(entityId, actor, ProjectRoles.VIEWER);
                 Project project = projectRepository.findById(entityId).orElseThrow(() -> createNotFoundException("Project"));
                 return new ContextDescriptor(project.getName(), project.getId());
             }
-            case "TEAM" -> {
+            case TEAM -> {
                 Team team = teamRepository.findById(entityId).orElseThrow(() -> createNotFoundException("Team"));
                 return new ContextDescriptor(team.getName(), null);
             }
-            case "USER" -> {
+            case USER -> {
                 AppUser user = appUserRepository.findById(entityId).orElseThrow(() -> createNotFoundException("User"));
                 if (!UserStatuses.ACTIVE.equalsIgnoreCase(user.getStatus())) throw createNotFoundException("User");
                 return new ContextDescriptor(user.getDisplayName() == null || user.getDisplayName().isBlank() ? user.getUsername() : user.getDisplayName(), null);
             }
-            case "WORK_ITEM" -> {
+            case WORK_ITEM -> {
                 WorkItem item = workItemRepository.findById(entityId).orElseThrow(() -> createNotFoundException("Work item"));
                 projectAccessService.requireProjectRole(item.getProjectId(), actor, ProjectRoles.VIEWER);
                 return new ContextDescriptor(item.getTitle(), item.getProjectId());

@@ -63,6 +63,10 @@ export type ChatClarificationChoice = {
   label: string
 }
 
+type ChatClarificationSelection = {
+  projectId?: string
+}
+
 const artifactReferencePattern = /\[\[(project|workitem|team|user):([A-Za-z0-9_-]+)\]\]/g
 const clarificationChoicePattern = /\[\[choice:(project|workitem|team|user):([A-Za-z0-9_-]+)\]\]/g
 const workItemReferencePattern = /\[\[workitem:([A-Za-z0-9_-]+)\]\]/g
@@ -369,7 +373,7 @@ export default function ChatPanel({
   onTeamReferenceClick?: (teamId: string) => void | Promise<void>
   userReferences?: Map<string, string>
   onUserReferenceClick?: (userId: string) => void | Promise<void>
-  onClarificationChoice?: (choice: ChatClarificationChoice) => void | Promise<void>
+  onClarificationChoice?: (choice: ChatClarificationChoice) => ChatClarificationSelection | void | Promise<ChatClarificationSelection | void>
   onOpenResultWorkItem?: (projectId: string, workItemId: string) => void | Promise<void>
   onOpenFullHistory?: (projectId: string, workItemId: string) => void | Promise<void>
   onOpenCalendar?: (teamId: string, from: string, to: string) => void | Promise<void>
@@ -646,7 +650,7 @@ export default function ChatPanel({
     viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
   }
 
-  async function sendMessage(messageContent: string, clearDraft = true) {
+  async function sendMessage(messageContent: string, clearDraft = true, projectIdOverride?: string) {
     const content = messageContent.trim()
     if (!content || isStreaming || isRecording || isTranscribing || isLoadingSession || pendingClarificationChoice) {
       return
@@ -745,8 +749,8 @@ export default function ChatPanel({
           }
         },
         controller.signal,
-        projectIds,
-        chatProjectId,
+        projectIdOverride ? [projectIdOverride] : projectIds,
+        projectIdOverride ?? chatProjectId,
       )
 
       if (streamError) {
@@ -801,8 +805,8 @@ export default function ChatPanel({
     const choiceKey = `${choice.entityType}:${choice.entityId}`
     setPendingClarificationChoice(choiceKey)
     try {
-      await onClarificationChoice(choice)
-      await sendMessage(t('chat.clarificationSelection', { label: choice.label }), false)
+      const selection = await onClarificationChoice(choice)
+      await sendMessage(t('chat.clarificationSelection', { label: choice.label }), false, selection?.projectId)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('chat.failedSelectClarification'))
     } finally {

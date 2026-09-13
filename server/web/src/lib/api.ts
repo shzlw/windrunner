@@ -520,7 +520,14 @@ export interface ChatSessionSummary {
   title: string
 }
 
-export type ChatContextEntityType = 'PROJECT' | 'TEAM' | 'USER' | 'WORK_ITEM'
+export const CHAT_CONTEXT_ENTITY_TYPES = {
+  PROJECT: 'PROJECT',
+  TEAM: 'TEAM',
+  USER: 'USER',
+  WORK_ITEM: 'WORK_ITEM',
+} as const
+
+export type ChatContextEntityType = typeof CHAT_CONTEXT_ENTITY_TYPES[keyof typeof CHAT_CONTEXT_ENTITY_TYPES]
 
 export interface ChatSessionContext {
   id: string
@@ -1062,6 +1069,17 @@ export async function addChatSessionContext(sessionId: string, entityType: ChatC
     method: 'POST',
     body: JSON.stringify({ entityType, entityId }),
   })
+}
+
+export async function setChatSessionProjectFocus(sessionId: string, projectId: string): Promise<ChatSessionContext> {
+  return request<ChatSessionContext>(`/internal-api/v1/chat-sessions/${sessionId}/context/project-focus`, {
+    method: 'PUT',
+    body: JSON.stringify({ projectId }),
+  })
+}
+
+export async function clearChatSessionProjectFocus(sessionId: string): Promise<void> {
+  await request<void>(`/internal-api/v1/chat-sessions/${sessionId}/context/project-focus`, { method: 'DELETE' })
 }
 
 export async function deleteChatSessionContext(sessionId: string, contextId: string): Promise<void> {

@@ -2,13 +2,21 @@ package com.windrunner.server.chat.api;
 
 import com.windrunner.server.auth.AuthService;
 import com.windrunner.server.auth.domain.UserContext;
+import com.windrunner.server.auth.security.AppRoles;
+import com.windrunner.server.chat.ChatContextEntityTypes;
+import com.windrunner.server.chat.ChatMessageRoles;
 import com.windrunner.server.chat.ChatCompactionResult;
 import com.windrunner.server.chat.ChatCompactionService;
 import com.windrunner.server.chat.ChatService;
 import com.windrunner.server.chat.domain.ChatMessage;
 import com.windrunner.server.chat.domain.ChatSession;
 import com.windrunner.server.chat.domain.ChatSessionContext;
-import com.windrunner.server.llm.*;
+import com.windrunner.server.llm.LlmMessage;
+import com.windrunner.server.llm.LlmResult;
+import com.windrunner.server.llm.LlmService;
+import com.windrunner.server.llm.LlmTool;
+import com.windrunner.server.llm.LlmUsageContext;
+import com.windrunner.server.llm.LlmUsageService;
 import com.windrunner.server.llm.domain.LlmUsageFeature;
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
@@ -30,15 +38,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -51,7 +69,7 @@ public class ChatMessageController {
     private static final int MAX_MESSAGE_LENGTH = 20_000;
     private static final int MAX_TOTAL_LENGTH = 100_000;
     private static final int MAX_CONTEXT_PROJECTS = 10;
-    private static final Set<String> ALLOWED_ROLES = Set.of("user", "assistant");
+    private static final Set<String> ALLOWED_ROLES = Set.of(ChatMessageRoles.USER, ChatMessageRoles.ASSISTANT);
 
     private final ObjectProvider<LlmService> llmServiceProvider;
     private final ProjectRepository projects;
@@ -85,7 +103,7 @@ public class ChatMessageController {
         List<String> contextProjectIds = projectIdsForContexts(sessionContexts);
         if (request != null && request.targetProjectId() != null && !request.targetProjectId().isBlank()) {
             String targetProjectId = request.targetProjectId().trim();
-            projectAccessService.requireProjectRole(targetProjectId, actor, ProjectRoles.EDITOR);
+            projectAccessService.requireProjectRole(targetProjectId, actor, ProjectRoles.VIEWER);
             if (!contextProjectIds.contains(targetProjectId))
                 contextProjectIds = appendProject(contextProjectIds, targetProjectId);
         }
@@ -110,7 +128,7 @@ public class ChatMessageController {
                 new LlmUsageContext(actor.getId(), usageProjectId, LlmUsageFeature.CHAT));
         List<LlmMessage> messages = compactedContext.messages();
         String conversationSummary = compactedContext.summary();
-        ChatMessage sourceMessage = chatService.addMessage(session.getId(), "user", requestedMessages.getLast().content());
+        ChatMessage sourceMessage = chatService.addMessage(session.getId(), ChatMessageRoles.USER, requestedMessages.getLast().content());
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MILLIS);
         final List<String> allowedProjectIds = contextProjectIds;
         final String promptContext = context;
@@ -124,7 +142,7 @@ public class ChatMessageController {
                 List<LlmTool<?>> availableTools = new ArrayList<>(toolRegistry.createLlmTools(toolContext));
                 availableTools.add(findProjectsTool.forContext(toolContext));
                 availableTools.addAll(proposalTools.forMessage(toolContext, sourceMessage.getId()));
-                if (targetProject != null) availableTools.add(proposeWorkspaceChangesTool.forMessage(
+                if (targetProject != null && canEditProject(actor, targetProject.getId())) availableTools.add(proposeWorkspaceChangesTool.forMessage(
                         toolContext, targetProject.getId(), session.getId(), sourceMessage.getId(), sourceMessage.getContent()));
                 LlmResult<String> llmResult = llmService.runChatWithTools(
                         messages,
@@ -132,7 +150,7 @@ public class ChatMessageController {
                         availableTools);
                 long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
                 llmUsageService.record(new LlmUsageContext(actor.getId(), usageProjectId, LlmUsageFeature.CHAT), llmResult, durationMs);
-                ChatMessage assistantMessage = chatService.addMessage(session.getId(), "assistant", llmResult.output());
+                ChatMessage assistantMessage = chatService.addMessage(session.getId(), ChatMessageRoles.ASSISTANT, llmResult.output());
                 send(emitter, "delta", new ChatDelta(llmResult.output()));
                 send(emitter, "done", new ChatDone(session.getId(), sourceMessage.getId(), assistantMessage.getId()));
                 completedByWorker.set(true);
@@ -173,17 +191,26 @@ public class ChatMessageController {
 
     private void persistRequestedProjectContexts(ChatSession session, UserContext user, AppUser actor, List<String> projectIds) {
         if (projectIds == null) return;
-        for (String projectId : new LinkedHashSet<>(projectIds)) {
-            if (projectId != null && !projectId.isBlank())
-                chatService.addContext(session.getId(), user.userId(), actor, "PROJECT", projectId.trim());
+        LinkedHashSet<String> requestedProjectIds = projectIds.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(projectId -> !projectId.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (requestedProjectIds.size() == 1) {
+            String projectId = requestedProjectIds.getFirst();
+            chatService.setProjectFocus(session.getId(), user.userId(), actor, projectId);
+            return;
+        }
+        for (String projectId : requestedProjectIds) {
+                chatService.addContext(session.getId(), user.userId(), actor, ChatContextEntityTypes.PROJECT, projectId);
         }
     }
 
     private List<String> projectIdsForContexts(List<ChatSessionContext> contexts) {
         LinkedHashSet<String> ids = new LinkedHashSet<>();
         for (ChatSessionContext context : contexts) {
-            if ("PROJECT".equals(context.getEntityType())) ids.add(context.getEntityId());
-            if ("WORK_ITEM".equals(context.getEntityType())) {
+            if (ChatContextEntityTypes.PROJECT.equals(context.getEntityType())) ids.add(context.getEntityId());
+            if (ChatContextEntityTypes.WORK_ITEM.equals(context.getEntityType())) {
                 WorkItem item = workItemRepository.findById(context.getEntityId())
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Work item not found"));
                 ids.add(item.getProjectId());
@@ -229,7 +256,7 @@ public class ChatMessageController {
         }
         if (totalLength > MAX_TOTAL_LENGTH)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat history is too large");
-        if (!"user".equals(request.messages().getLast().role()))
+        if (!ChatMessageRoles.USER.equals(request.messages().getLast().role()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The final chat message must be from the user");
         return List.copyOf(request.messages());
     }
@@ -239,6 +266,11 @@ public class ChatMessageController {
             projectAccessService.requireProjectRole(id, actor, ProjectRoles.VIEWER);
             return projects.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
         }).toList();
+    }
+
+    private boolean canEditProject(AppUser actor, String projectId) {
+        return AppRoles.isSuperAdmin(actor.getGlobalRole())
+                || projectAccessService.hasProjectRole(projectId, actor.getId(), ProjectRoles.EDITOR);
     }
 
     private String selectedProjectContext(List<Project> selectedProjects) {
