@@ -14,6 +14,8 @@ import com.windrunner.server.work.api.DecisionRequest;
 import com.windrunner.server.work.api.ProposalDraft;
 import com.windrunner.server.work.api.WorkItemPayload;
 import com.windrunner.server.work.api.WorkItemView;
+import com.windrunner.server.work.api.WorkspaceChangeProposalPage;
+import com.windrunner.server.work.api.WorkspaceChangeProposalSummary;
 import com.windrunner.server.work.api.WorkspaceChangeProposalView;
 import com.windrunner.server.work.domain.Entry;
 import com.windrunner.server.work.domain.Relationship;
@@ -42,6 +44,10 @@ public class WorkspaceChangeProposalService {
     private static final Set<String> ENTITY_TYPES = Set.of("WORK_ITEM", "ENTRY", "RELATIONSHIP");
     private static final Set<String> ACTIONS = Set.of("ADD", "UPDATE", "DELETE");
     private static final Set<String> OPEN_STATUSES = Set.of("PENDING", "NEEDS_UPDATE");
+    private static final Set<String> MCP_PROPOSAL_STATUSES = Set.of("PENDING", "APPLIED", "REJECTED", "COMPLETED");
+    private static final int DEFAULT_MCP_PAGE_LIMIT = 20;
+    private static final int MAX_MCP_PAGE_LIMIT = 50;
+    private static final int MAX_MCP_SOURCE_TEXT_LENGTH = 500;
 
     private final ProposalRepository proposalRepository;
     private final ProposalChangeRepository proposalChangeRepository;
@@ -51,6 +57,23 @@ public class WorkspaceChangeProposalService {
     @Transactional
     public WorkspaceChangeProposalView create(String projectId, String chatSessionId, String sourceMessageId,
                                               String sourceText, AppUser actor, ProposalDraft draft) {
+        return createProposal(projectId, chatSessionId, sourceMessageId, sourceText, null, actor, draft);
+    }
+
+    @Transactional
+    public WorkspaceChangeProposalView createFromMcp(String projectId, String sourceText, String sourceApiKeyId,
+                                                     AppUser actor, ProposalDraft draft) {
+        if (isBlank(sourceApiKeyId)) throw createBadRequestException("Source API key ID is required");
+        String normalizedSourceText = trimToNull(sourceText);
+        if (normalizedSourceText != null && normalizedSourceText.length() > MAX_MCP_SOURCE_TEXT_LENGTH) {
+            throw createBadRequestException("MCP request summary can contain at most 500 characters");
+        }
+        return createProposal(projectId, null, null, normalizedSourceText, sourceApiKeyId.trim(), actor, draft);
+    }
+
+    private WorkspaceChangeProposalView createProposal(String projectId, String chatSessionId, String sourceMessageId,
+                                                        String sourceText, String sourceApiKeyId,
+                                                        AppUser actor, ProposalDraft draft) {
         if (draft == null || draft.changes() == null || draft.changes().isEmpty()) {
             throw createBadRequestException("At least one workspace change is required");
         }
@@ -69,7 +92,13 @@ public class WorkspaceChangeProposalService {
         }
 
         String proposalId = entityIdGenerator.generate(EntityIdType.PROPOSAL);
-        proposalRepository.insertWorkspace(proposalId, projectId, chatSessionId, sourceMessageId, sourceText, actor.getId());
+        if (sourceApiKeyId == null) {
+            proposalRepository.insertWorkspace(proposalId, projectId, chatSessionId, sourceMessageId,
+                    sourceText, actor.getId());
+        } else {
+            proposalRepository.insertMcpWorkspace(proposalId, projectId, trimToNull(sourceText),
+                    sourceApiKeyId, actor.getId());
+        }
         for (int sortIndex = 0; sortIndex < preparedDrafts.size(); sortIndex++) {
             PreparedDraft preparedDraft = preparedDrafts.get(sortIndex);
             WorkspaceProposalChange change = preparedDraft.change();
@@ -86,7 +115,9 @@ public class WorkspaceChangeProposalService {
                     prepared.payloadJson(),
                     valueOrEmptyJson(prepared.baseVersionJson()));
         }
-        return get(projectId, proposalId);
+        return sourceApiKeyId == null
+                ? get(projectId, proposalId)
+                : getFromMcp(projectId, proposalId, sourceApiKeyId);
     }
 
     public List<WorkspaceChangeProposalView> list(String projectId) {
@@ -108,9 +139,59 @@ public class WorkspaceChangeProposalService {
         return createView(proposal);
     }
 
+    public WorkspaceChangeProposalPage listFromMcp(String projectId, String sourceApiKeyId, String status,
+                                                   Integer requestedLimit, Long requestedOffset) {
+        if (isBlank(sourceApiKeyId)) throw createBadRequestException("Source API key ID is required");
+        String normalizedStatus = normalizeToken(status);
+        if (!normalizedStatus.isEmpty() && !MCP_PROPOSAL_STATUSES.contains(normalizedStatus)) {
+            throw createBadRequestException("Status must be PENDING, APPLIED, REJECTED, or COMPLETED");
+        }
+        int limit = requestedLimit == null
+                ? DEFAULT_MCP_PAGE_LIMIT
+                : Math.max(1, Math.min(requestedLimit, MAX_MCP_PAGE_LIMIT));
+        long offset = requestedOffset == null ? 0 : Math.max(0, requestedOffset);
+        List<WorkspaceChangeProposalSummary> proposals = proposalRepository.pageMcpWorkspace(
+                        sourceApiKeyId.trim(), projectId, normalizedStatus, limit, offset).stream()
+                .map(WorkspaceChangeProposalSummary::of)
+                .toList();
+        long total = proposalRepository.countMcpWorkspace(sourceApiKeyId.trim(), projectId, normalizedStatus);
+        return new WorkspaceChangeProposalPage(proposals, proposals.size(), total, limit, offset,
+                offset + proposals.size() < total);
+    }
+
+    public WorkspaceChangeProposalView getFromMcp(String projectId, String proposalId, String sourceApiKeyId) {
+        if (isBlank(sourceApiKeyId)) throw createBadRequestException("Source API key ID is required");
+        Proposal proposal = proposalRepository.findMcpWorkspaceInProject(
+                        proposalId, projectId, sourceApiKeyId.trim())
+                .orElseThrow(() -> createNotFoundException("Workspace proposal not found"));
+        return createView(proposal);
+    }
+
+    public List<String> findMcpEntityTypes(String projectId, String proposalId, String sourceApiKeyId) {
+        if (isBlank(sourceApiKeyId)) throw createBadRequestException("Source API key ID is required");
+        List<String> entityTypes = proposalRepository.findMcpWorkspaceEntityTypes(
+                proposalId, projectId, sourceApiKeyId.trim());
+        if (entityTypes.isEmpty()) throw createNotFoundException("Workspace proposal not found");
+        return entityTypes;
+    }
+
     @Transactional
     public WorkspaceChangeProposalView createRevert(String projectId, String proposalId, AppUser actor) {
-        Proposal original = proposalRepository.findWorkspaceInProjectForUpdate(proposalId, projectId)
+        return createRevertProposal(projectId, proposalId, null, actor);
+    }
+
+    @Transactional
+    public WorkspaceChangeProposalView createRevertFromMcp(String projectId, String proposalId,
+                                                           String sourceApiKeyId, AppUser actor) {
+        if (isBlank(sourceApiKeyId)) throw createBadRequestException("Source API key ID is required");
+        return createRevertProposal(projectId, proposalId, sourceApiKeyId.trim(), actor);
+    }
+
+    private WorkspaceChangeProposalView createRevertProposal(String projectId, String proposalId,
+                                                              String sourceApiKeyId, AppUser actor) {
+        Proposal original = (sourceApiKeyId == null
+                ? proposalRepository.findWorkspaceInProjectForUpdate(proposalId, projectId)
+                : proposalRepository.findMcpWorkspaceInProjectForUpdate(proposalId, projectId, sourceApiKeyId))
                 .orElseThrow(() -> createNotFoundException("Workspace proposal not found"));
         validateRevertProposal(original);
         List<ProposalChange> appliedChanges = proposalChangeRepository.findByProposalId(proposalId).stream()
@@ -139,8 +220,13 @@ public class WorkspaceChangeProposalService {
         }
 
         String revertId = entityIdGenerator.generate(EntityIdType.PROPOSAL);
-        proposalRepository.insertWorkspaceRevert(revertId, projectId, original.getChatSessionId(),
-                original.getSourceMessageId(), original.getSourceText(), original.getId(), actor.getId());
+        if (sourceApiKeyId == null) {
+            proposalRepository.insertWorkspaceRevert(revertId, projectId, original.getChatSessionId(),
+                    original.getSourceMessageId(), original.getSourceText(), original.getId(), actor.getId());
+        } else {
+            proposalRepository.insertMcpWorkspaceRevert(revertId, projectId, original.getSourceText(),
+                    sourceApiKeyId, original.getId(), actor.getId());
+        }
         for (int sortIndex = 0; sortIndex < preparedDrafts.size(); sortIndex++) {
             PreparedDraft preparedDraft = preparedDrafts.get(sortIndex);
             WorkspaceProposalChange change = preparedDraft.change();
@@ -157,7 +243,9 @@ public class WorkspaceChangeProposalService {
                     prepared.payloadJson(),
                     valueOrEmptyJson(prepared.baseVersionJson()));
         }
-        return get(projectId, revertId);
+        return sourceApiKeyId == null
+                ? get(projectId, revertId)
+                : getFromMcp(projectId, revertId, sourceApiKeyId);
     }
 
     @Transactional
@@ -197,8 +285,24 @@ public class WorkspaceChangeProposalService {
     @Transactional
     public WorkspaceChangeProposalView decideAll(String projectId, String proposalId,
                                                  DecisionRequest request, AppUser actor) {
+        return decideAllChanges(projectId, proposalId, request, null, actor);
+    }
+
+    @Transactional
+    public WorkspaceChangeProposalView decideAllFromMcp(String projectId, String proposalId,
+                                                        DecisionRequest request, String sourceApiKeyId,
+                                                        AppUser actor) {
+        if (isBlank(sourceApiKeyId)) throw createBadRequestException("Source API key ID is required");
+        return decideAllChanges(projectId, proposalId, request, sourceApiKeyId.trim(), actor);
+    }
+
+    private WorkspaceChangeProposalView decideAllChanges(String projectId, String proposalId,
+                                                          DecisionRequest request, String sourceApiKeyId,
+                                                          AppUser actor) {
         validateDecisionRequest(request);
-        proposalRepository.findWorkspaceInProjectForUpdate(proposalId, projectId)
+        (sourceApiKeyId == null
+                ? proposalRepository.findWorkspaceInProjectForUpdate(proposalId, projectId)
+                : proposalRepository.findMcpWorkspaceInProjectForUpdate(proposalId, projectId, sourceApiKeyId))
                 .orElseThrow(() -> createNotFoundException("Workspace proposal not found"));
         List<ProposalChange> openChanges = proposalChangeRepository.findByProposalId(proposalId).stream()
                 .filter(change -> OPEN_STATUSES.contains(change.getStatus()))
@@ -225,7 +329,9 @@ public class WorkspaceChangeProposalService {
             if (updated != 1) throw createConflictException("This proposal change has already been decided");
         }
         refreshProposalStatus(projectId, proposalId, actor.getId());
-        return get(projectId, proposalId);
+        return sourceApiKeyId == null
+                ? get(projectId, proposalId)
+                : getFromMcp(projectId, proposalId, sourceApiKeyId);
     }
 
     private void apply(String projectId, ProposalChange storedChange, AppUser actor) {

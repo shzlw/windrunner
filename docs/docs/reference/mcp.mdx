@@ -1,14 +1,14 @@
 ---
 sidebar_position: 3
 title: MCP server
-description: Connect AI clients to Windrunner through its Model Context Protocol server for reading and updating project work.
+description: Connect AI clients to Windrunner through its Model Context Protocol server for reading project work and proposing reviewed changes.
 ---
 
 # MCP server
 
 Windrunner exposes a [Model Context Protocol](https://modelcontextprotocol.io)
-server for AI clients that need to read workspace information or update project
-work.
+server for AI clients that need to read workspace information or propose
+reviewed changes to project work.
 
 ## Endpoint and transport
 
@@ -74,14 +74,34 @@ Read tools:
 | `list_project_assignees` | `project_access:read` + `users:read` + `teams:read` | Bounded users and teams eligible for assignment in one project |
 | `get_team_workload` | `teams:read` + `team_members:read` + `work_items:read` + `calendar_events:read` | Read-only team workload comparison for an inclusive range of up to 31 days |
 
-Write tools:
+Proposal tools:
 
 | Tool | Scope required | Description |
 | --- | --- | --- |
-| `add_entry` | `entries:write` | Add a comment, finding, answer, or evidence to an item |
-| `update_work_item_status` | `work_items:write` | Change only the status of an item |
-| `create_work_item` | `work_items:write` | Create a NOTE, TASK, QUESTION, APPROVAL, REVIEW, or DECISION |
-| `link_relationship` | `relationships:write` | Create a typed link such as BLOCKED_BY between two items |
+| `propose_workspace_changes` | `projects:read` plus read/write scopes for every included entity type | Create a pending proposal containing up to 25 work-item, entry, or relationship changes; no project data is changed |
+| `list_proposals` | `projects:read` | List compact proposal summaries created by the same API key in one project, with bounded pagination and an optional status filter |
+| `get_proposal` | `projects:read` plus read scopes for included entity types | Load the exact status and before/after preview for one proposal created by the same API key |
+| `decide_proposal` | `projects:read` plus read/write scopes for included entity types | Accept every pending change after explicit user approval, or reject the proposal without applying it |
+| `create_revert_proposal` | `projects:read` plus read/write scopes for included entity types | Create a pending inverse proposal for an applied proposal; it does not revert data until separately approved and accepted |
+
+## Review and confirmation flow
+
+MCP changes use the same proposal and version-checking workflow as AI Agent:
+
+1. Search for an existing work item, entry, or relationship before proposing an
+   addition.
+2. Call `propose_workspace_changes`. Windrunner validates the draft and returns
+   a pending before/after preview without changing project data.
+3. Use `get_proposal` to show the exact current preview and ask the user to
+   accept or reject it.
+4. Call `decide_proposal` only after the user explicitly approves that preview.
+   `ACCEPT` applies all open changes; `REJECT` closes them without applying
+   anything.
+
+To undo an older accepted proposal, call `create_revert_proposal`. Windrunner
+returns a new pending inverse proposal when a safe reversal is still possible.
+Show that preview and use the same explicit confirmation step before accepting
+it. A revert can be refused when later edits make reversal unsafe.
 
 ## Progressive reads
 
@@ -100,11 +120,18 @@ conclusion.
 
 ## Safety
 
-- Every action is attributed to the API-key owner in the audit log.
-- Writes trigger the same notifications as human actions.
+- Every proposal and applied action is attributed to the API-key owner.
+- Creating or rejecting a proposal does not modify project data. Accepted
+  changes trigger the same audit and notification behavior as equivalent human
+  actions.
 - Project-level authorization still applies: a key can only see and modify
   projects its owner can.
+- An API key can list, inspect, decide, or revert only the MCP proposals created
+  by that exact key.
+- Windrunner rechecks project access, API-key scopes, proposal state, and target
+  versions when applying a proposal.
 - Agents should search for an existing matching work item, entry, or
   relationship before creating one. A clear match should be reported or
   updated rather than duplicated; ambiguous matches should be clarified.
-- No delete tools are exposed.
+- Deletes can only be expressed inside a proposal and require the same preview
+  and explicit acceptance as other changes.

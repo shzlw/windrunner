@@ -1,5 +1,6 @@
 package com.windrunner.server.mcp;
 
+import com.windrunner.server.apikey.domain.AuthenticatedApiKey;
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.external.auth.ExternalAccessService;
 import com.windrunner.server.project.ProjectAccessService;
@@ -16,6 +17,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -40,6 +42,21 @@ public class McpAuthorization {
         return actor;
     }
 
+    public AppUser requireProjectEditor(String projectId, String... scopes) {
+        String normalizedProjectId = requireProjectId(projectId);
+        AppUser actor = requireScopes(scopes);
+        projectAccessService.requireProjectRole(normalizedProjectId, actor, ProjectRoles.EDITOR);
+        return actor;
+    }
+
+    public AuthenticatedApiKey requireProjectViewerApiKey(String projectId, String... scopes) {
+        return requireProjectApiKey(projectId, ProjectRoles.VIEWER, scopes);
+    }
+
+    public AuthenticatedApiKey requireProjectEditorApiKey(String projectId, String... scopes) {
+        return requireProjectApiKey(projectId, ProjectRoles.EDITOR, scopes);
+    }
+
     public ToolExecutionContext toolContext(AppUser actor) {
         if (actor == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
@@ -59,6 +76,20 @@ public class McpAuthorization {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "projectId is required");
         }
         return projectId.trim();
+    }
+
+    private AuthenticatedApiKey requireProjectApiKey(String projectId, String role, String... scopes) {
+        String normalizedProjectId = requireProjectId(projectId);
+        AppUser actor = requireScopes(scopes);
+        AuthenticatedApiKey authenticatedApiKey = McpActors.authenticatedApiKey();
+        if (authenticatedApiKey.apiKey() == null
+                || authenticatedApiKey.apiKey().getId() == null
+                || authenticatedApiKey.owner() == null
+                || !Objects.equals(actor.getId(), authenticatedApiKey.owner().getId())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "MCP API key is required");
+        }
+        projectAccessService.requireProjectRole(normalizedProjectId, actor, role);
+        return authenticatedApiKey;
     }
 
     private HttpServletRequest getCurrentRequest() {

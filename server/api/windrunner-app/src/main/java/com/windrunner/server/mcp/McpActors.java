@@ -1,5 +1,6 @@
 package com.windrunner.server.mcp;
 
+import com.windrunner.server.apikey.domain.AuthenticatedApiKey;
 import com.windrunner.server.user.domain.AppUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -25,5 +26,16 @@ public final class McpActors {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "MCP API key is required");
         }
         return appUser;
+    }
+
+    public static AuthenticatedApiKey authenticatedApiKey() {
+        if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "MCP API key is required");
+        }
+        Object apiKey = attributes.getRequest().getAttribute(McpAuthenticationFilter.API_KEY_REQUEST_ATTRIBUTE);
+        if (!(apiKey instanceof AuthenticatedApiKey authenticatedApiKey)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "MCP API key is required");
+        }
+        return authenticatedApiKey;
     }
 }

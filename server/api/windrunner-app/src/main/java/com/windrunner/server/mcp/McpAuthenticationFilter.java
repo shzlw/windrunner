@@ -17,6 +17,7 @@ import java.io.IOException;
 public class McpAuthenticationFilter extends OncePerRequestFilter {
 
     public static final String ACTOR_REQUEST_ATTRIBUTE = McpAuthenticationFilter.class.getName() + ".actor";
+    public static final String API_KEY_REQUEST_ATTRIBUTE = McpAuthenticationFilter.class.getName() + ".apiKey";
 
     private static final String MCP_PATH = "/mcp";
 
@@ -35,6 +36,7 @@ public class McpAuthenticationFilter extends OncePerRequestFilter {
             // Key validity only: each MCP tool enforces the scope it needs.
             var authenticatedApiKey = apiKeyAuthService.authenticate(request);
             request.setAttribute(ACTOR_REQUEST_ATTRIBUTE, authenticatedApiKey.owner());
+            request.setAttribute(API_KEY_REQUEST_ATTRIBUTE, authenticatedApiKey);
             filterChain.doFilter(request, response);
         } catch (ResponseStatusException exception) {
             response.sendError(exception.getStatusCode().value(), exception.getReason());

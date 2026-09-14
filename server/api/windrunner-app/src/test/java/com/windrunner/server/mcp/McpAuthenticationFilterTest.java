@@ -2,6 +2,7 @@ package com.windrunner.server.mcp;
 
 import com.windrunner.server.apikey.ApiKeyScopes;
 import com.windrunner.server.apikey.ApiKeyService;
+import com.windrunner.server.apikey.domain.ApiKey;
 import com.windrunner.server.apikey.domain.AuthenticatedApiKey;
 import com.windrunner.server.external.auth.ExternalApiKeyAuthService;
 import com.windrunner.server.user.domain.AppUser;
@@ -49,12 +50,17 @@ class McpAuthenticationFilterTest {
         FilterChain chain = mock(FilterChain.class);
         AppUser owner = new AppUser();
         owner.setId("user-1");
-        when(apiKeyService.authenticate("token")).thenReturn(new AuthenticatedApiKey(null, owner,
-                List.of(ApiKeyScopes.PROJECTS_READ)));
+        ApiKey apiKey = new ApiKey();
+        apiKey.setId("key-1");
+        AuthenticatedApiKey authenticatedApiKey = new AuthenticatedApiKey(apiKey, owner,
+                List.of(ApiKeyScopes.PROJECTS_READ));
+        when(apiKeyService.authenticate("token")).thenReturn(authenticatedApiKey);
 
         filter.doFilter(request, response, chain);
 
         assertThat(request.getAttribute(McpAuthenticationFilter.ACTOR_REQUEST_ATTRIBUTE)).isSameAs(owner);
+        assertThat(request.getAttribute(McpAuthenticationFilter.API_KEY_REQUEST_ATTRIBUTE))
+                .isSameAs(authenticatedApiKey);
         verify(chain).doFilter(request, response);
     }
 

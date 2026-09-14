@@ -925,6 +925,225 @@
   color: #bfdbfe;
 }
 
+.home-model-section {
+  padding: 0 0 clamp(3.5rem, 7vw, 6rem);
+}
+
+.home-model-heading {
+  max-width: 46rem;
+  margin: 0 auto 2rem;
+  text-align: center;
+}
+
+.home-model-eyebrow {
+  display: inline-flex;
+  margin: 0 0 0.8rem;
+  color: var(--ifm-color-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.home-model-heading h2 {
+  margin: 0 0 0.8rem;
+  color: var(--ifm-color-emphasis-900);
+  font-size: clamp(1.8rem, 3.2vw, 2.65rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.home-model-heading > p:last-child {
+  max-width: 40rem;
+  margin: 0 auto;
+  color: var(--ifm-color-emphasis-600);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.home-model-figure {
+  position: relative;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: clamp(0.8rem, 2.2vw, 1.5rem);
+  overflow: hidden;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 1.5rem;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.72), var(--ifm-background-surface-color) 48%, rgba(240, 253, 250, 0.66));
+  box-shadow: 0 1.5rem 4rem rgba(15, 23, 42, 0.1);
+}
+
+.home-model-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.9rem 1.25rem;
+  margin: 0 0 0.35rem;
+  color: var(--ifm-color-emphasis-600);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.home-model-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.home-model-legend-line {
+  display: inline-block;
+  width: 1.8rem;
+  border-top: 2px solid var(--ifm-color-primary);
+}
+
+.home-model-legend-line--dashed {
+  border-top-style: dashed;
+}
+
+.home-model-scroll {
+  overflow-x: auto;
+  padding: 0.1rem;
+  scrollbar-color: var(--ifm-color-emphasis-300) transparent;
+}
+
+.home-model-svg {
+  display: block;
+  width: 100%;
+  min-width: 860px;
+  height: auto;
+}
+
+.home-model-group {
+  stroke-width: 1.2;
+}
+
+.home-model-group--identity {
+  fill: var(--wr-accent-violet-bg);
+  stroke: color-mix(in srgb, var(--wr-accent-violet) 34%, transparent);
+}
+
+.home-model-group--graph {
+  fill: var(--wr-accent-blue-bg);
+  stroke: color-mix(in srgb, var(--wr-accent-blue) 34%, transparent);
+}
+
+.home-model-group--agent {
+  fill: var(--wr-accent-emerald-bg);
+  stroke: color-mix(in srgb, var(--wr-accent-emerald) 34%, transparent);
+}
+
+.home-model-group-label {
+  fill: var(--ifm-color-emphasis-600);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+
+.home-model-node rect {
+  stroke-width: 1.2;
+  filter: drop-shadow(0 5px 8px rgba(15, 23, 42, 0.08));
+}
+
+.home-model-node--identity rect {
+  fill: color-mix(in srgb, var(--ifm-background-surface-color) 84%, var(--wr-accent-violet));
+  stroke: color-mix(in srgb, var(--wr-accent-violet) 38%, var(--ifm-color-emphasis-200));
+}
+
+.home-model-node--graph rect {
+  fill: color-mix(in srgb, var(--ifm-background-surface-color) 84%, var(--wr-accent-blue));
+  stroke: color-mix(in srgb, var(--wr-accent-blue) 38%, var(--ifm-color-emphasis-200));
+}
+
+.home-model-node--agent rect {
+  fill: color-mix(in srgb, var(--ifm-background-surface-color) 84%, var(--wr-accent-emerald));
+  stroke: color-mix(in srgb, var(--wr-accent-emerald) 38%, var(--ifm-color-emphasis-200));
+}
+
+.home-model-node-title,
+.home-model-node-subtitle,
+.home-model-edge-label {
+  font-family: var(--ifm-font-family-base);
+}
+
+.home-model-node-title {
+  fill: var(--ifm-color-emphasis-900);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.home-model-node-subtitle {
+  fill: var(--ifm-color-emphasis-600);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.home-model-connector {
+  fill: none;
+  stroke: currentColor;
+  stroke-dasharray: 2 8;
+  stroke-linecap: round;
+  stroke-width: 2;
+  animation: home-model-flow-move 1500ms linear infinite;
+}
+
+.home-model-connector--identity {
+  color: var(--wr-accent-violet);
+}
+
+.home-model-connector--graph {
+  color: var(--wr-accent-blue);
+}
+
+.home-model-connector--agent {
+  color: var(--wr-accent-emerald);
+}
+
+.home-model-edge-label {
+  fill: var(--ifm-color-emphasis-600);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  paint-order: stroke;
+  stroke: var(--ifm-background-surface-color);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.home-model-figure figcaption {
+  margin: 0.75rem auto 0.1rem;
+  color: var(--ifm-color-emphasis-600);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@keyframes home-model-flow-move {
+  to {
+    stroke-dashoffset: -30;
+  }
+}
+
+[data-theme='dark'] .home-model-figure {
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.26), var(--ifm-background-surface-color) 48%, rgba(6, 78, 59, 0.2));
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.26);
+}
+
+[data-theme='dark'] .home-model-node rect {
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.22));
+}
+
+[data-theme='dark'] .home-model-edge-label {
+  stroke: var(--ifm-background-surface-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-model-connector {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
 @media screen and (max-width: 996px) {
   .home-hero-grid {
     grid-template-columns: minmax(0, 1fr);

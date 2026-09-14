@@ -29,6 +29,10 @@ CREATE INDEX proposal_reverts_idx
     ON proposal (reverts_proposal_id)
     WHERE reverts_proposal_id IS NOT NULL;
 
+CREATE INDEX proposal_mcp_source_idx
+    ON proposal (source_api_key_id, project_id, created_at DESC, id DESC)
+    WHERE source_type = 'MCP';
+
 CREATE TABLE proposal_change
 (
     id              VARCHAR(64) PRIMARY KEY,

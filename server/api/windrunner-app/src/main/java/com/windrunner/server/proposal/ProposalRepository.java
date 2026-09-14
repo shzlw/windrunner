@@ -41,6 +41,33 @@ public interface ProposalRepository extends CrudRepository<Proposal, String> {
     Optional<Proposal> findWorkspaceInProjectForUpdate(@Param("id") String id,
                                                         @Param("projectId") String projectId);
 
+    @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = 'WORKSPACE' AND source_type = 'MCP' AND source_api_key_id = :apiKeyId AND project_id = :projectId AND (:status = '' OR status = :status) ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset")
+    List<Proposal> pageMcpWorkspace(@Param("apiKeyId") String apiKeyId,
+                                    @Param("projectId") String projectId,
+                                    @Param("status") String status,
+                                    @Param("limit") int limit,
+                                    @Param("offset") long offset);
+
+    @Query("SELECT COUNT(*) FROM proposal WHERE workflow_type = 'WORKSPACE' AND source_type = 'MCP' AND source_api_key_id = :apiKeyId AND project_id = :projectId AND (:status = '' OR status = :status)")
+    long countMcpWorkspace(@Param("apiKeyId") String apiKeyId,
+                           @Param("projectId") String projectId,
+                           @Param("status") String status);
+
+    @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = 'WORKSPACE' AND source_type = 'MCP' AND source_api_key_id = :apiKeyId AND id = :id AND project_id = :projectId")
+    Optional<Proposal> findMcpWorkspaceInProject(@Param("id") String id,
+                                                 @Param("projectId") String projectId,
+                                                 @Param("apiKeyId") String apiKeyId);
+
+    @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = 'WORKSPACE' AND source_type = 'MCP' AND source_api_key_id = :apiKeyId AND id = :id AND project_id = :projectId FOR UPDATE")
+    Optional<Proposal> findMcpWorkspaceInProjectForUpdate(@Param("id") String id,
+                                                          @Param("projectId") String projectId,
+                                                          @Param("apiKeyId") String apiKeyId);
+
+    @Query("SELECT DISTINCT c.entity_type FROM proposal_change c JOIN proposal p ON p.id = c.proposal_id WHERE p.workflow_type = 'WORKSPACE' AND p.source_type = 'MCP' AND p.source_api_key_id = :apiKeyId AND p.id = :id AND p.project_id = :projectId ORDER BY c.entity_type")
+    List<String> findMcpWorkspaceEntityTypes(@Param("id") String id,
+                                             @Param("projectId") String projectId,
+                                             @Param("apiKeyId") String apiKeyId);
+
     @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = :workflowType AND id = :id AND chat_session_id = :sessionId AND actor_id = :actorId FOR UPDATE")
     Optional<Proposal> findForRevert(@Param("workflowType") String workflowType, @Param("id") String id,
                                      @Param("sessionId") String sessionId, @Param("actorId") String actorId);
@@ -166,12 +193,25 @@ public interface ProposalRepository extends CrudRepository<Proposal, String> {
                          @Param("sourceText") String sourceText, @Param("actorId") String actorId);
 
     @Modifying
+    @Query("INSERT INTO proposal (id, workflow_type, project_id, source_type, source_text, source_api_key_id, actor_id, status) VALUES (:id, 'WORKSPACE', :projectId, 'MCP', :sourceText, :apiKeyId, :actorId, 'PENDING')")
+    void insertMcpWorkspace(@Param("id") String id, @Param("projectId") String projectId,
+                            @Param("sourceText") String sourceText, @Param("apiKeyId") String apiKeyId,
+                            @Param("actorId") String actorId);
+
+    @Modifying
     @Query("INSERT INTO proposal (id, workflow_type, project_id, source_type, chat_session_id, source_message_id, source_text, reverts_proposal_id, actor_id, status) VALUES (:id, 'WORKSPACE', :projectId, 'CHAT', :sessionId, :messageId, :sourceText, :revertsProposalId, :actorId, 'PENDING')")
     void insertWorkspaceRevert(@Param("id") String id, @Param("projectId") String projectId,
                                @Param("sessionId") String sessionId, @Param("messageId") String messageId,
                                @Param("sourceText") String sourceText,
                                @Param("revertsProposalId") String revertsProposalId,
                                @Param("actorId") String actorId);
+
+    @Modifying
+    @Query("INSERT INTO proposal (id, workflow_type, project_id, source_type, source_text, source_api_key_id, reverts_proposal_id, actor_id, status) VALUES (:id, 'WORKSPACE', :projectId, 'MCP', :sourceText, :apiKeyId, :revertsProposalId, :actorId, 'PENDING')")
+    void insertMcpWorkspaceRevert(@Param("id") String id, @Param("projectId") String projectId,
+                                  @Param("sourceText") String sourceText, @Param("apiKeyId") String apiKeyId,
+                                  @Param("revertsProposalId") String revertsProposalId,
+                                  @Param("actorId") String actorId);
 
     @Modifying
     @Query("UPDATE proposal SET status = :status, reviewed_by_actor_id = :actorId, reviewed_at = NOW(), applied_at = CASE WHEN :status = 'APPLIED' THEN NOW() ELSE applied_at END, updated_at = NOW() WHERE id = :id AND chat_session_id = :sessionId AND actor_id = :actorId AND status = 'APPLYING'")
