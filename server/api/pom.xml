@@ -22,6 +22,7 @@
         <springdoc-openapi.version>3.0.3</springdoc-openapi.version>
         <lombok.version>1.18.46</lombok.version>
         <postgresql.version>42.7.13</postgresql.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
         <jsonschema-generator.version>5.0.0</jsonschema-generator.version>
         <flyway.version>13.3.0</flyway.version>
 
