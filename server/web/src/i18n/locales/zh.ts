@@ -1,6 +1,7 @@
 const zh = {
   workspaceProposals: {
     heading: '工作区变更提案',
+    revertHeading: '还原提案',
     loadError: '无法加载工作区变更提案。',
     pendingDescription: '在你接受此提案前，不会更改任何内容。',
     changeCount: '{{count}} 项变更',
@@ -13,6 +14,9 @@ const zh = {
     appliedToast: '工作区变更已应用。',
     rejectedToast: '工作区变更提案已拒绝。',
     decisionError: '无法处理工作区变更提案。',
+    revert: '还原',
+    revertCreatedToast: '还原提案已创建，请审核。',
+    revertError: '无法创建还原提案。',
     confirmDeleteTitle: '应用永久删除？',
     confirmDeleteDescription: '此提案将永久删除一条或多条记录，并同时应用其他提议的变更。',
     acceptDelete: '接受并删除',
@@ -28,8 +32,12 @@ const zh = {
   },
   identityProposals: {
   "heading": "团队和用户变更提案",
+  "revertHeading": "还原提案",
   "loadError": "无法加载提案。",
   "decisionError": "无法处理提案。",
+  "revert": "还原",
+  "revertCreatedToast": "还原提案已创建，请审核。",
+  "revertError": "无法创建还原提案。",
   "appliedToast": "变更已应用",
   "appliedMessage": "已成功应用，变更已生效。",
   "accept": "接受变更",

@@ -2,11 +2,13 @@ package com.windrunner.server.work.proposal;
 
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
+import com.windrunner.server.proposal.ProposalChange;
 import com.windrunner.server.proposal.ProposalHandler;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.utils.JsonUtils;
 import com.windrunner.server.work.RelationshipService;
 import com.windrunner.server.work.WorkTypes;
+import com.windrunner.server.work.api.ChangeDraft;
 import com.windrunner.server.work.api.RelationshipDraft;
 import com.windrunner.server.work.domain.Relationship;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -86,6 +89,83 @@ final class RelationshipProposalHandler implements ProposalHandler<WorkspaceProp
         }
     }
 
+    @Override
+    public WorkspaceProposalChange buildRevert(ProposalChange appliedChange, AppUser actor) {
+        WorkspaceProposalTarget target = JsonUtils.fromJson(appliedChange.getTargetRef(), WorkspaceProposalTarget.class);
+        return switch (appliedChange.getOperation()) {
+            case "ADD" -> buildDeleteRevert(appliedChange, target);
+            case "UPDATE" -> buildUpdateRevert(appliedChange, target);
+            case "DELETE" -> buildAddRevert(appliedChange, target);
+            default -> throw createBadRequestException("This relationship proposal cannot be reverted");
+        };
+    }
+
+    private WorkspaceProposalChange buildDeleteRevert(ProposalChange appliedChange, WorkspaceProposalTarget target) {
+        Relationship expected = JsonUtils.fromJson(appliedChange.getAfterSnapshot(), Relationship.class);
+        Relationship current = requireRelationship(target.projectId(), target.targetId());
+        requireSameRelationship(current, expected,
+                "Cannot revert because the relationship changed after the proposal was applied");
+        return createRevertChange(target, "DELETE", null);
+    }
+
+    private WorkspaceProposalChange buildUpdateRevert(ProposalChange appliedChange, WorkspaceProposalTarget target) {
+        Relationship before = JsonUtils.fromJson(appliedChange.getBeforeSnapshot(), Relationship.class);
+        Relationship after = JsonUtils.fromJson(appliedChange.getAfterSnapshot(), Relationship.class);
+        if (Objects.equals(before.getReason(), after.getReason())) {
+            throw createBadRequestException("The original relationship change has nothing to revert");
+        }
+        Relationship current = requireRelationship(target.projectId(), target.targetId());
+        requireSameRelationship(current, after,
+                "Cannot revert because the relationship changed after the proposal was applied");
+        RelationshipDraft draft = new RelationshipDraft(null, null, null, null, null,
+                before.getReason() == null ? "" : before.getReason(), null);
+        return createRevertChange(target, "UPDATE", draft);
+    }
+
+    private WorkspaceProposalChange buildAddRevert(ProposalChange appliedChange, WorkspaceProposalTarget target) {
+        Relationship before = JsonUtils.fromJson(appliedChange.getBeforeSnapshot(), Relationship.class);
+        List<Relationship> currentRelationships = relationshipService.list(target.projectId());
+        if (currentRelationships.stream().anyMatch(relationship -> target.targetId().equals(relationship.getId()))) {
+            throw createConflictException("Cannot revert because the deleted relationship ID is already in use");
+        }
+        if (currentRelationships.stream().anyMatch(relationship -> hasSameEndpointsAndType(relationship, before))) {
+            throw createConflictException("Cannot revert because an equivalent relationship already exists");
+        }
+        if ("ACCEPTED_ANSWER".equals(before.getType()) && currentRelationships.stream().anyMatch(relationship ->
+                "ACCEPTED_ANSWER".equals(relationship.getType())
+                        && Objects.equals(relationship.getFromEntityType(), before.getFromEntityType())
+                        && Objects.equals(relationship.getFromEntityId(), before.getFromEntityId()))) {
+            throw createConflictException("Cannot revert because the question now has another accepted answer");
+        }
+        RelationshipDraft draft = new RelationshipDraft(
+                before.getFromEntityType(), before.getFromEntityId(), before.getToEntityType(), before.getToEntityId(),
+                before.getType(), before.getReason(), before.getSourceEntryId());
+        return createRevertChange(target, "ADD", draft);
+    }
+
+    private WorkspaceProposalChange createRevertChange(WorkspaceProposalTarget target, String action,
+                                                        RelationshipDraft relationshipDraft) {
+        ChangeDraft draft = new ChangeDraft("RELATIONSHIP", action, target.targetId(), null,
+                "Revert " + target.summary(), null, null, relationshipDraft);
+        return new WorkspaceProposalChange(target.projectId(), action, target.targetId(), draft.summary(), draft, Map.of());
+    }
+
+    private void requireSameRelationship(Relationship current, Relationship expected, String message) {
+        if (!hasSameEndpointsAndType(current, expected)
+                || !Objects.equals(current.getReason(), expected.getReason())
+                || !Objects.equals(current.getSourceEntryId(), expected.getSourceEntryId())) {
+            throw createConflictException(message);
+        }
+    }
+
+    private boolean hasSameEndpointsAndType(Relationship left, Relationship right) {
+        return Objects.equals(left.getFromEntityType(), right.getFromEntityType())
+                && Objects.equals(left.getFromEntityId(), right.getFromEntityId())
+                && Objects.equals(left.getToEntityType(), right.getToEntityType())
+                && Objects.equals(left.getToEntityId(), right.getToEntityId())
+                && Objects.equals(left.getType(), right.getType());
+    }
+
     private Relationship requireRelationship(String projectId, String relationshipId) {
         return relationshipService.list(projectId).stream()
                 .filter(candidate -> relationshipId.equals(candidate.getId()))
@@ -142,5 +222,9 @@ final class RelationshipProposalHandler implements ProposalHandler<WorkspaceProp
 
     private ResponseStatusException createBadRequestException(String message) {
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+    }
+
+    private ResponseStatusException createConflictException(String message) {
+        return new ResponseStatusException(HttpStatus.CONFLICT, message);
     }
 }

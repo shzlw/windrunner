@@ -109,6 +109,58 @@ public class WorkspaceChangeProposalService {
     }
 
     @Transactional
+    public WorkspaceChangeProposalView createRevert(String projectId, String proposalId, AppUser actor) {
+        Proposal original = proposalRepository.findWorkspaceInProjectForUpdate(proposalId, projectId)
+                .orElseThrow(() -> createNotFoundException("Workspace proposal not found"));
+        validateRevertProposal(original);
+        List<ProposalChange> appliedChanges = proposalChangeRepository.findByProposalId(proposalId).stream()
+                .filter(change -> "APPLIED".equals(change.getStatus()))
+                .toList();
+        if (appliedChanges.isEmpty()) {
+            throw createConflictException("Workspace proposal has no applied changes to revert");
+        }
+
+        List<PreparedDraft> preparedDrafts = new ArrayList<>();
+        for (ProposalChange appliedChange : appliedChanges) {
+            ProposalHandler<WorkspaceProposalChange, WorkspacePreparedChange> handler =
+                    proposalWorkflow.handler(appliedChange.getEntityType());
+            WorkspaceProposalTarget originalTarget = parseTarget(appliedChange);
+            if (!projectId.equals(originalTarget.projectId())) {
+                throw createBadRequestException("Workspace proposal change belongs to another project");
+            }
+            handler.authorize(new WorkspaceProposalChange(projectId, appliedChange.getOperation(),
+                    originalTarget.targetId(), originalTarget.summary(), null, Map.of()), actor);
+            WorkspaceProposalChange revertChange = handler.buildRevert(appliedChange, actor);
+            if (!projectId.equals(revertChange.projectId())) {
+                throw createBadRequestException("Workspace proposal change belongs to another project");
+            }
+            handler.authorize(revertChange, actor);
+            preparedDrafts.add(new PreparedDraft(revertChange, handler.prepare(revertChange, actor)));
+        }
+
+        String revertId = entityIdGenerator.generate(EntityIdType.PROPOSAL);
+        proposalRepository.insertWorkspaceRevert(revertId, projectId, original.getChatSessionId(),
+                original.getSourceMessageId(), original.getSourceText(), original.getId(), actor.getId());
+        for (int sortIndex = 0; sortIndex < preparedDrafts.size(); sortIndex++) {
+            PreparedDraft preparedDraft = preparedDrafts.get(sortIndex);
+            WorkspaceProposalChange change = preparedDraft.change();
+            WorkspacePreparedChange prepared = preparedDraft.prepared();
+            proposalChangeRepository.insert(
+                    entityIdGenerator.generate(EntityIdType.PROPOSAL_CHANGE),
+                    revertId,
+                    sortIndex,
+                    normalizeEntityType(change.draft().entityType()),
+                    change.action(),
+                    JsonUtils.toJson(new WorkspaceProposalTarget(projectId, change.targetId(), change.summary())),
+                    prepared.payloadJson(),
+                    valueOrEmptyJson(prepared.previousJson()),
+                    prepared.payloadJson(),
+                    valueOrEmptyJson(prepared.baseVersionJson()));
+        }
+        return get(projectId, revertId);
+    }
+
+    @Transactional
     public WorkspaceChangeProposalView decide(String projectId, String proposalId, String changeId,
                                               DecisionRequest request, AppUser actor) {
         validateDecisionRequest(request);
@@ -242,6 +294,18 @@ public class WorkspaceChangeProposalService {
         if ("RELATIONSHIP".equals(change.getEntityType())) return 300;
         if ("ENTRY".equals(change.getEntityType())) return 400;
         return 500;
+    }
+
+    private void validateRevertProposal(Proposal proposal) {
+        if (proposal.getRevertsProposalId() != null) {
+            throw createBadRequestException("A revert proposal cannot be reverted");
+        }
+        if (!Set.of("APPLIED", "COMPLETED").contains(proposal.getStatus())) {
+            throw createConflictException("Only an applied workspace proposal can be reverted");
+        }
+        if (proposalRepository.findActiveRevert(proposal.getId()).isPresent()) {
+            throw createConflictException("This workspace proposal already has a pending or applied revert");
+        }
     }
 
     private void refreshProposalStatus(String projectId, String proposalId, String actorId) {

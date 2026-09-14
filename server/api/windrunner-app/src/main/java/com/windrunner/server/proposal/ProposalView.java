@@ -7,6 +7,7 @@ import java.util.Map;
 public record ProposalView(
         String id,
         String sourceMessageId,
+        String revertsProposalId,
         String workflowType,
         ProposalKind kind,
         String action,

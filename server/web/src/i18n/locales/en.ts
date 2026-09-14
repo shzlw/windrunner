@@ -1,6 +1,7 @@
 const en = {
   workspaceProposals: {
     heading: 'Workspace proposal',
+    revertHeading: 'Revert proposal',
     loadError: 'Could not load workspace proposals.',
     pendingDescription: 'Nothing changes until you accept this proposal.',
     changeCount: '{{count}} change',
@@ -13,6 +14,9 @@ const en = {
     appliedToast: 'Workspace changes applied.',
     rejectedToast: 'Workspace proposal rejected.',
     decisionError: 'Could not decide the workspace proposal.',
+    revert: 'Revert',
+    revertCreatedToast: 'Revert proposal created for review.',
+    revertError: 'Could not create the revert proposal.',
     confirmDeleteTitle: 'Apply permanent deletion?',
     confirmDeleteDescription: 'This proposal permanently deletes one or more records. Other proposed changes will be applied at the same time.',
     acceptDelete: 'Accept and delete',
@@ -28,8 +32,12 @@ const en = {
   },
   identityProposals: {
   "heading": "Team and user proposals",
+  "revertHeading": "Revert proposal",
   "loadError": "Could not load proposals.",
   "decisionError": "Could not decide proposal.",
+  "revert": "Revert",
+  "revertCreatedToast": "Revert proposal created for review.",
+  "revertError": "Could not create the revert proposal.",
   "appliedToast": "Change applied",
   "appliedMessage": "Applied successfully. The change is now live.",
   "accept": "Accept change",

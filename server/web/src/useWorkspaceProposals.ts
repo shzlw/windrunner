@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { decideWorkspaceProposal, listGraphChangeProposals, type GraphChangeProposal } from '@/lib/api'
+import { createWorkspaceProposalRevert, decideWorkspaceProposal, listGraphChangeProposals, type GraphChangeProposal } from '@/lib/api'
 
 type WorkspaceProposalState = {
   requestKey: string
@@ -27,6 +27,7 @@ export function useWorkspaceProposals(
   const [state, setState] = useState<WorkspaceProposalState | null>(null)
   const [errorState, setErrorState] = useState<WorkspaceProposalError | null>(null)
   const [busy, setBusy] = useState<{ proposalId: string; decision: 'ACCEPT' | 'REJECT' } | null>(null)
+  const [revertingProposalId, setRevertingProposalId] = useState<string | null>(null)
   const [decisionRevision, setDecisionRevision] = useState(0)
 
   useEffect(() => {
@@ -85,10 +86,27 @@ export function useWorkspaceProposals(
     }
   }
 
+  async function revert(proposal: GraphChangeProposal) {
+    setRevertingProposalId(proposal.id)
+    try {
+      const created = await createWorkspaceProposalRevert(proposal.projectId, proposal.id)
+      setState((current) => current?.requestKey === requestKey
+        ? { ...current, proposals: [...current.proposals, created] }
+        : current)
+      toast.success(t('workspaceProposals.revertCreatedToast'))
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : t('workspaceProposals.revertError'))
+    } finally {
+      setRevertingProposalId(null)
+    }
+  }
+
   return {
     proposals: state?.requestKey === requestKey ? state.proposals : [],
     error: errorState?.requestKey === requestKey ? errorState.message : '',
     busy,
+    revertingProposalId,
     decide,
+    revert,
   }
 }

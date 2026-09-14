@@ -13,4 +13,6 @@ public interface ProposalHandler<T, P> {
     P prepare(T change, AppUser actor);
 
     void apply(T change, P prepared, AppUser actor);
+
+    T buildRevert(ProposalChange appliedChange, AppUser actor);
 }

@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Clock3, ExternalLink, FilePenLine, Loader2, RefreshCw, X, XCircle } from 'lucide-react'
+import { Check, CheckCircle2, Clock3, ExternalLink, FilePenLine, Loader2, RefreshCw, RotateCcw, X, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -64,15 +64,21 @@ export function WorkspaceProposalCard({
   proposal,
   projectName,
   busy,
+  reverting,
   isStreaming,
+  canRevert,
   onDecide,
+  onRevert,
   onReview,
 }: {
   proposal: GraphChangeProposal
   projectName: string
   busy: { proposalId: string; decision: 'ACCEPT' | 'REJECT' } | null
+  reverting: boolean
   isStreaming: boolean
+  canRevert: boolean
   onDecide: (proposal: GraphChangeProposal, decision: 'ACCEPT' | 'REJECT') => void
+  onRevert: (proposal: GraphChangeProposal) => void
   onReview: (proposal: GraphChangeProposal) => void
 }) {
   const { t } = useTranslation()
@@ -84,7 +90,7 @@ export function WorkspaceProposalCard({
   const containsDelete = openChanges.some((change) => change.action === 'DELETE')
   const isAccepting = busy?.proposalId === proposal.id && busy.decision === 'ACCEPT'
   const isRejecting = busy?.proposalId === proposal.id && busy.decision === 'REJECT'
-  const actionsDisabled = busy !== null || isStreaming
+  const actionsDisabled = busy !== null || reverting || isStreaming
   const acceptButton = (
     <Button
       type="button"
@@ -107,7 +113,7 @@ export function WorkspaceProposalCard({
             <FilePenLine className="size-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold">{t('workspaceProposals.heading')}</h3>
+            <h3 className="truncate text-sm font-semibold">{t(proposal.revertsProposalId ? 'workspaceProposals.revertHeading' : 'workspaceProposals.heading')}</h3>
             <p className="truncate text-xs text-muted-foreground">
               {projectName} · {t('workspaceProposals.changeCount', { count: proposal.changes.length })}
             </p>
@@ -162,6 +168,12 @@ export function WorkspaceProposalCard({
           <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={actionsDisabled} onClick={() => onDecide(proposal, 'REJECT')}>
             {isRejecting ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
             {t('workspaceProposals.reject')}
+          </Button>
+        ) : null}
+        {canRevert ? (
+          <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={actionsDisabled} onClick={() => onRevert(proposal)}>
+            {reverting ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
+            {t('workspaceProposals.revert')}
           </Button>
         ) : null}
         <Button type="button" size="sm" variant="ghost" className="gap-1.5" disabled={actionsDisabled} onClick={() => onReview(proposal)}>

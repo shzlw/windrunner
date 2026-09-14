@@ -204,6 +204,7 @@ export interface GraphChangeProposal {
   chatSessionId: string
   sourceMessageId: string
   sourceText: string
+  revertsProposalId?: string | null
   status: string
   createdAt?: string
   updatedAt?: string
@@ -1418,6 +1419,16 @@ export async function decideWorkspaceProposal(
   })
 }
 
+export async function createWorkspaceProposalRevert(
+  projectId: string,
+  proposalId: string,
+): Promise<GraphChangeProposal> {
+  return request<GraphChangeProposal>(
+    `/internal-api/v1/projects/${projectId}/graph-change-proposals/${proposalId}/revert`,
+    { method: 'POST' },
+  )
+}
+
 
 
 export async function listUsers(page = 0, size = 100): Promise<UserPageResponse> {
@@ -1808,6 +1819,7 @@ export type IdentityProposalChange = {
 export type IdentityProposal = {
   id: string
   sourceMessageId: string
+  revertsProposalId?: string | null
   workflowType?: string
   kind: 'TEAM' | 'TEAM_MEMBERSHIP' | 'PROJECT_MEMBERSHIP' | 'USER_PROFILE' | 'USER_ACCESS' | null
   action: 'ADD' | 'UPDATE' | 'REMOVE' | 'BATCH'
@@ -1831,5 +1843,11 @@ export async function listIdentityProposals(sessionId: string, offset = 0): Prom
 export async function decideIdentityProposal(sessionId: string, id: string, decision: 'ACCEPT' | 'REJECT'): Promise<IdentityProposal> {
   return request<IdentityProposal>(`/internal-api/v1/chat-sessions/${sessionId}/identity-proposals/${id}/decision`, {
     method: 'POST', body: JSON.stringify({ decision }),
+  })
+}
+
+export async function createIdentityProposalRevert(sessionId: string, id: string): Promise<IdentityProposal> {
+  return request<IdentityProposal>(`/internal-api/v1/chat-sessions/${sessionId}/identity-proposals/${id}/revert`, {
+    method: 'POST',
   })
 }

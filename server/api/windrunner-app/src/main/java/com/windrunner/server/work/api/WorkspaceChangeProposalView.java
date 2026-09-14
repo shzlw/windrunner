@@ -13,6 +13,7 @@ public record WorkspaceChangeProposalView(
         String chatSessionId,
         String sourceMessageId,
         String sourceText,
+        String revertsProposalId,
         String status,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
@@ -20,7 +21,8 @@ public record WorkspaceChangeProposalView(
 ) {
     public static WorkspaceChangeProposalView of(Proposal proposal, List<ChangeView> changes) {
         return new WorkspaceChangeProposalView(proposal.getId(), proposal.getProjectId(), proposal.getChatSessionId(),
-                proposal.getSourceMessageId(), proposal.getSourceText(), proposal.getStatus(), proposal.getCreatedAt(),
+                proposal.getSourceMessageId(), proposal.getSourceText(), proposal.getRevertsProposalId(),
+                proposal.getStatus(), proposal.getCreatedAt(),
                 proposal.getUpdatedAt(), changes);
     }
 

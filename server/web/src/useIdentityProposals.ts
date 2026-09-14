@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { decideIdentityProposal, listIdentityProposals, type IdentityProposal, type IdentityProposalPage } from '@/lib/api'
+import { createIdentityProposalRevert, decideIdentityProposal, listIdentityProposals, type IdentityProposal, type IdentityProposalPage } from '@/lib/api'
 
 type ProposalPageState = {
   sessionId: string
@@ -54,6 +54,22 @@ export function useIdentityProposals(sessionId: string | undefined, isStreaming:
     } finally { setBusy(null) }
   }
 
+  async function revert(proposal: IdentityProposal) {
+    if (!sessionId) return
+    setBusy(proposal.id)
+    try {
+      const created = await createIdentityProposalRevert(sessionId, proposal.id)
+      setPageState((current) => {
+        if (!current || current.sessionId !== sessionId) return current
+        return { ...current, page: { ...current.page, items: [created, ...current.page.items] } }
+      })
+      setErrorState(null)
+      toast.success(t('identityProposals.revertCreatedToast'))
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : t('identityProposals.revertError'))
+    } finally { setBusy(null) }
+  }
+
   async function loadMore() {
     if (!page || loadingMore || !sessionId) return
     setLoadingMore(true)
@@ -68,5 +84,5 @@ export function useIdentityProposals(sessionId: string | undefined, isStreaming:
     finally { setLoadingMore(false) }
   }
 
-  return { page, error, busy, loadingMore, decide, loadMore }
+  return { page, error, busy, loadingMore, decide, revert, loadMore }
 }

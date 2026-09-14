@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, Check, CheckCircle2, Clock3, ListChecks, Loader2, X, XCircle } from 'lucide-react'
+import { ArrowRight, Check, CheckCircle2, Clock3, ListChecks, Loader2, RotateCcw, X, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,11 +37,13 @@ function actionBadgeClass(action: IdentityProposal['action']) {
   return 'border-border bg-background text-foreground'
 }
 
-export function IdentityProposalCard({ proposal, busy, isStreaming, onDecide }: {
+export function IdentityProposalCard({ proposal, busy, isStreaming, canRevert, onDecide, onRevert }: {
   proposal: IdentityProposal
   busy: string | null
   isStreaming: boolean
+  canRevert: boolean
   onDecide: (proposal: IdentityProposal, decision: 'ACCEPT' | 'REJECT') => void
+  onRevert: (proposal: IdentityProposal) => void
 }) {
   const { t } = useTranslation()
   const changes = proposal.changes?.length ? proposal.changes : [{ id: proposal.id, kind: proposal.kind, action: proposal.action, status: proposal.status, before: proposal.before, after: proposal.after }]
@@ -59,7 +61,7 @@ export function IdentityProposalCard({ proposal, busy, isStreaming, onDecide }: 
               <ListChecks className="h-4 w-4" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <h3 className="truncate font-semibold">{t('identityProposals.heading')} <span className="font-normal text-muted-foreground">· {changes.length} {t('identityProposals.changes')}</span></h3>
+              <h3 className="truncate font-semibold">{t(proposal.revertsProposalId ? 'identityProposals.revertHeading' : 'identityProposals.heading')} <span className="font-normal text-muted-foreground">· {changes.length} {t('identityProposals.changes')}</span></h3>
             </div>
           </div>
         </div>
@@ -107,9 +109,15 @@ export function IdentityProposalCard({ proposal, busy, isStreaming, onDecide }: 
         })}
       </div>
 
-      {proposal.status === 'PENDING' && <footer className="flex gap-2 border-t bg-muted/10 px-4 py-3">
-        <Button size="sm" disabled={busy !== null || isStreaming} onClick={() => onDecide(proposal, 'ACCEPT')}><Check className="h-4 w-4" />{t('identityProposals.accept')}</Button>
-        <Button size="sm" variant="outline" disabled={busy !== null || isStreaming} onClick={() => onDecide(proposal, 'REJECT')}><X className="h-4 w-4" />{t('identityProposals.reject')}</Button>
+      {(proposal.status === 'PENDING' || canRevert) && <footer className="flex gap-2 border-t bg-muted/10 px-4 py-3">
+        {proposal.status === 'PENDING' ? <>
+          <Button size="sm" disabled={busy !== null || isStreaming} onClick={() => onDecide(proposal, 'ACCEPT')}><Check className="h-4 w-4" />{t('identityProposals.accept')}</Button>
+          <Button size="sm" variant="outline" disabled={busy !== null || isStreaming} onClick={() => onDecide(proposal, 'REJECT')}><X className="h-4 w-4" />{t('identityProposals.reject')}</Button>
+        </> : null}
+        {canRevert ? <Button size="sm" variant="outline" disabled={busy !== null || isStreaming} onClick={() => onRevert(proposal)}>
+          {busy === proposal.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+          {t('identityProposals.revert')}
+        </Button> : null}
       </footer>}
     </article>
   )

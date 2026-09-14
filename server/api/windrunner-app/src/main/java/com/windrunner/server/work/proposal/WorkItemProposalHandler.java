@@ -2,12 +2,14 @@ package com.windrunner.server.work.proposal;
 
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
+import com.windrunner.server.proposal.ProposalChange;
 import com.windrunner.server.proposal.ProposalHandler;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.utils.JsonUtils;
 import com.windrunner.server.work.WorkItemService;
 import com.windrunner.server.work.WorkTypes;
 import com.windrunner.server.work.api.AssigneeDraft;
+import com.windrunner.server.work.api.ChangeDraft;
 import com.windrunner.server.work.api.WorkItemDraft;
 import com.windrunner.server.work.api.WorkItemPayload;
 import com.windrunner.server.work.domain.WorkItem;
@@ -19,6 +21,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -112,6 +116,89 @@ final class WorkItemProposalHandler implements ProposalHandler<WorkspaceProposal
             workItemService.update(change.projectId(), change.targetId(), payload.workItem(), payload.assignees(), actor.getId());
         } else {
             workItemService.delete(change.projectId(), change.targetId(), actor.getId());
+        }
+    }
+
+    @Override
+    public WorkspaceProposalChange buildRevert(ProposalChange appliedChange, AppUser actor) {
+        if (!"UPDATE".equals(appliedChange.getOperation())) {
+            throw createBadRequestException("Work item creation or deletion cannot be safely reverted because dependent data is not fully captured");
+        }
+        WorkspaceProposalTarget target = JsonUtils.fromJson(appliedChange.getTargetRef(), WorkspaceProposalTarget.class);
+        WorkItemPayload before = JsonUtils.fromJson(appliedChange.getBeforeSnapshot(), WorkItemPayload.class);
+        WorkItemPayload after = JsonUtils.fromJson(appliedChange.getAfterSnapshot(), WorkItemPayload.class);
+        WorkItem current = workItemService.get(target.projectId(), target.targetId());
+        List<WorkItemAssignee> currentAssignees = workItemService.findAssignees(target.targetId());
+
+        String title = buildRevertValue("work item title", current.getTitle(), before.workItem().getTitle(),
+                after.workItem().getTitle());
+        String type = buildRevertValue("work item type", current.getType(), before.workItem().getType(),
+                after.workItem().getType());
+        String status = buildRevertValue("work item status", current.getStatus(), before.workItem().getStatus(),
+                after.workItem().getStatus());
+        String dueDate = buildNullableRevertValue("work item due date", current.getDueDate(),
+                before.workItem().getDueDate(), after.workItem().getDueDate());
+        String priority = buildNullableRevertValue("work item priority", current.getPriority(),
+                before.workItem().getPriority(), after.workItem().getPriority());
+        String parentWorkItemId = buildParentRevertValue(current.getParentWorkItemId(),
+                before.workItem().getParentWorkItemId(), after.workItem().getParentWorkItemId());
+        List<AssigneeDraft> assignees = buildAssigneeRevert(currentAssignees, before.assignees(), after.assignees());
+
+        if (title == null && type == null && status == null && dueDate == null && priority == null
+                && parentWorkItemId == null && assignees == null) {
+            throw createBadRequestException("This work item proposal has no reversible changes");
+        }
+        WorkItemDraft draft = new WorkItemDraft(title, type, status, dueDate, priority, parentWorkItemId, assignees);
+        ChangeDraft changeDraft = new ChangeDraft("WORK_ITEM", "UPDATE", target.targetId(), null,
+                "Revert " + target.summary(), draft, null, null);
+        return new WorkspaceProposalChange(target.projectId(), "UPDATE", target.targetId(),
+                changeDraft.summary(), changeDraft, Map.of());
+    }
+
+    private String buildRevertValue(String label, String current, String before, String after) {
+        if (Objects.equals(before, after)) return null;
+        requireCurrentValue(label, current, after);
+        return before;
+    }
+
+    private String buildNullableRevertValue(String label, Object current, Object before, Object after) {
+        if (Objects.equals(before, after)) return null;
+        requireCurrentValue(label, current, after);
+        return before == null ? "" : before.toString();
+    }
+
+    private String buildParentRevertValue(String current, String before, String after) {
+        if (Objects.equals(before, after)) return null;
+        requireCurrentValue("work item parent", current, after);
+        return before == null ? "PROJECT_ROOT" : before;
+    }
+
+    private List<AssigneeDraft> buildAssigneeRevert(List<WorkItemAssignee> current,
+                                                    List<WorkItemAssignee> before,
+                                                    List<WorkItemAssignee> after) {
+        if (assigneeKeys(before).equals(assigneeKeys(after))) return null;
+        if (!assigneeKeys(current).equals(assigneeKeys(after))) {
+            throw createConflictException("Cannot safely revert because work item assignees changed after the proposal was applied. "
+                    + "Create a new proposal from the current assignees if you still want to restore them");
+        }
+        return before.stream()
+                .map(assignee -> new AssigneeDraft(assignee.getAssigneeType(), assignee.getAssigneeId()))
+                .toList();
+    }
+
+    private List<String> assigneeKeys(List<WorkItemAssignee> assignees) {
+        List<String> keys = new ArrayList<>();
+        if (assignees != null) {
+            assignees.forEach(assignee -> keys.add(assignee.getAssigneeType() + ":" + assignee.getAssigneeId()));
+        }
+        keys.sort(Comparator.naturalOrder());
+        return keys;
+    }
+
+    private void requireCurrentValue(String label, Object current, Object expected) {
+        if (!Objects.equals(current, expected)) {
+            throw createConflictException("Cannot safely revert because " + label + " changed after the proposal was applied. "
+                    + "Create a new proposal from the current value if you still want to restore it");
         }
     }
 

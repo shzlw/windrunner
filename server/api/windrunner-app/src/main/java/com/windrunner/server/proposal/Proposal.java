@@ -18,6 +18,7 @@ public class Proposal {
     private String sourceMessageId;
     private String sourceText;
     private String sourceApiKeyId;
+    private String revertsProposalId;
     private String actorId;
     private String status;
     private String reviewedByActorId;

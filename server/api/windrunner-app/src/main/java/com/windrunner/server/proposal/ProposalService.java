@@ -32,7 +32,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -132,6 +140,65 @@ public class ProposalService {
     }
 
     @Transactional
+    public ProposalView createRevert(String sessionId, String id, AppUser requestedActor) {
+        AppUser actor = requireSession(sessionId, requestedActor);
+        Proposal original = proposalRepository.findForRevert(getWorkflowType(), id, sessionId, actor.getId())
+                .orElseThrow(() -> createResponseStatusException(HttpStatus.NOT_FOUND, "Proposal not found"));
+        validateRevertProposal(original);
+
+        List<ProposalChange> appliedChanges = proposalChangeRepository.findByProposalId(id).stream()
+                .filter(change -> "APPLIED".equals(change.getStatus()))
+                .toList();
+        if (appliedChanges.isEmpty()) {
+            throw createResponseStatusException(HttpStatus.CONFLICT, "Proposal has no applied changes to revert");
+        }
+
+        List<Pending> pending = new ArrayList<>();
+        List<ProposalKind> kinds = new ArrayList<>();
+        for (ProposalChange appliedChange : appliedChanges) {
+            ProposalKind kind = ProposalKind.valueOf(appliedChange.getEntityType());
+            ProposalHandler<ProposalDraft, ProposalPreparedChange> handler = proposalWorkflow.handler(kind.name());
+            handler.authorize(readDraft(appliedChange), actor);
+            ProposalDraft draft = handler.buildRevert(appliedChange, actor);
+            handler.authorize(draft, actor);
+            ProposalPreparedChange preparedChange = handler.prepare(draft, actor);
+            Prepared prepared = new Prepared(preparedChange.before(), preparedChange.after());
+            if (prepared.before().equals(prepared.after())) {
+                throw createBadRequestException("The original change is already restored");
+            }
+            pending.add(new Pending(draft, prepared));
+            kinds.add(kind);
+        }
+
+        String revertId = entityIdGenerator.generate(EntityIdType.PROPOSAL);
+        proposalRepository.insertRevertParent(revertId, getWorkflowType(), sessionId,
+                original.getSourceMessageId(), original.getId(), actor.getId());
+        List<ProposalChange> storedChanges = new ArrayList<>();
+        for (int index = 0; index < pending.size(); index++) {
+            Pending item = pending.get(index);
+            ProposalKind kind = kinds.get(index);
+            String changeId = entityIdGenerator.generate(EntityIdType.PROPOSAL_CHANGE);
+            proposalChangeRepository.insert(changeId, revertId, index, kind.name(),
+                    toAuditOperation(item.draft().action()),
+                    JsonUtils.toJson(buildTargetReference(item.draft(), item.prepared())),
+                    JsonUtils.toJson(item.draft()), JsonUtils.toJson(item.prepared().before()),
+                    JsonUtils.toJson(item.prepared().after()),
+                    JsonUtils.toJson(collectRevisions(item.prepared().before())));
+            storedChanges.add(createStoredChange(changeId, revertId, index, kind, item));
+        }
+
+        Proposal revert = new Proposal();
+        revert.setId(revertId);
+        revert.setWorkflowType(getWorkflowType());
+        revert.setChatSessionId(sessionId);
+        revert.setSourceMessageId(original.getSourceMessageId());
+        revert.setRevertsProposalId(original.getId());
+        revert.setActorId(actor.getId());
+        revert.setStatus("PENDING");
+        return createView(revert, storedChanges);
+    }
+
+    @Transactional
     public ProposalView decide(String sessionId, String id, String decision, AppUser requestedActor) {
         AppUser actor = requireSession(sessionId, requestedActor);
         Proposal proposal = proposalRepository.findForDecision(getWorkflowType(), id, sessionId, actor.getId()).orElseThrow(() -> createResponseStatusException(HttpStatus.NOT_FOUND, "Proposal not found"));
@@ -186,6 +253,36 @@ public class ProposalService {
         if (proposalRepository.decide(id, sessionId, actor.getId(), proposal.getStatus()) != 1)
             throw createResponseStatusException(HttpStatus.CONFLICT, "Proposal already decided");
         return createView(proposal, proposalChanges);
+    }
+
+    private void validateRevertProposal(Proposal original) {
+        if (original.getRevertsProposalId() != null) {
+            throw createBadRequestException("A revert proposal cannot be reverted");
+        }
+        if (!Set.of("APPLIED", "COMPLETED").contains(original.getStatus())) {
+            throw createResponseStatusException(HttpStatus.CONFLICT, "Only an applied proposal can be reverted");
+        }
+        if (proposalRepository.findActiveRevert(original.getId()).isPresent()) {
+            throw createResponseStatusException(HttpStatus.CONFLICT,
+                    "This proposal already has a pending or applied revert");
+        }
+    }
+
+    private ProposalChange createStoredChange(String id, String proposalId, int sortIndex, ProposalKind kind,
+                                               Pending item) {
+        ProposalChange change = new ProposalChange();
+        change.setId(id);
+        change.setProposalId(proposalId);
+        change.setSortIndex(sortIndex);
+        change.setEntityType(kind.name());
+        change.setOperation(toAuditOperation(item.draft().action()));
+        change.setTargetRef(JsonUtils.toJson(buildTargetReference(item.draft(), item.prepared())));
+        change.setPayload(JsonUtils.toJson(item.draft()));
+        change.setBeforeSnapshot(JsonUtils.toJson(item.prepared().before()));
+        change.setAfterSnapshot(JsonUtils.toJson(item.prepared().after()));
+        change.setBaseVersion(JsonUtils.toJson(collectRevisions(item.prepared().before())));
+        change.setStatus("PENDING");
+        return change;
     }
 
     private AppUser requireSession(String sessionId, AppUser requestedActor) {
@@ -528,7 +625,9 @@ public class ProposalService {
     private ProposalView createView(Proposal proposal, List<ProposalChange> proposalChanges) {
         List<ProposalChangeView> views = proposalChanges.stream().map(change -> new ProposalChangeView(change.getId(), ProposalKind.valueOf(change.getEntityType()), toProposalAction(change.getOperation()), change.getStatus(), parseMapOrEmpty(change.getBeforeSnapshot()), parseMapOrEmpty(change.getAfterSnapshot()))).toList();
         ProposalChangeView first = views.getFirst();
-        return new ProposalView(proposal.getId(), proposal.getSourceMessageId(), proposal.getWorkflowType(), first.kind(), proposalChanges.size() == 1 ? first.action() : "BATCH", proposal.getStatus(), first.before(), first.after(), views);
+        return new ProposalView(proposal.getId(), proposal.getSourceMessageId(), proposal.getRevertsProposalId(),
+                proposal.getWorkflowType(), first.kind(), proposalChanges.size() == 1 ? first.action() : "BATCH",
+                proposal.getStatus(), first.before(), first.after(), views);
     }
 
     private String requireValue(String value, String label) {

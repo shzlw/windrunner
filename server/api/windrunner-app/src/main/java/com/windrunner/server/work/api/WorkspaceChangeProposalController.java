@@ -7,8 +7,15 @@ import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.work.WorkspaceChangeProposalService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -24,7 +31,7 @@ public class WorkspaceChangeProposalController {
     @GetMapping
     public ApiResponse<List<WorkspaceChangeProposalView>> list(@PathVariable("projectId") String projectId,
                                                                @RequestParam(name = "chatSessionId", required = false) String chatSessionId,
-                                                               jakarta.servlet.http.HttpServletRequest request) {
+                                                               HttpServletRequest request) {
         AppUser actor = authService.requireCurrentUser(request);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.VIEWER);
         if (chatSessionId != null && !chatSessionId.isBlank()) {
@@ -38,17 +45,26 @@ public class WorkspaceChangeProposalController {
                                                            @PathVariable("proposalId") String proposalId,
                                                            @PathVariable("changeId") String changeId,
                                                            @RequestBody DecisionRequest body,
-                                                           jakarta.servlet.http.HttpServletRequest request) {
+                                                           HttpServletRequest request) {
         AppUser actor = authService.requireCurrentUser(request);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
         return ApiResponse.success(workspaceChangeProposalService.decide(projectId, proposalId, changeId, body, actor));
+    }
+
+    @PostMapping("/{proposalId}/revert")
+    public ApiResponse<WorkspaceChangeProposalView> createRevert(@PathVariable("projectId") String projectId,
+                                                                 @PathVariable("proposalId") String proposalId,
+                                                                 HttpServletRequest request) {
+        AppUser actor = authService.requireCurrentUser(request);
+        projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
+        return ApiResponse.success(workspaceChangeProposalService.createRevert(projectId, proposalId, actor));
     }
 
     @PostMapping("/{proposalId}/decision")
     public ApiResponse<WorkspaceChangeProposalView> decideAll(@PathVariable("projectId") String projectId,
                                                               @PathVariable("proposalId") String proposalId,
                                                               @RequestBody DecisionRequest body,
-                                                              jakarta.servlet.http.HttpServletRequest request) {
+                                                              HttpServletRequest request) {
         AppUser actor = authService.requireCurrentUser(request);
         projectAccessService.requireProjectRole(projectId, actor, ProjectRoles.EDITOR);
         return ApiResponse.success(workspaceChangeProposalService.decideAll(projectId, proposalId, body, actor));

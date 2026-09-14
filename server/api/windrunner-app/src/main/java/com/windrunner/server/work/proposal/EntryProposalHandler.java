@@ -2,11 +2,13 @@ package com.windrunner.server.work.proposal;
 
 import com.windrunner.server.project.ProjectAccessService;
 import com.windrunner.server.project.ProjectRoles;
+import com.windrunner.server.proposal.ProposalChange;
 import com.windrunner.server.proposal.ProposalHandler;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.utils.JsonUtils;
 import com.windrunner.server.work.EntryService;
 import com.windrunner.server.work.WorkTypes;
+import com.windrunner.server.work.api.ChangeDraft;
 import com.windrunner.server.work.api.EntryDraft;
 import com.windrunner.server.work.domain.Entry;
 import lombok.RequiredArgsConstructor;
@@ -85,6 +87,36 @@ final class EntryProposalHandler implements ProposalHandler<WorkspaceProposalCha
         } else {
             entryService.delete(change.projectId(), change.targetId(), actor.getId());
         }
+    }
+
+    @Override
+    public WorkspaceProposalChange buildRevert(ProposalChange appliedChange, AppUser actor) {
+        if (!"UPDATE".equals(appliedChange.getOperation())) {
+            throw createBadRequestException("Entry creation or deletion cannot be safely reverted because related data is not fully captured");
+        }
+        WorkspaceProposalTarget target = JsonUtils.fromJson(appliedChange.getTargetRef(), WorkspaceProposalTarget.class);
+        Entry before = JsonUtils.fromJson(appliedChange.getBeforeSnapshot(), Entry.class);
+        Entry after = JsonUtils.fromJson(appliedChange.getAfterSnapshot(), Entry.class);
+        Entry current = entryService.get(target.projectId(), target.targetId());
+        String type = buildRevertValue("entry type", current.getType(), before.getType(), after.getType());
+        String body = buildRevertValue("entry body", current.getBody(), before.getBody(), after.getBody());
+        if (type == null && body == null) {
+            throw createBadRequestException("This entry proposal has no reversible changes");
+        }
+        EntryDraft draft = new EntryDraft(null, type, body);
+        ChangeDraft changeDraft = new ChangeDraft("ENTRY", "UPDATE", target.targetId(), null,
+                "Revert " + target.summary(), null, draft, null);
+        return new WorkspaceProposalChange(target.projectId(), "UPDATE", target.targetId(),
+                changeDraft.summary(), changeDraft, Map.of());
+    }
+
+    private String buildRevertValue(String label, String current, String before, String after) {
+        if (Objects.equals(before, after)) return null;
+        if (!Objects.equals(current, after)) {
+            throw createConflictException("Cannot safely revert because " + label + " changed after the proposal was applied. "
+                    + "Create a new proposal from the current value if you still want to restore it");
+        }
+        return before;
     }
 
     private Entry copyEntry(Entry source) {

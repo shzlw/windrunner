@@ -23,12 +23,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -125,6 +132,81 @@ class WorkspaceChangeProposalServiceTest {
         verify(proposalChangeRepository).decide("change-1", "proposal-1", "REJECTED", null);
         verify(proposalChangeRepository).decide("change-2", "proposal-1", "REJECTED", null);
         verify(proposalRepository).updateWorkspaceStatus("proposal-1", "project-1", "REJECTED", "actor-1");
+    }
+
+    @Test
+    void createsARevertAsAnotherPendingWorkspaceProposal() {
+        AppUser actor = new AppUser();
+        actor.setId("actor-1");
+        Proposal original = new Proposal();
+        original.setId("proposal-1");
+        original.setProjectId("project-1");
+        original.setChatSessionId("chat-1");
+        original.setSourceMessageId("message-1");
+        original.setSourceText("Update it");
+        original.setStatus("APPLIED");
+        ProposalChange applied = createChange("change-1", "APPLIED");
+        ChangeDraft revertDraft = new ChangeDraft(
+                "WORK_ITEM", "UPDATE", "work-item-1", null, "Revert update",
+                new WorkItemDraft("Old title", null, null, null, null, null, null),
+                null, null);
+        WorkspaceProposalChange revertChange = new WorkspaceProposalChange(
+                "project-1", "UPDATE", "work-item-1", "Revert update", revertDraft, Map.of());
+        WorkspacePreparedChange prepared = new WorkspacePreparedChange(applied.getPayload(), applied.getPayload(), "{}");
+        Proposal created = new Proposal();
+        created.setId("proposal-2");
+        created.setProjectId("project-1");
+        created.setRevertsProposalId("proposal-1");
+        created.setStatus("PENDING");
+        ProposalChange storedRevert = createChange("change-2", "PENDING");
+        storedRevert.setProposalId("proposal-2");
+
+        when(proposalRepository.findWorkspaceInProjectForUpdate("proposal-1", "project-1"))
+                .thenReturn(Optional.of(original));
+        when(proposalRepository.findActiveRevert("proposal-1")).thenReturn(Optional.empty());
+        when(proposalChangeRepository.findByProposalId("proposal-1")).thenReturn(List.of(applied));
+        when(proposalWorkflow.handler("WORK_ITEM")).thenReturn(proposalHandler);
+        when(proposalHandler.buildRevert(applied, actor)).thenReturn(revertChange);
+        when(proposalHandler.prepare(revertChange, actor)).thenReturn(prepared);
+        when(entityIdGenerator.generate(EntityIdType.PROPOSAL)).thenReturn("proposal-2");
+        when(entityIdGenerator.generate(EntityIdType.PROPOSAL_CHANGE)).thenReturn("change-2");
+        when(proposalRepository.findWorkspaceInProject("proposal-2", "project-1"))
+                .thenReturn(Optional.of(created));
+        when(proposalChangeRepository.findByProposalId("proposal-2")).thenReturn(List.of(storedRevert));
+
+        WorkspaceChangeProposalService service = new WorkspaceChangeProposalService(
+                proposalRepository, proposalChangeRepository, proposalWorkflow, entityIdGenerator);
+        var result = service.createRevert("project-1", "proposal-1", actor);
+
+        assertThat(result.revertsProposalId()).isEqualTo("proposal-1");
+        verify(proposalRepository).insertWorkspaceRevert(
+                "proposal-2", "project-1", "chat-1", "message-1", "Update it", "proposal-1", "actor-1");
+        verify(proposalChangeRepository).insert(eq("change-2"), eq("proposal-2"), eq(0), eq("WORK_ITEM"),
+                eq("UPDATE"), any(), eq(prepared.payloadJson()), eq(prepared.previousJson()),
+                eq(prepared.payloadJson()), eq(prepared.baseVersionJson()));
+    }
+
+    @Test
+    void rejectsAnotherRevertWhileOneIsActive() {
+        AppUser actor = new AppUser();
+        actor.setId("actor-1");
+        Proposal original = new Proposal();
+        original.setId("proposal-1");
+        original.setStatus("APPLIED");
+        Proposal existingRevert = new Proposal();
+        existingRevert.setId("proposal-2");
+        existingRevert.setStatus("PENDING");
+        when(proposalRepository.findWorkspaceInProjectForUpdate("proposal-1", "project-1"))
+                .thenReturn(Optional.of(original));
+        when(proposalRepository.findActiveRevert("proposal-1")).thenReturn(Optional.of(existingRevert));
+
+        WorkspaceChangeProposalService service = new WorkspaceChangeProposalService(
+                proposalRepository, proposalChangeRepository, proposalWorkflow, entityIdGenerator);
+
+        assertThatThrownBy(() -> service.createRevert("project-1", "proposal-1", actor))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+        verify(proposalWorkflow, never()).handler(any());
     }
 
     private ProposalChange createChange(String id, String status) {

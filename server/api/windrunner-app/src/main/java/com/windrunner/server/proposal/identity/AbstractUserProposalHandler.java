@@ -2,6 +2,7 @@ package com.windrunner.server.proposal.identity;
 
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.proposal.ProposalHandler;
+import com.windrunner.server.proposal.ProposalChange;
 import com.windrunner.server.proposal.ProposalPreparedChange;
 import com.windrunner.server.proposal.ProposalDraft;
 import com.windrunner.server.proposal.ProposalKind;
@@ -10,11 +11,26 @@ import com.windrunner.server.user.UserAdminService;
 import com.windrunner.server.user.api.UpdateUserRequest;
 import com.windrunner.server.user.api.UserResponse;
 import com.windrunner.server.user.domain.AppUser;
+import com.windrunner.server.utils.JsonUtils;
 import org.springframework.http.HttpStatus;
 
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
-import static com.windrunner.server.proposal.identity.IdentityProposalUtils.*;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.buildUserUpdateRequest;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createBadRequestException;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createIdentityMap;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createResponseStatusException;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.extractFields;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.parseSnapshot;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.parseTimestamp;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.putRevision;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.requireCurrentValue;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.requireValue;
 
 abstract class AbstractUserProposalHandler implements ProposalHandler<ProposalDraft, ProposalPreparedChange> {
     private final ProposalKind kind;
@@ -78,5 +94,41 @@ abstract class AbstractUserProposalHandler implements ProposalHandler<ProposalDr
     public void apply(ProposalDraft draft, ProposalPreparedChange prepared, AppUser actor) {
         userAdminService.updateUserIfUnchanged(draft.userId(), buildUserUpdateRequest(draft, prepared.after()),
                 parseTimestamp(prepared.before().get("updatedAt")), actor);
+    }
+
+    @Override
+    public ProposalDraft buildRevert(ProposalChange appliedChange, AppUser actor) {
+        if (!"UPDATE".equals(appliedChange.getOperation())) {
+            throw createBadRequestException("This user proposal cannot be reverted");
+        }
+        ProposalDraft original = JsonUtils.fromJson(appliedChange.getPayload(), ProposalDraft.class);
+        Map<String, String> before = parseSnapshot(appliedChange.getBeforeSnapshot());
+        Map<String, String> after = parseSnapshot(appliedChange.getAfterSnapshot());
+        UserResponse current = userAdminService.getUser(original.userId(), actor);
+        Map<String, String> currentValues = createCurrentValues(current);
+        Map<String, String> restoreFields = new LinkedHashMap<>();
+        for (String field : original.fields().keySet()) {
+            if (!Objects.equals(before.get(field), after.get(field))) {
+                requireCurrentValue(field, currentValues.get(field), after.get(field));
+                restoreFields.put(field, before.get(field));
+            }
+        }
+        if (restoreFields.isEmpty()) {
+            throw createBadRequestException("This user proposal has no reversible changes");
+        }
+        return new ProposalDraft("UPDATE", null, original.userId(), null, null, null, null, restoreFields);
+    }
+
+    private Map<String, String> createCurrentValues(UserResponse current) {
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("username", current.username());
+        values.put("email", current.email());
+        values.put("displayName", current.displayName());
+        values.put("title", current.title());
+        values.put("bio", current.bio());
+        values.put("timezone", current.timezone());
+        values.put("status", current.status());
+        values.put("globalRole", current.globalRole());
+        return values;
     }
 }

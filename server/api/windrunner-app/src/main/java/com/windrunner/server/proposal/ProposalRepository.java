@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ProposalRepository extends CrudRepository<Proposal, String> {
-    String COLUMNS = "id, workflow_type, project_id, source_type, chat_session_id, source_message_id, source_text, source_api_key_id, actor_id, status, reviewed_by_actor_id, reviewed_at, applied_at, created_at, updated_at";
+    String COLUMNS = "id, workflow_type, project_id, source_type, chat_session_id, source_message_id, source_text, source_api_key_id, reverts_proposal_id, actor_id, status, reviewed_by_actor_id, reviewed_at, applied_at, created_at, updated_at";
 
     record AnalyticsRow(long proposalsCreated, long changesProposed, long changesAccepted,
                         long changesRejected, long changesNeedsUpdate, long changesPending) {
@@ -40,6 +40,13 @@ public interface ProposalRepository extends CrudRepository<Proposal, String> {
     @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = 'WORKSPACE' AND id = :id AND project_id = :projectId FOR UPDATE")
     Optional<Proposal> findWorkspaceInProjectForUpdate(@Param("id") String id,
                                                         @Param("projectId") String projectId);
+
+    @Query("SELECT " + COLUMNS + " FROM proposal WHERE workflow_type = :workflowType AND id = :id AND chat_session_id = :sessionId AND actor_id = :actorId FOR UPDATE")
+    Optional<Proposal> findForRevert(@Param("workflowType") String workflowType, @Param("id") String id,
+                                     @Param("sessionId") String sessionId, @Param("actorId") String actorId);
+
+    @Query("SELECT " + COLUMNS + " FROM proposal WHERE reverts_proposal_id = :proposalId AND status IN ('PENDING', 'APPLYING', 'APPLIED', 'COMPLETED') ORDER BY created_at DESC, id DESC LIMIT 1")
+    Optional<Proposal> findActiveRevert(@Param("proposalId") String proposalId);
 
     @Query("""
             SELECT
@@ -147,10 +154,24 @@ public interface ProposalRepository extends CrudRepository<Proposal, String> {
                       @Param("actorId") String actorId);
 
     @Modifying
+    @Query("INSERT INTO proposal (id, workflow_type, chat_session_id, source_message_id, reverts_proposal_id, actor_id, status) VALUES (:id, :workflowType, :sessionId, :messageId, :revertsProposalId, :actorId, 'PENDING')")
+    void insertRevertParent(@Param("id") String id, @Param("workflowType") String workflowType,
+                            @Param("sessionId") String sessionId, @Param("messageId") String messageId,
+                            @Param("revertsProposalId") String revertsProposalId, @Param("actorId") String actorId);
+
+    @Modifying
     @Query("INSERT INTO proposal (id, workflow_type, project_id, source_type, chat_session_id, source_message_id, source_text, actor_id, status) VALUES (:id, 'WORKSPACE', :projectId, 'CHAT', :sessionId, :messageId, :sourceText, :actorId, 'PENDING')")
     void insertWorkspace(@Param("id") String id, @Param("projectId") String projectId,
                          @Param("sessionId") String sessionId, @Param("messageId") String messageId,
                          @Param("sourceText") String sourceText, @Param("actorId") String actorId);
+
+    @Modifying
+    @Query("INSERT INTO proposal (id, workflow_type, project_id, source_type, chat_session_id, source_message_id, source_text, reverts_proposal_id, actor_id, status) VALUES (:id, 'WORKSPACE', :projectId, 'CHAT', :sessionId, :messageId, :sourceText, :revertsProposalId, :actorId, 'PENDING')")
+    void insertWorkspaceRevert(@Param("id") String id, @Param("projectId") String projectId,
+                               @Param("sessionId") String sessionId, @Param("messageId") String messageId,
+                               @Param("sourceText") String sourceText,
+                               @Param("revertsProposalId") String revertsProposalId,
+                               @Param("actorId") String actorId);
 
     @Modifying
     @Query("UPDATE proposal SET status = :status, reviewed_by_actor_id = :actorId, reviewed_at = NOW(), applied_at = CASE WHEN :status = 'APPLIED' THEN NOW() ELSE applied_at END, updated_at = NOW() WHERE id = :id AND chat_session_id = :sessionId AND actor_id = :actorId AND status = 'APPLYING'")

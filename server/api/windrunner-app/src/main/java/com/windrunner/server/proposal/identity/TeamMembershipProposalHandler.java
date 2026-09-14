@@ -2,6 +2,7 @@ package com.windrunner.server.proposal.identity;
 
 import com.windrunner.server.auth.security.AppRoles;
 import com.windrunner.server.proposal.ProposalHandler;
+import com.windrunner.server.proposal.ProposalChange;
 import com.windrunner.server.proposal.ProposalPreparedChange;
 import com.windrunner.server.proposal.ProposalDraft;
 import com.windrunner.server.proposal.ProposalKind;
@@ -12,6 +13,7 @@ import com.windrunner.server.team.domain.TeamMember;
 import com.windrunner.server.team.persistence.TeamMemberRepository;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
+import com.windrunner.server.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -19,7 +21,17 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.windrunner.server.proposal.identity.IdentityProposalUtils.*;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createBadRequestException;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createIdentityMap;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createResponseStatusException;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.getDisplayName;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.normalizeTeamRole;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.parseSnapshot;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.parseTimestamp;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.putRevision;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.requireCurrentValue;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.requireValue;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.validateMembershipAction;
 
 @Component
 @RequiredArgsConstructor
@@ -65,6 +77,35 @@ final class TeamMembershipProposalHandler implements ProposalHandler<ProposalDra
     public void apply(ProposalDraft draft, ProposalPreparedChange prepared, AppUser actor) {
         teamService.applyMembershipOptimistic(draft.teamId(), draft.userId(), prepared.after().get("role"), draft.action(),
                 parseTimestamp(prepared.before().get("updatedAt")), parseTimestamp(prepared.before().get("membershipUpdatedAt")), actor);
+    }
+
+    @Override
+    public ProposalDraft buildRevert(ProposalChange appliedChange, AppUser actor) {
+        ProposalDraft original = JsonUtils.fromJson(appliedChange.getPayload(), ProposalDraft.class);
+        Map<String, String> before = parseSnapshot(appliedChange.getBeforeSnapshot());
+        Map<String, String> after = parseSnapshot(appliedChange.getAfterSnapshot());
+        String currentRole = teamMemberRepository.findByTeamIdAndUserId(original.teamId(), original.userId())
+                .map(TeamMember::getRole)
+                .orElse(null);
+        requireCurrentValue("team membership", currentRole, after.get("role"));
+        return new ProposalDraft(
+                inverseMembershipAction(original.action()),
+                original.teamId(),
+                original.userId(),
+                null,
+                null,
+                before.get("role"),
+                null,
+                null);
+    }
+
+    private String inverseMembershipAction(String action) {
+        return switch (action) {
+            case "ADD" -> "REMOVE";
+            case "REMOVE" -> "ADD";
+            case "UPDATE" -> "UPDATE";
+            default -> throw createBadRequestException("This team membership proposal cannot be reverted");
+        };
     }
 
     private AppUser requireMemberUser(String id) {

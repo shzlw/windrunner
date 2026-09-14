@@ -5,12 +5,14 @@ import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.team.TeamRoles;
 import com.windrunner.server.user.api.UpdateUserRequest;
 import com.windrunner.server.user.domain.AppUser;
+import com.windrunner.server.utils.JsonUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 final class IdentityProposalUtils {
@@ -77,6 +79,19 @@ final class IdentityProposalUtils {
         }
         if (!"ADD".equals(action) && oldRole == null) {
             throw createResponseStatusException(HttpStatus.NOT_FOUND, "Membership not found");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    static Map<String, String> parseSnapshot(String json) {
+        return JsonUtils.fromJson(json, LinkedHashMap.class);
+    }
+
+    static void requireCurrentValue(String field, String current, String expected) {
+        if (!Objects.equals(current, expected)) {
+            throw createResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot safely revert because " + field + " changed after the proposal was applied. "
+                            + "Create a new proposal from the current value if you still want to restore it");
         }
     }
 

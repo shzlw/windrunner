@@ -962,6 +962,11 @@ export default function ChatPanel({
   }
 
   function renderProposalCards(proposals: IdentityProposal[]) {
+    const revertedProposalIds = new Set(
+      (identityProposalState.page?.items ?? [])
+        .filter((item) => item.revertsProposalId && item.status !== 'REJECTED')
+        .map((item) => item.revertsProposalId),
+    )
     return (
       <section aria-label={t('identityProposals.heading')} className="space-y-3 px-3">
         {proposals.map((proposal) => (
@@ -970,7 +975,9 @@ export default function ChatPanel({
             proposal={proposal}
             busy={identityProposalState.busy}
             isStreaming={isStreaming}
+            canRevert={proposal.status === 'APPLIED' && !proposal.revertsProposalId && !revertedProposalIds.has(proposal.id)}
             onDecide={identityProposalState.decide}
+            onRevert={identityProposalState.revert}
           />
         ))}
       </section>
@@ -978,6 +985,11 @@ export default function ChatPanel({
   }
 
   function renderWorkspaceProposalCards(proposals: GraphChangeProposal[]) {
+    const revertedProposalIds = new Set(
+      workspaceProposalState.proposals
+        .filter((item) => item.revertsProposalId && item.status !== 'REJECTED')
+        .map((item) => item.revertsProposalId),
+    )
     return (
       <section aria-label={t('workspaceProposals.heading')} className="space-y-3 px-3">
         {proposals.map((proposal) => (
@@ -986,8 +998,13 @@ export default function ChatPanel({
             proposal={proposal}
             projectName={projectReferences.get(proposal.projectId) ?? t('common.unknownProject')}
             busy={workspaceProposalState.busy}
+            reverting={workspaceProposalState.revertingProposalId === proposal.id}
             isStreaming={isStreaming}
+            canRevert={!proposal.revertsProposalId
+              && proposal.changes.some((change) => change.status === 'APPLIED')
+              && !revertedProposalIds.has(proposal.id)}
             onDecide={workspaceProposalState.decide}
+            onRevert={workspaceProposalState.revert}
             onReview={onReviewWorkspaceProposal}
           />
         ))}

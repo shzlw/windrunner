@@ -1,6 +1,7 @@
 package com.windrunner.server.proposal.identity;
 
 import com.windrunner.server.proposal.ProposalHandler;
+import com.windrunner.server.proposal.ProposalChange;
 import com.windrunner.server.proposal.ProposalPreparedChange;
 import com.windrunner.server.proposal.ProposalDraft;
 import com.windrunner.server.proposal.ProposalKind;
@@ -9,12 +10,26 @@ import com.windrunner.server.team.api.CreateTeamRequest;
 import com.windrunner.server.team.domain.Team;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
+import com.windrunner.server.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
-import static com.windrunner.server.proposal.identity.IdentityProposalUtils.*;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createBadRequestException;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.extractFields;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.getDisplayName;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.parseSnapshot;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.parseTimestamp;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.putRevision;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.requireCurrentValue;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.requireValue;
 
 @Component
 @RequiredArgsConstructor
@@ -39,7 +54,7 @@ final class TeamProposalHandler implements ProposalHandler<ProposalDraft, Propos
         if ("UPDATE".equals(draft.action()) && draft.ownerUserIds() != null)
             throw createBadRequestException("Use team membership proposals to change owners");
 
-        Map<String, String> requested = extractFields(draft, java.util.Set.of("name", "description"));
+        Map<String, String> requested = extractFields(draft, Set.of("name", "description"));
         Map<String, String> before = new LinkedHashMap<>();
         Team team = new Team();
         String id = null;
@@ -82,5 +97,29 @@ final class TeamProposalHandler implements ProposalHandler<ProposalDraft, Propos
         team.setName(prepared.after().get("name"));
         team.setDescription(prepared.after().get("description"));
         teamService.updateTeamIfUnchanged(draft.teamId(), team, parseTimestamp(prepared.before().get("updatedAt")), actor);
+    }
+
+    @Override
+    public ProposalDraft buildRevert(ProposalChange appliedChange, AppUser actor) {
+        if (!"UPDATE".equals(appliedChange.getOperation())) {
+            throw createBadRequestException("Team creation cannot be safely reverted because the team may now be in use");
+        }
+        ProposalDraft original = JsonUtils.fromJson(appliedChange.getPayload(), ProposalDraft.class);
+        Map<String, String> before = parseSnapshot(appliedChange.getBeforeSnapshot());
+        Map<String, String> after = parseSnapshot(appliedChange.getAfterSnapshot());
+        Team current = teamService.getTeam(original.teamId());
+        Map<String, String> restoreFields = new LinkedHashMap<>();
+        if (!Objects.equals(before.get("name"), after.get("name"))) {
+            requireCurrentValue("team name", current.getName(), after.get("name"));
+            restoreFields.put("name", before.get("name"));
+        }
+        if (!Objects.equals(before.get("description"), after.get("description"))) {
+            requireCurrentValue("team description", current.getDescription(), after.get("description"));
+            restoreFields.put("description", before.get("description"));
+        }
+        if (restoreFields.isEmpty()) {
+            throw createBadRequestException("This team proposal has no reversible changes");
+        }
+        return new ProposalDraft("UPDATE", original.teamId(), null, null, null, null, null, restoreFields);
     }
 }

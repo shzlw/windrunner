@@ -8,6 +8,7 @@ CREATE TABLE proposal
     source_message_id    VARCHAR(64),
     source_text          TEXT,
     source_api_key_id    VARCHAR(64),
+    reverts_proposal_id  VARCHAR(64),
     actor_id             VARCHAR(64) NOT NULL,
     status               VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     reviewed_by_actor_id VARCHAR(64),
@@ -23,6 +24,10 @@ CREATE INDEX proposal_session_idx
 CREATE INDEX proposal_project_idx
     ON proposal (project_id, created_at DESC, id)
     WHERE project_id IS NOT NULL;
+
+CREATE INDEX proposal_reverts_idx
+    ON proposal (reverts_proposal_id)
+    WHERE reverts_proposal_id IS NOT NULL;
 
 CREATE TABLE proposal_change
 (

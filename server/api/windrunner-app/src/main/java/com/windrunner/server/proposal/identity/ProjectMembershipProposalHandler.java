@@ -7,6 +7,7 @@ import com.windrunner.server.project.ProjectRoles;
 import com.windrunner.server.project.persistence.ProjectMemberRepository;
 import com.windrunner.server.project.persistence.ProjectRepository;
 import com.windrunner.server.proposal.ProposalHandler;
+import com.windrunner.server.proposal.ProposalChange;
 import com.windrunner.server.proposal.ProposalPreparedChange;
 import com.windrunner.server.proposal.ProposalDraft;
 import com.windrunner.server.proposal.ProposalKind;
@@ -14,13 +15,26 @@ import com.windrunner.server.team.TeamService;
 import com.windrunner.server.team.persistence.ProjectTeamRepository;
 import com.windrunner.server.user.domain.AppUser;
 import com.windrunner.server.user.persistence.AppUserRepository;
+import com.windrunner.server.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.windrunner.server.proposal.identity.IdentityProposalUtils.*;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createBadRequestException;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createIdentityMap;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.createResponseStatusException;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.getDisplayName;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.hasText;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.normalizeProjectRole;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.parseSnapshot;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.parseTimestamp;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.putRevision;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.requireCurrentValue;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.requireValue;
+import static com.windrunner.server.proposal.identity.IdentityProposalUtils.validateMembershipAction;
 
 @Component
 @RequiredArgsConstructor
@@ -46,7 +60,8 @@ final class ProjectMembershipProposalHandler implements ProposalHandler<Proposal
     @Override
     public ProposalPreparedChange prepare(ProposalDraft draft, AppUser actor) {
         String projectId = requireValue(draft.projectId(), "Project ID");
-        var project = projectRepository.findById(projectId).orElseThrow(() -> createResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Project not found"));
+        var project = projectRepository.findById(projectId)
+                .orElseThrow(() -> createResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
         String subjectType = requireValue(draft.subjectType(), "Subject type");
         if (hasText(draft.userId()) == hasText(draft.teamId())) throw createBadRequestException("Supply exactly one userId or teamId");
 
@@ -93,8 +108,47 @@ final class ProjectMembershipProposalHandler implements ProposalHandler<Proposal
         }
     }
 
+    @Override
+    public ProposalDraft buildRevert(ProposalChange appliedChange, AppUser actor) {
+        ProposalDraft original = JsonUtils.fromJson(appliedChange.getPayload(), ProposalDraft.class);
+        Map<String, String> before = parseSnapshot(appliedChange.getBeforeSnapshot());
+        Map<String, String> after = parseSnapshot(appliedChange.getAfterSnapshot());
+        String currentRole;
+        if ("USER".equals(original.subjectType())) {
+            currentRole = projectMemberRepository.findByProjectIdAndUserId(original.projectId(), original.userId())
+                    .map(member -> member.getRole())
+                    .orElse(null);
+        } else if ("TEAM".equals(original.subjectType())) {
+            currentRole = projectTeamRepository.findByProjectIdAndTeamId(original.projectId(), original.teamId())
+                    .map(member -> member.getRole())
+                    .orElse(null);
+        } else {
+            throw createBadRequestException("This project membership proposal cannot be reverted");
+        }
+        requireCurrentValue("project membership", currentRole, after.get("role"));
+        return new ProposalDraft(
+                inverseMembershipAction(original.action()),
+                original.teamId(),
+                original.userId(),
+                original.projectId(),
+                original.subjectType(),
+                before.get("role"),
+                null,
+                null);
+    }
+
+    private String inverseMembershipAction(String action) {
+        return switch (action) {
+            case "ADD" -> "REMOVE";
+            case "REMOVE" -> "ADD";
+            case "UPDATE" -> "UPDATE";
+            default -> throw createBadRequestException("This project membership proposal cannot be reverted");
+        };
+    }
+
     private AppUser requireMemberUser(String id) {
-        AppUser user = appUserRepository.findById(id).orElseThrow(() -> createResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "User not found"));
+        AppUser user = appUserRepository.findById(id)
+                .orElseThrow(() -> createResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         if (AppRoles.isSuperAdmin(user.getGlobalRole())) {
             throw createBadRequestException("Super admin users cannot be members");
         }
