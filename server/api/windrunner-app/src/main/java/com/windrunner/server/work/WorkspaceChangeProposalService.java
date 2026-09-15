@@ -31,9 +31,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -82,13 +84,24 @@ public class WorkspaceChangeProposalService {
         }
 
         Map<String, String> reservedIds = reserveIds(draft.changes());
+        validateWorkItemParentOrder(draft.changes());
         List<PreparedDraft> preparedDrafts = new ArrayList<>();
+        Set<String> targetKeys = new HashSet<>();
         for (ChangeDraft requested : draft.changes()) {
             WorkspaceProposalChange change = normalize(projectId, requested, reservedIds);
+            String targetKey = normalizeEntityType(change.draft().entityType()) + ":" + change.targetId();
+            if (!targetKeys.add(targetKey)) {
+                throw createBadRequestException("Only one change per target is allowed in a proposal");
+            }
             ProposalHandler<WorkspaceProposalChange, WorkspacePreparedChange> handler =
                     proposalWorkflow.handler(normalizeEntityType(requested.entityType()));
             handler.authorize(change, actor);
-            preparedDrafts.add(new PreparedDraft(change, handler.prepare(change, actor)));
+            WorkspacePreparedChange prepared = handler.prepare(change, actor);
+            if ("UPDATE".equals(change.action())
+                    && Objects.equals(prepared.previousJson(), prepared.payloadJson())) {
+                throw createBadRequestException("The requested values are already set");
+            }
+            preparedDrafts.add(new PreparedDraft(change, prepared));
         }
 
         String proposalId = entityIdGenerator.generate(EntityIdType.PROPOSAL);
@@ -372,6 +385,33 @@ public class WorkspaceChangeProposalService {
             }
         }
         return reservedIds;
+    }
+
+    private void validateWorkItemParentOrder(List<ChangeDraft> requested) {
+        Map<String, Integer> workItemAddIndexes = new LinkedHashMap<>();
+        for (int index = 0; index < requested.size(); index++) {
+            ChangeDraft change = requested.get(index);
+            if (change != null
+                    && "ADD".equals(normalizeToken(change.action()))
+                    && "WORK_ITEM".equals(normalizeEntityType(change.entityType()))
+                    && !isBlank(change.clientRef())) {
+                workItemAddIndexes.put(change.clientRef().trim(), index);
+            }
+        }
+        for (int index = 0; index < requested.size(); index++) {
+            ChangeDraft change = requested.get(index);
+            if (change == null
+                    || !"ADD".equals(normalizeToken(change.action()))
+                    || !"WORK_ITEM".equals(normalizeEntityType(change.entityType()))
+                    || change.workItem() == null
+                    || isBlank(change.workItem().parentWorkItemId())) {
+                continue;
+            }
+            Integer parentIndex = workItemAddIndexes.get(change.workItem().parentWorkItemId().trim());
+            if (parentIndex != null && parentIndex >= index) {
+                throw createBadRequestException("A work item parent must be added before its child");
+            }
+        }
     }
 
     private WorkspaceProposalChange normalize(String projectId, ChangeDraft requested,

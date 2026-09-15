@@ -111,6 +111,50 @@ class PostgresProposalLifecycleTest extends PostgresIntegrationTestSupport {
     }
 
     @Test
+    void rejectsAWorkItemUpdateThatWouldNotChangeTheTarget() {
+        seedWorkItem("Original title");
+
+        assertThatThrownBy(() -> createTitleUpdate("Original title"))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM proposal WHERE project_id = ?", Long.class, PROJECT_ID))
+                .isZero();
+    }
+
+    @Test
+    void createsAndAcceptsParentBeforeChildWorkItems() {
+        WorkspaceChangeProposalView pending = proposalService.create(
+                PROJECT_ID,
+                SESSION_ID,
+                MESSAGE_ID,
+                "Create a work item hierarchy",
+                actor(),
+                new ProposalDraft(List.of(
+                        new ChangeDraft(
+                                "WORK_ITEM", "ADD", null, "parent", "Create parent",
+                                new WorkItemDraft("Parent", "TASK", "OPEN", null, null, null, List.of()),
+                                null,
+                                null),
+                        new ChangeDraft(
+                                "WORK_ITEM", "ADD", null, "child", "Create child",
+                                new WorkItemDraft("Child", "TASK", "OPEN", null, null, "parent", List.of()),
+                                null,
+                                null))));
+
+        String parentId = pending.changes().get(0).targetId();
+        String childId = pending.changes().get(1).targetId();
+        WorkspaceChangeProposalView applied = proposalService.decideAll(
+                PROJECT_ID, pending.id(), new DecisionRequest("ACCEPT", null), actor());
+
+        assertThat(applied.status()).isEqualTo("APPLIED");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT parent_work_item_id FROM work_item WHERE id = ?", String.class, childId))
+                .isEqualTo(parentId);
+    }
+
+    @Test
     void rejectsAWorkItemUpdateWithoutMutatingTheTarget() {
         seedWorkItem("Original title");
         WorkspaceChangeProposalView pending = createTitleUpdate("Rejected title");

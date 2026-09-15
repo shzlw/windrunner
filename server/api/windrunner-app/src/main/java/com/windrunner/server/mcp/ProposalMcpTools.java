@@ -33,7 +33,7 @@ public class ProposalMcpTools {
 
     @McpTool(
             name = "propose_workspace_changes",
-            description = "Create a pending, reviewable proposal for up to 25 work-item, entry, or relationship changes in one project. Keep requestSummary within 500 characters. This tool does not apply the changes. Before proposing an ADD, use the focused list, search, or exact-match tool for that entity; update the exact existing ID when there is a clear match, ask when matches are ambiguous, and add only when no clear match exists. Present the returned before/after preview to the user and do not call decide_proposal with ACCEPT until the user explicitly approves it.",
+            description = "Create a pending, reviewable proposal for up to 25 work-item, entry, or relationship changes in one project. Keep requestSummary within 500 characters. This tool does not apply the changes. Include at most one change for each existing entity target, and do not submit an UPDATE when the requested values already match the current record. Before proposing an ADD, use the focused list, search, or exact-match tool for that entity; update the exact existing ID when there is a clear match, ask when matches are ambiguous, and add only when no clear match exists. Present the returned before/after preview to the user and do not call decide_proposal with ACCEPT until the user explicitly approves it.",
             generateOutputSchema = true,
             annotations = @McpAnnotations(
                     readOnlyHint = false,

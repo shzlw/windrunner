@@ -102,6 +102,87 @@ class WorkspaceChangeProposalServiceTest {
     }
 
     @Test
+    void rejectsNoOpWorkspaceUpdatesBeforePersistingProposal() {
+        AppUser actor = actor();
+        ChangeDraft changeDraft = new ChangeDraft(
+                "WORK_ITEM", "UPDATE", "work-item-1", null, "Keep work item unchanged",
+                new WorkItemDraft("Same title", null, null, null, null, null, null),
+                null, null);
+        when(proposalWorkflow.handler("WORK_ITEM")).thenReturn(proposalHandler);
+        when(proposalHandler.prepare(any(), same(actor)))
+                .thenReturn(new WorkspacePreparedChange("{\"title\":\"Same title\"}",
+                        "{\"title\":\"Same title\"}", "{}"));
+
+        WorkspaceChangeProposalService service = new WorkspaceChangeProposalService(
+                proposalRepository, proposalChangeRepository, proposalWorkflow, entityIdGenerator);
+
+        assertThatThrownBy(() -> service.create("project-1", "chat-1", "message-1", "No change", actor,
+                new ProposalDraft(List.of(changeDraft))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> {
+                            assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+                            assertThat(exception.getReason()).isEqualTo("The requested values are already set");
+                        });
+        verifyNoInteractions(proposalRepository, proposalChangeRepository);
+    }
+
+    @Test
+    void rejectsDuplicateWorkspaceTargetsInOneProposal() {
+        AppUser actor = actor();
+        ChangeDraft first = new ChangeDraft(
+                "WORK_ITEM", "UPDATE", "work-item-1", null, "Update title",
+                new WorkItemDraft("First title", null, null, null, null, null, null),
+                null, null);
+        ChangeDraft second = new ChangeDraft(
+                "WORK_ITEM", "UPDATE", "work-item-1", null, "Update status",
+                new WorkItemDraft(null, null, "IN_PROGRESS", null, null, null, null),
+                null, null);
+        when(proposalWorkflow.handler("WORK_ITEM")).thenReturn(proposalHandler);
+        when(proposalHandler.prepare(any(), same(actor)))
+                .thenReturn(new WorkspacePreparedChange("{\"after\":true}",
+                        "{\"before\":true}", "{}"));
+
+        WorkspaceChangeProposalService service = new WorkspaceChangeProposalService(
+                proposalRepository, proposalChangeRepository, proposalWorkflow, entityIdGenerator);
+
+        assertThatThrownBy(() -> service.create("project-1", "chat-1", "message-1", "Update twice", actor,
+                new ProposalDraft(List.of(first, second))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> {
+                            assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+                            assertThat(exception.getReason()).isEqualTo(
+                                    "Only one change per target is allowed in a proposal");
+                        });
+        verifyNoInteractions(proposalRepository, proposalChangeRepository);
+    }
+
+    @Test
+    void rejectsAChildWorkItemBeforeItsNewParent() {
+        AppUser actor = actor();
+        ChangeDraft child = new ChangeDraft(
+                "WORK_ITEM", "ADD", null, "child", "Create child",
+                new WorkItemDraft("Child", "TASK", "OPEN", null, null, "parent", List.of()),
+                null, null);
+        ChangeDraft parent = new ChangeDraft(
+                "WORK_ITEM", "ADD", null, "parent", "Create parent",
+                new WorkItemDraft("Parent", "TASK", "OPEN", null, null, null, List.of()),
+                null, null);
+
+        WorkspaceChangeProposalService service = new WorkspaceChangeProposalService(
+                proposalRepository, proposalChangeRepository, proposalWorkflow, entityIdGenerator);
+
+        assertThatThrownBy(() -> service.create("project-1", "chat-1", "message-1", "Create hierarchy", actor,
+                new ProposalDraft(List.of(child, parent))))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> {
+                            assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+                            assertThat(exception.getReason()).isEqualTo(
+                                    "A work item parent must be added before its child");
+                        });
+        verifyNoInteractions(proposalWorkflow, proposalRepository, proposalChangeRepository);
+    }
+
+    @Test
     void createsMcpWorkspaceChangesForTheExactApiKey() {
         AppUser actor = new AppUser();
         actor.setId("actor-1");
@@ -369,5 +450,11 @@ class WorkspaceChangeProposalServiceTest {
         workItem.setProjectId("project-1");
         workItem.setTitle(title);
         return JsonUtils.toJson(new WorkItemPayload(workItem, List.of()));
+    }
+
+    private AppUser actor() {
+        AppUser actor = new AppUser();
+        actor.setId("actor-1");
+        return actor;
     }
 }

@@ -22,6 +22,8 @@ Set only the payload matching entityType. Set the other two payloads to null.
 <field_requirements>
 For ADD, provide a unique clientRef and the complete new record. Set targetId to null.
 For UPDATE or DELETE, provide the exact existing targetId returned by a read tool. Set clientRef to null.
+Include at most one change for each existing entity target in a proposal. Do not submit an UPDATE when the requested
+values already match the current record; the server rejects no-op updates.
 For WorkItem and Entry UPDATE, set unspecified fields to null so their current values remain unchanged. For Relationship
 UPDATE, `reason` is the only editable field: null preserves the current reason, while an empty string clears it.
 WorkItem assignees contain only assigneeType (`USER` or `TEAM`) and assigneeId.
