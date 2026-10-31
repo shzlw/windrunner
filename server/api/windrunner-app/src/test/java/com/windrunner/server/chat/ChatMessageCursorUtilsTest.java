@@ -3,6 +3,8 @@ package com.windrunner.server.chat;
 import com.windrunner.server.chat.domain.ChatMessage;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
@@ -10,6 +12,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ChatMessageCursorUtilsTest {
+
+    @Test
+    void rejectsInvalidTimestampWithTheCursorValidationException() {
+        String cursor = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "not-a-timestamp\nmessage-42".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> ChatMessageCursorUtils.parse(cursor))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Message cursor is invalid");
+    }
 
     @Test
     void roundTripsMessageOrderingValues() {
