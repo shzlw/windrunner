@@ -3,6 +3,7 @@ package com.windrunner.server.chat;
 import com.windrunner.server.chat.domain.ChatMessage;
 
 import java.nio.charset.StandardCharsets;
+import java.time.DateTimeException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Base64;
@@ -28,7 +29,7 @@ public final class ChatMessageCursorUtils {
                 throw new IllegalArgumentException("Message cursor is invalid");
             }
             return new Cursor(OffsetDateTime.parse(parts[0]), parts[1]);
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException | DateTimeException exception) {
             throw new IllegalArgumentException("Message cursor is invalid", exception);
         }
     }
