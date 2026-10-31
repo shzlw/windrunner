@@ -24,6 +24,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -59,6 +63,22 @@ class ChatServiceTest {
 
     @InjectMocks
     private ChatService chatService;
+
+    @Test
+    void invalidCursorTimestampReturnsBadRequestBeforeQueryingMessages() {
+        ChatSession session = new ChatSession();
+        session.setId("session-1");
+        session.setUserId("user-1");
+        when(sessionRepository.findByIdAndUserId("session-1", "user-1")).thenReturn(Optional.of(session));
+        String cursor = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "not-a-timestamp\nmessage-42".getBytes(StandardCharsets.UTF_8));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> chatService.getMessagePage("session-1", "user-1", 20, cursor))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        exception -> assertThat(exception.getStatusCode().value()).isEqualTo(400));
+        org.mockito.Mockito.verifyNoInteractions(messageRepository);
+    }
 
     @Test
     void replacesTheFocusedProjectAndRemovesWorkItemsFromThePreviousProject() {
